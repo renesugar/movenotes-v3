@@ -1,0 +1,6 @@
+# No third-party dependencies: as of Step 2 of PLAN.md the scripts use only
+# the Python standard library (Python 3.9+).
+
+# obsidian2site.py generation is standard-library-only. Building its output
+# requires external Hugo, the Relearn theme, and Pagefind tools as documented
+# in STATIC_SITE.md; they are not Python runtime dependencies.
