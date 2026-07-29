@@ -1,0 +1,111 @@
+- generic [active] [ref=f4e1]:
+  - link "Skip to content" [ref=f4e2] [cursor=pointer]:
+    - /url: "#ledger-main"
+  - generic [ref=f4e3]:
+    - banner [ref=f4e4]:
+      - link "Test Archive" [ref=f4e5] [cursor=pointer]:
+        - /url: /
+      - navigation "Main" [ref=f4e8]:
+        - link "Home" [ref=f4e9] [cursor=pointer]:
+          - /url: /
+        - link "Tags" [ref=f4e10] [cursor=pointer]:
+          - /url: /tags/
+        - link "About" [ref=f4e11] [cursor=pointer]:
+          - /url: /about/
+        - link "Search" [ref=f4e12] [cursor=pointer]:
+          - /url: /search/
+      - button "Theme Light theme" [ref=f4e14] [cursor=pointer]:
+        - generic [ref=f4e16]: Theme
+        - generic [ref=f4e17]: Light theme
+        - generic [ref=f4e18]: ▼
+    - generic [ref=f4e19]:
+      - complementary "Categories and tags" [ref=f4e20]:
+        - generic [ref=f4e21]:
+          - heading [level=2] [ref=f4e22]:
+            - button "Categories 1" [expanded] [ref=f4e23] [cursor=pointer]:
+              - generic [ref=f4e24]: ▼
+              - generic [ref=f4e25]: Categories
+              - generic [ref=f4e26]: "1"
+          - link "All notes 10 notes" [ref=f4e29] [cursor=pointer]:
+            - /url: /search/?q=category%3A%22All+notes%22
+            - generic [ref=f4e30]: ▸
+            - generic [ref=f4e31]: All notes
+            - generic [ref=f4e32]:
+              - text: "10"
+              - generic [ref=f4e33]: notes
+        - heading [level=2] [ref=f4e35]:
+          - button "Tags 0" [expanded] [ref=f4e36] [cursor=pointer]:
+            - generic [ref=f4e37]: ▼
+            - generic [ref=f4e38]: Tags
+            - generic [ref=f4e39]: "0"
+      - separator "Resize sidebar" [ref=f4e40]
+      - main [ref=f4e42]:
+        - generic [ref=f4e43]:
+          - heading "Test Archive" [level=1] [ref=f4e44]
+          - generic [ref=f4e45]:
+            - search [ref=f4e46]:
+              - generic [ref=f4e47]:
+                - generic [ref=f4e48]: ⌕
+                - generic [ref=f4e49]: Search notes
+                - searchbox "Search notes" [ref=f4e50]: category:"All notes"
+                - button "Clear search" [ref=f4e51] [cursor=pointer]: ×
+              - button "Run search" [ref=f4e52] [cursor=pointer]:
+                - generic [ref=f4e53]: ⧖
+            - generic [ref=f4e54]: 10 results for category:"All notes"
+          - generic [ref=f4e56]:
+            - 'link "post-1 —\\nmovenotes-original-format: twitter\\ndate: 2026-07-21T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 1 about pizza and housing.\\n\\n11:08 AM · Jul 21, 2026 🔁 10 💙 5\\n 2026-07-29 · 1 min" [ref=f4e57] [cursor=pointer]':
+              - /url: /notes/twitter/post-1.html
+              - heading "post-1" [level=2] [ref=f4e58]
+              - paragraph [ref=f4e59]: "—\\nmovenotes-original-format: twitter\\ndate: 2026-07-21T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 1 about pizza and housing.\\n\\n11:08 AM · Jul 21, 2026 🔁 10 💙 5\\n"
+              - generic [ref=f4e60]: 2026-07-29 · 1 min
+            - 'link "post-2 —\\nmovenotes-original-format: twitter\\ndate: 2026-07-22T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 2 about pizza and housing.\\n\\n11:08 AM · Jul 22, 2026 🔁 10 💙 5\\n 2026-07-29 · 1 min" [ref=f4e62] [cursor=pointer]':
+              - /url: /notes/twitter/post-2.html
+              - heading "post-2" [level=2] [ref=f4e63]
+              - paragraph [ref=f4e64]: "—\\nmovenotes-original-format: twitter\\ndate: 2026-07-22T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 2 about pizza and housing.\\n\\n11:08 AM · Jul 22, 2026 🔁 10 💙 5\\n"
+              - generic [ref=f4e65]: 2026-07-29 · 1 min
+            - 'link "post-3 —\\nmovenotes-original-format: twitter\\ndate: 2026-07-23T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 3 about pizza and housing.\\n\\n11:08 AM · Jul 23, 2026 🔁 10 💙 5\\n 2026-07-29 · 1 min" [ref=f4e67] [cursor=pointer]':
+              - /url: /notes/twitter/post-3.html
+              - heading "post-3" [level=2] [ref=f4e68]
+              - paragraph [ref=f4e69]: "—\\nmovenotes-original-format: twitter\\ndate: 2026-07-23T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 3 about pizza and housing.\\n\\n11:08 AM · Jul 23, 2026 🔁 10 💙 5\\n"
+              - generic [ref=f4e70]: 2026-07-29 · 1 min
+            - 'link "post-4 —\\nmovenotes-original-format: twitter\\ndate: 2026-07-24T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 4 about pizza and housing.\\n\\n11:08 AM · Jul 24, 2026 🔁 10 💙 5\\n 2026-07-29 · 1 min" [ref=f4e72] [cursor=pointer]':
+              - /url: /notes/twitter/post-4.html
+              - heading "post-4" [level=2] [ref=f4e73]
+              - paragraph [ref=f4e74]: "—\\nmovenotes-original-format: twitter\\ndate: 2026-07-24T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 4 about pizza and housing.\\n\\n11:08 AM · Jul 24, 2026 🔁 10 💙 5\\n"
+              - generic [ref=f4e75]: 2026-07-29 · 1 min
+            - 'link "post-5 —\\nmovenotes-original-format: twitter\\ndate: 2026-07-25T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 5 about pizza and housing.\\n\\n11:08 AM · Jul 25, 2026 🔁 10 💙 5\\n 2026-07-29 · 1 min" [ref=f4e77] [cursor=pointer]':
+              - /url: /notes/twitter/post-5.html
+              - heading "post-5" [level=2] [ref=f4e78]
+              - paragraph [ref=f4e79]: "—\\nmovenotes-original-format: twitter\\ndate: 2026-07-25T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 5 about pizza and housing.\\n\\n11:08 AM · Jul 25, 2026 🔁 10 💙 5\\n"
+              - generic [ref=f4e80]: 2026-07-29 · 1 min
+            - 'link "post-6 —\\nmovenotes-original-format: twitter\\ndate: 2026-07-26T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 6 about pizza and housing.\\n\\n11:08 AM · Jul 26, 2026 🔁 10 💙 5\\n 2026-07-29 · 1 min" [ref=f4e82] [cursor=pointer]':
+              - /url: /notes/twitter/post-6.html
+              - heading "post-6" [level=2] [ref=f4e83]
+              - paragraph [ref=f4e84]: "—\\nmovenotes-original-format: twitter\\ndate: 2026-07-26T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 6 about pizza and housing.\\n\\n11:08 AM · Jul 26, 2026 🔁 10 💙 5\\n"
+              - generic [ref=f4e85]: 2026-07-29 · 1 min
+            - 'link "post-7 —\\nmovenotes-original-format: twitter\\ndate: 2026-07-27T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 7 about pizza and housing.\\n\\n11:08 AM · Jul 27, 2026 🔁 10 💙 5\\n 2026-07-29 · 1 min" [ref=f4e87] [cursor=pointer]':
+              - /url: /notes/twitter/post-7.html
+              - heading "post-7" [level=2] [ref=f4e88]
+              - paragraph [ref=f4e89]: "—\\nmovenotes-original-format: twitter\\ndate: 2026-07-27T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 7 about pizza and housing.\\n\\n11:08 AM · Jul 27, 2026 🔁 10 💙 5\\n"
+              - generic [ref=f4e90]: 2026-07-29 · 1 min
+            - 'link "post-8 —\\nmovenotes-original-format: twitter\\ndate: 2026-07-28T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 8 about pizza and housing.\\n\\n11:08 AM · Jul 28, 2026 🔁 10 💙 5\\n 2026-07-29 · 1 min" [ref=f4e92] [cursor=pointer]':
+              - /url: /notes/twitter/post-8.html
+              - heading "post-8" [level=2] [ref=f4e93]
+              - paragraph [ref=f4e94]: "—\\nmovenotes-original-format: twitter\\ndate: 2026-07-28T18:08:00Z\\n—\\nIn reply to: @someone\\n\\nPost number 8 about pizza and housing.\\n\\n11:08 AM · Jul 28, 2026 🔁 10 💙 5\\n"
+              - generic [ref=f4e95]: 2026-07-29 · 1 min
+            - 'link "Bank of Canada rate note The #interest rate decision and Canadian housing. See Codec note. 2026-07-01 · 1 min" [ref=f4e97] [cursor=pointer]':
+              - /url: /notes/notes/bank-of-canada-rate-note.html
+              - heading "Bank of Canada rate note" [level=2] [ref=f4e98]
+              - paragraph [ref=f4e99]: "The #interest rate decision and Canadian housing. See Codec note."
+              - generic [ref=f4e100]: 2026-07-01 · 1 min
+            - link "Codec note Notes about video codecs and the AV1 codec. 2026-06-15 · 1 min" [ref=f4e102] [cursor=pointer]:
+              - /url: /notes/notes/codec-note.html
+              - heading "Codec note" [level=2] [ref=f4e103]
+              - paragraph [ref=f4e104]: Notes about video codecs and the AV1 codec.
+              - generic [ref=f4e105]: 2026-06-15 · 1 min
+        - generic [ref=f4e107]:
+          - generic [ref=f4e108]: Test Archive
+          - generic [ref=f4e109]: 10 notes · 0 categories · 0 tags
+          - generic [ref=f4e110]: Ledger theme for Hugo
+          - link "RSS" [ref=f4e111] [cursor=pointer]:
+            - /url: /index.xml

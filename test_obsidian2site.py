@@ -74,55 +74,77 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertTrue((site / "hugo.toml").is_file())
             hugo_config = (site / "hugo.toml").read_text(encoding="utf-8")
             self.assertIn('locale = "en-US"', hugo_config)
+            # Hugo deprecated languageCode in v0.158; using it warns on build.
             self.assertNotIn("languageCode", hugo_config)
-            self.assertIn("search = false", hugo_config)
-            self.assertNotIn("[params.search]", hugo_config)
-            self.assertNotIn("disableSearch", hugo_config)
+            # uglyURLs would move the theme's own pages to /search.html, which
+            # its templates never link to; notes carry an explicit .html url.
+            self.assertNotIn("uglyURLs", hugo_config)
             config = tomllib.loads(hugo_config)
+            # Ledger's surfaces are taxonomy-driven, so neither kind may be
+            # disabled — the Relearn build disabled both.
+            self.assertNotIn("disableKinds", config)
             self.assertEqual(
-                config["params"]["sidebarmenus"],
-                [{
-                    "type": "menu",
-                    "identifier": "movenotes",
-                    "main": True,
-                    "disableTitle": True,
-                }],
+                config["taxonomies"], {"category": "categories", "tag": "tags"}
             )
-            self.assertEqual(
-                [entry["name"] for entry in config["menus"]["movenotes"]],
-                ["Getting Started", "Search", "Browse Tags"],
-            )
-            self.assertFalse(config["params"]["showVisitedLinks"])
-            self.assertFalse(config["params"]["search"])
+            self.assertFalse(config["capitalizeListTitles"])
+            self.assertEqual(config["params"]["mainSections"], ["notes"])
+            self.assertEqual(config["params"]["search"]["backend"], "bluge")
+            self.assertEqual(config["params"]["search"]["endpoint"], "/api/search")
+            # A generated archive must not reach a font CDN, or paint 166k
+            # striped hero placeholders.
+            self.assertFalse(config["params"]["googleFonts"])
+            self.assertFalse(config["params"]["post"]["heroPlaceholder"])
+            # Both unbounded surfaces are capped: either can hold the archive.
+            self.assertEqual(config["params"]["scale"]["maxHomePagerPages"], 500)
+            self.assertEqual(config["params"]["scale"]["maxSectionPagerPages"], 500)
+            self.assertEqual(config["params"]["taxonomyPageLimit"], 25)
             self.assertEqual(config["params"]["movenotesSearchBackend"], "both")
             self.assertRegex(config["params"]["movenotesBuildId"], r"^[0-9a-f]{16}$")
-            self.assertFalse((site / "layouts" / "partials" / "menu.html").exists())
-            self.assertFalse((site / "layouts" / "_default" / "baseof.html").exists())
-            native_search_override = (
-                site / "layouts" / "partials" / "dependencies" / "search.html"
-            ).read_text(encoding="utf-8")
-            self.assertNotIn("lunr", native_search_override.casefold())
-            self.assertNotIn("searchindex", native_search_override.casefold())
-            self.assertIn("movenotes supplies its own search UI", native_search_override)
-            native_lunr_override = (
-                site / "layouts" / "partials" / "dependencies" / "search-lunr.html"
-            ).read_text(encoding="utf-8")
-            self.assertNotIn("lunr.min", native_lunr_override.casefold())
+            # The theme owns every shell surface now; the Relearn build had to
+            # override menu, search dependencies, heading and content partials.
+            for orphan in (
+                ("partials", "menu.html"),
+                ("partials", "content.html"),
+                ("partials", "heading.html"),
+                ("partials", "custom-header.html"),
+                ("partials", "dependencies", "search.html"),
+                ("partials", "dependencies", "search-lunr.html"),
+                ("partials", "sidebar", "element", "movenotes-search.html"),
+                ("_default", "baseof.html"),
+            ):
+                self.assertFalse(
+                    (site / "layouts" / Path(*orphan)).exists(),
+                    f"layouts/{'/'.join(orphan)} should not be generated",
+                )
             self.assertIn("module movenotes/generated-site", (site / "go.mod").read_text(encoding="utf-8"))
             self.assertTrue((site / "server" / "main.go").is_file())
             self.assertIn("github.com/blugelabs/bluge v0.2.2", (site / "server" / "go.mod").read_text(encoding="utf-8"))
             self.assertTrue((site / "server" / "search-source.jsonl").is_file())
             self.assertTrue((site / "content" / "_index.md").is_file())
             self.assertTrue((site / "content" / "search.md").is_file())
-            self.assertTrue((site / "content" / "tags.md").is_file())
+            self.assertTrue((site / "content" / "browse-tags.md").is_file())
+            self.assertTrue((site / "content" / "about.md").is_file())
             home_meta, home_body = read_json_frontmatter(site / "content" / "_index.md")
             self.assertEqual(
                 home_meta["date"][:10],
                 datetime.now(timezone.utc).date().isoformat(),
             )
             self.assertEqual(home_meta["date"], home_meta["lastmod"])
-            self.assertNotIn("# Getting Started", home_body)
-            self.assertIn("movenotes-start", home_body)
+            # Home is the theme's own view — a primed search bar over the newest
+            # notes — so it carries no body.
+            self.assertEqual(home_body.strip(), "")
+            about_meta, about_body = read_json_frontmatter(site / "content" / "about.md")
+            self.assertEqual(about_meta["title"], "Getting Started")
+            self.assertEqual(about_meta["layout"], "about")
+            self.assertEqual(about_meta["url"], "/about/")
+            self.assertIn("movenotes-start", about_body)
+            search_meta, _ = read_json_frontmatter(site / "content" / "search.md")
+            self.assertEqual(search_meta["layout"], "search")
+            self.assertEqual(search_meta["url"], "/search/")
+            tags_meta, tags_body = read_json_frontmatter(site / "content" / "browse-tags.md")
+            self.assertEqual(tags_meta["layout"], "browse-tags")
+            self.assertEqual(tags_meta["url"], "/browse-tags/")
+            self.assertIn("movenotes-tags", tags_body)
             self.assertEqual(
                 (vault / "assets" / "picture.png").read_bytes(),
                 (site / "static" / "vault-assets" / "assets" / "picture.png").read_bytes(),
@@ -154,18 +176,16 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertIn("person@example.com", body)
             self.assertIn("@way_too_long_username", body)
 
-            sidebar_search = (
-                site / "layouts" / "partials" / "sidebar" / "element" /
-                "movenotes-search.html"
+            # CSS and JS reach every page through the theme's extraCSS/extraJS
+            # hooks; the Relearn build injected them with a custom-header
+            # partial override.
+            self.assertEqual(config["params"]["extraCSS"], ["/css/movenotes-site.css"])
+            self.assertEqual(config["params"]["extraJS"], ["/js/movenotes-nav.js"])
+            browse_tags_layout = (
+                site / "layouts" / "browse-tags.html"
             ).read_text(encoding="utf-8")
-            self.assertIn("Search all notes", sidebar_search)
-            self.assertIn("<li", sidebar_search)
-            self.assertIn("role=\"search\"", sidebar_search)
-
-            custom_header = (
-                site / "layouts" / "partials" / "custom-header.html"
-            ).read_text(encoding="utf-8")
-            self.assertIn("movenotes-nav.js", custom_header)
+            self.assertIn('{{ define "main" }}', browse_tags_layout)
+            self.assertIn("ledger-heading", browse_tags_layout)
             navigation_script = (
                 site / "static" / "js" / "movenotes-nav.js"
             ).read_text(encoding="utf-8")
@@ -173,14 +193,13 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertIn("pointerover", navigation_script)
             self.assertIn("url.pathname.includes('/notes/')", navigation_script)
 
-            content_partial = (site / "layouts" / "partials" / "content.html").read_text(encoding="utf-8")
-            self.assertIn("data-pagefind-body", content_partial)
-            self.assertIn('data-pagefind-filter="tag"', content_partial)
-            self.assertIn('data-pagefind-meta="title"', content_partial)
-            self.assertIn("data-pagefind-ignore", content_partial)
-            self.assertNotIn("movenotes_source_path", content_partial)
-            self.assertIn(".Params.movenotes_explicit_tags", content_partial)
-            self.assertNotIn("range .Params.movenotes_tags", content_partial)
+            # The Pagefind indexing contract moved into the theme: one
+            # data-pagefind-body on note articles scopes the index, so the
+            # generated project needs neither a content partial nor
+            # exclude_selectors to keep the shell and standalone pages out.
+            pagefind_config = (site / "pagefind.yml").read_text(encoding="utf-8")
+            self.assertIn("site: public", pagefind_config)
+            self.assertNotIn("exclude_selectors", pagefind_config)
             search = (site / "layouts" / "shortcodes" / "movenotes-search.html").read_text(encoding="utf-8")
             self.assertIn("pagefind/pagefind.js", search)
             self.assertIn("api/health", search)
@@ -241,16 +260,15 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
                     f"# Note {index}\n\nUniqueWord{index} shared text.\n", encoding="utf-8"
                 )
             run("--input", str(vault), "--output", str(site), "--progress-every", "0")
-            config = tomllib.loads((site / "hugo.toml").read_text(encoding="utf-8"))
-            self.assertEqual(len(config["menus"]["movenotes"]), 3)
-            self.assertNotIn(
-                "Note 0",
-                (site / "hugo.toml").read_text(encoding="utf-8"),
-            )
+            hugo_config = (site / "hugo.toml").read_text(encoding="utf-8")
+            # No note may be named anywhere in the configuration: the theme's
+            # sidebar is byte-identical on every page and never enumerates
+            # pages, and nothing here may reintroduce a per-note menu.
+            self.assertNotIn("Note 0", hugo_config)
+            self.assertNotIn("note-0", hugo_config)
+            self.assertNotIn("[menus]", hugo_config)
             self.assertFalse((site / "layouts" / "partials" / "menu.html").exists())
             self.assertEqual(len(list((site / "content" / "notes").glob("*.md"))), 251)
-            note_meta, _body = read_json_frontmatter(site / "content" / "notes" / "note-0.md")
-            self.assertTrue(note_meta["hidden"])
 
     def test_long_and_colliding_names_are_shortened_deterministically(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-names-") as temporary:
@@ -525,7 +543,7 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertIsNotNone(obsidian2site._repair_http_url(broken))
             self.assertIsNone(obsidian2site._repair_http_url("http://"))
 
-    def test_copied_relearn_theme_is_updated_for_current_hugo_apis(self) -> None:
+    def test_copied_ledger_theme_is_used_verbatim(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-theme-") as temporary:
             root = Path(temporary)
             vault = root / "vault"
@@ -533,36 +551,72 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             theme = root / "theme"
             vault.mkdir()
             (vault / "Note.md").write_text("Body\n", encoding="utf-8")
-            template = theme / "layouts" / "partials" / "sample.gotmpl"
+            template = theme / "layouts" / "page.html"
             template.parent.mkdir(parents=True)
-            template.write_text(
-                "{{ .Language.LanguageCode }} "
-                "{{ .Language.LanguageDirection }} "
-                "{{ .Language.LanguageName }} "
-                "{{ .Language.Lang }} "
-                "{{ range $site.Sites }}{{ end }} "
-                "{{ site.Sites.Default }}",
-                encoding="utf-8",
+            template.write_text("{{ .Title }}\n", encoding="utf-8")
+            (theme / "theme.toml").write_text('name = "Ledger"\n', encoding="utf-8")
+            # Bulk directories a theme checkout carries that a generated site
+            # must not: they would multiply the output of every regeneration.
+            for skipped in ("exampleSite", "node_modules", "public", "bench", ".git"):
+                (theme / skipped).mkdir()
+                (theme / skipped / "junk.txt").write_text("x", encoding="utf-8")
+
+            run(
+                "--input", str(vault), "--output", str(site),
+                "--ledger-theme", str(theme), "--progress-every", "0",
             )
+            copied_root = site / "themes" / "hugo-theme-ledger"
+            # Copied verbatim: Ledger tracks current Hugo template APIs, so
+            # there is nothing to rewrite the way a Relearn checkout needed.
+            self.assertEqual(
+                (copied_root / "layouts" / "page.html").read_text(encoding="utf-8"),
+                "{{ .Title }}\n",
+            )
+            self.assertTrue((copied_root / "theme.toml").is_file())
+            for skipped in ("exampleSite", "node_modules", "public", "bench", ".git"):
+                self.assertFalse(
+                    (copied_root / skipped).exists(),
+                    f"{skipped}/ should not be copied into the generated site",
+                )
+            hugo_config = (site / "hugo.toml").read_text(encoding="utf-8")
+            self.assertIn("theme = 'hugo-theme-ledger'", hugo_config)
+            # A copied theme is used instead of the Hugo module, not alongside.
+            self.assertNotIn("[module]", hugo_config)
+            self.assertFalse((site / "go.mod").exists())
+
+    def test_relearn_theme_flag_is_a_deprecated_alias(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-alias-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            site = root / "site"
+            theme = root / "theme"
+            vault.mkdir()
+            (theme / "layouts").mkdir(parents=True)
+            (vault / "Note.md").write_text("Body\n", encoding="utf-8")
 
             result = run(
                 "--input", str(vault), "--output", str(site),
                 "--relearn-theme", str(theme), "--progress-every", "0",
             )
-            self.assertIn("updated 1 copied Relearn template file(s)", result.stdout)
-            copied = (
-                site / "themes" / "hugo-theme-relearn" / "layouts" /
-                "partials" / "sample.gotmpl"
-            ).read_text(encoding="utf-8")
-            self.assertIn(".Language.Locale", copied)
-            self.assertIn(".Language.Direction", copied)
-            self.assertIn(".Language.Label", copied)
-            self.assertIn(".Language.Name", copied)
-            self.assertIn("range hugo.Sites", copied)
-            self.assertIn("hugo.Sites.Default", copied)
-            self.assertNotIn("LanguageCode", copied)
-            self.assertNotIn("LanguageDirection", copied)
-            self.assertNotIn("site.Sites", copied)
+            self.assertIn("--relearn-theme is deprecated", result.stderr)
+            self.assertTrue((site / "themes" / "hugo-theme-ledger" / "layouts").is_dir())
+            self.assertFalse((site / "themes" / "hugo-theme-relearn").exists())
+
+    def test_both_theme_flags_together_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-both-flags-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            theme = root / "theme"
+            vault.mkdir()
+            (theme / "layouts").mkdir(parents=True)
+            (vault / "Note.md").write_text("Body\n", encoding="utf-8")
+            result = run(
+                "--input", str(vault), "--output", str(root / "site"),
+                "--ledger-theme", str(theme), "--relearn-theme", str(theme),
+                "--progress-every", "0", check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("not both", result.stderr)
 
     def test_bluge_build_contains_no_lunr_or_pagefind_runtime(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-bluge-only-") as temporary:
@@ -576,7 +630,7 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
                 "--search-backend", "bluge", "--progress-every", "0",
             )
             config = tomllib.loads((site / "hugo.toml").read_text(encoding="utf-8"))
-            self.assertFalse(config["params"]["search"])
+            self.assertEqual(config["params"]["search"]["backend"], "bluge")
             self.assertEqual(config["params"]["movenotesSearchBackend"], "bluge")
             self.assertFalse((site / "pagefind.yml").exists())
             search = (
@@ -587,10 +641,6 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertNotIn("pagefind", search)
             self.assertNotIn("lunr", search)
             self.assertNotIn("searchindex", search)
-            content = (
-                site / "layouts" / "partials" / "content.html"
-            ).read_text(encoding="utf-8").casefold()
-            self.assertNotIn("pagefind", content)
             tags = (
                 site / "layouts" / "shortcodes" / "movenotes-tags.html"
             ).read_text(encoding="utf-8").casefold()
@@ -637,8 +687,10 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertTrue(metadata["movenotes_hide_heading"])
             self.assertTrue(metadata["hideAuthorDate"])
             self.assertIn("Tweet text.", body)
-            heading = (site / "layouts" / "partials" / "heading.html").read_text(encoding="utf-8")
-            self.assertIn("movenotes_hide_heading", heading)
+            # The heading.html override is gone: the theme reads ledgerHideTitle
+            # and ledgerHideMeta from front matter instead, which the next step
+            # writes. Nothing may reintroduce a partial override for it.
+            self.assertFalse((site / "layouts" / "partials" / "heading.html").exists())
 
     def test_canonical_note_url_matches_hugo_output_and_search_metadata(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-url-path-") as temporary:

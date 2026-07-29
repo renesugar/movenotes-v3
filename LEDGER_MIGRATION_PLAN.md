@@ -399,13 +399,51 @@ Four findings that change later steps:
    ignoring them. `STATIC_SITE.md`'s search-syntax section has to say which
    backend supports what.
 
-### Step 22 — Generator: project scaffolding *(movenotes)*
-Rewrite `_write_hugo_project` for Ledger: `hugo.toml` with `[taxonomies]`,
-`[pagination]`, `capitalizeListTitles = false`, the `[params]` schema,
-`mainSections`, no `disableKinds` for taxonomy/term. Delete the Relearn
-workarounds listed in Part A. `--ledger-theme` with the deprecated
-`--relearn-theme` alias. Content pages: home, about/Getting Started, search,
-Browse Tags. Site still generates and builds; note front matter unchanged yet.
+### Step 22 — Generator: project scaffolding *(movenotes)*  ✅
+`_write_hugo_project` rewritten for Ledger and every Relearn workaround in
+Part A's table deleted. A generated site builds against the real theme with no
+warnings, renders the Ledger shell, and lists its notes.
+
+Content is now home (the theme's primed-search view, no body), `about.md`
+(`layout: about`, the Getting Started card), `search.md` (`layout: search`), and
+`browse-tags.md` with a generated project-level `layouts/browse-tags.html`.
+Browse Tags stays a movenotes view over the hashed posting index, which is a
+different and much larger set than the Hugo tag taxonomy behind `/tags/`.
+
+Decided while implementing:
+
+- **`uglyURLs` dropped.** Notes carry an explicit `url` ending in `.html`, which
+  Hugo honours regardless, so `uglyURLs` only pushed the theme's own pages to
+  `/search.html` — which its templates never link to. Auxiliary pages are
+  directory-style now and the canonical note URLs are unchanged.
+- **`locale`, not `languageCode`.** Hugo deprecated `languageCode` in v0.158 and
+  warns on every build; the original key was already right.
+- **CSS and JS reach pages through `params.extraCSS` / `params.extraJS`**, two
+  small hooks added to the theme, rather than by overriding a theme partial the
+  way `custom-header.html` was overridden. Overriding `head.html` to add one
+  stylesheet would have copied the theme's whole asset pipeline into the
+  generated project, where it would drift.
+- **RSS is capped at 20 items** (`[services.rss] limit`). Hugo's default is the
+  entire site, which for a six-figure archive is neither useful nor cheap.
+- **`googleFonts = false`** and **`heroPlaceholder = false`**: a local archive
+  should not need a font CDN to render, and 166k striped placeholders are noise.
+- **`--search-backend both` points the theme at Bluge.** Ledger picks one
+  adapter at build time, so `both` builds both indexes but selects `bluge`. The
+  automatic fall back to Pagefind when the server is not running needs an `auto`
+  adapter in the theme — added in step 26, not silently dropped.
+- Theme copying now skips `exampleSite`, `node_modules`, `public`, `resources`,
+  `bench` and `.git`, which are bulk a generated site must not carry.
+
+Two theme bugs were found by this step and fixed in the theme (`f8e7568`): the
+primed home query was built with `printf` rather than the clause partial, so the
+default "All notes" label tokenised wrongly; and `section.html` paginated its
+whole page set uncapped, which for a 166k-note `notes/` section is ~28k pager
+directories.
+
+Note front matter is still Relearn-shaped, so the sidebar and `/tags/` are empty
+— step 23 fills them. Tests updated to assert the Ledger structure, including
+that none of the deleted partial overrides comes back; 19 pass in
+`test_obsidian2site.py`, 87 across the suite.
 
 ### Step 23 — Generator: note front matter and taxonomy *(movenotes)*
 `_frontmatter_json` emits `categories`, `tags` (promoted tier), `summary`,
@@ -427,7 +465,11 @@ Extend `site_server` to the superset contract; add `category` and
 the theme's reference server identically. Add regressions for both request
 styles and for the new fields.
 
-### Step 26 — Build pipeline and backend validation *(movenotes)*
+### Step 26 — Build pipeline, `auto` backend, and backend validation *(movenotes + theme)*
+Add the `auto` search adapter to the theme — probe `/api/health`, use Bluge when
+it answers and Pagefind when it does not — and point `--search-backend both` at
+it, which is what `both` has always promised.
+
 `--build` for the new layout; retarget `_validate_built_search_backend` from
 Relearn's Lunr filenames to Ledger's bundle; confirm a `bluge`-only build emits
 no browser search runtime. Run the full generated pipeline on the `sample/`
