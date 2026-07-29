@@ -400,3 +400,12 @@ All steps (1–13) complete. Run `python3 -m unittest -v test_movenotes.py test_
   mode, documentation, checksum data, and structural/integration regressions.
 - Expanded the suite to 81 tests.
 
+### Step 20 and later — Ledger theme, Vercel, and static search
+
+Steps 20–36 replace the Relearn theme with `hugo-theme-ledger`, make
+`movenotes-site-server` deployable on Vercel as well as locally, and benchmark
+Orama and FlexSearch against Pagefind before deciding whether either becomes a
+static-hosting search option. They are planned in detail, with the
+architectural decisions and the per-step verification, in
+[`LEDGER_MIGRATION_PLAN.md`](LEDGER_MIGRATION_PLAN.md).
+
