@@ -1,0 +1,195 @@
+- generic [active] [ref=f7e1]:
+  - link "Skip to content" [ref=f7e2] [cursor=pointer]:
+    - /url: "#ledger-main"
+  - generic [ref=f7e3]:
+    - banner [ref=f7e4]:
+      - link "Test Archive" [ref=f7e5] [cursor=pointer]:
+        - /url: /
+      - navigation "Main" [ref=f7e8]:
+        - link "Home" [ref=f7e9] [cursor=pointer]:
+          - /url: /
+        - link "Tags" [ref=f7e10] [cursor=pointer]:
+          - /url: /tags/
+        - link "About" [ref=f7e11] [cursor=pointer]:
+          - /url: /about/
+        - link "Search" [ref=f7e12] [cursor=pointer]:
+          - /url: /search/
+      - button "Theme Light theme" [ref=f7e14] [cursor=pointer]:
+        - generic [ref=f7e16]: Theme
+        - generic [ref=f7e17]: Light theme
+        - generic [ref=f7e18]: ▼
+    - generic [ref=f7e19]:
+      - complementary "Categories and tags" [ref=f7e20]:
+        - generic [ref=f7e21]:
+          - heading [level=2] [ref=f7e22]:
+            - button "Categories 3" [expanded] [ref=f7e23] [cursor=pointer]:
+              - generic [ref=f7e24]: ▼
+              - generic [ref=f7e25]: Categories
+              - generic [ref=f7e26]: "3"
+          - generic [ref=f7e28]:
+            - link "All notes 10 notes" [ref=f7e29] [cursor=pointer]:
+              - /url: /search/?q=category%3A%22All+notes%22
+              - generic [ref=f7e30]: ▸
+              - generic [ref=f7e31]: All notes
+              - generic [ref=f7e32]:
+                - text: "10"
+                - generic [ref=f7e33]: notes
+            - link "Twitter 8 notes" [ref=f7e34] [cursor=pointer]:
+              - /url: /categories/twitter/
+              - generic [ref=f7e35]: ▸
+              - generic [ref=f7e36]: Twitter
+              - generic [ref=f7e37]:
+                - text: "8"
+                - generic [ref=f7e38]: notes
+            - link "Notes 2 notes" [ref=f7e39] [cursor=pointer]:
+              - /url: /categories/notes/
+              - generic [ref=f7e40]: ▸
+              - generic [ref=f7e41]: Notes
+              - generic [ref=f7e42]:
+                - text: "2"
+                - generic [ref=f7e43]: notes
+        - generic [ref=f7e44]:
+          - heading [level=2] [ref=f7e45]:
+            - button "Tags 5" [expanded] [ref=f7e46] [cursor=pointer]:
+              - generic [ref=f7e47]: ▼
+              - generic [ref=f7e48]: Tags
+              - generic [ref=f7e49]: "5"
+          - generic [ref=f7e51]:
+            - link "pizza 8 notes" [ref=f7e52] [cursor=pointer]:
+              - /url: /tags/pizza/
+              - generic [ref=f7e53]: "#"
+              - generic [ref=f7e54]: pizza
+              - generic [ref=f7e55]:
+                - text: "8"
+                - generic [ref=f7e56]: notes
+            - link "canada 1 notes" [ref=f7e57] [cursor=pointer]:
+              - /url: /tags/canada/
+              - generic [ref=f7e58]: "#"
+              - generic [ref=f7e59]: canada
+              - generic [ref=f7e60]:
+                - text: "1"
+                - generic [ref=f7e61]: notes
+            - link "codec 1 notes" [ref=f7e62] [cursor=pointer]:
+              - /url: /tags/codec/
+              - generic [ref=f7e63]: "#"
+              - generic [ref=f7e64]: codec
+              - generic [ref=f7e65]:
+                - text: "1"
+                - generic [ref=f7e66]: notes
+            - link "economics 1 notes" [ref=f7e67] [cursor=pointer]:
+              - /url: /tags/economics/
+              - generic [ref=f7e68]: "#"
+              - generic [ref=f7e69]: economics
+              - generic [ref=f7e70]:
+                - text: "1"
+                - generic [ref=f7e71]: notes
+            - link "interest 1 notes" [ref=f7e72] [cursor=pointer]:
+              - /url: /tags/interest/
+              - generic [ref=f7e73]: "#"
+              - generic [ref=f7e74]: interest
+              - generic [ref=f7e75]:
+                - text: "1"
+                - generic [ref=f7e76]: notes
+      - separator "Resize sidebar" [ref=f7e77]
+      - main [ref=f7e79]:
+        - generic [ref=f7e80]:
+          - heading "Test Archive" [level=1] [ref=f7e81]
+          - generic [ref=f7e82]:
+            - search [ref=f7e83]:
+              - generic [ref=f7e84]:
+                - generic [ref=f7e85]: ⌕
+                - generic [ref=f7e86]: Search notes
+                - searchbox "Search notes" [ref=f7e87]: category:"All notes"
+                - button "Clear search" [ref=f7e88] [cursor=pointer]: ×
+              - button "Run search" [ref=f7e89] [cursor=pointer]:
+                - generic [ref=f7e90]: ⧖
+            - generic [ref=f7e91]: 10 results for category:"All notes"
+          - generic [ref=f7e93]:
+            - 'link "Post 8 about pizza and housing In reply to: @someone Post 8 about pizza and housing in Canada. 11:08 AM · Jul 28, 2026 🔁 10 💙 5 Twitter #pizza 2026-07-28 · 1 min" [ref=f7e94] [cursor=pointer]':
+              - /url: /notes/twitter/post-8.html
+              - heading "Post 8 about pizza and housing" [level=2] [ref=f7e95]
+              - paragraph [ref=f7e96]: "In reply to: @someone Post 8 about pizza and housing in Canada. 11:08 AM · Jul 28, 2026 🔁 10 💙 5"
+              - generic [ref=f7e97]:
+                - generic [ref=f7e98]: Twitter
+                - generic [ref=f7e99]: "#pizza"
+                - generic [ref=f7e100]: 2026-07-28 · 1 min
+            - 'link "Post 7 about pizza and housing In reply to: @someone Post 7 about pizza and housing in Canada. 11:08 AM · Jul 27, 2026 🔁 10 💙 5 Twitter #pizza 2026-07-27 · 1 min" [ref=f7e101] [cursor=pointer]':
+              - /url: /notes/twitter/post-7.html
+              - heading "Post 7 about pizza and housing" [level=2] [ref=f7e102]
+              - paragraph [ref=f7e103]: "In reply to: @someone Post 7 about pizza and housing in Canada. 11:08 AM · Jul 27, 2026 🔁 10 💙 5"
+              - generic [ref=f7e104]:
+                - generic [ref=f7e105]: Twitter
+                - generic [ref=f7e106]: "#pizza"
+                - generic [ref=f7e107]: 2026-07-27 · 1 min
+            - 'link "Post 6 about pizza and housing In reply to: @someone Post 6 about pizza and housing in Canada. 11:08 AM · Jul 26, 2026 🔁 10 💙 5 Twitter #pizza 2026-07-26 · 1 min" [ref=f7e108] [cursor=pointer]':
+              - /url: /notes/twitter/post-6.html
+              - heading "Post 6 about pizza and housing" [level=2] [ref=f7e109]
+              - paragraph [ref=f7e110]: "In reply to: @someone Post 6 about pizza and housing in Canada. 11:08 AM · Jul 26, 2026 🔁 10 💙 5"
+              - generic [ref=f7e111]:
+                - generic [ref=f7e112]: Twitter
+                - generic [ref=f7e113]: "#pizza"
+                - generic [ref=f7e114]: 2026-07-26 · 1 min
+            - 'link "Post 5 about pizza and housing In reply to: @someone Post 5 about pizza and housing in Canada. 11:08 AM · Jul 25, 2026 🔁 10 💙 5 Twitter #pizza 2026-07-25 · 1 min" [ref=f7e115] [cursor=pointer]':
+              - /url: /notes/twitter/post-5.html
+              - heading "Post 5 about pizza and housing" [level=2] [ref=f7e116]
+              - paragraph [ref=f7e117]: "In reply to: @someone Post 5 about pizza and housing in Canada. 11:08 AM · Jul 25, 2026 🔁 10 💙 5"
+              - generic [ref=f7e118]:
+                - generic [ref=f7e119]: Twitter
+                - generic [ref=f7e120]: "#pizza"
+                - generic [ref=f7e121]: 2026-07-25 · 1 min
+            - 'link "Post 4 about pizza and housing In reply to: @someone Post 4 about pizza and housing in Canada. 11:08 AM · Jul 24, 2026 🔁 10 💙 5 Twitter #pizza 2026-07-24 · 1 min" [ref=f7e122] [cursor=pointer]':
+              - /url: /notes/twitter/post-4.html
+              - heading "Post 4 about pizza and housing" [level=2] [ref=f7e123]
+              - paragraph [ref=f7e124]: "In reply to: @someone Post 4 about pizza and housing in Canada. 11:08 AM · Jul 24, 2026 🔁 10 💙 5"
+              - generic [ref=f7e125]:
+                - generic [ref=f7e126]: Twitter
+                - generic [ref=f7e127]: "#pizza"
+                - generic [ref=f7e128]: 2026-07-24 · 1 min
+            - 'link "Post 3 about pizza and housing In reply to: @someone Post 3 about pizza and housing in Canada. 11:08 AM · Jul 23, 2026 🔁 10 💙 5 Twitter #pizza 2026-07-23 · 1 min" [ref=f7e129] [cursor=pointer]':
+              - /url: /notes/twitter/post-3.html
+              - heading "Post 3 about pizza and housing" [level=2] [ref=f7e130]
+              - paragraph [ref=f7e131]: "In reply to: @someone Post 3 about pizza and housing in Canada. 11:08 AM · Jul 23, 2026 🔁 10 💙 5"
+              - generic [ref=f7e132]:
+                - generic [ref=f7e133]: Twitter
+                - generic [ref=f7e134]: "#pizza"
+                - generic [ref=f7e135]: 2026-07-23 · 1 min
+            - 'link "Post 2 about pizza and housing In reply to: @someone Post 2 about pizza and housing in Canada. 11:08 AM · Jul 22, 2026 🔁 10 💙 5 Twitter #pizza 2026-07-22 · 1 min" [ref=f7e136] [cursor=pointer]':
+              - /url: /notes/twitter/post-2.html
+              - heading "Post 2 about pizza and housing" [level=2] [ref=f7e137]
+              - paragraph [ref=f7e138]: "In reply to: @someone Post 2 about pizza and housing in Canada. 11:08 AM · Jul 22, 2026 🔁 10 💙 5"
+              - generic [ref=f7e139]:
+                - generic [ref=f7e140]: Twitter
+                - generic [ref=f7e141]: "#pizza"
+                - generic [ref=f7e142]: 2026-07-22 · 1 min
+            - 'link "Post 1 about pizza and housing In reply to: @someone Post 1 about pizza and housing in Canada. 11:08 AM · Jul 21, 2026 🔁 10 💙 5 Twitter #pizza 2026-07-21 · 1 min" [ref=f7e143] [cursor=pointer]':
+              - /url: /notes/twitter/post-1.html
+              - heading "Post 1 about pizza and housing" [level=2] [ref=f7e144]
+              - paragraph [ref=f7e145]: "In reply to: @someone Post 1 about pizza and housing in Canada. 11:08 AM · Jul 21, 2026 🔁 10 💙 5"
+              - generic [ref=f7e146]:
+                - generic [ref=f7e147]: Twitter
+                - generic [ref=f7e148]: "#pizza"
+                - generic [ref=f7e149]: 2026-07-21 · 1 min
+            - 'link "Bank of Canada rate note The #interest rate decision and Canadian housing. See Codec note. Notes #canada #economics #interest 2026-07-01 · 1 min" [ref=f7e150] [cursor=pointer]':
+              - /url: /notes/notes/bank-of-canada-rate-note.html
+              - heading "Bank of Canada rate note" [level=2] [ref=f7e151]
+              - paragraph [ref=f7e152]: "The #interest rate decision and Canadian housing. See Codec note."
+              - generic [ref=f7e153]:
+                - generic [ref=f7e154]: Notes
+                - generic [ref=f7e155]: "#canada"
+                - generic [ref=f7e156]: "#economics"
+                - generic [ref=f7e157]: "#interest"
+                - generic [ref=f7e158]: 2026-07-01 · 1 min
+            - 'link "Codec note Notes about video codecs and the AV1 codec. Notes #codec 2026-06-15 · 1 min" [ref=f7e159] [cursor=pointer]':
+              - /url: /notes/notes/codec-note.html
+              - heading "Codec note" [level=2] [ref=f7e160]
+              - paragraph [ref=f7e161]: Notes about video codecs and the AV1 codec.
+              - generic [ref=f7e162]:
+                - generic [ref=f7e163]: Notes
+                - generic [ref=f7e164]: "#codec"
+                - generic [ref=f7e165]: 2026-06-15 · 1 min
+        - generic [ref=f7e166]:
+          - generic [ref=f7e167]: Test Archive
+          - generic [ref=f7e168]: 10 notes · 2 categories · 5 tags
+          - generic [ref=f7e169]: Ledger theme for Hugo
+          - link "RSS" [ref=f7e170] [cursor=pointer]:
+            - /url: /index.xml

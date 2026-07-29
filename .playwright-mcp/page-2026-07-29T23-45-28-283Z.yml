@@ -1,0 +1,118 @@
+- generic [active] [ref=f8e1]:
+  - link "Skip to content" [ref=f8e2] [cursor=pointer]:
+    - /url: "#ledger-main"
+  - generic [ref=f8e3]:
+    - banner [ref=f8e4]:
+      - link "Test Archive" [ref=f8e5] [cursor=pointer]:
+        - /url: /
+      - navigation "Main" [ref=f8e8]:
+        - link "Home" [ref=f8e9] [cursor=pointer]:
+          - /url: /
+        - link "Tags" [ref=f8e10] [cursor=pointer]:
+          - /url: /tags/
+        - link "About" [ref=f8e11] [cursor=pointer]:
+          - /url: /about/
+        - link "Search" [ref=f8e12] [cursor=pointer]:
+          - /url: /search/
+      - button "Theme Light theme" [ref=f8e14] [cursor=pointer]:
+        - generic [ref=f8e16]: Theme
+        - generic [ref=f8e17]: Light theme
+        - generic [ref=f8e18]: ▼
+    - generic [ref=f8e19]:
+      - complementary "Categories and tags" [ref=f8e20]:
+        - generic [ref=f8e21]:
+          - heading [level=2] [ref=f8e22]:
+            - button "Categories 3" [expanded] [ref=f8e23] [cursor=pointer]:
+              - generic [ref=f8e24]: ▼
+              - generic [ref=f8e25]: Categories
+              - generic [ref=f8e26]: "3"
+          - generic [ref=f8e28]:
+            - link "All notes 10 notes" [ref=f8e29] [cursor=pointer]:
+              - /url: /search/?q=category%3A%22All+notes%22
+              - generic [ref=f8e30]: ▸
+              - generic [ref=f8e31]: All notes
+              - generic [ref=f8e32]:
+                - text: "10"
+                - generic [ref=f8e33]: notes
+            - link "Twitter 8 notes" [ref=f8e34] [cursor=pointer]:
+              - /url: /categories/twitter/
+              - generic [ref=f8e35]: ▸
+              - generic [ref=f8e36]: Twitter
+              - generic [ref=f8e37]:
+                - text: "8"
+                - generic [ref=f8e38]: notes
+            - link "Notes 2 notes" [ref=f8e39] [cursor=pointer]:
+              - /url: /categories/notes/
+              - generic [ref=f8e40]: ▸
+              - generic [ref=f8e41]: Notes
+              - generic [ref=f8e42]:
+                - text: "2"
+                - generic [ref=f8e43]: notes
+        - generic [ref=f8e44]:
+          - heading [level=2] [ref=f8e45]:
+            - button "Tags 5" [expanded] [ref=f8e46] [cursor=pointer]:
+              - generic [ref=f8e47]: ▼
+              - generic [ref=f8e48]: Tags
+              - generic [ref=f8e49]: "5"
+          - generic [ref=f8e51]:
+            - link "pizza 8 notes" [ref=f8e52] [cursor=pointer]:
+              - /url: /tags/pizza/
+              - generic [ref=f8e53]: "#"
+              - generic [ref=f8e54]: pizza
+              - generic [ref=f8e55]:
+                - text: "8"
+                - generic [ref=f8e56]: notes
+            - link "canada 1 notes" [ref=f8e57] [cursor=pointer]:
+              - /url: /tags/canada/
+              - generic [ref=f8e58]: "#"
+              - generic [ref=f8e59]: canada
+              - generic [ref=f8e60]:
+                - text: "1"
+                - generic [ref=f8e61]: notes
+            - link "codec 1 notes" [ref=f8e62] [cursor=pointer]:
+              - /url: /tags/codec/
+              - generic [ref=f8e63]: "#"
+              - generic [ref=f8e64]: codec
+              - generic [ref=f8e65]:
+                - text: "1"
+                - generic [ref=f8e66]: notes
+            - link "economics 1 notes" [ref=f8e67] [cursor=pointer]:
+              - /url: /tags/economics/
+              - generic [ref=f8e68]: "#"
+              - generic [ref=f8e69]: economics
+              - generic [ref=f8e70]:
+                - text: "1"
+                - generic [ref=f8e71]: notes
+            - link "interest 1 notes" [ref=f8e72] [cursor=pointer]:
+              - /url: /tags/interest/
+              - generic [ref=f8e73]: "#"
+              - generic [ref=f8e74]: interest
+              - generic [ref=f8e75]:
+                - text: "1"
+                - generic [ref=f8e76]: notes
+      - separator "Resize sidebar" [ref=f8e77]
+      - main [ref=f8e79]:
+        - article [ref=f8e81]:
+          - link "← back to results" [ref=f8e82] [cursor=pointer]:
+            - /url: /
+          - heading "Post 1 about pizza and housing" [level=1] [ref=f8e83]
+          - generic [ref=f8e84]:
+            - paragraph [ref=f8e85]:
+              - text: "In reply to:"
+              - link "@someone" [ref=f8e86] [cursor=pointer]:
+                - /url: https://x.com/i/web/status/111
+            - paragraph [ref=f8e87]: Post 1 about pizza and housing in Canada.
+            - paragraph [ref=f8e88]:
+              - link "11:08 AM · Jul 21, 2026" [ref=f8e89] [cursor=pointer]:
+                - /url: https://x.com/i/web/status/222
+              - text: 🔁 10 💙 5
+          - generic [ref=f8e90]:
+            - generic [ref=f8e91]: TAGGED
+            - link "#pizza" [ref=f8e92] [cursor=pointer]:
+              - /url: /tags/pizza/
+        - generic [ref=f8e93]:
+          - generic [ref=f8e94]: Test Archive
+          - generic [ref=f8e95]: 10 notes · 2 categories · 5 tags
+          - generic [ref=f8e96]: Ledger theme for Hugo
+          - link "RSS" [ref=f8e97] [cursor=pointer]:
+            - /url: /index.xml

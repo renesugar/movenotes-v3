@@ -90,6 +90,22 @@ status tweet tweets post posts image images video videos
 _LEDGER_THEME_NAME = "hugo-theme-ledger"
 _LEDGER_THEME_MODULE = "github.com/renesugar/hugo-theme-ledger"
 
+# Bounds on the automatic taxonomy-tag cap. Measured at 5,000 synthetic notes: a
+# taxonomy term costs about as much to build as a note page (200 terms → 11.2 s,
+# 2,000 → 18.6 s, 5,000 → 32.2 s), so terms have to stay a small fraction of the
+# note count or a small archive pays more for its tags than for its notes. The
+# upper bound is the term count the theme has been benchmarked at.
+_MINIMUM_TAXONOMY_TAGS = 200
+_MAXIMUM_TAXONOMY_TAGS = 5000
+_TAXONOMY_TAGS_PER_NOTE = 10
+
+
+def _automatic_taxonomy_tag_cap(notes: int) -> int:
+    return max(
+        _MINIMUM_TAXONOMY_TAGS,
+        min(_MAXIMUM_TAXONOMY_TAGS, notes // _TAXONOMY_TAGS_PER_NOTE),
+    )
+
 
 def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=__program_name__, description=__doc__)
@@ -127,6 +143,25 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--stop-words", type=Path,
         help="Optional UTF-8 file containing additional filler words",
+    )
+    parser.add_argument(
+        "--category-mode", choices=("folder", "fixed", "none"), default="folder",
+        help=("Note category: from the top-level vault folder (default), one "
+              "fixed name, or none"),
+    )
+    parser.add_argument(
+        "--category-name",
+        help=("Category for --category-mode fixed, and for notes at the vault "
+              "root under folder mode (default: the site title)"),
+    )
+    parser.add_argument(
+        "--max-taxonomy-tags", type=int,
+        help=("Most frequent explicit tags to publish as Hugo taxonomy terms; "
+              "the rest stay searchable through the tag index and Bluge. A term "
+              "page costs about as much to build as a note page, so the default "
+              "keeps terms at a tenth of the note count, bounded to "
+              f"{_MINIMUM_TAXONOMY_TAGS}–{_MAXIMUM_TAXONOMY_TAGS}. 0 removes the "
+              "cap"),
     )
     parser.add_argument(
         "--include-hidden", action="store_true",
@@ -191,6 +226,8 @@ def _validate_args(args: argparse.Namespace) -> None:
         common.error("pass either --ledger-theme or --relearn-theme, not both")
     if args.ledger_theme is not None and not args.ledger_theme.is_dir():
         common.error(f"Ledger theme directory does not exist: {args.ledger_theme}")
+    if args.max_taxonomy_tags is not None and args.max_taxonomy_tags < 0:
+        common.error("--max-taxonomy-tags cannot be negative")
 
 
 def _is_hidden_part(part: str) -> bool:
@@ -943,24 +980,56 @@ def _is_twitter_note(metadata: dict[str, object]) -> bool:
     return False
 
 
+def _note_category(
+    source_relative: PurePosixPath, *, mode: str, fixed_name: str,
+) -> str:
+    """Return the note's category, or "" when categories are disabled.
+
+    Folder mode uses the top-level vault folder, which is meaningful for the
+    archives this converter targets (``Twitter/``, ``Notes/``). The name is used
+    verbatim, not slugged: it is display text and it is what a `category:` query
+    has to match.
+    """
+    if mode == "none":
+        return ""
+    if mode == "fixed":
+        return fixed_name
+    parts = source_relative.parts
+    if len(parts) > 1:
+        return parts[0]
+    return fixed_name
+
+
 def _frontmatter_json(
     *, title: str, date: str, lastmod: str, source_path: str,
-    explicit_tags: list[str], site_url: str, aliases: list[str] | None = None,
-    hide_heading: bool = False, hide_author_date: bool = False,
+    site_url: str, category: str = "", tags: list[str] | None = None,
+    aliases: list[str] | None = None,
+    hide_title: bool = False, hide_meta: bool = False,
 ) -> str:
+    """Front matter for one note.
+
+    Deliberately small: it is repeated once per note, so 166k notes pay for
+    every field. Nothing is written that the theme can derive — no summary
+    (Hugo's own `.Summary` is what result cards fall back to, and the post view
+    refuses to use it as a standfirst because it duplicates the body directly
+    below it) and no readingTime (`.ReadingTime`). The boolean switches are
+    emitted only when true, since the theme's default for both is false.
+    """
     data: dict[str, object] = {
         "title": title,
         "date": date,
         "lastmod": lastmod,
-        "hidden": True,
-        "disableBreadcrumb": True,
-        "disableToc": True,
         "url": site_url,
         "movenotes_source_path": source_path,
-        "movenotes_explicit_tags": explicit_tags,
-        "movenotes_hide_heading": hide_heading,
-        "hideAuthorDate": hide_author_date,
     }
+    if category:
+        data["categories"] = [category]
+    if tags:
+        data["tags"] = tags
+    if hide_title:
+        data["ledgerHideTitle"] = True
+    if hide_meta:
+        data["ledgerHideMeta"] = True
     if aliases:
         data["aliases"] = aliases
     return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
@@ -980,7 +1049,9 @@ def _process_note(
     stop_words: frozenset[str],
     minimum_word_length: int,
     note_embeds: str,
-) -> tuple[list[str], str, str, str, str, str, int, int]:
+    category_mode: str,
+    category_name: str,
+) -> tuple[list[str], list[str], str, str, str, str, str, int, int]:
     source_relative = PurePosixPath(source_path.relative_to(input_root).as_posix())
     output_relative = note_map[source_relative.as_posix()]
     raw = source_path.read_text(encoding="utf-8-sig")
@@ -1021,17 +1092,22 @@ def _process_note(
     destination.parent.mkdir(parents=True, exist_ok=True)
     hugo_url = _note_hugo_url(output_relative)
     site_url = _note_site_url(output_relative)
+    category = _note_category(
+        source_relative, mode=category_mode, fixed_name=category_name
+    )
+    # Every explicit tag is written now; the ones that do not survive the
+    # taxonomy cap are removed afterwards, once the global counts are known.
     content = _frontmatter_json(
         title=title, date=date, lastmod=lastmod,
-        source_path=source_relative.as_posix(), explicit_tags=explicit_tags,
-        site_url=hugo_url, hide_heading=twitter_note,
-        hide_author_date=twitter_note,
+        source_path=source_relative.as_posix(),
+        site_url=hugo_url, category=category, tags=explicit_tags,
+        hide_title=twitter_note, hide_meta=twitter_note,
     ) + "\n" + converted
     destination.write_text(content, encoding="utf-8", newline="\n")
     search_text = re.sub(r"\s+", " ", _searchable_text(f"{title}\n{converted}")).strip()
-    summary = search_text[:700]
     return (
         tags,
+        explicit_tags,
         source_relative.as_posix(),
         site_url,
         title,
@@ -1073,6 +1149,14 @@ def _open_tag_database(path: Path) -> sqlite3.Connection:
         "posting_bucket INTEGER NOT NULL, tag TEXT NOT NULL, note_id INTEGER NOT NULL, "
         "PRIMARY KEY(posting_bucket, tag, note_id)) WITHOUT ROWID"
     )
+    # Explicit tags only — the ones eligible to become Hugo taxonomy terms.
+    # Generated word tags never enter the taxonomy, so they are not recorded
+    # here; they live in tag_documents with everything else.
+    connection.execute(
+        "CREATE TABLE explicit_tags ("
+        "tag TEXT NOT NULL, note_id INTEGER NOT NULL, "
+        "PRIMARY KEY(tag, note_id)) WITHOUT ROWID"
+    )
     return connection
 
 
@@ -1108,6 +1192,96 @@ def _update_tag_documents(
         "INSERT INTO tag_documents(posting_bucket, tag, note_id) VALUES (?, ?, ?)",
         sorted(associations),
     )
+
+
+def _update_explicit_tags(
+    connection: sqlite3.Connection, associations: Iterable[tuple[str, int]]
+) -> None:
+    connection.executemany(
+        "INSERT OR IGNORE INTO explicit_tags(tag, note_id) VALUES (?, ?)",
+        sorted(associations),
+    )
+
+
+def _rewrite_note_tags(path: Path, promoted: frozenset[str]) -> bool:
+    """Drop demoted tags from one note's front matter. Returns True if changed.
+
+    Front matter is a single JSON line, so this rewrites the first line and
+    copies the body through untouched.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    first, separator, body = text.partition("\n")
+    try:
+        data = json.loads(first)
+    except (ValueError, json.JSONDecodeError):
+        return False
+    tags = data.get("tags")
+    if not isinstance(tags, list):
+        return False
+    kept = [tag for tag in tags if tag in promoted]
+    if len(kept) == len(tags):
+        return False
+    if kept:
+        data["tags"] = kept
+    else:
+        data.pop("tags")
+    path.write_text(
+        json.dumps(data, ensure_ascii=False, separators=(",", ":")) + separator + body,
+        encoding="utf-8", newline="\n",
+    )
+    return True
+
+
+def _apply_taxonomy_tag_cap(
+    connection: sqlite3.Connection, content_root: Path, maximum: int
+) -> tuple[int, int, int]:
+    """Keep only the most frequent explicit tags in Hugo's taxonomy.
+
+    Returns (distinct explicit tags, promoted, notes rewritten).
+
+    Every taxonomy term is a generated page, so an archive with 50k distinct
+    hashtags would add 50k pages to the build. The cap keeps that bounded.
+    Demoted tags are not lost: they stay in the hashed posting index behind
+    Browse Tags and in the Bluge index, so `tag:` still finds them.
+
+    This runs after conversion because promotion needs global counts, which are
+    only complete once every note has been read. Notes are rewritten rather than
+    buffered because a vault's bodies do not fit in memory. Only the notes
+    carrying a demoted tag are touched, so a vault under the cap pays nothing.
+    """
+    total = connection.execute(
+        "SELECT COUNT(*) FROM (SELECT tag FROM explicit_tags GROUP BY tag)"
+    ).fetchone()[0]
+    if maximum == 0 or total <= maximum:
+        return total, total, 0
+
+    # Ties break by tag name so two runs of the same vault promote the same set.
+    connection.execute("CREATE TEMP TABLE promoted_tags (tag TEXT PRIMARY KEY)")
+    connection.execute(
+        "INSERT INTO promoted_tags(tag) SELECT tag FROM explicit_tags "
+        "GROUP BY tag ORDER BY COUNT(*) DESC, tag ASC LIMIT ?",
+        (maximum,),
+    )
+    promoted = frozenset(
+        row[0] for row in connection.execute("SELECT tag FROM promoted_tags")
+    )
+    rewritten = 0
+    cursor = connection.execute(
+        "SELECT DISTINCT documents.url FROM explicit_tags "
+        "LEFT JOIN promoted_tags ON promoted_tags.tag = explicit_tags.tag "
+        "JOIN documents ON documents.note_id = explicit_tags.note_id "
+        "WHERE promoted_tags.tag IS NULL"
+    )
+    for (url,) in cursor:
+        # The canonical URL is the generated content path with a .html suffix.
+        relative = PurePosixPath(url.lstrip("/")).with_suffix(".md")
+        if _rewrite_note_tags(content_root / Path(relative.as_posix()), promoted):
+            rewritten += 1
+    connection.execute("DROP TABLE promoted_tags")
+    return total, len(promoted), rewritten
 
 
 def _tag_bucket(tag: str) -> str:
@@ -2519,7 +2693,13 @@ def main(argv: list[str]) -> int:
     pending_tag_counts: Counter[str] = Counter()
     pending_documents: list[tuple[int, str, str]] = []
     pending_tag_documents: list[tuple[int, str, int]] = []
+    pending_explicit_tags: list[tuple[str, int]] = []
     pending_tag_notes = 0
+    category_name = args.category_name or (args.title or input_root.name)
+    maximum_taxonomy_tags = (
+        _automatic_taxonomy_tag_cap(len(markdown_paths))
+        if args.max_taxonomy_tags is None else args.max_taxonomy_tags
+    )
     search_source_path = output / "server" / "search-source.jsonl"
     search_source = search_source_path.open("w", encoding="utf-8", newline="\n")
     try:
@@ -2546,6 +2726,8 @@ def main(argv: list[str]) -> int:
                     stop_words=stop_words,
                     minimum_word_length=args.minimum_word_length,
                     note_embeds=args.note_embeds,
+                    category_mode=args.category_mode,
+                    category_name=category_name,
                 )
                 pending[future] = (path, note_id)
                 return True
@@ -2561,6 +2743,7 @@ def main(argv: list[str]) -> int:
                     try:
                         (
                             tags,
+                            explicit_tags,
                             _source,
                             site_url,
                             note_title,
@@ -2589,6 +2772,9 @@ def main(argv: list[str]) -> int:
                     pending_tag_documents.extend(
                         (_tag_posting_bucket(tag), tag, note_id) for tag in tags
                     )
+                    pending_explicit_tags.extend(
+                        (tag, note_id) for tag in explicit_tags
+                    )
                     repaired_urls += note_repaired_urls
                     preserved_urls += note_preserved_urls
                     pending_tag_notes += 1
@@ -2599,9 +2785,11 @@ def main(argv: list[str]) -> int:
                             pending_documents,
                             pending_tag_documents,
                         )
+                        _update_explicit_tags(tag_connection, pending_explicit_tags)
                         pending_tag_counts.clear()
                         pending_documents.clear()
                         pending_tag_documents.clear()
+                        pending_explicit_tags.clear()
                         pending_tag_notes = 0
                     processed += 1
                     submit_next()
@@ -2614,10 +2802,15 @@ def main(argv: list[str]) -> int:
                 pending_documents,
                 pending_tag_documents,
             )
+            _update_explicit_tags(tag_connection, pending_explicit_tags)
             pending_tag_counts.clear()
             pending_documents.clear()
             pending_tag_documents.clear()
+            pending_explicit_tags.clear()
         tag_connection.commit()
+        explicit_total, promoted_tags, demoted_notes = _apply_taxonomy_tag_cap(
+            tag_connection, output / "content", maximum_taxonomy_tags
+        )
         tag_count = _write_tag_index(tag_connection, output / "static")
     finally:
         search_source.close()
@@ -2633,6 +2826,23 @@ def main(argv: list[str]) -> int:
         f"generated Hugo project: {processed:,} note(s), {copied_assets:,} file(s), "
         f"{tag_count:,} unique tag(s)"
     )
+    if explicit_total:
+        published = (
+            f"{promoted_tags:,} of {explicit_total:,} explicit tag(s) published as "
+            "Hugo taxonomy terms"
+        )
+        if promoted_tags < explicit_total:
+            chosen = (
+                "" if args.max_taxonomy_tags is not None
+                else f" (automatic cap for {processed:,} note(s))"
+            )
+            print(
+                f"{published}{chosen}; the other {explicit_total - promoted_tags:,} "
+                f"stay searchable through the tag index and Bluge "
+                f"({demoted_notes:,} note(s) rewritten)"
+            )
+        else:
+            print(published)
     if repaired_urls or preserved_urls:
         print(
             f"checked URLs: {repaired_urls:,} repaired link target(s), "
