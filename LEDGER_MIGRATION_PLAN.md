@@ -273,9 +273,11 @@ the local workflow in `STATIC_SITE.md` §3 changes.
 
 ### V3 — Size ceiling, stated plainly in the docs
 
-Measured index size is ~1.11 KB/note (111 MB at 100k). With a ~30 MB binary the
-250 MB cap lands at roughly **150k–190k notes**, and a 166k-note archive is
-inside it but not comfortably. The documentation will give the arithmetic, the
+The ~1.11 KB/note figure (111 MB at 100k) comes from an index without term
+positions, so it is a **floor**, not the size of a phrase-capable index — see
+step 21's finding 3. Re-measure before publishing a note count. On that floor,
+with a ~30 MB binary, the 250 MB cap lands at roughly **150k–190k notes**; the
+real ceiling is lower. The documentation will give the arithmetic, the
 `du -sh` command to check, and three options past the ceiling:
 
 1. static search (Pagefind, or whatever Part C promotes) on Vercel, no Go;
@@ -365,12 +367,37 @@ Numbering continues the movenotes `PLAN.md`, which ends at Step 19.
 ### Step 20 — This plan  ✅
 Write `LEDGER_MIGRATION_PLAN.md`; add a pointer from `PLAN.md`. No code.
 
-### Step 21 — Theme-side prerequisites *(theme repo)*
-M5 and M6 in `hugo-theme-ledger`: `ledgerHideTitle` / `ledgerHideMeta` /
-`params.post.heroPlaceholder`; the extended query grammar in `query.js` with
-both adapters updated; `search-server/` moved to the M7 contract; the theme's
-own `PLAN.md`, `PERFORMANCE.md` note and `AGENTS.md` updated. Verified in a
-browser against `npm run preview`, since `hugo server` builds no Pagefind index.
+### Step 21 — Theme-side prerequisites *(theme repo)*  ✅
+M5, M6 and the theme half of M7, committed as the theme's step 16 (`10f31cc`).
+
+Done: `ledgerHideTitle` / `ledgerHideMeta` / `params.post.heroPlaceholder`; the
+tokenising grammar in `query.js` with both adapters updated; `search-server/`
+on the superset contract with `main_test.go`; docs in the theme's `AGENTS.md`,
+`PLAN.md`, `README.md`, `PERFORMANCE.md` and `search-server/README.md`.
+Verified in a browser on a Bluge build and a Pagefind build; the two agree on
+every query both can express.
+
+Four findings that change later steps:
+
+1. **Tokenising made quoting load-bearing.** `category:Field notes` used to mean
+   the category "Field notes"; it now means a category plus a stray term. The
+   theme generates every clause through `_partials/search-clause.html`, so
+   `obsidian2site.py` must not hand-build query strings either — steps 22 and 24
+   use that partial, or a Python equivalent of the same rule for anything it
+   writes into static JSON.
+2. **Phrase queries need term positions**, or they match nothing while the
+   server looks healthy. The movenotes server already indexes positions; the
+   theme's did not, which is how this surfaced.
+3. **V3's ceiling arithmetic is understated.** The 111 MB/100k Bluge index was
+   measured without positions. The real phrase-capable figure is larger and
+   must be re-measured before the Vercel ceiling in `DEPLOY_VERCEL.md` is
+   written as a number. Step 27 or 32 measures it; until then, treat 250 MB ÷
+   1.11 KB/note as an upper bound on the note count, not a promise.
+4. **Pagefind cannot express `since:`/`until:`.** Backends report dropped
+   clauses and the UI names them, so a `pagefind`-only movenotes build will tell
+   the visitor that date bounds need the Bluge backend rather than silently
+   ignoring them. `STATIC_SITE.md`'s search-syntax section has to say which
+   backend supports what.
 
 ### Step 22 — Generator: project scaffolding *(movenotes)*
 Rewrite `_write_hugo_project` for Ledger: `hugo.toml` with `[taxonomies]`,
@@ -503,3 +530,5 @@ Then, with the user's agreement, push `develop`.
    built in CI and uploaded. Settled in Step 28.
 4. **Whether `--vercel` is a flag or always-on.** Deciding once the emitted
    layout exists (Step 28).
+5. **The phrase-capable Bluge index size**, which sets the Vercel ceiling. Open
+   since step 21; measured in step 27 or 32.

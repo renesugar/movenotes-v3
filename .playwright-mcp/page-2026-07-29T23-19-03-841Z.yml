@@ -1,0 +1,168 @@
+- generic [active] [ref=f3e1]:
+  - link "Skip to content" [ref=f3e2] [cursor=pointer]:
+    - /url: "#ledger-main"
+  - generic [ref=f3e3]:
+    - banner [ref=f3e4]:
+      - link "Field Notes" [ref=f3e5] [cursor=pointer]:
+        - /url: /
+      - navigation "Main" [ref=f3e8]:
+        - link "Home" [ref=f3e9] [cursor=pointer]:
+          - /url: /
+        - link "Tags" [ref=f3e10] [cursor=pointer]:
+          - /url: /tags/
+        - link "About" [ref=f3e11] [cursor=pointer]:
+          - /url: /about/
+        - link "Search" [ref=f3e12] [cursor=pointer]:
+          - /url: /search/
+      - button "Theme Light theme" [ref=f3e14] [cursor=pointer]:
+        - generic [ref=f3e16]: Theme
+        - generic [ref=f3e17]: Light theme
+        - generic [ref=f3e18]: ▼
+    - generic [ref=f3e19]:
+      - complementary "Categories and tags" [ref=f3e20]:
+        - generic [ref=f3e21]:
+          - heading [level=2] [ref=f3e22]:
+            - button "Categories 5" [expanded] [ref=f3e23] [cursor=pointer]:
+              - generic [ref=f3e24]: ▼
+              - generic [ref=f3e25]: Categories
+              - generic [ref=f3e26]: "5"
+          - generic [ref=f3e28]:
+            - link "All notes (opens search) 17 notes" [ref=f3e29] [cursor=pointer]:
+              - /url: /search/?q=category%3A%22All+notes%22
+              - generic [ref=f3e30]: ▸
+              - generic [ref=f3e31]: All notes
+              - generic [ref=f3e32]: ⌕
+              - generic [ref=f3e33]: (opens search)
+              - generic [ref=f3e34]:
+                - text: "17"
+                - generic [ref=f3e35]: notes
+            - link "Recipes (opens search) 7 notes" [ref=f3e36] [cursor=pointer]:
+              - /url: /search/?q=category%3ARecipes
+              - generic [ref=f3e37]: ▸
+              - generic [ref=f3e38]: Recipes
+              - generic [ref=f3e39]: ⌕
+              - generic [ref=f3e40]: (opens search)
+              - generic [ref=f3e41]:
+                - text: "7"
+                - generic [ref=f3e42]: notes
+            - link "Homelab 4 notes" [ref=f3e43] [cursor=pointer]:
+              - /url: /categories/homelab/
+              - generic [ref=f3e44]: ▸
+              - generic [ref=f3e45]: Homelab
+              - generic [ref=f3e46]:
+                - text: "4"
+                - generic [ref=f3e47]: notes
+            - link "Writing 4 notes" [ref=f3e48] [cursor=pointer]:
+              - /url: /categories/writing/
+              - generic [ref=f3e49]: ▸
+              - generic [ref=f3e50]: Writing
+              - generic [ref=f3e51]:
+                - text: "4"
+                - generic [ref=f3e52]: notes
+            - link "Reading 2 notes" [ref=f3e53] [cursor=pointer]:
+              - /url: /categories/reading/
+              - generic [ref=f3e54]: ▸
+              - generic [ref=f3e55]: Reading
+              - generic [ref=f3e56]:
+                - text: "2"
+                - generic [ref=f3e57]: notes
+        - generic [ref=f3e58]:
+          - heading [level=2] [ref=f3e59]:
+            - button "Tags 18" [expanded] [ref=f3e60] [cursor=pointer]:
+              - generic [ref=f3e61]: ▼
+              - generic [ref=f3e62]: Tags
+              - generic [ref=f3e63]: "18"
+          - generic [ref=f3e64]:
+            - generic [ref=f3e65]:
+              - link "routine 5 notes" [ref=f3e66] [cursor=pointer]:
+                - /url: /tags/routine/
+                - generic [ref=f3e67]: "#"
+                - generic [ref=f3e68]: routine
+                - generic [ref=f3e69]:
+                  - text: "5"
+                  - generic [ref=f3e70]: notes
+              - link "markdown 4 notes" [ref=f3e71] [cursor=pointer]:
+                - /url: /tags/markdown/
+                - generic [ref=f3e72]: "#"
+                - generic [ref=f3e73]: markdown
+                - generic [ref=f3e74]:
+                  - text: "4"
+                  - generic [ref=f3e75]: notes
+              - link "notes 4 notes" [ref=f3e76] [cursor=pointer]:
+                - /url: /tags/notes/
+                - generic [ref=f3e77]: "#"
+                - generic [ref=f3e78]: notes
+                - generic [ref=f3e79]:
+                  - text: "4"
+                  - generic [ref=f3e80]: notes
+              - link "technique 4 notes" [ref=f3e81] [cursor=pointer]:
+                - /url: /tags/technique/
+                - generic [ref=f3e82]: "#"
+                - generic [ref=f3e83]: technique
+                - generic [ref=f3e84]:
+                  - text: "4"
+                  - generic [ref=f3e85]: notes
+              - link "linux 3 notes" [ref=f3e86] [cursor=pointer]:
+                - /url: /tags/linux/
+                - generic [ref=f3e87]: "#"
+                - generic [ref=f3e88]: linux
+                - generic [ref=f3e89]:
+                  - text: "3"
+                  - generic [ref=f3e90]: notes
+              - link "baking 2 notes" [ref=f3e91] [cursor=pointer]:
+                - /url: /tags/baking/
+                - generic [ref=f3e92]: "#"
+                - generic [ref=f3e93]: baking
+                - generic [ref=f3e94]:
+                  - text: "2"
+                  - generic [ref=f3e95]: notes
+              - link "books 2 notes" [ref=f3e96] [cursor=pointer]:
+                - /url: /tags/books/
+                - generic [ref=f3e97]: "#"
+                - generic [ref=f3e98]: books
+                - generic [ref=f3e99]:
+                  - text: "2"
+                  - generic [ref=f3e100]: notes
+              - link "docker 2 notes" [ref=f3e101] [cursor=pointer]:
+                - /url: /tags/docker/
+                - generic [ref=f3e102]: "#"
+                - generic [ref=f3e103]: docker
+                - generic [ref=f3e104]:
+                  - text: "2"
+                  - generic [ref=f3e105]: notes
+              - link "slow 2 notes" [ref=f3e106] [cursor=pointer]:
+                - /url: /tags/slow/
+                - generic [ref=f3e107]: "#"
+                - generic [ref=f3e108]: slow
+                - generic [ref=f3e109]:
+                  - text: "2"
+                  - generic [ref=f3e110]: notes
+            - generic [ref=f3e111]:
+              - button "Previous page of tags" [disabled] [ref=f3e112]: ‹
+              - generic [ref=f3e113]:
+                - button "Page 1" [ref=f3e114] [cursor=pointer]: "1"
+                - button "Page 2" [ref=f3e115] [cursor=pointer]: "2"
+              - button "Next page of tags" [ref=f3e116] [cursor=pointer]: ›
+              - generic [ref=f3e117]: 1–9 of 18
+      - separator "Resize sidebar" [ref=f3e118]
+      - main [ref=f3e120]:
+        - generic [ref=f3e121]:
+          - heading "Search" [level=1] [ref=f3e122]
+          - generic [ref=f3e123]:
+            - search [ref=f3e125]:
+              - generic [ref=f3e126]:
+                - generic [ref=f3e127]: ⌕
+                - generic [ref=f3e128]: Search notes
+                - searchbox "Search notes" [ref=f3e129]
+              - button "Run search" [ref=f3e130] [cursor=pointer]:
+                - generic [ref=f3e131]: ⧖
+            - generic:
+              - status
+        - generic [ref=f3e132]:
+          - generic [ref=f3e133]: Field Notes
+          - generic [ref=f3e134]: 17 notes · 4 categories · 18 tags
+          - generic [ref=f3e135]: Ledger theme for Hugo
+          - link "RSS" [ref=f3e136] [cursor=pointer]:
+            - /url: /index.xml
+          - link "Source" [ref=f3e137] [cursor=pointer]:
+            - /url: https://github.com/renesugar/hugo-theme-ledger
