@@ -17,8 +17,11 @@ Read these files first:
    snapshots, preservation bundles, path restoration, attachment mappings, and
    metadata carried through `application_data`.
 5. `obsidian2site.py`, `site_server/`, and `STATIC_SITE.md` — scalable
-   Hugo/Relearn generation, canonical note URLs, disk-backed tags, server-side
-   Bluge search, and the Pagefind static fallback.
+   Hugo/Ledger generation, canonical note URLs, disk-backed tags, server-side
+   Bluge search, and the Pagefind static fallback. `LEDGER_MIGRATION_PLAN.md`
+   holds the in-progress migration from the Relearn theme, its decisions, and
+   which step is next; `STATIC_SITE.md` is rewritten at the end of it, so where
+   the two disagree the plan is current and `STATIC_SITE.md` is not.
 6. `image_resources.py`, `images2resources.py`, and `quarantinelinks.py` —
    Markdown image parsing, network safety, reports, resources, and quarantine.
 7. `CHANGELOG.md` and `PERFORMANCE_REVIEW.md` — revision history and complexity
@@ -34,12 +37,25 @@ Read these files first:
   namespaced `application_data` envelope, not in reconstructed YAML.
 - Resource and item-ID collisions with different bytes are errors.
 - Keep large-library paths batched, indexed, streaming, or bounded-memory.
-- Static-site note titles must never be enumerated in the Relearn sidebar.
-- Do not replace Relearn’s complete `menu.html`; configure supported sidebar menus
-  and custom sidebar elements so theme structure, CSS, and JavaScript remain valid.
-- Bluge-only generated sites must not emit Relearn's native Lunr search or any
-  Pagefind runtime. Keep the project-level `layouts/partials/dependencies/search.html`
-  override and `_validate_built_search_backend` regression together.
+- Static-site note titles must never be enumerated in the sidebar, or in
+  `hugo.toml`. The Ledger sidebar is `partialCached` with no variant key, so it
+  renders once per build; anything page-specific in it makes the build O(pages)
+  in sidebar work.
+- Every surface that can hold the whole archive must be bounded before
+  `.Paginate`, not after: home and section pagers via `params.scale`, over-limit
+  taxonomy terms via `taxonomyPageLimit`. Hugo generates a page for every pager
+  it is handed, so capping only the links changes nothing.
+- Generated word tags never become Hugo taxonomy terms. Explicit tags may; the
+  count that reaches the taxonomy is capped. See decisions M2 and M3 in
+  `LEDGER_MIGRATION_PLAN.md`.
+- Search query clauses are generated in exactly one place per side: the theme's
+  `_partials/search-clause.html`, and its Python equivalent here. The grammar
+  tokenises on whitespace, so a value containing a space must be quoted.
+- Bluge-only generated sites must not emit any browser search runtime. Keep
+  `_validate_built_search_backend` and its regression together.
+- Do not override theme layouts or partials to inject site CSS/JS: the theme
+  reads `params.extraCSS` and `params.extraJS`. Overriding a theme partial
+  duplicates code that will drift.
 - Twitter-origin note detection controls article-heading/date suppression; do
   not infer it from the folder name. Use `movenotes-original-format` or Joplin
   source metadata.

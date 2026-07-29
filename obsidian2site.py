@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Convert an Obsidian vault into a scalable Hugo + Pagefind static site.
+"""Convert an Obsidian vault into a scalable Hugo static site.
 
-The generated Hugo project uses the Relearn documentation theme while replacing
-its page-tree sidebar with a fixed Getting Started / Search / Tags navigation.
-Markdown notes are hidden from the theme menu and are found through Pagefind or
-the disk-backed tag index. The converter is standard-library-only; Hugo,
-Relearn, and Pagefind are external build-time tools.
+The generated Hugo project uses the Ledger theme, which is built for archives of
+100k+ notes: no page tree is ever enumerated, unbounded surfaces are capped, and
+search is a swappable backend. Notes are found through server-side Bluge search,
+the Pagefind static fallback, or the disk-backed tag index. The converter is
+standard-library-only; Hugo, the theme, Go, and Pagefind are external build-time
+tools.
 """
 
 from __future__ import annotations
@@ -86,16 +87,8 @@ yourself yourselves http https www com net org html amp rt via tco x twitter
 status tweet tweets post posts image images video videos
 """.split())
 
-_RELEARN_HUGO_0158_REPLACEMENTS = (
-    (".Language.LanguageDirection", ".Language.Direction"),
-    (".Language.LanguageCode", ".Language.Locale"),
-    (".Language.LanguageName", ".Language.Label"),
-    (".Language.Lang", ".Language.Name"),
-    ("$site.Sites", "hugo.Sites"),
-    ("site.Sites", "hugo.Sites"),
-    (".Site.Sites", "hugo.Sites"),
-    (".Page.Sites", "hugo.Sites"),
-)
+_LEDGER_THEME_NAME = "hugo-theme-ledger"
+_LEDGER_THEME_MODULE = "github.com/renesugar/hugo-theme-ledger"
 
 
 def _build_argument_parser() -> argparse.ArgumentParser:
@@ -144,8 +137,15 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         help="Convert ![[Note]] to a link (scalable default) or transclude its body",
     )
     parser.add_argument(
+        "--ledger-theme", type=Path,
+        help="Copy an existing hugo-theme-ledger checkout into the generated site",
+    )
+    parser.add_argument(
         "--relearn-theme", type=Path,
-        help="Copy an existing hugo-theme-relearn checkout into the generated site",
+        help=(
+            "Deprecated alias for --ledger-theme, kept because it appears in "
+            "published command lines; the generated site uses hugo-theme-ledger"
+        ),
     )
     parser.add_argument(
         "--build", action="store_true",
@@ -153,8 +153,8 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--search-backend", choices=("both", "bluge", "pagefind"), default="both",
-        help=("Search runtime to generate. 'bluge' emits no Pagefind or Relearn/Lunr "
-              "runtime; 'both' keeps Pagefind only as a static-hosting fallback "
+        help=("Search runtime to generate. 'bluge' emits no browser search index; "
+              "'both' keeps Pagefind only as a static-hosting fallback "
               "(default: both)"),
     )
     parser.add_argument(
@@ -179,8 +179,18 @@ def _validate_args(args: argparse.Namespace) -> None:
         common.error("--tag-batch-size must be at least 1")
     if args.minimum_word_length < 1:
         common.error("--minimum-word-length must be at least 1")
-    if args.relearn_theme is not None and not args.relearn_theme.is_dir():
-        common.error(f"Relearn theme directory does not exist: {args.relearn_theme}")
+    if args.relearn_theme is not None and args.ledger_theme is None:
+        # Accepted, not silently reinterpreted: the copied theme is Ledger now.
+        print(
+            "warning: --relearn-theme is deprecated; treating it as --ledger-theme. "
+            "The generated site uses hugo-theme-ledger.",
+            file=sys.stderr,
+        )
+        args.ledger_theme = args.relearn_theme
+    elif args.relearn_theme is not None:
+        common.error("pass either --ledger-theme or --relearn-theme, not both")
+    if args.ledger_theme is not None and not args.ledger_theme.is_dir():
+        common.error(f"Ledger theme directory does not exist: {args.ledger_theme}")
 
 
 def _is_hidden_part(part: str) -> bool:
@@ -448,7 +458,7 @@ def _normalise_heading_text(value: str) -> str:
 
 
 def _remove_redundant_leading_heading(body: str, title: str) -> str:
-    """Remove an initial H1 that merely repeats Relearn's generated page title."""
+    """Remove an initial H1 that merely repeats the theme's generated page title."""
     expected = _normalise_heading_text(title)
     if not expected:
         return body
@@ -1267,32 +1277,19 @@ def _copy_assets(input_root: Path, static_root: Path, asset_map: dict[str, PureP
     return copied
 
 
-def _modernize_copied_relearn_theme(theme_root: Path) -> int:
-    """Update a copied Relearn checkout for Hugo's v0.158+ template APIs."""
-    changed_files = 0
-    layouts = theme_root / "layouts"
-    if not layouts.is_dir():
-        return 0
-    for path in layouts.rglob("*"):
-        if not path.is_file() or path.suffix.casefold() not in {
-            ".html", ".gotmpl", ".xml", ".json", ".txt",
-        }:
-            continue
-        try:
-            original = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        updated = original
-        for old, new in _RELEARN_HUGO_0158_REPLACEMENTS:
-            updated = updated.replace(old, new)
-        if updated != original:
-            path.write_text(updated, encoding="utf-8", newline="\n")
-            changed_files += 1
-    return changed_files
-
-
 def _toml_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
+
+
+def _theme_search_backend(search_backend: str) -> str:
+    """Map the movenotes backend choice onto the theme's single-adapter param.
+
+    Ledger selects one adapter at build time. ``both`` therefore builds both
+    indexes but points the theme at Bluge; the automatic fallback to Pagefind
+    when the server is not running is a separate adapter, added with the rest of
+    the search UI work.
+    """
+    return "pagefind" if search_backend == "pagefind" else "bluge"
 
 
 def _write_hugo_project(
@@ -1307,104 +1304,107 @@ def _write_hugo_project(
     content = output / "content"
     layouts = output / "layouts"
     static = output / "static"
-    assets = output / "assets"
     for path in (
-        content / "notes", layouts / "partials", layouts / "shortcodes",
-        layouts / "partials" / "sidebar" / "element",
-        layouts / "partials" / "dependencies",
-        static / "css", static / "js", assets,
+        content / "notes", layouts / "shortcodes",
+        static / "css", static / "js",
     ):
         path.mkdir(parents=True, exist_ok=True)
 
-    module = "" if copied_theme else """
+    module = "" if copied_theme else f"""
 [module]
   [[module.imports]]
-    path = 'github.com/McShelby/hugo-theme-relearn'
+    path = '{_LEDGER_THEME_MODULE}'
 """
-    theme_line = "theme = 'hugo-theme-relearn'\n" if copied_theme else ""
+    theme_line = f"theme = '{_LEDGER_THEME_NAME}'\n" if copied_theme else ""
+    # Notes carry an explicit `url` ending in .html, so uglyURLs is unnecessary
+    # for them and would only push the theme's own pages to /search.html, which
+    # its templates do not link to. Auxiliary pages stay directory-style.
+    # `locale`, not `languageCode`: Hugo deprecated the latter in v0.158.
     hugo_toml = f"""baseURL = {_toml_string(base_url)}
 locale = {_toml_string(locale)}
 title = {_toml_string(title)}
-uglyURLs = true
 enableRobotsTXT = true
 buildFuture = true
 buildExpired = true
 buildDrafts = true
-disableKinds = ['taxonomy', 'term', 'RSS']
+# Terms are used verbatim in search queries (tag:codec), so they must not be
+# title-cased for display.
+capitalizeListTitles = false
 {theme_line}
-[params]
-  movenotesBuildId = {_toml_string(build_id)}
-  disableLandingPageButton = true
-  disableBreadcrumb = true
-  disableNextPrev = true
-  disableToc = true
-  disableAnchorCopy = true
-  disableInlineCopyToClipBoard = true
-  showVisitedLinks = false
-  hideAuthorName = true
-  hideAuthorEmail = true
-  themeVariant = ['relearn-light', 'relearn-dark']
-  search = false
-  movenotesSearchBackend = {_toml_string(search_backend)}
+[taxonomies]
+  category = 'categories'
+  tag = 'tags'
 
-  [[params.sidebarheadermenus]]
-    type = 'custom'
-    identifier = 'movenotes-search'
-    main = true
+[pagination]
+  pagerSize = 20
 
-    [[params.sidebarheadermenus.elements]]
-      type = 'movenotes-search'
-
-  [[params.sidebarheadermenus]]
-    type = 'divider'
-    identifier = 'movenotes-search-divider'
-
-  [[params.sidebarmenus]]
-    type = 'menu'
-    identifier = 'movenotes'
-    main = true
-    disableTitle = true
-
-  [[params.sidebarfootermenus]]
-    type = 'divider'
-    identifier = 'movenotes-footer-divider'
-
-  [[params.sidebarfootermenus]]
-    type = 'custom'
-    identifier = 'movenotes-theme-switcher'
-
-    [[params.sidebarfootermenus.elements]]
-      type = 'variantswitcher'
-
-[menus]
-  [[menus.movenotes]]
-    identifier = 'getting-started'
-    name = 'Getting Started'
-    pageRef = '/'
-    weight = 10
-    pre = '<i class="fa-fw fas fa-compass"></i> '
-
-  [[menus.movenotes]]
-    identifier = 'search'
-    name = 'Search'
-    pageRef = '/search'
-    weight = 20
-    pre = '<i class="fa-fw fas fa-magnifying-glass"></i> '
-
-  [[menus.movenotes]]
-    identifier = 'browse-tags'
-    name = 'Browse Tags'
-    pageRef = '/tags'
-    weight = 30
-    pre = '<i class="fa-fw fas fa-tags"></i> '
+# A feed of a six-figure archive is neither useful nor cheap to generate.
+[services.rss]
+  limit = 20
 
 [markup]
   [markup.goldmark]
     [markup.goldmark.renderer]
       unsafe = true
 
+[params]
+  movenotesBuildId = {_toml_string(build_id)}
+  movenotesSearchBackend = {_toml_string(search_backend)}
+  mainSections = ['notes']
+  defaultTheme = 'light'
+  # A local archive should not reach out to a font CDN to render.
+  googleFonts = false
+  siteBlurb = ''
+  # Above this many notes a category or tag routes to search instead of
+  # rendering a paginated archive.
+  taxonomyPageLimit = 25
+  extraCSS = ['/css/movenotes-site.css']
+  extraJS = ['/js/movenotes-nav.js']
+
+  [params.pagination]
+    home = 20
+    term = 20
+    search = 20
+    tagsGrid = 60
+    sidebarCategories = 7
+    sidebarCategoriesMobile = 6
+    sidebarTags = 9
+    sidebarTagsMobile = 8
+
+  [params.sidebar]
+    width = 282
+    minWidth = 190
+    maxWidth = 460
+    order = 'count'
+    allNotesLabel = 'All notes'
+    maxTerms = 200
+
+  [params.post]
+    # 100k striped placeholders are noise, not design.
+    heroPlaceholder = false
+
+  [params.search]
+    backend = {_toml_string(_theme_search_backend(search_backend))}
+    bundlePath = '/pagefind/pagefind.js'
+    endpoint = '/api/search'
+
+  # Both ceilings matter here: either surface can hold the whole archive.
+  [params.scale]
+    maxHomePagerPages = 500
+    maxSectionPagerPages = 500
+
+  [params.footer]
+    rss = true
+    sourceURL = ''
+
+  [params.taxonomy]
+    categoryPlural = 'categories'
+    tagPlural = 'tags'
+
 [outputs]
-  home = ['HTML']
+  home = ['html', 'rss']
+  section = ['html']
+  term = ['html']
 {module}"""
     (output / "hugo.toml").write_text(hugo_toml, encoding="utf-8")
     if not copied_theme:
@@ -1412,83 +1412,57 @@ disableKinds = ['taxonomy', 'term', 'RSS']
             "module movenotes/generated-site\n\ngo 1.20\n", encoding="utf-8"
         )
 
-    home = {
-        "title": "Getting Started",
-        "date": generated_at,
-        "lastmod": generated_at,
-        "disableBreadcrumb": True,
-        "disableToc": True,
-        "hideAuthorDate": False,
-    }
-    if search_backend in {"both", "pagefind"}:
-        home["pagefind_ignore"] = True
-    getting_started = (
-        json.dumps(home, ensure_ascii=False, separators=(",", ":"))
-        + "\n{{< movenotes-start >}}\n"
-    )
-    (content / "_index.md").write_text(getting_started, encoding="utf-8")
-    search_meta = {
-        "title": "Search",
-        "hidden": True,
-        "hideAuthorDate": True,
-    }
-    if search_backend in {"both", "pagefind"}:
-        search_meta["pagefind_ignore"] = True
-    (content / "search.md").write_text(
-        json.dumps(search_meta, separators=(",", ":"))
-        + "\n{{< movenotes-search >}}\n",
+    # Home is the theme's own view: a primed search bar over the newest notes,
+    # capped by params.scale. It needs no body.
+    (content / "_index.md").write_text(
+        json.dumps(
+            {"title": title, "date": generated_at, "lastmod": generated_at},
+            ensure_ascii=False, separators=(",", ":"),
+        ) + "\n",
         encoding="utf-8",
     )
-    tags_meta = {
-        "title": "Browse Tags",
-        "hidden": True,
-        "hideAuthorDate": True,
-    }
-    if search_backend in {"both", "pagefind"}:
-        tags_meta["pagefind_ignore"] = True
-    (content / "tags.md").write_text(
-        json.dumps(tags_meta, separators=(",", ":"))
+    (content / "about.md").write_text(
+        json.dumps({
+            "title": "Getting Started",
+            "layout": "about",
+            "url": "/about/",
+            "date": generated_at,
+            "lastmod": generated_at,
+        }, ensure_ascii=False, separators=(",", ":"))
+        + "\n{{< movenotes-start >}}\n",
+        encoding="utf-8",
+    )
+    (content / "search.md").write_text(
+        json.dumps({
+            "title": "Search",
+            "layout": "search",
+            "url": "/search/",
+            "date": generated_at,
+        }, separators=(",", ":"))
+        + "\n",
+        encoding="utf-8",
+    )
+    # Browse Tags lists every generated word tag from the disk-backed posting
+    # index, which is a different set from the Hugo tag taxonomy behind /tags/.
+    (content / "browse-tags.md").write_text(
+        json.dumps({
+            "title": "Browse Tags",
+            "layout": "browse-tags",
+            "url": "/browse-tags/",
+            "date": generated_at,
+        }, separators=(",", ":"))
         + "\n{{< movenotes-tags >}}\n",
         encoding="utf-8",
     )
-    notes_meta = {
-        "title": "Notes",
-        "hidden": True,
-        "hideAuthorDate": True,
-    }
-    if search_backend in {"both", "pagefind"}:
-        notes_meta["pagefind_ignore"] = True
     (content / "notes" / "_index.md").write_text(
-        json.dumps(notes_meta, separators=(",", ":"))
-        + "\nNotes are available through search and tags.\n",
+        json.dumps({"title": "Notes", "date": generated_at}, separators=(",", ":"))
+        + "\n",
         encoding="utf-8",
     )
 
-    (layouts / "partials" / "content.html").write_text(
-        _content_partial(search_backend), encoding="utf-8"
+    (layouts / "browse-tags.html").write_text(
+        _BROWSE_TAGS_LAYOUT, encoding="utf-8"
     )
-    (layouts / "partials" / "custom-header.html").write_text(
-        _CUSTOM_HEADER_PARTIAL, encoding="utf-8"
-    )
-    # Authoritative cross-version kill switch for Relearn's built-in search.
-    # It prevents both the legacy/current Lunr runtime and the native search box.
-    disabled_theme_search = (
-        "{{- /* movenotes supplies its own search UI and backend. */ -}}\n"
-    )
-    (layouts / "partials" / "dependencies" / "search.html").write_text(
-        disabled_theme_search, encoding="utf-8"
-    )
-    # Some older Relearn releases call the adapter partial more directly.
-    (layouts / "partials" / "dependencies" / "search-lunr.html").write_text(
-        disabled_theme_search, encoding="utf-8"
-    )
-    (layouts / "partials" / "heading.html").write_text(
-        _HEADING_PARTIAL, encoding="utf-8"
-    )
-    (
-        layouts / "partials" / "sidebar" / "element" /
-        "movenotes-search.html"
-    ).write_text(_SIDEBAR_SEARCH_PARTIAL, encoding="utf-8")
     (layouts / "shortcodes" / "movenotes-start.html").write_text(
         _getting_started_shortcode(search_backend), encoding="utf-8"
     )
@@ -1513,9 +1487,11 @@ disableKinds = ['taxonomy', 'term', 'RSS']
 
     pagefind_config = output / "pagefind.yml"
     if search_backend in {"both", "pagefind"}:
+        # No exclude_selectors: the theme scopes indexing with a single
+        # data-pagefind-body on note articles, so the shell and the standalone
+        # pages are already out of the index.
         pagefind_config.write_text(
-            "site: public\noutput_path: public/pagefind\nkeep_index_url: false\n"
-            "exclude_selectors:\n  - '[data-pagefind-ignore]'\n",
+            "site: public\noutput_path: public/pagefind\nkeep_index_url: false\n",
             encoding="utf-8",
         )
     else:
@@ -1528,55 +1504,19 @@ disableKinds = ['taxonomy', 'term', 'RSS']
     )
 
 
-_SIDEBAR_SEARCH_PARTIAL = r'''<li class="movenotes-sidebar-search-item">
-  <form class="movenotes-sidebar-search padding" action="{{ "search.html" | relURL }}" method="get" role="search">
-    <label class="a11y-only" for="movenotes-sidebar-q">Search all notes</label>
-    <div class="movenotes-sidebar-search-control">
-      <i class="fa-fw fas fa-magnifying-glass" aria-hidden="true"></i>
-      <input id="movenotes-sidebar-q" name="q" type="search" placeholder="Search all notes" autocomplete="off">
-      <button type="submit" aria-label="Search"><i class="fas fa-arrow-right" aria-hidden="true"></i></button>
-    </div>
-  </form>
-</li>
+_BROWSE_TAGS_LAYOUT = r'''{{ define "main" }}
+{{- /* Generated by obsidian2site.py. Browse Tags is a movenotes view, not one of
+       the theme's: it reads the hashed posting index under static/movenotes/,
+       which holds every generated word tag. The theme's /tags/ grid shows the
+       Hugo tag taxonomy, which is the smaller, explicit set. */ -}}
+<div class="ledger-heading">
+  <span class="ledger-eyebrow">movenotes</span>
+  <h1>{{ .Title }}</h1>
+</div>
+{{ .Content }}
+{{ end }}
 '''
 
-_CONTENT_PARTIAL_PAGEFIND = r'''{{- if .Params.pagefind_ignore }}
-<div data-pagefind-ignore>{{ .Content }}</div>
-{{- else }}
-<article data-pagefind-body>
-  <div class="movenotes-index-metadata" data-pagefind-ignore>
-    <span data-pagefind-meta="title" data-pagefind-weight="10">{{ .Title }}</span>
-    {{- range .Params.movenotes_explicit_tags }}
-    <span data-pagefind-filter="tag">{{ . }}</span>
-    {{- end }}
-  </div>
-  {{ .Content }}
-</article>
-{{- end }}
-'''
-
-_CONTENT_PARTIAL_PLAIN = r'''<article>
-  {{ .Content }}
-</article>
-'''
-
-
-def _content_partial(search_backend: str) -> str:
-    if search_backend in {"both", "pagefind"}:
-        return _CONTENT_PARTIAL_PAGEFIND
-    return _CONTENT_PARTIAL_PLAIN
-
-
-_HEADING_PARTIAL = r'''{{- if not .Params.movenotes_hide_heading }}
-{{- $title := partial "title.gotmpl" (dict "page" .) }}
-<h1 id="{{ $title | plainify | anchorize }}">{{ $title }}</h1>
-{{- end }}
-'''
-
-
-_CUSTOM_HEADER_PARTIAL = r'''<link rel="stylesheet" href="{{ "css/movenotes-site.css" | relURL }}">
-<script defer src="{{ "js/movenotes-nav.js" | relURL }}"></script>
-'''
 
 _NAVIGATION_SCRIPT = r'''(() => {
   const prefetched = new Set();
@@ -2215,10 +2155,6 @@ _SITE_CSS = r'''
   --movenotes-surface-hover: color-mix(in srgb, currentColor 9%, transparent);
 }
 
-/* Keep Relearn's complete sidebar shell. Only the custom element inside it is styled. */
-.movenotes-sidebar-search-item { list-style: none; }
-.movenotes-sidebar-search { display: block; padding-top: .55rem !important; padding-bottom: .55rem !important; }
-.movenotes-sidebar-search-control,
 .movenotes-tag-filter-control {
   display: flex;
   align-items: center;
@@ -2230,13 +2166,11 @@ _SITE_CSS = r'''
   padding: .15rem .2rem .15rem .65rem;
   transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
 }
-.movenotes-sidebar-search-control:focus-within,
 .movenotes-tag-filter-control:focus-within {
   border-color: currentColor;
   background: transparent;
   box-shadow: 0 0 0 .15rem color-mix(in srgb, currentColor 12%, transparent);
 }
-.movenotes-sidebar-search-control input,
 .movenotes-tag-filter-control input {
   flex: 1;
   min-width: 0;
@@ -2247,20 +2181,8 @@ _SITE_CSS = r'''
   font: inherit;
   padding: .55rem 0;
 }
-.movenotes-sidebar-search-control input::placeholder,
 .movenotes-tag-filter-control input::placeholder { color: var(--movenotes-muted); opacity: 1; }
-.movenotes-sidebar-search-control button {
-  display: grid;
-  place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border: 0;
-  border-radius: .5rem;
-  background: color-mix(in srgb, currentColor 12%, transparent);
-  color: inherit;
-  cursor: pointer;
-}
-.movenotes-sidebar-search-control button:hover { background: color-mix(in srgb, currentColor 20%, transparent); }
+
 
 .movenotes-index-metadata {
   position: absolute !important;
@@ -2421,7 +2343,6 @@ _SITE_CSS = r'''
 }
 @media (prefers-reduced-motion: reduce) {
   .movenotes-start-card,
-  .movenotes-sidebar-search-control,
   .movenotes-tag-filter-control { transition: none; }
 }
 '''
@@ -2561,14 +2482,20 @@ def main(argv: list[str]) -> int:
     asset_exact, asset_basenames = _lookup_indexes(asset_map.keys())
 
     copied_theme = False
-    modernized_theme_files = 0
-    if args.relearn_theme is not None:
-        theme_target = output / "themes" / "hugo-theme-relearn"
+    if args.ledger_theme is not None:
+        theme_target = output / "themes" / _LEDGER_THEME_NAME
         if theme_target.exists():
             shutil.rmtree(theme_target)
         theme_target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(args.relearn_theme, theme_target)
-        modernized_theme_files = _modernize_copied_relearn_theme(theme_target)
+        # No post-copy rewriting: Ledger tracks current Hugo template APIs, so a
+        # checkout that does not build is a theme bug to fix in the theme.
+        shutil.copytree(
+            args.ledger_theme, theme_target,
+            ignore=shutil.ignore_patterns(
+                ".git", "node_modules", "public", "resources", "bench",
+                "exampleSite", "tmp-corpus",
+            ),
+        )
         copied_theme = True
 
     _write_hugo_project(
@@ -2579,11 +2506,6 @@ def main(argv: list[str]) -> int:
         copied_theme=copied_theme,
         search_backend=args.search_backend,
     )
-    if modernized_theme_files:
-        print(
-            f"updated {modernized_theme_files:,} copied Relearn template file(s) "
-            "for Hugo 0.158+ APIs"
-        )
     copied_assets = _copy_assets(input_root, output / "static", asset_map)
 
     stop_words = _load_stop_words(args.stop_words)
