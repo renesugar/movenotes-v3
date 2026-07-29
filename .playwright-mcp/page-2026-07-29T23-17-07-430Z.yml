@@ -1,0 +1,187 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#ledger-main"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - link "Field Notes" [ref=e5] [cursor=pointer]:
+        - /url: /
+      - navigation "Main" [ref=e8]:
+        - link "Home" [ref=e9] [cursor=pointer]:
+          - /url: /
+        - link "Tags" [ref=e10] [cursor=pointer]:
+          - /url: /tags/
+        - link "About" [ref=e11] [cursor=pointer]:
+          - /url: /about/
+        - link "Search" [ref=e12] [cursor=pointer]:
+          - /url: /search/
+      - button "Theme Light theme" [ref=e14] [cursor=pointer]:
+        - generic [ref=e16]: Theme
+        - generic [ref=e17]: Light theme
+        - generic [ref=e18]: ▼
+    - generic [ref=e19]:
+      - complementary "Categories and tags" [ref=e20]:
+        - generic [ref=e21]:
+          - heading [level=2] [ref=e22]:
+            - button "Categories 5" [expanded] [ref=e23] [cursor=pointer]:
+              - generic [ref=e24]: ▼
+              - generic [ref=e25]: Categories
+              - generic [ref=e26]: "5"
+          - generic [ref=e28]:
+            - link "All notes (opens search) 17 notes" [ref=e29] [cursor=pointer]:
+              - /url: /search/?q=category%3A%22All+notes%22
+              - generic [ref=e30]: ▸
+              - generic [ref=e31]: All notes
+              - generic [ref=e32]: ⌕
+              - generic [ref=e33]: (opens search)
+              - generic [ref=e34]:
+                - text: "17"
+                - generic [ref=e35]: notes
+            - link "Recipes (opens search) 7 notes" [ref=e36] [cursor=pointer]:
+              - /url: /search/?q=category%3ARecipes
+              - generic [ref=e37]: ▸
+              - generic [ref=e38]: Recipes
+              - generic [ref=e39]: ⌕
+              - generic [ref=e40]: (opens search)
+              - generic [ref=e41]:
+                - text: "7"
+                - generic [ref=e42]: notes
+            - link "Homelab 4 notes" [ref=e43] [cursor=pointer]:
+              - /url: /categories/homelab/
+              - generic [ref=e44]: ▸
+              - generic [ref=e45]: Homelab
+              - generic [ref=e46]:
+                - text: "4"
+                - generic [ref=e47]: notes
+            - link "Writing 4 notes" [ref=e48] [cursor=pointer]:
+              - /url: /categories/writing/
+              - generic [ref=e49]: ▸
+              - generic [ref=e50]: Writing
+              - generic [ref=e51]:
+                - text: "4"
+                - generic [ref=e52]: notes
+            - link "Reading 2 notes" [ref=e53] [cursor=pointer]:
+              - /url: /categories/reading/
+              - generic [ref=e54]: ▸
+              - generic [ref=e55]: Reading
+              - generic [ref=e56]:
+                - text: "2"
+                - generic [ref=e57]: notes
+        - generic [ref=e58]:
+          - heading [level=2] [ref=e59]:
+            - button "Tags 18" [expanded] [ref=e60] [cursor=pointer]:
+              - generic [ref=e61]: ▼
+              - generic [ref=e62]: Tags
+              - generic [ref=e63]: "18"
+          - generic [ref=e64]:
+            - generic [ref=e65]:
+              - link "routine 5 notes" [ref=e66] [cursor=pointer]:
+                - /url: /tags/routine/
+                - generic [ref=e67]: "#"
+                - generic [ref=e68]: routine
+                - generic [ref=e69]:
+                  - text: "5"
+                  - generic [ref=e70]: notes
+              - link "markdown 4 notes" [ref=e71] [cursor=pointer]:
+                - /url: /tags/markdown/
+                - generic [ref=e72]: "#"
+                - generic [ref=e73]: markdown
+                - generic [ref=e74]:
+                  - text: "4"
+                  - generic [ref=e75]: notes
+              - link "notes 4 notes" [ref=e76] [cursor=pointer]:
+                - /url: /tags/notes/
+                - generic [ref=e77]: "#"
+                - generic [ref=e78]: notes
+                - generic [ref=e79]:
+                  - text: "4"
+                  - generic [ref=e80]: notes
+              - link "technique 4 notes" [ref=e81] [cursor=pointer]:
+                - /url: /tags/technique/
+                - generic [ref=e82]: "#"
+                - generic [ref=e83]: technique
+                - generic [ref=e84]:
+                  - text: "4"
+                  - generic [ref=e85]: notes
+              - link "linux 3 notes" [ref=e86] [cursor=pointer]:
+                - /url: /tags/linux/
+                - generic [ref=e87]: "#"
+                - generic [ref=e88]: linux
+                - generic [ref=e89]:
+                  - text: "3"
+                  - generic [ref=e90]: notes
+              - link "baking 2 notes" [ref=e91] [cursor=pointer]:
+                - /url: /tags/baking/
+                - generic [ref=e92]: "#"
+                - generic [ref=e93]: baking
+                - generic [ref=e94]:
+                  - text: "2"
+                  - generic [ref=e95]: notes
+              - link "books 2 notes" [ref=e96] [cursor=pointer]:
+                - /url: /tags/books/
+                - generic [ref=e97]: "#"
+                - generic [ref=e98]: books
+                - generic [ref=e99]:
+                  - text: "2"
+                  - generic [ref=e100]: notes
+              - link "docker 2 notes" [ref=e101] [cursor=pointer]:
+                - /url: /tags/docker/
+                - generic [ref=e102]: "#"
+                - generic [ref=e103]: docker
+                - generic [ref=e104]:
+                  - text: "2"
+                  - generic [ref=e105]: notes
+              - link "slow 2 notes" [ref=e106] [cursor=pointer]:
+                - /url: /tags/slow/
+                - generic [ref=e107]: "#"
+                - generic [ref=e108]: slow
+                - generic [ref=e109]:
+                  - text: "2"
+                  - generic [ref=e110]: notes
+            - generic [ref=e111]:
+              - button "Previous page of tags" [disabled] [ref=e112]: ‹
+              - generic [ref=e113]:
+                - button "Page 1" [ref=e114] [cursor=pointer]: "1"
+                - button "Page 2" [ref=e115] [cursor=pointer]: "2"
+              - button "Next page of tags" [ref=e116] [cursor=pointer]: ›
+              - generic [ref=e117]: 1–9 of 18
+      - separator "Resize sidebar" [ref=e118]
+      - main [ref=e120]:
+        - generic [ref=e121]:
+          - heading "Search" [level=1] [ref=e122]
+          - generic [ref=e123]:
+            - search [ref=e125]:
+              - generic [ref=e126]:
+                - generic [ref=e127]: ⌕
+                - generic [ref=e128]: Search notes
+                - searchbox "Search notes" [ref=e129]: tag:technique tag:slow
+                - button "Clear search" [ref=e130] [cursor=pointer]: ×
+              - button "Run search" [ref=e131] [cursor=pointer]:
+                - generic [ref=e132]: ⧖
+            - status [ref=e134]: 2 results for tag:technique tag:slow
+            - generic [ref=e135]:
+              - 'link "Braising tough cuts Collagen converts to gelatin somewhere around 70°C, given enough hours. Everything else is seasoning. Recipes #technique #slow 2026-05-21 · 6 min" [ref=e136] [cursor=pointer]':
+                - /url: /notes/braising-tough-cuts/
+                - heading "Braising tough cuts" [level=2] [ref=e137]
+                - paragraph [ref=e138]: Collagen converts to gelatin somewhere around 70°C, given enough hours. Everything else is seasoning.
+                - generic [ref=e139]:
+                  - generic [ref=e140]: Recipes
+                  - generic [ref=e141]: "#technique"
+                  - generic [ref=e142]: "#slow"
+                  - generic [ref=e143]: 2026-05-21 · 6 min
+              - 'link "Preserving lemons Salt, lemons, time, and a jar you will forget about for a month. Recipes #technique #slow 2026-04-15 · 4 min" [ref=e144] [cursor=pointer]':
+                - /url: /notes/preserving-lemons/
+                - heading "Preserving lemons" [level=2] [ref=e145]
+                - paragraph [ref=e146]: Salt, lemons, time, and a jar you will forget about for a month.
+                - generic [ref=e147]:
+                  - generic [ref=e148]: Recipes
+                  - generic [ref=e149]: "#technique"
+                  - generic [ref=e150]: "#slow"
+                  - generic [ref=e151]: 2026-04-15 · 4 min
+        - generic [ref=e152]:
+          - generic [ref=e153]: Field Notes
+          - generic [ref=e154]: 17 notes · 4 categories · 18 tags
+          - generic [ref=e155]: Ledger theme for Hugo
+          - link "RSS" [ref=e156] [cursor=pointer]:
+            - /url: /index.xml
+          - link "Source" [ref=e157] [cursor=pointer]:
+            - /url: https://github.com/renesugar/hugo-theme-ledger
