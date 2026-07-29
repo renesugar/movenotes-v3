@@ -159,10 +159,23 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertEqual(metadata["title"], "First Note")
             self.assertEqual(metadata["date"], "2025-01-02T03:04:05Z")
             self.assertEqual(metadata["url"], "/notes/folder/note.html")
-            self.assertTrue(metadata["hidden"])
             self.assertNotIn("custom", metadata)
-            self.assertNotIn("movenotes_tags", metadata)
-            self.assertEqual(metadata["movenotes_explicit_tags"], ["alpha", "beta"])
+            # Explicit tags — frontmatter tags plus inline hashtags — become Hugo
+            # taxonomy terms. Generated word tags never do.
+            self.assertEqual(metadata["tags"], ["alpha", "beta"])
+            self.assertEqual(metadata["categories"], ["Folder"])
+            # Front matter is repeated once per note, so nothing is written that
+            # the theme can derive, and no Relearn field survives.
+            for absent in (
+                "hidden", "disableBreadcrumb", "disableToc", "hideAuthorDate",
+                "movenotes_hide_heading", "movenotes_explicit_tags",
+                "movenotes_tags", "summary", "readingTime",
+            ):
+                self.assertNotIn(absent, metadata)
+            # A note at the vault root has no folder to name it, so it takes the
+            # site title.
+            root_meta, _ = read_json_frontmatter(site / "content" / "notes" / "other.md")
+            self.assertEqual(root_meta["categories"], ["vault"])
             self.assertNotIn("# First Note", body)
             self.assertIn("[the other note](../other.html)", body)
             self.assertIn("![picture.png](../../vault-assets/assets/picture.png)", body)
@@ -269,6 +282,151 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertNotIn("[menus]", hugo_config)
             self.assertFalse((site / "layouts" / "partials" / "menu.html").exists())
             self.assertEqual(len(list((site / "content" / "notes").glob("*.md"))), 251)
+
+    def test_taxonomy_tag_cap_promotes_the_most_frequent_tags(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-tag-cap-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            site = root / "site"
+            vault.mkdir()
+            # "common" is on every note, "middling" on three, and each note has
+            # a tag of its own, so the promotion order is unambiguous.
+            for index in range(6):
+                tags = ["common", f"only{index}"]
+                if index < 3:
+                    tags.append("middling")
+                (vault / f"Note {index}.md").write_text(
+                    "---\ntags:\n" + "".join(f"  - {tag}\n" for tag in tags) + "---\n"
+                    f"Body about UniqueWord{index}.\n",
+                    encoding="utf-8",
+                )
+
+            result = run(
+                "--input", str(vault), "--output", str(site),
+                "--max-taxonomy-tags", "2", "--progress-every", "0",
+            )
+            self.assertIn("2 of 8 explicit tag(s)", result.stdout)
+            self.assertIn("the other 6", result.stdout)
+
+            promoted = set()
+            for path in (site / "content" / "notes").glob("note-*.md"):
+                metadata, _ = read_json_frontmatter(path)
+                promoted.update(metadata.get("tags", []))
+            self.assertEqual(promoted, {"common", "middling"})
+
+            # Demoted tags are not lost: they stay in the posting index behind
+            # Browse Tags, and in the Bluge source.
+            indexed = set()
+            for path in (site / "static" / "movenotes" / "tags").glob("*.json"):
+                if path.name == "manifest.json":
+                    continue
+                indexed.update(tag for tag, _count in json.loads(path.read_text(encoding="utf-8")))
+            self.assertIn("only5", indexed)
+            source = (site / "server" / "search-source.jsonl").read_text(encoding="utf-8")
+            self.assertIn("only5", source)
+
+    def test_taxonomy_tag_cap_is_deterministic_and_defaults_by_note_count(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-tag-cap-order-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            vault.mkdir()
+            # Every tag appears once, so only the name tie-break decides, which
+            # is what keeps two runs of one vault identical.
+            for index in range(4):
+                (vault / f"Note {index}.md").write_text(
+                    f"---\ntags:\n  - tag{index}\n---\nBody {index}.\n",
+                    encoding="utf-8",
+                )
+            first, second = (root / "one", root / "two")
+            for site in (first, second):
+                run(
+                    "--input", str(vault), "--output", str(site),
+                    "--max-taxonomy-tags", "2", "--progress-every", "0",
+                )
+
+            def tags_of(site: Path) -> dict[str, list[str]]:
+                return {
+                    path.name: read_json_frontmatter(path)[0].get("tags", [])
+                    for path in sorted((site / "content" / "notes").glob("note-*.md"))
+                }
+
+            self.assertEqual(tags_of(first), tags_of(second))
+            self.assertEqual(
+                sorted(tag for tags in tags_of(first).values() for tag in tags),
+                ["tag0", "tag1"],
+            )
+
+        # The automatic cap keeps terms at a tenth of the notes, bounded to
+        # 200–5000: a term page costs about as much to build as a note page.
+        self.assertEqual(obsidian2site._automatic_taxonomy_tag_cap(0), 200)
+        self.assertEqual(obsidian2site._automatic_taxonomy_tag_cap(2_000), 200)
+        self.assertEqual(obsidian2site._automatic_taxonomy_tag_cap(5_000), 500)
+        self.assertEqual(obsidian2site._automatic_taxonomy_tag_cap(20_000), 2_000)
+        self.assertEqual(obsidian2site._automatic_taxonomy_tag_cap(500_000), 5_000)
+
+    def test_uncapped_taxonomy_keeps_every_explicit_tag(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-tag-uncapped-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            site = root / "site"
+            vault.mkdir()
+            (vault / "Note.md").write_text(
+                "---\ntags:\n  - alpha\n  - beta\n---\nBody with #gamma.\n",
+                encoding="utf-8",
+            )
+            result = run(
+                "--input", str(vault), "--output", str(site),
+                "--max-taxonomy-tags", "0", "--progress-every", "0",
+            )
+            self.assertIn("3 of 3 explicit tag(s)", result.stdout)
+            metadata, _ = read_json_frontmatter(site / "content" / "notes" / "note.md")
+            self.assertEqual(metadata["tags"], ["alpha", "beta", "gamma"])
+
+    def test_category_modes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-categories-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            (vault / "Twitter").mkdir(parents=True)
+            (vault / "Deep" / "Nested").mkdir(parents=True)
+            (vault / "Twitter" / "Post.md").write_text("A post.\n", encoding="utf-8")
+            (vault / "Deep" / "Nested" / "Note.md").write_text("Nested.\n", encoding="utf-8")
+            (vault / "Root.md").write_text("At the root.\n", encoding="utf-8")
+
+            folder = root / "folder"
+            run("--input", str(vault), "--output", str(folder),
+                "--title", "Archive", "--progress-every", "0")
+            self.assertEqual(
+                read_json_frontmatter(folder / "content" / "notes" / "twitter" / "post.md")[0]["categories"],
+                ["Twitter"],
+            )
+            # Only the top-level folder names the category; nesting deeper does
+            # not multiply categories.
+            self.assertEqual(
+                read_json_frontmatter(folder / "content" / "notes" / "deep" / "nested" / "note.md")[0]["categories"],
+                ["Deep"],
+            )
+            self.assertEqual(
+                read_json_frontmatter(folder / "content" / "notes" / "root.md")[0]["categories"],
+                ["Archive"],
+            )
+
+            fixed = root / "fixed"
+            run("--input", str(vault), "--output", str(fixed),
+                "--category-mode", "fixed", "--category-name", "All of it",
+                "--progress-every", "0")
+            for relative in ("twitter/post.md", "root.md"):
+                self.assertEqual(
+                    read_json_frontmatter(fixed / "content" / "notes" / Path(relative))[0]["categories"],
+                    ["All of it"],
+                )
+
+            none = root / "none"
+            run("--input", str(vault), "--output", str(none),
+                "--category-mode", "none", "--progress-every", "0")
+            self.assertNotIn(
+                "categories",
+                read_json_frontmatter(none / "content" / "notes" / "twitter" / "post.md")[0],
+            )
 
     def test_long_and_colliding_names_are_shortened_deterministically(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-names-") as temporary:
@@ -684,8 +842,11 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
                 "--search-backend", "bluge", "--progress-every", "0",
             )
             metadata, body = read_json_frontmatter(site / "content" / "notes" / "tweet.md")
-            self.assertTrue(metadata["movenotes_hide_heading"])
-            self.assertTrue(metadata["hideAuthorDate"])
+            # A Twitter note carries its own heading and timestamp in the body,
+            # so the theme's are suppressed. The h1 stays in the document
+            # outline for assistive technology; the theme hides it visually.
+            self.assertTrue(metadata["ledgerHideTitle"])
+            self.assertTrue(metadata["ledgerHideMeta"])
             self.assertIn("Tweet text.", body)
             # The heading.html override is gone: the theme reads ledgerHideTitle
             # and ledgerHideMeta from front matter instead, which the next step

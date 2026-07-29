@@ -124,14 +124,35 @@ key.
 ### M3 — Bounded taxonomy
 
 Explicit tags are unbounded in principle (a vault can contain 50k distinct
-hashtags), and every term is a Hugo page. New flag
-`--max-taxonomy-tags N` (default 5,000 — the tag count Ledger has actually been
-measured at, in the 500k tier):
+hashtags), and every term is a Hugo page. New flag `--max-taxonomy-tags N`:
 
-- the N most frequent explicit tags become Hugo taxonomy terms;
+- the N most frequent explicit tags become Hugo taxonomy terms, ties broken by
+  name so two runs of one vault promote the same set;
 - the remainder stay searchable through the posting index and Bluge, and the
   Browse Tags page continues to list all of them;
-- the generator logs how many tags were promoted and how many spilled.
+- the generator logs how many tags were promoted and how many were not.
+
+**The default is adaptive: `max(200, min(5000, notes // 10))`.** Measured at
+5,000 synthetic notes with 5,000 Zipf-distributed tags, a taxonomy term costs
+about as much to build as a note page — so a flat 5,000 would have tripled the
+build of a small archive while being negligible on a large one:
+
+| cap | terms | pages | Hugo build | peak RSS | `public/` |
+|---|---|---|---|---|---|
+| 200 | 200 | 5,213 | 11.2 s | 386 MB | 137 MB |
+| 2,000 | 2,000 | 7,013 | 18.6 s | 477 MB | 181 MB |
+| 5,000 / uncapped | 5,000 | 10,013 | 32.2 s | 539 MB | 245 MB |
+
+Each additional 1,000 terms cost ~1,000 pages, ~4.4 s, ~32 MB of RSS and ~22 MB
+of output at this corpus size. 5,000 remains the ceiling because it is the term
+count the theme has been benchmarked at; 200 is the floor because a sidebar
+holds `sidebar.maxTerms = 200` anyway.
+
+Promotion needs global counts, which are only complete after every note has been
+read, so it runs as a second pass that rewrites the front-matter line of just
+the notes carrying a demoted tag. Bodies are not buffered — a vault's do not fit
+in memory. Measured cost: ~3 s to rewrite 4,940 of 5,000 notes, and nothing at
+all for a vault under its cap.
 
 `taxonomyPageLimit` (default 25) then keeps every promoted term from
 paginating: over-limit terms server-render page 1 and hand the rest to search.
@@ -445,12 +466,38 @@ Note front matter is still Relearn-shaped, so the sidebar and `/tags/` are empty
 that none of the deleted partial overrides comes back; 19 pass in
 `test_obsidian2site.py`, 87 across the suite.
 
-### Step 23 — Generator: note front matter and taxonomy *(movenotes)*
-`_frontmatter_json` emits `categories`, `tags` (promoted tier), `summary`,
-`readingTime`, `ledgerHideTitle`/`ledgerHideMeta`; Relearn fields dropped.
-Implement M3's promotion and spill with `--max-taxonomy-tags`, and M4's
-`--category-mode` / `--category-name`. Tag counting already runs through
-temporary SQLite, so promotion is an ORDER BY, not a second pass.
+### Step 23 — Generator: note front matter and taxonomy *(movenotes)*  ✅
+`_frontmatter_json` now emits `categories`, `tags`, and
+`ledgerHideTitle`/`ledgerHideMeta`; every Relearn field is gone (`hidden`,
+`disableBreadcrumb`, `disableToc`, `hideAuthorDate`, `movenotes_hide_heading`,
+`movenotes_explicit_tags`). M3's cap and M4's `--category-mode` /
+`--category-name` are implemented, with the measurement above.
+
+Deviations from this step as planned, both to keep front matter small — it is
+repeated once per note, so 166k notes pay for every field:
+
+- **No `summary`.** Every summary movenotes could write is the first N characters
+  of the body, which is exactly what Hugo's `.Summary` already gives result
+  cards, and exactly what step 21 stopped the post view from using as a
+  standfirst because it duplicates the text directly below it. Search results
+  still get a real summary: it is in `search-source.jsonl` for Bluge, and
+  Pagefind falls back to its own excerpt.
+- **No `readingTime`.** `.ReadingTime` computes it. The Bluge JSONL needs the
+  number, and that is step 25's field to add.
+
+The promotion pass is a second pass, not the `ORDER BY` this step assumed: the
+counts it orders by are not complete until every note has been converted, and
+buffering 166k bodies to defer writing them is not an option. See M3.
+
+Verified against a generated 10-note vault and the 5,000-note synthetic corpus:
+front matter carries the right categories and tags, the cap demotes the right
+tags and leaves them searchable, promotion is byte-identical across two runs, the
+sidebar fills with categories and tags, and a Twitter note renders with its title
+in the document outline but off the screen, no meta row, and no hero. At 5,000
+notes in one over-limit category the archive emits **zero pager directories** and
+the sidebar is byte-identical between `/` and note 4,999 — decision D2 and the
+`partialCached` invariant both holding through generated config. 23 tests in
+`test_obsidian2site.py`, 91 across the suite.
 
 ### Step 24 — Generator: Browse Tags and exact-tag results on Ledger *(movenotes)*
 Port the `movenotes-tags` and `movenotes-search` shortcode behaviour onto
@@ -563,10 +610,11 @@ Then, with the user's agreement, push `develop`.
 
 1. **`bluge.OpenReader` on a read-only filesystem** — resolved in Step 27; the
    fallback is a `/tmp` copy, which costs cold-start time.
-2. **Hugo build cost of 5,000 taxonomy terms over a 166k-note corpus.** The
-   theme measured 5,000 tags at 500k notes, so the shape is known good, but
-   movenotes' promotion changes the distribution. Measure during Step 23 and
-   lower the `--max-taxonomy-tags` default if the build cost moves.
+2. ~~**Hugo build cost of 5,000 taxonomy terms.**~~ Resolved in step 23: a term
+   costs about as much as a note page, so the default cap became adaptive rather
+   than a flat 5,000. Table in M3. Not yet measured at 166k notes — the shape is
+   linear in terms at 5k, and the theme has run 5,000 terms at 500k notes, but
+   neither is the same as measuring it.
 3. **Whether `vercel.json`'s `includeFiles` picks up an index generated during
    the build** rather than committed. If not, the index must be committed or
    built in CI and uploaded. Settled in Step 28.
