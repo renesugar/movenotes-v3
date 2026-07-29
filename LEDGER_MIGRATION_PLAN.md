@@ -1,0 +1,505 @@
+# Plan: replace Relearn with Ledger, add Vercel deployment, and re-open the
+# static-search question
+
+Scope of this plan:
+
+1. Replace `hugo-theme-relearn` with `hugo-theme-ledger` in the site generated
+   by `obsidian2site.py`, keeping the movenotes Bluge server.
+2. Make `movenotes-site-server` deployable on Vercel *and* usable locally.
+3. Benchmark Orama and FlexSearch against Pagefind at 25k / 100k / 200k pages
+   and, only if the numbers justify it, add one or both to `obsidian2site.py`.
+4. Document Vercel (Bluge) and GitHub Pages (static) deployment.
+
+Two repositories are involved and each step below names the one it touches:
+
+| repo | path | role |
+|---|---|---|
+| `movenotes-v3` | `/home/renes/projects/movenotes-v3` | generator, Bluge server, docs |
+| `hugo-theme-ledger` | `/home/renes/projects/hugo-theme-ledger` | theme, search adapters, bench harness |
+
+## Working agreement
+
+- One step per session. Every step ends with the repo building, its tests
+  passing, and a commit whose subject carries the step number.
+- Ask before starting the next step.
+- `python3 -m unittest -v test_movenotes.py test_image_resources.py
+  test_obsidian2sql.py test_obsidian2site.py` must pass at the end of every
+  step that touches `movenotes-v3`.
+- `hugo --source exampleSite --themesDir ../..` must succeed at the end of
+  every step that touches the theme.
+- Nothing is pushed to GitHub until the whole plan is complete, the user has
+  tested against a real Twitter/X archive, and the user has agreed. Push target
+  is `develop`; the pull request into `main` is created by the user.
+
+---
+
+## Part A — Evaluation: is Ledger the right replacement?
+
+**Verdict: yes, and the fit is unusually close.** Ledger was written for the
+problem `obsidian2site.py` already solves by hand, and its Bluge adapter was
+modelled on this repo's server. Relearn is being used against its own design:
+roughly a third of the generated-project scaffolding in `obsidian2site.py`
+exists to *suppress* Relearn behaviour.
+
+### What the swap deletes from `obsidian2site.py`
+
+| Relearn workaround | why it exists | after |
+|---|---|---|
+| `_modernize_copied_relearn_theme` + `_RELEARN_HUGO_0158_REPLACEMENTS` | Relearn checkouts lag Hugo's template API | deleted — Ledger's `min_version` is 0.146 and it is developed on 0.164 |
+| `layouts/partials/dependencies/search.html` and `search-lunr.html` kill switches | stop Relearn shipping Lunr | deleted — Ledger ships no built-in search runtime |
+| `params.sidebarheadermenus` / `sidebarmenus` / `sidebarfootermenus` blocks | force a fixed three-item sidebar and stop note titles being enumerated | deleted — Ledger's sidebar never enumerates pages |
+| `_SIDEBAR_SEARCH_PARTIAL` (`sidebar/element/movenotes-search.html`) | inject a search box into Relearn's sidebar | deleted — Ledger has a search bar and a search view |
+| `_HEADING_PARTIAL` (`heading.html` override) | suppress the duplicated H1 on Twitter notes | replaced by a theme-level front-matter switch (decision M5) |
+| `_CONTENT_PARTIAL_PAGEFIND` / `_CONTENT_PARTIAL_PLAIN` | scope Pagefind to note bodies | deleted — Ledger's `page.html` owns the `data-pagefind-body` contract |
+| `hidden: true`, `disableBreadcrumb`, `disableToc`, `hideAuthorDate` on every note | Relearn front matter | deleted — smaller front matter on every note |
+| `themeVariant`, `disableLandingPageButton`, … | Relearn params | replaced by Ledger's `[params]` schema |
+
+The three shortcodes (`movenotes-start`, `movenotes-search`, `movenotes-tags`)
+and `_SITE_CSS` shrink to whatever Ledger does not already provide — chiefly the
+exact-tag browse page, which stays a movenotes feature (decision M2).
+
+### What the swap gains
+
+- Measured behaviour at 10k / 100k / 500k pages, written down in the theme's
+  `PERFORMANCE.md`, including five refuted attempts at making Pagefind fast.
+- Server-rendered first page for over-limit terms, so opening a tag issues no
+  search query at all — the single largest win in that document.
+- A designed home / term / tags-grid / post / about set of views, three themes,
+  and a contrast-audited palette (nothing below 4.5:1).
+- One backend-agnostic query parser with a documented adapter interface, which
+  is where Orama and FlexSearch will plug in (Part C).
+
+### What the swap costs — and how each cost is paid
+
+1. **Search grammar regression.** Ledger's `query.js` accepts one
+   `category:`/`tag:` clause or free text. The movenotes Bluge server already
+   supports quoted phrases, several `tag:` clauses, `since:` and `until:`.
+   → Decision M6: extend the theme's parser and contract rather than lose
+   syntax.
+2. **Ledger reads Hugo taxonomies; movenotes deliberately does not.**
+   `_extract_tags` makes a tag of every unique non-filler word, which is why
+   generated tags live in a hashed posting index under `static/movenotes/`
+   instead of Hugo's taxonomy. Feeding those into `[taxonomies]` would create
+   hundreds of thousands of term pages. → Decision M2 (two-tier tags).
+3. **`disableKinds = ['taxonomy','term','RSS']` must go**, because Ledger's
+   sidebar, `/tags/` grid and term archives are taxonomy pages. That re-admits
+   exactly the build cost movenotes disabled, so the tag tier that reaches Hugo
+   has to be bounded. → Decision M2 again, plus the M3 cap.
+4. **Two API contracts for Bluge.** → Decision M7 (one superset contract).
+5. **Twitter-note presentation.** Ledger's `page.html` always renders
+   `<h1>{{ .Title }}</h1>` and a date/reading-time row. → Decision M5.
+
+---
+
+## Part B — Decisions
+
+### M1 — Theme delivery
+
+`--relearn-theme` becomes `--ledger-theme` (copy a local checkout into the
+generated project, source untouched). Without it, the generated `hugo.toml`
+imports `github.com/renesugar/hugo-theme-ledger` as a Hugo module. No
+post-copy rewriting: if a Ledger checkout does not build on the installed Hugo,
+that is a theme bug to fix in the theme repo.
+
+`--relearn-theme` is kept as a deprecated alias for one release: it warns and
+behaves as `--ledger-theme`, because it is in `STATIC_SITE.md` command lines
+users have copied.
+
+### M2 — Two-tier tags (the load-bearing decision)
+
+| tier | source | storage | surfaces |
+|---|---|---|---|
+| **explicit** | frontmatter `tags`/`tag` + inline `#hashtags` | Hugo `tags` taxonomy (front matter `tags`) | sidebar, `/tags/` grid, term archives, post footer, Pagefind/Bluge `tag:` filter |
+| **generated** | every unique non-filler word ≥ `--minimum-word-length` | existing hashed posting index under `static/movenotes/` + `tag` fields in `server/search-source.jsonl` | the movenotes **Browse Tags** page and `tag:` queries answered by Bluge |
+
+Both tiers keep working exactly as today for search; the change is only that
+the explicit tier is *also* a Hugo taxonomy so Ledger's designed surfaces have
+something real to show. Generated word tags never become taxonomy terms.
+
+The invariant in `AGENTS.md` ("static-site note titles must never be enumerated
+in the Relearn sidebar") is preserved and restated for Ledger: nothing
+page-specific may enter the sidebar, which is `partialCached` with no variant
+key.
+
+### M3 — Bounded taxonomy
+
+Explicit tags are unbounded in principle (a vault can contain 50k distinct
+hashtags), and every term is a Hugo page. New flag
+`--max-taxonomy-tags N` (default 5,000 — the tag count Ledger has actually been
+measured at, in the 500k tier):
+
+- the N most frequent explicit tags become Hugo taxonomy terms;
+- the remainder stay searchable through the posting index and Bluge, and the
+  Browse Tags page continues to list all of them;
+- the generator logs how many tags were promoted and how many spilled.
+
+`taxonomyPageLimit` (default 25) then keeps every promoted term from
+paginating: over-limit terms server-render page 1 and hand the rest to search.
+
+### M4 — Categories
+
+Ledger's views expect one category per note. Derive it from the note's
+top-level vault folder, which is meaningful for these vaults (`Twitter`,
+`Notes`, …). New flag `--category-mode {folder,fixed,none}` (default `folder`),
+with `--category-name` for `fixed`. Notes at the vault root get
+`--category-name` or, absent that, the site title. Ledger's synthetic
+"All notes" sidebar row is left enabled.
+
+### M5 — Twitter-note presentation (theme change)
+
+Add to the theme two front-matter switches read by `page.html`:
+`ledgerHideTitle` and `ledgerHideMeta`. `obsidian2site.py` sets them from the
+existing `_is_twitter_note` detection — which must keep coming from
+`movenotes-original-format` / Joplin source metadata, never from the folder
+name.
+
+Ledger also renders a hero-image block with a striped placeholder when a note
+has no `image`. For a Twitter archive that placeholder on 166k notes is noise:
+add `params.post.heroPlaceholder` (default `true`) so the generator can turn it
+off, rather than fighting it with CSS.
+
+### M6 — One query grammar, extended in the theme
+
+Extend `assets/js/search/query.js` to the movenotes grammar, keeping it parsed
+once and backend-agnostically:
+
+```
+category:<name>            (unchanged; "all notes" label means no filter)
+tag:<name>                 repeatable, ANDed
+"quoted phrase"            exact phrase
+since:YYYY-MM-DD           inclusive
+until:YYYY-MM-DD           exclusive
+anything else              free text, ANDed
+```
+
+The parsed shape grows from `{field, value, text, matchAll}` to
+`{categories[], tags[], phrases[], terms[], since, until, matchAll}`. Both
+existing adapters are updated: `bluge.js` passes the clauses through;
+`pagefind.js` maps what Pagefind can express (`category`/`tag` filters, text)
+and reports the rest as unsupported rather than silently ignoring it — a
+Pagefind-hosted site should say that `since:` needs the Bluge backend. The
+theme's three number-windowing implementations and the "ordering must agree"
+rule are untouched by this.
+
+### M7 — One Bluge HTTP contract
+
+Today:
+
+| | movenotes `site_server` | Ledger `bluge.js` |
+|---|---|---|
+| request | `q`, `offset`, `limit`, `sort` | `q`, `category`, `tag`, `page`, `per` |
+| result item | `url`, `title`, `date`, `excerpt` | `title`, `summary`, `url`, `category`, `tags`, `date`, `readingTime` |
+| envelope | `backend`, `query`, `total`, `offset`, `limit` | `total`, `page`, `per` |
+
+Converge on a superset served by `movenotes-site-server`:
+
+- accept `page`+`per` **and** `offset`+`limit`; accept repeated `tag=` and
+  `category=`, plus `since`/`until`/`sort`;
+- return `total`, `page`, `per`, `offset`, `limit`, `backend`, `query`, and
+  result items carrying `url`, `title`, `summary`, `date`, `category`, `tags`,
+  `readingTime`, `excerpt`;
+- keep `/api/health` (`{"backend":"bluge","notes":N}`) and the `Server-Timing`
+  header and request logging, which are the documented way to tell a
+  Bluge-backed site apart from a stale build.
+
+`search-source.jsonl` gains `category` and `readingTime`; the theme's
+reference server in `search-server/` is updated to the same contract so the two
+do not drift.
+
+### M8 — What stays exactly as it is
+
+Canonical URLs from `obsidian2site.py` reused in front matter, posting index,
+Pagefind results and Bluge rows. `uglyURLs = true`. Streaming/batched
+generation. Standard-library-only Python. Bluge building from
+`search-source.jsonl` and never from Pagefind's private index. Pagefind
+running after Hugo. `_validate_built_search_backend` — retargeted from Relearn's
+Lunr filenames to Ledger's bundle, so a `bluge`-only build still fails if a
+browser index leaks in.
+
+---
+
+## Part C — Vercel
+
+### Findings (verified against Vercel docs, July 2026)
+
+- Two shapes exist. **(a)** `.go` files in `api/` exporting an
+  `http.HandlerFunc` become individual functions, zero-config, alongside a
+  static build output. **(b)** A root `main.go` (or `cmd/api/main.go`,
+  `cmd/server/main.go`) with `framework: "go"` runs a whole `net/http` server
+  that must listen on `$PORT`.
+- `go.mod` must be at the **project root** in both shapes.
+- Function bundles are capped at **250 MB uncompressed**. The 5 GB "large
+  functions" path is Node.js and Python only, so it is not available here.
+- Max duration 300 s (Hobby); memory 2 GB (Hobby); response body 4.5 MB;
+  filesystem read-only apart from `/tmp`.
+- Extra files reach a function only if matched by
+  `functions[...].includeFiles` in `vercel.json`.
+
+### V1 — Shape: `api/` functions, not a root server
+
+Shape (b) is tempting because `movenotes-site-server` already serves static
+files, but it would put `public/` inside the function bundle — a 25k-note site
+is already over 250 MB of HTML. Vercel's CDN must serve `public/`, and the Go
+code must serve only `/api/*`:
+
+```
+<generated site>/
+  go.mod                    module movenotes/site      (root: Vercel requirement)
+  api/search.go             package handler → Handler
+  api/health.go             package handler → Handler
+  server/                   package server: index build, query parse, handlers
+  cmd/movenotes-site-server/main.go   local binary: flags, static files, listen
+  public/                   Hugo output — Vercel's outputDirectory
+  vercel.json
+```
+
+The local binary keeps its current behaviour and command line. Nothing about
+the local workflow in `STATIC_SITE.md` §3 changes.
+
+### V2 — Server refactor
+
+- Move index building, query parsing and the two HTTP handlers into a `server`
+  package with no `log.Fatal` and no `flag` use.
+- Configuration resolution order: explicit argument → environment
+  (`MOVENOTES_INDEX`, `MOVENOTES_SOURCE`, `MOVENOTES_SITE`, `PORT`) → default.
+- Open the index lazily behind `sync.Once` so a cold function does not open it
+  until the first search, and share the reader across warm invocations.
+- **Never build an index inside a function.** 100k notes take 116 s to index
+  and the filesystem is read-only; the index is built at deploy time and
+  shipped. A function that finds no index returns 503 with a message saying so.
+- Verify `bluge.OpenReader` can open an index on a read-only filesystem. If it
+  needs a writable directory, copy or symlink into `/tmp` on first use and
+  record the cost; this is the one genuinely unknown item in Part C.
+
+### V3 — Size ceiling, stated plainly in the docs
+
+Measured index size is ~1.11 KB/note (111 MB at 100k). With a ~30 MB binary the
+250 MB cap lands at roughly **150k–190k notes**, and a 166k-note archive is
+inside it but not comfortably. The documentation will give the arithmetic, the
+`du -sh` command to check, and three options past the ceiling:
+
+1. static search (Pagefind, or whatever Part C promotes) on Vercel, no Go;
+2. Bluge on a long-running host (Fly.io, a VPS, a container) with Vercel
+   serving the static site and rewriting `/api/*` across;
+3. split the archive.
+
+### V4 — `vercel.json` the generator writes
+
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "public",
+  "functions": {
+    "api/*.go": { "includeFiles": "server/bluge-index/**", "maxDuration": 60 }
+  }
+}
+```
+
+Hugo-module theme mode conflicts with the root `go.mod` the Go runtime needs, so
+Vercel deployment requires `--ledger-theme` (a copied theme). The generator
+will say so rather than emitting a project that fails at build time.
+
+---
+
+## Part D — Search benchmark: Orama and FlexSearch vs Pagefind
+
+Run in the **theme** repo, which already has the harness
+(`scripts/gen-corpus.js`, `scripts/bench.sh`, `scripts/query-latency.js`) and
+the Pagefind baseline. Existing tiers are 10k / 100k / 500k; this plan adds
+25k and 200k as asked.
+
+### What is actually being asked
+
+Pagefind's advantage is that it *never* loads a whole index: the browser fetches
+only the chunks a query touches. Orama (in-memory, restored from a serialized
+index via `@orama/plugin-data-persistence`) and FlexSearch v0.8 (export/import,
+*or* a persistent IndexedDB adapter) have different shapes. So the comparison
+must measure the thing that decides it — bytes and memory before the first
+result — and not just warm query latency, where an in-memory index will win
+trivially and misleadingly.
+
+### Metrics per backend per tier
+
+1. index build time and index size on disk;
+2. **bytes the browser downloads before the first result** (and how much on
+   each subsequent query);
+3. cold time-to-first-result, including download, deserialize and any IndexedDB
+   population;
+4. warm latency for four query classes, matching the existing table: filter
+   only, ~600 matches, ~4.5k matches, ~20k matches;
+5. peak JS heap;
+6. latency at page 1,000 of a large result set (Pagefind's flat case).
+
+Backends measured: Pagefind 1.5.2 (baseline, already measured at 10k/100k/500k),
+Orama with `plugin-data-persistence`, FlexSearch v0.8 `Document` index in both
+fast-boot-import and IndexedDB-persistent configurations. Same corpus, same
+machine, same Zipf-distributed vocabulary and tags — the corpus shape matters
+and `PERFORMANCE.md` records why.
+
+### Promotion rule, fixed before the numbers arrive
+
+A backend becomes an `obsidian2site.py` option only if, at **25k and above**:
+
+- cold time-to-first-result is no worse than Pagefind's, and
+- warm filter-query latency is under 500 ms, and
+- first-result download is within ~1.5× Pagefind's, and
+- peak heap stays under ~500 MB.
+
+Anything else is written up as refuted in `PERFORMANCE.md`, in the same form as
+the five Pagefind hypotheses already recorded there, so it is not retried. The
+honest prior: Orama probably fails the download and heap tests at 25k;
+FlexSearch-over-IndexedDB is the only candidate with a shape that can compete
+at 100k+.
+
+Cost note: the 200k tier is ~15 min to build plus ~25 min to index per search
+backend. These steps are long-running and are the natural place to be
+interrupted by a usage limit, which is why they come after the migration is
+already working.
+
+---
+
+## Steps
+
+Numbering continues the movenotes `PLAN.md`, which ends at Step 19.
+
+### Step 20 — This plan  ✅
+Write `LEDGER_MIGRATION_PLAN.md`; add a pointer from `PLAN.md`. No code.
+
+### Step 21 — Theme-side prerequisites *(theme repo)*
+M5 and M6 in `hugo-theme-ledger`: `ledgerHideTitle` / `ledgerHideMeta` /
+`params.post.heroPlaceholder`; the extended query grammar in `query.js` with
+both adapters updated; `search-server/` moved to the M7 contract; the theme's
+own `PLAN.md`, `PERFORMANCE.md` note and `AGENTS.md` updated. Verified in a
+browser against `npm run preview`, since `hugo server` builds no Pagefind index.
+
+### Step 22 — Generator: project scaffolding *(movenotes)*
+Rewrite `_write_hugo_project` for Ledger: `hugo.toml` with `[taxonomies]`,
+`[pagination]`, `capitalizeListTitles = false`, the `[params]` schema,
+`mainSections`, no `disableKinds` for taxonomy/term. Delete the Relearn
+workarounds listed in Part A. `--ledger-theme` with the deprecated
+`--relearn-theme` alias. Content pages: home, about/Getting Started, search,
+Browse Tags. Site still generates and builds; note front matter unchanged yet.
+
+### Step 23 — Generator: note front matter and taxonomy *(movenotes)*
+`_frontmatter_json` emits `categories`, `tags` (promoted tier), `summary`,
+`readingTime`, `ledgerHideTitle`/`ledgerHideMeta`; Relearn fields dropped.
+Implement M3's promotion and spill with `--max-taxonomy-tags`, and M4's
+`--category-mode` / `--category-name`. Tag counting already runs through
+temporary SQLite, so promotion is an ORDER BY, not a second pass.
+
+### Step 24 — Generator: Browse Tags and exact-tag results on Ledger *(movenotes)*
+Port the `movenotes-tags` and `movenotes-search` shortcode behaviour onto
+Ledger's markup and CSS variables: keep the hashed posting index, the chunked
+document metadata, and the rule that the displayed tag count and the result
+count come from the same set of unique note IDs. Trim `_SITE_CSS` to what
+Ledger does not provide.
+
+### Step 25 — Bluge server: M7 contract *(movenotes + theme)*
+Extend `site_server` to the superset contract; add `category` and
+`readingTime` to `search-source.jsonl`; keep phrase/tag/date operators; update
+the theme's reference server identically. Add regressions for both request
+styles and for the new fields.
+
+### Step 26 — Build pipeline and backend validation *(movenotes)*
+`--build` for the new layout; retarget `_validate_built_search_backend` from
+Relearn's Lunr filenames to Ledger's bundle; confirm a `bluge`-only build emits
+no browser search runtime. Run the full generated pipeline on the `sample/`
+vault end to end.
+
+### Step 27 — Server refactor for Vercel *(movenotes)*
+V1/V2: `server` package, `cmd/movenotes-site-server`, `api/search.go`,
+`api/health.go`, env-var configuration, lazy `sync.Once` reader, 503 when no
+index. Resolve the read-only-filesystem question for `bluge.OpenReader`. Local
+command line and behaviour unchanged; Go tests cover both entry points.
+
+### Step 28 — Generator emits the Vercel project *(movenotes)*
+`vercel.json` per V4, root `go.mod`, `.vercelignore`, the
+`--ledger-theme`-required check, and a `--vercel` flag (or unconditional
+emission — decide when the layout is real) plus the index-size warning from V3.
+
+### Step 29 — `DEPLOY_VERCEL.md` *(movenotes)*
+Build and deploy the Hugo site with the Bluge backend on Vercel: prerequisites,
+`obsidian2site.py` invocation, `vercel.json`, the 250 MB arithmetic and how to
+measure it, `includeFiles`, prebuilt-index requirement, the read-only
+filesystem, cold starts, and the three over-ceiling options. Cites the Go
+runtime and function-limits pages.
+
+### Step 30 — `DEPLOY_GITHUB_PAGES.md` *(movenotes)*
+Build and deploy with the static backend on GitHub Pages: the Actions workflow
+from Hugo's own host-on-GitHub-Pages page, `baseURL` handling for a project
+site, `--base-url` on the generator, where the Pagefind (and any promoted
+backend) index build goes in the workflow, and GitHub Pages' 1 GB / 100 MB
+limits against measured output sizes.
+
+### Step 31 — Docs and invariants pass *(movenotes)*
+Rewrite `STATIC_SITE.md` for Ledger; update `AGENTS.md` invariants, `README.md`,
+`CHANGELOG.md`, `PLAN.md`, `requirements.txt`; make sure no stale Relearn
+instruction survives (`grep -ri relearn` should return only deliberate
+historical notes).
+
+### Step 32 — Benchmark tiers 25k and 200k, Pagefind baseline *(theme)*
+Add both tiers to `scripts/bench.sh` / `gen-corpus.js`; add the
+first-result-bytes and peak-heap measurements to `query-latency.js`; record the
+Pagefind baseline for the two new tiers.
+
+### Step 33 — Orama adapter and measurement *(theme)*
+`assets/js/search/backends/orama.js` behind the same interface, an index-build
+script, and the full metric set at 25k / 100k / 200k. Result written up in
+`PERFORMANCE.md` whichever way it goes.
+
+### Step 34 — FlexSearch adapter and measurement *(theme)*
+`flexsearch.js` in both configurations (fast-boot import, IndexedDB
+persistent), same metrics, same write-up.
+
+### Step 35 — Promote what earned it *(movenotes + theme)*
+Apply the Part D rule. For each backend that passed: register it in the theme's
+`BACKENDS` map, extend `--search-backend` to accept it, emit its index build in
+`--build`, extend `_validate_built_search_backend`, and add it to
+`DEPLOY_GITHUB_PAGES.md`. For each that failed: the `PERFORMANCE.md` entry is
+the deliverable, and `obsidian2site.py` does not grow an option.
+
+### Step 36 — Real-archive test and release
+User runs the pipeline against a real Twitter/X archive. Fix what it finds.
+Then, with the user's agreement, push `develop`.
+
+---
+
+## File inventory
+
+**movenotes-v3**
+
+| file | change |
+|---|---|
+| `obsidian2site.py` | scaffolding, front matter, taxonomy, categories, shortcodes, CSS, build, validation, flags |
+| `site_server/` → `server/` + `cmd/` + `api/` | package split, superset contract, Vercel entry points |
+| `test_obsidian2site.py` | Relearn assertions → Ledger; new taxonomy/category/contract regressions |
+| `STATIC_SITE.md` | rewritten |
+| `DEPLOY_VERCEL.md`, `DEPLOY_GITHUB_PAGES.md` | new |
+| `AGENTS.md` | invariants restated for Ledger |
+| `README.md`, `CHANGELOG.md`, `PLAN.md`, `requirements.txt` | updated |
+
+**hugo-theme-ledger**
+
+| file | change |
+|---|---|
+| `layouts/page.html` | `ledgerHideTitle`, `ledgerHideMeta`, hero placeholder switch |
+| `assets/js/search/query.js` | extended grammar |
+| `assets/js/search/backends/{pagefind,bluge}.js` | new parsed shape |
+| `assets/js/search/backends/{orama,flexsearch}.js` | new, if promoted |
+| `search-server/` | M7 contract |
+| `scripts/*` | 25k/200k tiers, byte and heap metrics |
+| `PLAN.md`, `PERFORMANCE.md`, `AGENTS.md`, `README.md` | updated |
+
+## Open questions
+
+1. **`bluge.OpenReader` on a read-only filesystem** — resolved in Step 27; the
+   fallback is a `/tmp` copy, which costs cold-start time.
+2. **Hugo build cost of 5,000 taxonomy terms over a 166k-note corpus.** The
+   theme measured 5,000 tags at 500k notes, so the shape is known good, but
+   movenotes' promotion changes the distribution. Measure during Step 23 and
+   lower the `--max-taxonomy-tags` default if the build cost moves.
+3. **Whether `vercel.json`'s `includeFiles` picks up an index generated during
+   the build** rather than committed. If not, the index must be committed or
+   built in CI and uploaded. Settled in Step 28.
+4. **Whether `--vercel` is a flag or always-on.** Deciding once the emitted
+   layout exists (Step 28).
