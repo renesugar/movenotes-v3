@@ -17,6 +17,7 @@ Changes in 3.36:
 - Fixed subpath deployments, which were broken throughout: Hugo's `relURL` drops the baseURL's path when its argument starts with a slash, so every asset, link, and search result on a GitHub Pages project site pointed at the domain root.
 - Added `DEPLOY_VERCEL.md` and `DEPLOY_GITHUB_PAGES.md`, each leading with the measured platform limits that decide which archives can be deployed where.
 - Retargeted the post-build backend check from Relearn's Lunr filenames to the backend the built pages actually configure, and to whether the index that backend needs exists.
+- Evaluated Orama and FlexSearch as additional static-hosting search options and rejected both: an in-browser index must be transferred at least once, and theirs are 33–343 MB at 25,000 notes against the 0.37 MB Pagefind fetches for a free-text query. `--search-backend` therefore still offers `both`, `bluge`, and `pagefind`; the measurements and the reasons not to retry them are in the theme's `PERFORMANCE.md`.
 - Expanded the suite to 97 Python tests, plus Go tests over both server entry points.
 
 ---

@@ -37,8 +37,18 @@ browser-oriented static bundle; movenotes instead writes
 its own disk index.
 
 Choosing between them, from the theme's measurements: Pagefind is comfortable up
-to about 25k notes. Past that its filter queries cost seconds, and a search-led
-archive wants Bluge, which answers the same queries in tens of milliseconds.
+to about 25k notes. Past that its filter queries cost seconds — at 200k a
+hand-typed `tag:` query downloads 103 MB over 2,200 requests — and a search-led
+archive wants Bluge, which answers the same query in tens of milliseconds.
+
+**There is no third static option, and that was tested rather than assumed.** Orama
+and FlexSearch were both implemented as theme backends and measured against
+Pagefind on the same corpus; both were rejected, because an in-browser index has to
+be transferred at least once and theirs run 33–343 MB at 25,000 notes against the
+0.37 MB Pagefind fetches for a free-text query. FlexSearch over IndexedDB removes
+the repeat download and holds the smallest heap of any backend, but still needs
+~15 s to a first result. The theme's `PERFORMANCE.md` records all of it, including
+what not to retry.
 
 ## 1. Generate the Hugo project
 
