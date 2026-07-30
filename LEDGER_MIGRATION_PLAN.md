@@ -849,10 +849,69 @@ this document. Cross-checked for stale references to things that no longer exist
 (`search.html?tag=`, `movenotes-start`, `sidebarmenus`, `themeVariant`, Lunr) —
 all remaining hits are in history, none in instructions.
 
-### Step 32 — Benchmark tiers 25k and 200k, Pagefind baseline *(theme)*
-Add both tiers to `scripts/bench.sh` / `gen-corpus.js`; add the
-first-result-bytes and peak-heap measurements to `query-latency.js`; record the
-Pagefind baseline for the two new tiers.
+### Step 32 — Benchmark tiers 25k and 200k, Pagefind baseline *(theme)*  ✅
+The harness already accepted arbitrary tiers, so the work was the metrics — and
+the metric turned out to need a new tool.
+
+**Bytes cannot be measured in the browser.** Pagefind fetches its index from a
+SharedWorker, and a worker's requests never appear in the page's Resource Timing
+entries, so an in-page count reports **zero bytes** for Pagefind while correctly
+counting a backend that fetches from the page. That would have flattered Pagefind
+in exactly the comparison this step exists to set up. `scripts/serve-counting.js`
+is a dependency-free static server that tallies what it serves, with
+`/__bytes?reset=1` to start a measurement — the same measurement for every
+backend.
+
+Also fixed in the probe: `transferSize` is 0 for a cache hit, so re-running a
+query reported zero bytes; it uses `encodedBodySize` now, which answers "how many
+bytes does this query need" rather than "did this browser already have them".
+
+**The 25k baseline, and the sharpest result of the whole benchmark so far.** Each
+row is one cold page load plus one query, nothing cached:
+
+| cold load | matches | Pagefind bytes | requests |
+|---|---|---|---|
+| free text | 2,327 | **369 KB** | 17 |
+| `tag:` filter | 39 | **13,637 KB** | 443 |
+| no query at all | 25,000 | 13,497 KB | many |
+
+A filtered query costs **37× the bytes** of a free-text one and does not care how
+selective it is: 39 matches cost the same as 25,000, because the cost is loading
+the filter index — 443 requests for 250 tag values — before filtering can start.
+Warm, queries cost 5–139 KB and paging is 2 ms. Peak heap stayed 6–31 MB.
+
+Two consequences worth acting on later: visiting `/search/` with no query pays
+the full filter cost, because the empty query is a date-sorted matchAll — the
+page's resting state is its most expensive request. And the numbers above are what
+Orama and FlexSearch must be judged against; a backend that restores a whole
+serialized index into memory has to beat 369 KB on free text, which nothing that
+works that way can.
+
+**At 200,000 notes it is worse than "slow".** A cold `tag:` query downloads
+**103 MB over 2,200 requests** and takes 56 s, and warm — with the filter index
+cached, so 6 KB on the wire — a query matching 54,854 notes takes **132 seconds**.
+So Pagefind has two independent limits: cold bytes scale with the number of tag
+values (~52 KB each, at both tiers), and warm latency scales with match count.
+Free text stays cheap and sublinear: 369 KB at 25k, 1,759 KB at 200k.
+
+Build and index, both tiers:
+
+| notes | build | peak RSS | public | HTML files | Pagefind | index |
+|---|---|---|---|---|---|---|
+| 25,000 | 58.3 s | 1.3 GB | 838 MB | 26,285 | 141 s | 114 MB |
+| 200,000 | 631.0 s | 6.2 GB | 6.5 GB | 203,224 | 1,086 s | 901 MB |
+
+Both pager caps bind at both tiers, and 200k emits 203,224 files for 200,000
+notes — 1.02 per note, against 1.18 for the uncapped 500k build.
+
+Committed as the theme's step 19 (`d090073`). The 200k corpus and built site are
+left in `bench/` so step 33 can index the same corpus rather than regenerate it.
+
+Also: the older 10k/100k/500k rows predate `maxSectionPagerPages`, so they include
+a pager directory per six notes — ~83,000 of them at 500k. `results.tsv` gained
+`home_pagers`, `section_pagers` and `term_dirs` columns so the caps are visible
+rather than inferred, and the historical rows are marked `-` rather than
+backfilled with guesses.
 
 ### Step 33 — Orama adapter and measurement *(theme)*
 `assets/js/search/backends/orama.js` behind the same interface, an index-build
