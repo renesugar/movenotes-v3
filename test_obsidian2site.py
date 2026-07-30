@@ -32,6 +32,33 @@ def read_json_frontmatter(path: Path) -> tuple[dict, str]:
     return json.loads(first), body
 
 
+def write_fake_hugo(path: Path, log: Path, theme_backend: str) -> Path:
+    """A stand-in for Hugo that emits enough of a Ledger build to be validated.
+
+    The generated site is checked after building for the search backend its pages
+    actually configure, so a fake Hugo that wrote a bare index.html would fail
+    that check for the right reason and the wrong test.
+    """
+    path.write_text(
+        f"#!{sys.executable}\n"
+        "import pathlib, sys\n"
+        "args = sys.argv[1:]\n"
+        "destination = pathlib.Path(args[args.index('--destination') + 1])\n"
+        "destination.mkdir(parents=True, exist_ok=True)\n"
+        "(destination / 'index.html').write_text('<html><body>site</body></html>')\n"
+        "search = destination / 'search'\n"
+        "search.mkdir(parents=True, exist_ok=True)\n"
+        "search.joinpath('index.html').write_text(\n"
+        "    '<script type=\"application/json\" data-ledger-search-config>'\n"
+        f"    '{{{{\"backend\":\"{theme_backend}\"}}}}</script>'\n"
+        ")\n"
+        f"pathlib.Path({str(log)!r}).write_text('hugo\\n')\n",
+        encoding="utf-8",
+    )
+    path.chmod(0o755)
+    return path
+
+
 class ObsidianSiteGenerationTest(unittest.TestCase):
     def test_generates_scalable_hugo_project_with_search_tags_and_links(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-") as temporary:
@@ -88,8 +115,12 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             )
             self.assertFalse(config["capitalizeListTitles"])
             self.assertEqual(config["params"]["mainSections"], ["notes"])
-            self.assertEqual(config["params"]["search"]["backend"], "bluge")
+            # --search-backend both maps to the theme's auto adapter: it probes
+            # /api/health and uses Bluge when the generated server answers,
+            # Pagefind when nothing does.
+            self.assertEqual(config["params"]["search"]["backend"], "auto")
             self.assertEqual(config["params"]["search"]["endpoint"], "/api/search")
+            self.assertEqual(config["params"]["search"]["healthEndpoint"], "/api/health")
             # A generated archive must not reach a font CDN, or paint 166k
             # striped hero placeholders.
             self.assertFalse(config["params"]["googleFonts"])
@@ -514,18 +545,7 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             vault.mkdir()
             (vault / "Note.md").write_text("# Note\n\nSearchable body.\n", encoding="utf-8")
 
-            fake_hugo = root / "fake-hugo"
-            fake_hugo.write_text(
-                f"#!{sys.executable}\n"
-                "import pathlib, sys\n"
-                "args = sys.argv[1:]\n"
-                "destination = pathlib.Path(args[args.index('--destination') + 1])\n"
-                "destination.mkdir(parents=True, exist_ok=True)\n"
-                "(destination / 'index.html').write_text('<html><body>site</body></html>')\n"
-                f"pathlib.Path({str(log)!r}).write_text('hugo\\n')\n",
-                encoding="utf-8",
-            )
-            fake_hugo.chmod(0o755)
+            fake_hugo = write_fake_hugo(root / "fake-hugo", log, "pagefind")
 
             fake_pagefind = root / "fake-pagefind"
             fake_pagefind.write_text(
@@ -559,18 +579,7 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             vault.mkdir()
             (vault / "Note.md").write_text("# Note\n\nServer search body.\n", encoding="utf-8")
 
-            fake_hugo = root / "fake-hugo"
-            fake_hugo.write_text(
-                f"#!{sys.executable}\n"
-                "import pathlib, sys\n"
-                "args = sys.argv[1:]\n"
-                "destination = pathlib.Path(args[args.index('--destination') + 1])\n"
-                "destination.mkdir(parents=True, exist_ok=True)\n"
-                "(destination / 'index.html').write_text('<html><body>site</body></html>')\n"
-                f"pathlib.Path({str(log)!r}).write_text('hugo\\n')\n",
-                encoding="utf-8",
-            )
-            fake_hugo.chmod(0o755)
+            fake_hugo = write_fake_hugo(root / "fake-hugo", log, "bluge")
 
             fake_go = root / "fake-go"
             server_payload = (
@@ -838,17 +847,64 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             for path in (site / "content").rglob("*.md"):
                 self.assertNotIn("pagefind", path.read_text(encoding="utf-8").casefold())
 
-    def test_bluge_build_validation_rejects_browser_search_scripts(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="obsidian-site-search-validation-") as temporary:
-            output = Path(temporary)
-            public = output / "public"
-            public.mkdir()
-            (public / "index.html").write_text(
-                '<script src="/js/lunr.min.js"></script>', encoding="utf-8"
+    def test_built_search_backend_validation(self) -> None:
+        """The check reads the theme's embedded config, not script filenames.
+
+        The theme picks its adapter from that JSON, so it is what decides which
+        index a visitor downloads. A `bluge` build that shipped
+        `"backend":"pagefind"` would look fine and quietly load a browser index.
+        """
+        def build(output: Path, backend: str, *, pagefind: bool = True,
+                  runtime: str = "", config: bool = True) -> None:
+            search = output / "public" / "search"
+            search.mkdir(parents=True)
+            body = (
+                '<script type="application/json" data-ledger-search-config>'
+                f'{{"allNotesLabel":"All notes","backend":"{backend}"}}</script>'
+                if config else "<p>no search view</p>"
             )
+            (search / "index.html").write_text(body + runtime, encoding="utf-8")
+            if pagefind:
+                (output / "public" / "pagefind").mkdir()
+
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-validation-") as temporary:
+            root = Path(temporary)
+
+            # Accepted: what each mode actually generates.
+            for index, (asked, embedded, needs_pagefind) in enumerate((
+                ("both", "auto", True),
+                ("bluge", "bluge", False),
+                ("pagefind", "pagefind", True),
+            )):
+                output = root / f"ok{index}"
+                build(output, embedded, pagefind=needs_pagefind)
+                obsidian2site._validate_built_search_backend(output, asked)
+
+            # A backend mismatch between the flag and the built pages.
+            mismatch = root / "mismatch"
+            build(mismatch, "auto", pagefind=False)
             with self.assertRaises(SystemExit):
-                obsidian2site._validate_built_search_backend(output, "bluge")
-            obsidian2site._validate_built_search_backend(output, "both")
+                obsidian2site._validate_built_search_backend(mismatch, "bluge")
+
+            # A build that will fall back to Pagefind, without the index to
+            # fall back to.
+            missing = root / "missing-index"
+            build(missing, "auto", pagefind=False)
+            with self.assertRaises(SystemExit):
+                obsidian2site._validate_built_search_backend(missing, "both")
+
+            # A Bluge-only build that still loads the Pagefind runtime.
+            leaked = root / "leaked"
+            build(leaked, "bluge", pagefind=False,
+                  runtime='<script src="/pagefind/pagefind.js"></script>')
+            with self.assertRaises(SystemExit):
+                obsidian2site._validate_built_search_backend(leaked, "bluge")
+
+            # No search view at all: a missing or stale theme.
+            empty = root / "empty"
+            build(empty, "auto", config=False)
+            with self.assertRaises(SystemExit):
+                obsidian2site._validate_built_search_backend(empty, "both")
 
     def test_twitter_notes_hide_redundant_heading_and_theme_date(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-twitter-heading-") as temporary:

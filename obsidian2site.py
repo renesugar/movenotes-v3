@@ -1474,14 +1474,14 @@ def _toml_string(value: str) -> str:
 
 
 def _theme_search_backend(search_backend: str) -> str:
-    """Map the movenotes backend choice onto the theme's single-adapter param.
+    """Map the movenotes backend choice onto the theme's adapter name.
 
-    Ledger selects one adapter at build time. ``both`` therefore builds both
-    indexes but points the theme at Bluge; the automatic fallback to Pagefind
-    when the server is not running is a separate adapter, added with the rest of
-    the search UI work.
+    ``both`` becomes the theme's ``auto`` adapter, which probes ``/api/health``
+    and uses Bluge when the generated server answers and Pagefind when nothing
+    does — one build that works whether or not the server is running, which is
+    what ``both`` has always meant here.
     """
-    return "pagefind" if search_backend == "pagefind" else "bluge"
+    return {"pagefind": "pagefind", "bluge": "bluge"}.get(search_backend, "auto")
 
 
 def _write_hugo_project(
@@ -1580,6 +1580,7 @@ capitalizeListTitles = false
     backend = {_toml_string(_theme_search_backend(search_backend))}
     bundlePath = '/pagefind/pagefind.js'
     endpoint = '/api/search'
+    healthEndpoint = '/api/health'
 
   # Both ceilings matter here: either surface can hold the whole archive.
   [params.scale]
@@ -2334,29 +2335,66 @@ def _pagefind_command(args: argparse.Namespace, output: Path) -> list[str]:
 
 
 
+_SEARCH_CONFIG_BACKEND_RE = re.compile(
+    r'data-ledger-search-config[^>]*>\s*\{[^<]*?"backend"\s*:\s*"([a-z]+)"',
+    re.IGNORECASE,
+)
+_PAGEFIND_RUNTIME_RE = re.compile(
+    r'''(?:src|href)=["'][^"']*pagefind/[^"']*["']''', re.IGNORECASE
+)
+
+
 def _validate_built_search_backend(output: Path, search_backend: str) -> None:
-    """Reject generated HTML that accidentally activates an unwanted browser index."""
-    if search_backend != "bluge":
-        return
+    """Check the built site actually uses the search backend that was asked for.
+
+    The theme selects its adapter from a JSON config embedded in every page that
+    carries the search view, so that value — not a script filename — is what
+    decides which index a visitor downloads. A `bluge` build that shipped
+    `"backend":"pagefind"` would look fine and quietly load a browser index; a
+    `both` build missing its Pagefind index would fall back to nothing.
+
+    Relearn's Lunr filenames are gone from this check: the theme emits no
+    built-in search runtime to suppress.
+    """
     public = output / "public"
-    forbidden = re.compile(
-        r'''(?:src|href)=["'][^"']*(?:lunr(?:[.-]|\.js)|searchindex(?:[.-]|\.js)|pagefind/)[^"']*["']''',
-        re.IGNORECASE,
-    )
-    offenders: list[str] = []
+    expected = _theme_search_backend(search_backend)
+    wrong_backend: list[str] = []
+    pagefind_runtime: list[str] = []
+    configured = 0
     for path in public.rglob("*.html"):
         try:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        if forbidden.search(text):
-            offenders.append(path.relative_to(public).as_posix())
-            if len(offenders) >= 10:
-                break
-    if offenders:
+        for match in _SEARCH_CONFIG_BACKEND_RE.finditer(text):
+            configured += 1
+            if match.group(1).casefold() != expected:
+                wrong_backend.append(
+                    f"{path.relative_to(public).as_posix()} ({match.group(1)})"
+                )
+        if search_backend == "bluge" and _PAGEFIND_RUNTIME_RE.search(text):
+            pagefind_runtime.append(path.relative_to(public).as_posix())
+    if wrong_backend:
         common.error(
-            "Bluge build still references a browser search index in: "
-            + ", ".join(offenders)
+            f"generated for --search-backend {search_backend} (theme backend "
+            f"'{expected}') but the built pages configure: "
+            + ", ".join(sorted(wrong_backend)[:10])
+        )
+    if pagefind_runtime:
+        common.error(
+            "Bluge-only build still references a browser search index in: "
+            + ", ".join(sorted(pagefind_runtime)[:10])
+        )
+    if not configured:
+        common.error(
+            "no search view was built: expected the theme's search config on at "
+            "least the /search/ page. Is the theme missing or out of date?"
+        )
+    # A build that will fall back to Pagefind needs the index it falls back to.
+    if expected in {"pagefind", "auto"} and not (public / "pagefind").is_dir():
+        common.error(
+            f"theme backend '{expected}' needs a Pagefind index, but "
+            f"{public / 'pagefind'} was not built"
         )
 
 
@@ -2369,10 +2407,12 @@ def _build_site(args: argparse.Namespace, output: Path) -> None:
         [str(hugo), "--source", str(output), "--destination", str(output / "public"), "--gc", "--minify"],
         check=True,
     )
-    _validate_built_search_backend(output, args.search_backend)
     if args.search_backend in {"both", "pagefind"}:
         print("building Pagefind index...")
         subprocess.run(_pagefind_command(args, output), cwd=output, check=True)
+    # After the indexes exist, not before: the check includes whether the index
+    # the configured backend needs is actually there.
+    _validate_built_search_backend(output, args.search_backend)
     if args.search_backend in {"both", "bluge"}:
         print("building Bluge site server...")
         go = shutil.which(args.go_bin) if os.path.sep not in args.go_bin else args.go_bin

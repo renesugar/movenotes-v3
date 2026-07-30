@@ -588,10 +588,49 @@ search UI, where `tag:housing` returns the same 9 notes the Browse Tags badge
 claims. 23 tests in `test_obsidian2site.py`, 91 across the Python suite, and the
 Go server's own tests pin the parsing rules two clients depend on.
 
-### Step 26 — Build pipeline, `auto` backend, and backend validation *(movenotes + theme)*
-Add the `auto` search adapter to the theme — probe `/api/health`, use Bluge when
-it answers and Pagefind when it does not — and point `--search-backend both` at
-it, which is what `both` has always promised.
+### Step 26 — Build pipeline, `auto` backend, and backend validation  ✅
+**`--search-backend both` finally means what it says.** The theme gained an
+`auto` adapter (its step 17, `62e4bf3`): one probe of `/api/health` per page
+load, then delegation to Bluge or Pagefind. `both` maps to it, so one generated
+build works as static files *and* behind the Go server, instead of being wrong in
+one of them. If the server stops mid-session the first failing query falls back
+to Pagefind for the rest of the session, one-way.
+
+**`_validate_built_search_backend` was rewritten, not retargeted.** Grepping for
+Lunr filenames no longer means anything — the theme ships no built-in search
+runtime. What decides which index a visitor downloads is the JSON config the
+theme embeds in every page carrying the search view, so that is what the check
+reads. It now catches:
+
+| mistake | why it matters |
+|---|---|
+| pages configure a backend other than the one asked for | a `bluge` build shipping `"backend":"pagefind"` looks fine and quietly loads a browser index |
+| `auto`/`pagefind` build with no `public/pagefind/` | nothing to fall back to |
+| a Bluge-only build whose HTML loads the Pagefind runtime | the old check, kept |
+| no search view in the output at all | a missing or stale theme |
+
+All five outcomes were exercised against the real built site by mutating copies
+of it, and again as a unit test on synthetic HTML.
+
+The validation moved to *after* the Pagefind step in `--build`, since it now
+checks that the index a backend needs exists.
+
+Two fake-Hugo build-ordering tests had to start emitting a search view: they were
+failing the new check for the right reason and the wrong test.
+
+Verified end to end:
+
+- `--build` runs Hugo → Pagefind → `go mod tidy` → `go build` → Bluge prebuild,
+  and validates, on a generated vault.
+- **The real toolchain**, not a hand-made vault: `sample/source1` through
+  `joplin2sql.py`, `sample/twitter-archive` through `twitterx2sql.py`, then
+  `sql2obsidian.py`, then `obsidian2site.py --build`. A genuinely imported
+  Twitter note renders with its title in the document outline but off screen, no
+  meta row, no hero, the right category filter, and its attachment embedded.
+- One generated build served two ways: static, it probes, gets a 404 and uses
+  Pagefind (`tag:pizza` → 8); behind the generated server it gets `bluge` and
+  answers `tag:pizza since:2026-07-25` → 4 with no unsupported-clause notice and
+  no Pagefind download at all.
 
 `--build` for the new layout; retarget `_validate_built_search_backend` from
 Relearn's Lunr filenames to Ledger's bundle; confirm a `bluge`-only build emits
