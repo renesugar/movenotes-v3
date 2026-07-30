@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -30,6 +31,24 @@ def read_json_frontmatter(path: Path) -> tuple[dict, str]:
     text = path.read_text(encoding="utf-8")
     first, body = text.split("\n", 1)
     return json.loads(first), body
+
+
+def go_code_without_comments(paths: list[Path]) -> str:
+    """Concatenated Go source with comments removed.
+
+    Checks for forbidden constructs have to look at code, not prose: the search
+    package's own doc comment says "no flags, no log.Fatal, no listening", and a
+    plain substring search reads that as a violation.
+    """
+    out = []
+    for path in paths:
+        if path.name.endswith("_test.go"):
+            continue
+        text = path.read_text(encoding="utf-8")
+        text = re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
+        text = re.sub(r"(?m)//.*$", "", text)
+        out.append(text)
+    return "\n".join(out)
 
 
 def write_fake_hugo(path: Path, log: Path, theme_backend: str) -> Path:
@@ -148,7 +167,13 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
                     f"layouts/{'/'.join(orphan)} should not be generated",
                 )
             self.assertIn("module movenotes/generated-site", (site / "go.mod").read_text(encoding="utf-8"))
-            self.assertTrue((site / "server" / "main.go").is_file())
+            # Two entry points over one package: a local process and the
+            # serverless functions, so a deployed site cannot answer differently
+            # from a local one.
+            self.assertTrue((site / "server" / "search" / "service.go").is_file())
+            self.assertTrue((site / "server" / "cmd" / "movenotes-site-server" / "main.go").is_file())
+            self.assertTrue((site / "server" / "api" / "search.go").is_file())
+            self.assertTrue((site / "server" / "api" / "health.go").is_file())
             self.assertIn("github.com/blugelabs/bluge v0.2.2", (site / "server" / "go.mod").read_text(encoding="utf-8"))
             self.assertTrue((site / "server" / "search-source.jsonl").is_file())
             self.assertTrue((site / "content" / "_index.md").is_file())
@@ -976,7 +1001,12 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertEqual(search_record["url"], documents["0"][0])
 
     def test_generated_bluge_server_supports_server_search_and_date_operators(self) -> None:
-        source = (PROJECT_DIR / "site_server" / "main.go").read_text(encoding="utf-8")
+        server_dir = PROJECT_DIR / "site_server"
+        source = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted(server_dir.rglob("*.go"))
+            if not path.name.endswith("_test.go")
+        )
         module = (PROJECT_DIR / "site_server" / "go.mod").read_text(encoding="utf-8")
         checksum = (PROJECT_DIR / "site_server" / "go.sum").read_text(encoding="utf-8")
         self.assertIn("github.com/blugelabs/bluge v0.2.2", module)
@@ -1010,6 +1040,50 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
         self.assertIn('"X-Movenotes-Search-Backend"', source)
         build_source = (PROJECT_DIR / "obsidian2site.py").read_text(encoding="utf-8")
         self.assertIn('"mod", "tidy"', build_source)
+        # The local binary comes from the command package now, not the module
+        # root: the module root has no main.
+        self.assertIn('"./cmd/movenotes-site-server"', build_source)
+
+    def test_server_package_keeps_process_concerns_out_of_the_shared_code(self) -> None:
+        """The search package is wrapped by two entry points, one serverless.
+
+        A serverless function has no command line, no port to listen on, and
+        nothing that survives a log.Fatal usefully — so none of those may live in
+        the code both halves share, or the deployed half inherits them.
+        """
+        server_dir = PROJECT_DIR / "site_server"
+        package = go_code_without_comments(sorted((server_dir / "search").glob("*.go")))
+        for forbidden in ("log.Fatal", "flag.", "ListenAndServe", "os.Exit"):
+            self.assertNotIn(forbidden, package, f"search package must not use {forbidden}")
+
+        # Configuration resolves explicit → environment → default, because a
+        # deployment configures itself with environment variables.
+        for name in ("MOVENOTES_INDEX", "MOVENOTES_SOURCE", "MOVENOTES_SITE"):
+            self.assertIn(name, package)
+
+        # The index is opened lazily and never built by a request: indexing takes
+        # minutes and needs a writable filesystem.
+        self.assertIn("sync.Once", package)
+        self.assertIn("StatusServiceUnavailable", package)
+        handlers = go_code_without_comments([server_dir / "search" / "handler.go"])
+        self.assertNotIn("BuildIndex", handlers)
+
+        # The serverless half is env-configured and serves no static files: a
+        # generated archive's public/ dwarfs any function bundle limit.
+        api = go_code_without_comments(sorted((server_dir / "api").glob("*.go")))
+        self.assertIn("func Search(", api)
+        self.assertIn("func Health(", api)
+        self.assertNotIn("FileServer", api)
+        self.assertNotIn("BuildIndex", api)
+        self.assertNotIn("flag.", api)
+
+        # Only the local entry point serves files, builds indexes, or exits.
+        command = go_code_without_comments([server_dir / "cmd" / "movenotes-site-server" / "main.go"])
+        self.assertIn("FileServer", command)
+        self.assertIn("search.BuildIndex", command)
+        self.assertIn("ListenAndServe", command)
+        # $PORT so the same binary runs in a container or on a PaaS.
+        self.assertIn('os.Getenv("PORT")', command)
 
 
 if __name__ == "__main__":

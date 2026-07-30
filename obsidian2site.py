@@ -2420,7 +2420,10 @@ def _build_site(args: argparse.Namespace, output: Path) -> None:
             common.error(f"Go executable not found: {args.go_bin}")
         print("resolving Go module checksums...")
         subprocess.run([str(go), "mod", "tidy"], cwd=output / "server", check=True)
-        subprocess.run([str(go), "build", "-o", "movenotes-site-server", "."], cwd=output / "server", check=True)
+        subprocess.run(
+            [str(go), "build", "-o", "movenotes-site-server", "./cmd/movenotes-site-server"],
+            cwd=output / "server", check=True,
+        )
         print("building Bluge search index...")
         subprocess.run(
             [
@@ -2666,7 +2669,11 @@ def main(argv: list[str]) -> int:
     else:
         print(f"run 'hugo --source {output}'")
         if args.search_backend in {"both", "bluge"}:
-            print(f"then build the server with 'cd {output / 'server'} && {args.go_bin} mod tidy && {args.go_bin} build -o movenotes-site-server .'")
+            print(
+                f"then build the server with 'cd {output / 'server'} && "
+                f"{args.go_bin} mod tidy && {args.go_bin} build -o movenotes-site-server "
+                "./cmd/movenotes-site-server'"
+            )
             print(f"and serve with '{server_command}'")
         if args.search_backend in {"both", "pagefind"}:
             print(f"for static hosting fallback, run 'npx -y pagefind --site {output / 'public'}'")
