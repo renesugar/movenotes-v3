@@ -144,7 +144,9 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             tags_meta, tags_body = read_json_frontmatter(site / "content" / "browse-tags.md")
             self.assertEqual(tags_meta["layout"], "browse-tags")
             self.assertEqual(tags_meta["url"], "/browse-tags/")
-            self.assertIn("movenotes-tags", tags_body)
+            # Front matter only: the tag browser needs the asset pipeline, so it
+            # lives in the layout rather than in a shortcode called from here.
+            self.assertEqual(tags_body.strip(), "")
             self.assertEqual(
                 (vault / "assets" / "picture.png").read_bytes(),
                 (site / "static" / "vault-assets" / "assets" / "picture.png").read_bytes(),
@@ -213,27 +215,34 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             pagefind_config = (site / "pagefind.yml").read_text(encoding="utf-8")
             self.assertIn("site: public", pagefind_config)
             self.assertNotIn("exclude_selectors", pagefind_config)
-            search = (site / "layouts" / "shortcodes" / "movenotes-search.html").read_text(encoding="utf-8")
-            self.assertIn("pagefind/pagefind.js", search)
-            self.assertIn("api/health", search)
-            self.assertIn("api/search", search)
-            self.assertIn("searchServer", search)
-            self.assertIn("since:YYYY-MM-DD", search)
-            self.assertIn("searchExactTag", search)
-            self.assertIn("tag-postings", search)
-            self.assertIn("document_chunk_size", search)
-            self.assertIn("Promise.all", search)
-            self.assertIn("searchGeneration", search)
-            self.assertIn(".preload(term)", search)
-            self.assertIn("module.destroy", search)
-            self.assertIn("metaCacheTag", search)
-            tags_shortcode = (site / "layouts" / "shortcodes" / "movenotes-tags.html").read_text(encoding="utf-8")
-            self.assertIn("?tag=${encodeURIComponent(tag)}", tags_shortcode)
+            # The generated project has no shortcodes at all: /search/ is the
+            # theme's view, Getting Started is prose, and Browse Tags needs the
+            # asset pipeline so its body lives in a layout.
+            self.assertFalse((site / "layouts" / "shortcodes").exists())
+            about_body = (site / "content" / "about.md").read_text(encoding="utf-8")
+            self.assertNotIn("{{<", about_body)
+            self.assertIn("since:2026-07-01 until:2026-08-01", about_body)
+
+            browse_tags = (site / "layouts" / "browse-tags.html").read_text(encoding="utf-8")
+            self.assertIn("data-movenotes-tags", browse_tags)
+            self.assertIn("movenotes/tag-postings/", browse_tags)
+            self.assertIn("movenotes/documents/", browse_tags)
+            self.assertIn("js.Build", browse_tags)
+            self.assertIn(str(obsidian2site._TAG_POSTING_BUCKETS), browse_tags)
+            # The theme's own data attributes must not appear: the tag filter is
+            # not the site search and must not be driven by its controller.
+            self.assertNotIn("data-ledger-search", browse_tags)
+
+            tags_script = (site / "assets" / "js" / "movenotes-tags.js").read_text(encoding="utf-8")
+            # The page-number windowing rule is imported from the theme rather
+            # than reimplemented — it already exists three times there.
+            self.assertIn("import { windowPages } from './search/paging.js'", tags_script)
+            self.assertIn("document_chunk_size", tags_script)
 
             manifest = json.loads(
                 (site / "static" / "movenotes" / "tags" / "manifest.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(manifest["version"], 2)
+            self.assertEqual(manifest["version"], 3)
             self.assertGreaterEqual(manifest["total"], 5)
             self.assertIn("co", manifest["buckets"])
             self.assertTrue(manifest["posting_buckets"])
@@ -261,6 +270,16 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertEqual(first_record["url"], "/notes/folder/note.html")
             self.assertEqual(first_record["date"], "2025-01-02T03:04:05Z")
             self.assertNotIn("](", first_record["body"])
+            # The Bluge index is what renders a search result card, so the source
+            # carries everything a card shows. readingTime especially: a result
+            # from the index has no Hugo page behind it to compute .ReadingTime.
+            self.assertEqual(first_record["category"], "Folder")
+            self.assertEqual(first_record["readingTime"], 1)
+            self.assertTrue(first_record["summary"])
+            # Every tag reaches Bluge, including generated word tags and the ones
+            # the taxonomy cap left out, so `tag:` answers for all of them.
+            self.assertIn("codecs", first_record["tags"])   # a generated word tag
+            self.assertIn("alpha", first_record["tags"])    # a written tag
 
     def test_note_titles_are_never_added_to_sidebar_tree(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-many-") as temporary:
@@ -620,15 +639,23 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
                 )
                 self.assertEqual(len(postings[tag]), expected_count)
 
-            tags_ui = (
-                site / "layouts" / "shortcodes" / "movenotes-tags.html"
+            # Browse Tags reads those same posting lists, so the count on a tag
+            # and the number of results it opens are one number.
+            tags_script = (
+                site / "assets" / "js" / "movenotes-tags.js"
             ).read_text(encoding="utf-8")
-            search_ui = (
-                site / "layouts" / "shortcodes" / "movenotes-search.html"
-            ).read_text(encoding="utf-8")
-            self.assertIn("?tag=${encodeURIComponent(tag)}", tags_ui)
-            self.assertIn("postings[selectedTag]", search_ui)
-            self.assertIn("result(s) with exact tag", search_ui)
+            self.assertIn("postings[tag]", tags_script)
+            self.assertIn("'?tag=' + encodeURIComponent(row[0])", tags_script)
+
+            # Chunked document metadata carries the date, so an exact-tag result
+            # card looks like every other card on the site.
+            documents = json.loads(
+                (site / "static" / "movenotes" / "documents" / "000000.json")
+                .read_text(encoding="utf-8")
+            )
+            record = next(iter(documents.values()))
+            self.assertEqual(len(record), 3)
+            self.assertRegex(record[2], r"^\d{4}-\d{2}-\d{2}$")
 
     def test_links_plain_x_mentions_without_touching_other_contexts(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-mentions-") as temporary:
@@ -791,22 +818,23 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertEqual(config["params"]["search"]["backend"], "bluge")
             self.assertEqual(config["params"]["movenotesSearchBackend"], "bluge")
             self.assertFalse((site / "pagefind.yml").exists())
-            search = (
-                site / "layouts" / "shortcodes" / "movenotes-search.html"
-            ).read_text(encoding="utf-8").casefold()
-            self.assertIn("api/search", search)
-            self.assertIn("api/health", search)
-            self.assertNotIn("pagefind", search)
-            self.assertNotIn("lunr", search)
-            self.assertNotIn("searchindex", search)
-            tags = (
-                site / "layouts" / "shortcodes" / "movenotes-tags.html"
-            ).read_text(encoding="utf-8").casefold()
-            self.assertNotIn("pagefind", tags)
-            start = (
-                site / "layouts" / "shortcodes" / "movenotes-start.html"
-            ).read_text(encoding="utf-8").casefold()
-            self.assertNotIn("pagefind", start)
+            # Nothing the generator writes may *load or call* Pagefind in a
+            # Bluge-only build. Prose about it is fine — a comment explaining
+            # why the tag index exists mentions it — so this looks for the
+            # bundle URL and the API, not the word. The theme's own bundle still
+            # contains both adapters; which one runs is params.search.backend,
+            # and _validate_built_search_backend checks the built HTML for a
+            # leaked browser index.
+            for path in list((site / "layouts").rglob("*.html")) + \
+                    list((site / "assets").rglob("*.js")):
+                text = path.read_text(encoding="utf-8").casefold()
+                for runtime in ("pagefind/pagefind.js", "pagefind.search(", "lunr", "searchindex"):
+                    self.assertNotIn(
+                        runtime, text,
+                        f"{path.name} references {runtime} in a bluge-only build",
+                    )
+            # Content, though, should not even mention it: the Getting Started
+            # page describes the search this build actually has.
             for path in (site / "content").rglob("*.md"):
                 self.assertNotIn("pagefind", path.read_text(encoding="utf-8").casefold())
 
@@ -899,11 +927,26 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
         self.assertIn("github.com/blugelabs/bluge v0.2.2 h1:", checksum)
         self.assertIn('HandleFunc("/api/search"', source)
         self.assertIn('HandleFunc("/api/health"', source)
-        self.assertIn('case "since", "until"', source)
         self.assertIn("NewDateRangeInclusiveQuery", source)
         self.assertIn("NewMatchPhraseQuery", source)
-        self.assertIn('NewTermQuery(strings.ToLower(value)).SetField("tag")', source)
+        self.assertIn('NewTermQuery(strings.ToLower(tag)).SetField("tag")', source)
+        self.assertIn('NewTermQuery(category).SetField("category")', source)
         self.assertIn("WithStandardAggregations", source)
+        # The grammar is parsed once, client-side. This server takes fields and
+        # must not grow a parser for `tag:` prefixes or quotes again.
+        self.assertNotIn("splitQuery", source)
+        self.assertNotIn("operatorRE", source)
+        # Phrase queries need term positions, or they match nothing while the
+        # server looks healthy.
+        for field in ("title", "body", "summary"):
+            self.assertIn(f'NewTextField("{field}"', source)
+        self.assertEqual(source.count("SearchTermPositions()"), 3)
+        # Both paging styles, and the fields a result card renders.
+        self.assertIn('values.Get("page")', source)
+        self.assertIn('values.Get("offset")', source)
+        self.assertIn('perRaw = values.Get("limit")', source)
+        for field in ('"category"', '"tags"', '"readingTime"', '"summary"'):
+            self.assertIn(field, source)
         self.assertIn('log.Printf("health remote=', source)
         self.assertIn('log.Printf("search remote=', source)
         self.assertIn('Backend: "bluge"', source)

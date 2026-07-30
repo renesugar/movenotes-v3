@@ -1,0 +1,156 @@
+- generic [active] [ref=f12e1]:
+  - link "Skip to content" [ref=f12e2] [cursor=pointer]:
+    - /url: "#ledger-main"
+  - generic [ref=f12e3]:
+    - banner [ref=f12e4]:
+      - link "Test Archive" [ref=f12e5] [cursor=pointer]:
+        - /url: /
+      - navigation "Main" [ref=f12e8]:
+        - link "Home" [ref=f12e9] [cursor=pointer]:
+          - /url: /
+        - link "Tags" [ref=f12e10] [cursor=pointer]:
+          - /url: /tags/
+        - link "About" [ref=f12e11] [cursor=pointer]:
+          - /url: /about/
+        - link "Search" [ref=f12e12] [cursor=pointer]:
+          - /url: /search/
+      - button "Theme Light theme" [ref=f12e14] [cursor=pointer]:
+        - generic [ref=f12e16]: Theme
+        - generic [ref=f12e17]: Light theme
+        - generic [ref=f12e18]: ▼
+    - generic [ref=f12e19]:
+      - complementary "Categories and tags" [ref=f12e20]:
+        - generic [ref=f12e21]:
+          - heading [level=2] [ref=f12e22]:
+            - button "Categories 3" [expanded] [ref=f12e23] [cursor=pointer]:
+              - generic [ref=f12e24]: ▼
+              - generic [ref=f12e25]: Categories
+              - generic [ref=f12e26]: "3"
+          - generic [ref=f12e28]:
+            - link "All notes 10 notes" [ref=f12e29] [cursor=pointer]:
+              - /url: /search/?q=category%3A%22All+notes%22
+              - generic [ref=f12e30]: ▸
+              - generic [ref=f12e31]: All notes
+              - generic [ref=f12e32]:
+                - text: "10"
+                - generic [ref=f12e33]: notes
+            - link "Twitter 8 notes" [ref=f12e34] [cursor=pointer]:
+              - /url: /categories/twitter/
+              - generic [ref=f12e35]: ▸
+              - generic [ref=f12e36]: Twitter
+              - generic [ref=f12e37]:
+                - text: "8"
+                - generic [ref=f12e38]: notes
+            - link "Notes 2 notes" [ref=f12e39] [cursor=pointer]:
+              - /url: /categories/notes/
+              - generic [ref=f12e40]: ▸
+              - generic [ref=f12e41]: Notes
+              - generic [ref=f12e42]:
+                - text: "2"
+                - generic [ref=f12e43]: notes
+        - generic [ref=f12e44]:
+          - heading [level=2] [ref=f12e45]:
+            - button "Tags 5" [expanded] [ref=f12e46] [cursor=pointer]:
+              - generic [ref=f12e47]: ▼
+              - generic [ref=f12e48]: Tags
+              - generic [ref=f12e49]: "5"
+          - generic [ref=f12e51]:
+            - link "pizza 8 notes" [ref=f12e52] [cursor=pointer]:
+              - /url: /tags/pizza/
+              - generic [ref=f12e53]: "#"
+              - generic [ref=f12e54]: pizza
+              - generic [ref=f12e55]:
+                - text: "8"
+                - generic [ref=f12e56]: notes
+            - link "canada 1 notes" [ref=f12e57] [cursor=pointer]:
+              - /url: /tags/canada/
+              - generic [ref=f12e58]: "#"
+              - generic [ref=f12e59]: canada
+              - generic [ref=f12e60]:
+                - text: "1"
+                - generic [ref=f12e61]: notes
+            - link "codec 1 notes" [ref=f12e62] [cursor=pointer]:
+              - /url: /tags/codec/
+              - generic [ref=f12e63]: "#"
+              - generic [ref=f12e64]: codec
+              - generic [ref=f12e65]:
+                - text: "1"
+                - generic [ref=f12e66]: notes
+            - link "economics 1 notes" [ref=f12e67] [cursor=pointer]:
+              - /url: /tags/economics/
+              - generic [ref=f12e68]: "#"
+              - generic [ref=f12e69]: economics
+              - generic [ref=f12e70]:
+                - text: "1"
+                - generic [ref=f12e71]: notes
+            - link "interest 1 notes" [ref=f12e72] [cursor=pointer]:
+              - /url: /tags/interest/
+              - generic [ref=f12e73]: "#"
+              - generic [ref=f12e74]: interest
+              - generic [ref=f12e75]:
+                - text: "1"
+                - generic [ref=f12e76]: notes
+      - separator "Resize sidebar" [ref=f12e77]
+      - main [ref=f12e79]:
+        - article [ref=f12e81]:
+          - generic [ref=f12e82]: content/about.md
+          - heading "Getting Started" [level=1] [ref=f12e83]
+          - generic [ref=f12e84]:
+            - paragraph [ref=f12e85]: A reading interface for a very large Obsidian vault. No note is ever listed in the navigation, and no page grows with the size of the archive, so the site stays responsive past 100,000 notes.
+            - generic [ref=f12e86]:
+              - link "Search Server-side search when the generated Go server is running, with static Pagefind search as the fallback." [ref=f12e87] [cursor=pointer]:
+                - /url: /search/
+                - strong [ref=f12e88]: Search
+                - generic [ref=f12e89]: Server-side search when the generated Go server is running, with static Pagefind search as the fallback.
+              - link "Browse tags Every tag in the archive — the ones written in notes and every unique content word — with the exact notes each one carries." [ref=f12e90] [cursor=pointer]:
+                - /url: /browse-tags/
+                - strong [ref=f12e91]: Browse tags
+                - generic [ref=f12e92]: Every tag in the archive — the ones written in notes and every unique content word — with the exact notes each one carries.
+            - heading "Finding notes" [level=2] [ref=f12e93]
+            - paragraph [ref=f12e94]: "Sidebar categories and tags open an archive when the term is small enough to render one, and the search page when it is not. The search box accepts:"
+            - table [ref=f12e95]:
+              - rowgroup [ref=f12e96]:
+                - row [ref=f12e97]:
+                  - columnheader "query" [ref=f12e98]
+                  - columnheader "meaning" [ref=f12e99]
+              - rowgroup [ref=f12e100]:
+                - row [ref=f12e101]:
+                  - cell [ref=f12e102]:
+                    - code [ref=f12e103]: canadian housing
+                  - cell "both words, anywhere in the note" [ref=f12e104]
+                - row [ref=f12e105]:
+                  - cell [ref=f12e106]:
+                    - code [ref=f12e107]: "\"Bank of Canada\""
+                  - cell "that exact phrase" [ref=f12e108]
+                - row [ref=f12e109]:
+                  - cell [ref=f12e110]:
+                    - code [ref=f12e111]: category:Twitter
+                  - cell "one category; quote a name containing a space" [ref=f12e112]
+                - row [ref=f12e113]:
+                  - cell [ref=f12e114]:
+                    - code [ref=f12e115]: tag:economics
+                  - cell "one tag; repeat it to require several" [ref=f12e116]
+                - row [ref=f12e117]:
+                  - cell [ref=f12e118]:
+                    - code [ref=f12e119]: since:2026-07-01 until:2026-08-01
+                  - cell [ref=f12e120]:
+                    - text: July, by note date —
+                    - code [ref=f12e121]: "until:"
+                    - text: is exclusive
+            - paragraph [ref=f12e122]: Every clause above is answered by the Bluge server.
+            - heading "Two kinds of tag" [level=2] [ref=f12e123]
+            - paragraph [ref=f12e124]:
+              - text: A note’s tags are the tags written in it plus every unique non-filler word it contains. The most frequent written tags become ordinary site tags, with their own archive pages, and appear in the sidebar. All of them — including every content word — stay on
+              - strong [ref=f12e125]: Browse tags
+              - text: ", whose counts come from the same posting lists that produce its results."
+            - heading "Links and attachments" [level=2] [ref=f12e126]
+            - paragraph [ref=f12e127]:
+              - text: Links between notes are ordinary static links. Attachments are copied into
+              - code [ref=f12e128]: static/vault-assets
+              - text: .
+        - generic [ref=f12e129]:
+          - generic [ref=f12e130]: Test Archive
+          - generic [ref=f12e131]: 10 notes · 2 categories · 5 tags
+          - generic [ref=f12e132]: Ledger theme for Hugo
+          - link "RSS" [ref=f12e133] [cursor=pointer]:
+            - /url: /index.xml

@@ -9,40 +9,71 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/blugelabs/bluge"
+	"github.com/blugelabs/bluge/search"
 )
 
 type sourceRecord struct {
-	ID      int      `json:"id"`
-	URL     string   `json:"url"`
-	Title   string   `json:"title"`
-	Date    string   `json:"date"`
-	Body    string   `json:"body"`
-	Summary string   `json:"summary"`
-	Tags    []string `json:"tags"`
+	ID          int      `json:"id"`
+	URL         string   `json:"url"`
+	Title       string   `json:"title"`
+	Date        string   `json:"date"`
+	Body        string   `json:"body"`
+	Summary     string   `json:"summary"`
+	Category    string   `json:"category"`
+	Tags        []string `json:"tags"`
+	ReadingTime int      `json:"readingTime"`
 }
 
+// searchResult is the shape the theme's assets/js/search/backends/bluge.js
+// renders. These field names are the contract; changing one means changing the
+// adapter, and the theme's own reference server in search-server/ alongside it.
 type searchResult struct {
-	URL     string `json:"url"`
-	Title   string `json:"title"`
-	Date    string `json:"date,omitempty"`
-	Excerpt string `json:"excerpt,omitempty"`
+	Title       string   `json:"title"`
+	Summary     string   `json:"summary"`
+	URL         string   `json:"url"`
+	Category    string   `json:"category"`
+	Tags        []string `json:"tags"`
+	Date        string   `json:"date"`
+	ReadingTime int      `json:"readingTime"`
 }
 
 type searchResponse struct {
 	Backend string         `json:"backend"`
 	Query   string         `json:"query"`
 	Total   uint64         `json:"total"`
+	Page    int            `json:"page"`
+	Per     int            `json:"per"`
 	Offset  int            `json:"offset"`
 	Limit   int            `json:"limit"`
 	Results []searchResult `json:"results"`
+}
+
+// searchParams is one already-parsed query. The grammar is parsed exactly once,
+// client-side, in the theme's assets/js/search/query.js; this server receives
+// fields and never re-parses `tag:` prefixes or quotes. Repeated fields are
+// ANDed, which is what repeating a clause means in the grammar.
+type searchParams struct {
+	terms      string
+	phrases    []string
+	categories []string
+	tags       []string
+	since      time.Time
+	until      time.Time
+	sinceText  string
+	untilText  string
+	page       int
+	per        int
+	offset     int
+	sortByDate bool
 }
 
 type indexStamp struct {
@@ -55,7 +86,12 @@ type server struct {
 	site   string
 }
 
-var operatorRE = regexp.MustCompile(`(?i)^(since|until|tag):(.*)$`)
+const (
+	defaultPerPage = 20
+	maxPerPage     = 100
+	maxOffset      = 10_000_000
+	dateLayout     = "2006-01-02"
+)
 
 func main() {
 	var siteDir, sourcePath, indexDir, listen string
@@ -173,18 +209,29 @@ func buildIndex(sourcePath, indexDir string) error {
 			writer.Close()
 			return fmt.Errorf("decode source line %d: %w", total+1, err)
 		}
+		// Term positions on the text fields: a phrase query needs to know which
+		// terms are adjacent, and without them `"quoted phrase"` matches nothing
+		// while the server looks healthy.
 		document := bluge.NewDocument(strconv.Itoa(record.ID)).
 			AddField(bluge.NewTextField("title", record.Title).StoreValue().SearchTermPositions()).
 			AddField(bluge.NewTextField("body", record.Body).SearchTermPositions()).
 			AddField(bluge.NewKeywordField("url", record.URL).StoreValue()).
-			AddField(bluge.NewTextField("summary", record.Summary).StoreValue()).
-			AddField(bluge.NewKeywordField("date_text", record.Date).StoreValue())
+			AddField(bluge.NewTextField("summary", record.Summary).StoreValue().SearchTermPositions()).
+			AddField(bluge.NewKeywordField("date_text", record.Date).StoreValue()).
+			AddField(bluge.NewKeywordField("sortdate", record.Date).Sortable()).
+			AddField(bluge.NewStoredOnlyField("reading", []byte(strconv.Itoa(record.ReadingTime))))
 		if parsed, err := time.Parse(time.RFC3339, record.Date); err == nil {
 			document.AddField(bluge.NewDateTimeField("date", parsed))
 		}
+		// category and tag are keyword fields: the grammar matches them exactly,
+		// so they must not be tokenised or stemmed. Stored as well as indexed,
+		// because a result card shows them.
+		if category := strings.TrimSpace(record.Category); category != "" {
+			document.AddField(bluge.NewKeywordField("category", category).StoreValue())
+		}
 		for _, tag := range record.Tags {
 			if tag = strings.TrimSpace(strings.ToLower(tag)); tag != "" {
-				document.AddField(bluge.NewKeywordField("tag", tag))
+				document.AddField(bluge.NewKeywordField("tag", tag).StoreValue())
 			}
 		}
 		batch.Update(document.ID(), document)
@@ -238,8 +285,8 @@ func (s *server) health(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, map[string]any{"backend": "bluge", "documents": count})
-	log.Printf("health remote=%s documents=%d", r.RemoteAddr, count)
+	writeJSON(w, map[string]any{"backend": "bluge", "notes": count})
+	log.Printf("health remote=%s notes=%d", r.RemoteAddr, count)
 }
 
 func (s *server) search(w http.ResponseWriter, r *http.Request) {
@@ -249,22 +296,19 @@ func (s *server) search(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "GET required", http.StatusMethodNotAllowed)
 		return
 	}
-	rawQuery := strings.TrimSpace(r.URL.Query().Get("q"))
-	if tag := strings.TrimSpace(r.URL.Query().Get("tag")); tag != "" {
-		if rawQuery != "" {
-			rawQuery += " "
-		}
-		rawQuery += "tag:" + tag
-	}
-	limit := boundedInt(r.URL.Query().Get("limit"), 20, 1, 100)
-	offset := boundedInt(r.URL.Query().Get("offset"), 0, 0, 1_000_000)
-	query, err := parseQuery(rawQuery)
+	params, err := parseParams(r.URL.Query())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	request := bluge.NewTopNSearch(limit, query).SetFrom(offset).WithStandardAggregations()
-	if r.URL.Query().Get("sort") == "date" {
+
+	// Ask for exactly the window this page needs. Bluge ranks the whole match
+	// set but materialises only offset+per documents, which is what keeps
+	// response time flat as the archive grows.
+	request := bluge.NewTopNSearch(params.per, buildQuery(params)).
+		SetFrom(params.offset).
+		WithStandardAggregations()
+	if params.sortByDate {
 		request.SortBy([]string{"-date", "-_score"})
 	}
 	iterator, err := s.reader.Search(r.Context(), request)
@@ -272,7 +316,17 @@ func (s *server) search(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	response := searchResponse{Backend: "bluge", Query: rawQuery, Offset: offset, Limit: limit, Results: make([]searchResult, 0, limit)}
+
+	described := describe(params)
+	response := searchResponse{
+		Backend: "bluge",
+		Query:   described,
+		Page:    params.page,
+		Per:     params.per,
+		Offset:  params.offset,
+		Limit:   params.per,
+		Results: make([]searchResult, 0, params.per),
+	}
 	if aggregations := iterator.Aggregations(); aggregations != nil {
 		response.Total = aggregations.Count()
 	}
@@ -285,139 +339,216 @@ func (s *server) search(w http.ResponseWriter, r *http.Request) {
 		if match == nil {
 			break
 		}
-		var result searchResult
-		if err := match.VisitStoredFields(func(field string, value []byte) bool {
-			switch field {
-			case "url":
-				result.URL = string(value)
-			case "title":
-				result.Title = string(value)
-			case "date_text":
-				result.Date = string(value)
-			case "summary":
-				result.Excerpt = string(value)
-			}
-			return true
-		}); err != nil {
+		result, err := toResult(match)
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		response.Results = append(response.Results, result)
 	}
-	w.Header().Set("Server-Timing", fmt.Sprintf("search;dur=%.3f", float64(time.Since(started).Microseconds())/1000.0))
+
+	elapsed := time.Since(started)
+	w.Header().Set("Server-Timing", fmt.Sprintf("search;dur=%.3f", float64(elapsed.Microseconds())/1000.0))
 	writeJSON(w, response)
-	log.Printf("search remote=%s query=%q total=%d offset=%d limit=%d returned=%d duration=%s",
-		r.RemoteAddr, rawQuery, response.Total, offset, limit, len(response.Results), time.Since(started).Round(time.Millisecond))
+	log.Printf("search remote=%s query=%q total=%d offset=%d per=%d returned=%d duration=%s",
+		r.RemoteAddr, described, response.Total, params.offset, params.per,
+		len(response.Results), elapsed.Round(time.Millisecond))
 }
 
-func parseQuery(raw string) (bluge.Query, error) {
-	tokens, err := splitQuery(raw)
-	if err != nil {
-		return nil, err
+// parseParams reads the already-split grammar off the query string. It accepts
+// page/per (what the theme's adapter sends) or offset/limit (for anything else),
+// and resolves both so the response can report either.
+func parseParams(values url.Values) (searchParams, error) {
+	params := searchParams{
+		terms:      strings.TrimSpace(values.Get("q")),
+		phrases:    nonEmpty(values["phrase"]),
+		categories: nonEmpty(values["category"]),
+		tags:       nonEmpty(values["tag"]),
+		sinceText:  strings.TrimSpace(values.Get("since")),
+		untilText:  strings.TrimSpace(values.Get("until")),
 	}
+
+	for name, raw := range map[string]string{"since": params.sinceText, "until": params.untilText} {
+		if raw == "" {
+			continue
+		}
+		parsed, err := time.Parse(dateLayout, raw)
+		if err != nil {
+			return params, fmt.Errorf("%s: expected YYYY-MM-DD", name)
+		}
+		if name == "since" {
+			params.since = parsed.UTC()
+		} else {
+			params.until = parsed.UTC()
+		}
+	}
+	if !params.since.IsZero() && !params.until.IsZero() && !params.since.Before(params.until) {
+		return params, errors.New("since: must be earlier than until:")
+	}
+
+	// `limit` is the alias for `per`; whichever is present wins, and per bounds
+	// the response size either way.
+	perRaw := values.Get("per")
+	if perRaw == "" {
+		perRaw = values.Get("limit")
+	}
+	params.per = boundedInt(perRaw, defaultPerPage, 1, maxPerPage)
+
+	if raw := values.Get("offset"); raw != "" {
+		params.offset = boundedInt(raw, 0, 0, maxOffset)
+		params.page = params.offset/params.per + 1
+	} else {
+		params.page = boundedInt(values.Get("page"), 1, 1, 1<<20)
+		params.offset = (params.page - 1) * params.per
+	}
+
+	// An explicit sort wins; otherwise sort by date exactly when there is no
+	// text to rank by, so a filter-only query is in the same order as the first
+	// page Hugo server-rendered for that term.
+	switch values.Get("sort") {
+	case "date":
+		params.sortByDate = true
+	case "score", "relevance":
+		params.sortByDate = false
+	default:
+		params.sortByDate = params.terms == "" && len(params.phrases) == 0
+	}
+
+	return params, nil
+}
+
+// buildQuery turns the parsed fields into one Bluge query. Repeated values are
+// ANDed; a term matches the title, the summary or the body, with the title
+// weighted highest.
+func buildQuery(params searchParams) bluge.Query {
 	boolean := bluge.NewBooleanQuery()
 	clauses := 0
-	var since, until time.Time
-	for _, token := range tokens {
-		if match := operatorRE.FindStringSubmatch(token.value); match != nil && !token.phrase {
-			value := strings.TrimSpace(match[2])
-			switch strings.ToLower(match[1]) {
-			case "tag":
-				if value == "" {
-					return nil, errors.New("tag: requires a value")
-				}
-				boolean.AddMust(bluge.NewTermQuery(strings.ToLower(value)).SetField("tag"))
-				clauses++
-			case "since", "until":
-				date, err := time.Parse("2006-01-02", value)
-				if err != nil {
-					return nil, fmt.Errorf("%s: expected YYYY-MM-DD", strings.ToLower(match[1]))
-				}
-				if strings.EqualFold(match[1], "since") {
-					since = date.UTC()
-				} else {
-					until = date.UTC()
-				}
-			}
-			continue
-		}
-		value := strings.TrimSpace(token.value)
-		if value == "" {
-			continue
-		}
-		alternative := bluge.NewBooleanQuery().SetMinShould(1)
-		if token.phrase {
-			alternative.AddShould(
-				bluge.NewMatchPhraseQuery(value).SetField("title").SetBoost(4),
-				bluge.NewMatchPhraseQuery(value).SetField("body"),
-			)
-		} else {
-			alternative.AddShould(
-				bluge.NewMatchQuery(value).SetField("title").SetOperator(bluge.MatchQueryOperatorAnd).SetBoost(4),
-				bluge.NewMatchQuery(value).SetField("body").SetOperator(bluge.MatchQueryOperatorAnd),
-			)
-		}
-		boolean.AddMust(alternative)
+
+	for _, category := range params.categories {
+		boolean.AddMust(bluge.NewTermQuery(category).SetField("category"))
 		clauses++
 	}
-	if !since.IsZero() || !until.IsZero() {
-		if !since.IsZero() && !until.IsZero() && !since.Before(until) {
-			return nil, errors.New("since: must be earlier than until:")
-		}
-		boolean.AddMust(bluge.NewDateRangeInclusiveQuery(since, until, true, false).SetField("date"))
+	for _, tag := range params.tags {
+		boolean.AddMust(bluge.NewTermQuery(strings.ToLower(tag)).SetField("tag"))
 		clauses++
 	}
+	if params.terms != "" {
+		// Every term must appear, in one field or another.
+		any := bluge.NewBooleanQuery().SetMinShould(1)
+		any.AddShould(
+			bluge.NewMatchQuery(params.terms).SetField("title").
+				SetOperator(bluge.MatchQueryOperatorAnd).SetBoost(4),
+			bluge.NewMatchQuery(params.terms).SetField("summary").
+				SetOperator(bluge.MatchQueryOperatorAnd).SetBoost(2),
+			bluge.NewMatchQuery(params.terms).SetField("body").
+				SetOperator(bluge.MatchQueryOperatorAnd),
+		)
+		boolean.AddMust(any)
+		clauses++
+	}
+	for _, phrase := range params.phrases {
+		any := bluge.NewBooleanQuery().SetMinShould(1)
+		any.AddShould(
+			bluge.NewMatchPhraseQuery(phrase).SetField("title").SetBoost(4),
+			bluge.NewMatchPhraseQuery(phrase).SetField("summary").SetBoost(2),
+			bluge.NewMatchPhraseQuery(phrase).SetField("body"),
+		)
+		boolean.AddMust(any)
+		clauses++
+	}
+	if !params.since.IsZero() || !params.until.IsZero() {
+		// since is inclusive and until exclusive, so one day is
+		// since:D until:D+1. Dates are indexed as real timestamps, so a note's
+		// time of day is compared, not just its calendar date.
+		boolean.AddMust(
+			bluge.NewDateRangeInclusiveQuery(params.since, params.until, true, false).
+				SetField("date"))
+		clauses++
+	}
+
 	if clauses == 0 {
-		return bluge.NewMatchAllQuery(), nil
+		return bluge.NewMatchAllQuery()
 	}
-	return boolean, nil
+	return boolean
 }
 
-type queryToken struct {
-	value  string
-	phrase bool
+func toResult(match *search.DocumentMatch) (searchResult, error) {
+	var result searchResult
+	var tags []string
+	err := match.VisitStoredFields(func(field string, value []byte) bool {
+		switch field {
+		case "url":
+			result.URL = string(value)
+		case "title":
+			result.Title = string(value)
+		case "summary":
+			result.Summary = string(value)
+		case "date_text":
+			// The contract's `date` is YYYY-MM-DD, which is what a result card
+			// renders verbatim. The stored value keeps the note's full RFC 3339
+			// timestamp, and the indexed `date` field keeps it for range
+			// queries; only the display form is trimmed.
+			result.Date = string(value)
+			if len(result.Date) > 10 {
+				result.Date = result.Date[:10]
+			}
+		case "category":
+			result.Category = string(value)
+		case "reading":
+			result.ReadingTime, _ = strconv.Atoi(string(value))
+		case "tag":
+			tags = append(tags, string(value))
+		}
+		return true
+	})
+	sort.Strings(tags)
+	result.Tags = tags
+	if result.Tags == nil {
+		result.Tags = []string{}
+	}
+	return result, err
 }
 
-func splitQuery(raw string) ([]queryToken, error) {
-	tokens := make([]queryToken, 0, 8)
-	for i := 0; i < len(raw); {
-		for i < len(raw) && (raw[i] == ' ' || raw[i] == '\t' || raw[i] == '\n') {
-			i++
-		}
-		if i >= len(raw) {
-			break
-		}
-		if raw[i] == '"' {
-			i++
-			var builder strings.Builder
-			closed := false
-			for i < len(raw) {
-				if raw[i] == '\\' && i+1 < len(raw) {
-					builder.WriteByte(raw[i+1])
-					i += 2
-					continue
-				}
-				if raw[i] == '"' {
-					i++
-					closed = true
-					break
-				}
-				builder.WriteByte(raw[i])
-				i++
-			}
-			if !closed {
-				return nil, errors.New("unterminated quoted phrase")
-			}
-			tokens = append(tokens, queryToken{value: builder.String(), phrase: true})
-			continue
-		}
-		start := i
-		for i < len(raw) && raw[i] != ' ' && raw[i] != '\t' && raw[i] != '\n' {
-			i++
-		}
-		tokens = append(tokens, queryToken{value: raw[start:i]})
+// describe rebuilds the grammar the visitor typed, for the response echo and the
+// log line. The client sends fields, so there is no raw query to quote.
+func describe(params searchParams) string {
+	var parts []string
+	for _, category := range params.categories {
+		parts = append(parts, clause("category", category))
 	}
-	return tokens, nil
+	for _, tag := range params.tags {
+		parts = append(parts, clause("tag", tag))
+	}
+	if params.sinceText != "" {
+		parts = append(parts, "since:"+params.sinceText)
+	}
+	if params.untilText != "" {
+		parts = append(parts, "until:"+params.untilText)
+	}
+	for _, phrase := range params.phrases {
+		parts = append(parts, strconv.Quote(phrase))
+	}
+	if params.terms != "" {
+		parts = append(parts, params.terms)
+	}
+	return strings.Join(parts, " ")
+}
+
+func clause(field, value string) string {
+	if strings.ContainsAny(value, " \t\"") {
+		return field + ":" + strconv.Quote(value)
+	}
+	return field + ":" + value
+}
+
+func nonEmpty(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if value = strings.TrimSpace(value); value != "" {
+			out = append(out, value)
+		}
+	}
+	return out
 }
 
 func boundedInt(raw string, fallback, minimum, maximum int) int {
