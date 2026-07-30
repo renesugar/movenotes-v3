@@ -409,3 +409,11 @@ static-hosting search option. They are planned in detail, with the
 architectural decisions and the per-step verification, in
 [`LEDGER_MIGRATION_PLAN.md`](LEDGER_MIGRATION_PLAN.md).
 
+Steps 20–31 are done (`obsidian2site.py` 3.36). The theme swap, the two-tier tag
+model, the one Bluge contract, the serverless split, and both deployment
+documents are in place; steps 32–35 are the Orama/FlexSearch benchmark and
+whatever it justifies adding.
+
+Anything in steps 1–19 above that describes Relearn is history, not current
+behaviour. `STATIC_SITE.md` is the current description.
+

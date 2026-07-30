@@ -824,11 +824,30 @@ and driving search and Browse Tags in a browser: correct counts, every result
 href under `/archive/`, a followed result link returning 200, and no request
 outside the subpath but the favicon.
 
-### Step 31 — Docs and invariants pass *(movenotes)*
-Rewrite `STATIC_SITE.md` for Ledger; update `AGENTS.md` invariants, `README.md`,
-`CHANGELOG.md`, `PLAN.md`, `requirements.txt`; make sure no stale Relearn
-instruction survives (`grep -ri relearn` should return only deliberate
-historical notes).
+### Step 31 — Docs and invariants pass *(movenotes)*  ✅
+`STATIC_SITE.md` rewritten around what the site now is rather than what was
+suppressed: the three ways in, a backend comparison table with the crossover from
+the theme's measurements, the real generated layout, the two-tier tag model with
+the measurement behind its cap, and the subpath section that step 30 earned. It
+states plainly that there are no shortcodes and no theme-partial overrides, which
+is the whole difference from the Relearn build — verified against a real
+generation, path by path.
+
+`README.md`'s publishing section rewritten, `requirements.txt` corrected,
+`PERFORMANCE_REVIEW.md`'s two Relearn sentences made theme-agnostic,
+`PLAN.md` marked so its steps 1–19 read as history, and `AGENTS.md` given the
+invariants this migration created — the sidebar rule, bounded pagers, the two tag
+tiers, one clause generator, one URL resolver, `extraCSS`/`extraJS` instead of
+partial overrides.
+
+`CHANGELOG.md` gained a 3.36 entry covering steps 20–31, and
+`obsidian2site.py` is 3.36.
+
+`grep -ri relearn` now returns only deliberate mentions: the deprecated
+`--relearn-theme` alias and its tests, historical changelog and plan entries, and
+this document. Cross-checked for stale references to things that no longer exist
+(`search.html?tag=`, `movenotes-start`, `sidebarmenus`, `themeVariant`, Lunr) —
+all remaining hits are in history, none in instructions.
 
 ### Step 32 — Benchmark tiers 25k and 200k, Pagefind baseline *(theme)*
 Add both tiers to `scripts/bench.sh` / `gen-corpus.js`; add the

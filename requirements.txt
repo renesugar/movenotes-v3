@@ -2,5 +2,6 @@
 # the Python standard library (Python 3.9+).
 
 # obsidian2site.py generation is standard-library-only. Building its output
-# requires external Hugo, the Relearn theme, and Pagefind tools as documented
-# in STATIC_SITE.md; they are not Python runtime dependencies.
+# requires external tools — Hugo, the Ledger theme, Go for the Bluge server, and
+# Pagefind — as documented in STATIC_SITE.md. They are not Python runtime
+# dependencies.
