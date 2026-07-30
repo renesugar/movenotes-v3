@@ -1503,7 +1503,7 @@ def _theme_search_backend(search_backend: str) -> str:
 
 def _write_hugo_project(
     output: Path, *, title: str, base_url: str, locale: str,
-    copied_theme: bool, search_backend: str,
+    copied_theme: bool, search_backend: str, vercel: bool = False,
 ) -> None:
     generated_at = (
         datetime.now(timezone.utc).replace(microsecond=0)
@@ -1707,15 +1707,22 @@ capitalizeListTitles = false
         )
     else:
         pagefind_config.unlink(missing_ok=True)
-    # public/ and the Bluge index are build outputs, so they are ignored here —
-    # but a Git-based Vercel deployment of a large archive needs them committed,
-    # because the alternative is rebuilding a six-figure archive inside a
-    # 45-minute build. DEPLOY_VERCEL.md says which case is which.
+    # public/ and the Bluge index are build outputs, so they are normally
+    # ignored. A Git-based Vercel deployment is the exception: it deploys exactly
+    # those two, because the alternative is rebuilding a six-figure archive
+    # inside a 45-minute build. Under --vercel they stay tracked rather than
+    # making the deployment instructions start with "edit .gitignore".
+    ignored = ["/resources/", ".hugo_build.lock", "/server/bluge-index.building/",
+               "/server/bluge-index.stamp.json", "/server/movenotes-site-server",
+               "/.vercel/"]
+    if vercel:
+        ignored.insert(0, "# --vercel: public/ and server/bluge-index/ are")
+        ignored.insert(1, "# deliberately tracked — a Git deployment ships them.")
+    else:
+        ignored.insert(0, "/public/")
+        ignored.insert(1, "/server/bluge-index/")
     (output / ".gitignore").write_text(
-        "/public/\n/resources/\n.hugo_build.lock\n/server/bluge-index/\n"
-        "/server/bluge-index.building/\n/server/bluge-index.stamp.json\n"
-        "/server/movenotes-site-server\n/.vercel/\n",
-        encoding="utf-8",
+        "\n".join(ignored) + "\n", encoding="utf-8"
     )
 
 
@@ -2466,10 +2473,12 @@ def _vercel_json(search_backend: str) -> str:
     come from public/; the index rides along with the functions through
     includeFiles.
     """
+    # No trailingSlash setting on purpose. The theme links to directory-style
+    # paths (/search/, /tags/x/) while notes are .html files, so enforcing either
+    # form turns every internal navigation into a 308 redirect.
     config: dict[str, object] = {
         "$schema": "https://openapi.vercel.sh/vercel.json",
         "outputDirectory": "public",
-        "trailingSlash": False,
     }
     if search_backend != "pagefind":
         config["functions"] = {
@@ -2753,6 +2762,7 @@ def main(argv: list[str]) -> int:
         locale=args.locale,
         copied_theme=copied_theme,
         search_backend=args.search_backend,
+        vercel=args.vercel,
     )
     if args.vercel:
         _write_vercel_project(output, search_backend=args.search_backend)

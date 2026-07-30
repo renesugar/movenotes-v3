@@ -747,12 +747,37 @@ function bundle is unverifiable. Built locally, the index is deployment *source*
    `#pizza`. This was visible in step 25's own verification output and I read past
    it.
 
-### Step 29 — `DEPLOY_VERCEL.md` *(movenotes)*
-Build and deploy the Hugo site with the Bluge backend on Vercel: prerequisites,
-`obsidian2site.py` invocation, `vercel.json`, the 250 MB arithmetic and how to
-measure it, `includeFiles`, prebuilt-index requirement, the read-only
-filesystem, cold starts, and the three over-ceiling options. Cites the Go
-runtime and function-limits pages.
+### Step 29 — `DEPLOY_VERCEL.md` *(movenotes)*  ✅
+Written, and it leads with the verdict rather than burying it: which archive
+sizes can be deployed which way. Up to ~5,000 notes anything works; to ~45,000
+it has to be a Git-connected project; past that the index no longer fits a
+function and Bluge belongs on a host that keeps a process.
+
+Contents: prerequisites, the generating command, what each emitted file is for
+and why (including why there is no `buildCommand` and no `trailingSlash`), both
+deployment paths, environment configuration, a verification sequence, what runs
+where (read-only filesystem, no request-time indexing, cold starts and archiving),
+the measured limit table with the commands to check your own archive, three
+options past the ceiling, and a troubleshooting table. Cites the Go runtime,
+function-limits, runtimes, platform-limits and `vercel.json` pages.
+
+**The most useful thing in it is a warning that only exists because of `auto`:**
+if the index does not ship, the probe fails, the browser falls back to Pagefind,
+and search keeps working — so a broken Bluge deployment looks fine. The only
+symptom is `since:`/`until:` reporting themselves unsupported. Check
+`/api/health` explicitly; it answers 503 naming the path it looked for.
+
+Two fixes while writing it, both from reading my own emitted config as a user
+would:
+
+- **`trailingSlash: false` removed from `vercel.json`.** The theme links to
+  `/search/` and `/tags/x/` while notes are `.html` files, so enforcing either
+  form would have turned every internal navigation into a 308 redirect. I added
+  that line last step without thinking it through.
+- **`--vercel` no longer gitignores `public/` and `server/bluge-index/`.** A Git
+  deployment ships exactly those two, and the alternative was a documented
+  instruction to start by editing `.gitignore` — a step that exists only because
+  the generator got it wrong.
 
 ### Step 30 — `DEPLOY_GITHUB_PAGES.md` *(movenotes)*
 Build and deploy with the static backend on GitHub Pages: the Actions workflow

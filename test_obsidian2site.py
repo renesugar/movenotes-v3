@@ -180,6 +180,10 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertTrue((site / "content" / "search.md").is_file())
             self.assertTrue((site / "content" / "browse-tags.md").is_file())
             self.assertTrue((site / "content" / "about.md").is_file())
+            # Build outputs are ignored on an ordinary generation.
+            generated_gitignore = (site / ".gitignore").read_text(encoding="utf-8")
+            self.assertIn("/public/\n", generated_gitignore)
+            self.assertIn("/server/bluge-index/\n", generated_gitignore)
             home_meta, home_body = read_json_frontmatter(site / "content" / "_index.md")
             self.assertEqual(
                 home_meta["date"][:10],
@@ -1072,6 +1076,10 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             # No build command: building Hugo, Pagefind and a Bluge index inside
             # one 45-minute Vercel build is not a plan.
             self.assertNotIn("buildCommand", config)
+            # And no trailingSlash: the theme links to /search/ and /tags/x/ while
+            # notes are .html files, so enforcing either form makes every
+            # internal navigation a 308 redirect.
+            self.assertNotIn("trailingSlash", config)
 
             # Vercel's Go runtime needs go.mod at the project root, and its
             # requirements are derived from the server module's so the two cannot
@@ -1093,6 +1101,13 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             # The CDN serves the static files; a generated archive's public/ is
             # far larger than any function bundle.
             self.assertNotIn("FileServer", (site / "api" / "search.go").read_text(encoding="utf-8"))
+
+            # A Git deployment ships the built site and the index, so --vercel
+            # does not gitignore them — otherwise the deployment instructions
+            # would have to start by editing .gitignore.
+            gitignore = (site / ".gitignore").read_text(encoding="utf-8")
+            self.assertNotIn("/public/\n", gitignore)
+            self.assertNotIn("/server/bluge-index/\n", gitignore)
 
             ignore = (site / ".vercelignore").read_text(encoding="utf-8")
             # Hugo inputs stay out: Vercel counts uploaded source files against a
