@@ -1562,6 +1562,119 @@ This is the difference between the two analysers, worth stating plainly:
 
 ---
 
+## Part G — Tag counts, and a real query language
+
+From the third real-archive run. The pipeline reported no problems; these come
+from using the site.
+
+### Step 46 — Why the tag archive and `tag:` disagree  ✅ *(investigated)*
+**Symptom.** `/tags/ifnβ/` says 16, `/search/?q=tag:ifnβ` says 23.
+
+**Cause.** They are reading two different tag sets, which is decision M2
+working as designed and never stated where a visitor would see it. Counted on
+the user's own archive:
+
+| | populated from | `ifnβ` |
+|---|---|---|
+| tag archive | Hugo taxonomy ← front matter (written tags, capped at 5,000) | 16 |
+| Pagefind `tag:` | `data-pagefind-filter` ← the same front matter | 16 |
+| Bluge `tag:` | `search-source.jsonl` `tags` (written **plus** every generated content word) | 23 |
+
+The seven extra notes contain the word `ifnβ` without carrying `#ifnβ` as a
+written tag. Verified in the built HTML on the Pagefind side rather than inferred
+from the template: only one note carries `data-pagefind-filter=tag>energy<` where
+Bluge's `tag:energy` matches seven, and a typical note carries **zero** Pagefind
+tag filters while Bluge holds ~180 generated tags for it.
+
+**"Are search results always a superset of the archive?" Yes.** `displayTags ⊆
+tags` was checked across all **166,654 notes with zero violations**, and front
+matter is `displayTags` minus what the cap removed. So archive ⊆ Pagefind `tag:`
+⊆ Bluge `tag:`, always. The containment is sound; the surprise is that Bluge's
+set is much larger and nothing says so.
+
+**Open decision, for the user.** Three ways to stop this surprising people:
+
+1. **Document it** — cheapest, changes no behaviour, but leaves two backends
+   answering the same query with different numbers.
+2. **Make Bluge's `tag:` match written tags only, uncapped.** All three then
+   agree except for the 1,408 written tags the cap excludes, which Bluge would
+   still find and the archive cannot show — a superset for a reason that can be
+   stated in one sentence. The generated words stay findable as free text, where
+   they already are: `ifnβ` as free text also returns 23, because a generated
+   tag is by construction a word of the note. It should also shrink the Bluge
+   index noticeably, which wants measuring.
+3. **Raise the taxonomy cap** so the archive covers more tags. Rejected already
+   in M3: a taxonomy term costs about as much to build as a note page.
+
+Recommendation: **2**, because it makes `tag:` mean one thing everywhere and
+costs no reachability. It is a behaviour change, so it is the user's call.
+
+### Step 47 — `OR`, grouping and negation *(theme + movenotes)*
+Requested: Twitter/X's keyword and logical operators — `OR`, implicit `AND`,
+`-negation`, `()` grouping, and quoted phrases (already implemented).
+
+**Today every one of these is a literal term.** From the run:
+`cat OR dog` → 0, `pizza -donut` → 0, `(pizza OR -donut)` → 0. The analyser
+turns `OR` into the term `or` and drops `(` and `-`, so the query becomes an AND
+of everything including the operator words.
+
+**Bluge can express all of it.** Measured against a real three-document index
+rather than taken from the reference:
+
+| shape | result |
+|---|---|
+| `MustNot` alone — NOT pie | **2 of 3** |
+| apple AND NOT pie | 1 of 3 |
+| matchAll AND NOT pie | 2 of 3 |
+| apple OR banana | 3 of 3 |
+| (apple OR banana) AND NOT pie | 2 of 3 |
+
+**This corrects the supplied reference**, which states that a `MustNot` "cannot
+stand entirely alone in Bluge/Bleve; it must accompany at least one positive
+matching clause". In Bluge v0.2.2 it can: a bare negation returned 2 of 3. The
+same reference is right that Bluge has no query-string parser in core; it is not
+needed here, because the grammar is parsed client-side by design and the server
+receives structure.
+
+**Pagefind cannot, for text.** Its `search()` takes one term string, and it
+strips punctuation, so `-term` is read as `term`. Its filters *do* support
+compound `not`/`any`/`all`, so `category:`/`tag:` clauses can carry the full
+algebra there while free-text terms cannot. Answering the user's question
+directly: **yes, it makes sense to implement this in Bluge and not fully in
+Pagefind** — the same split already exists for `since:`/`until:`, and the
+`unsupported` channel already exists to tell the visitor which clauses were
+dropped rather than silently returning the wrong set.
+
+**The real cost is the wire format, not the operators.** The parsed query is
+currently a flat set of fields, and `/api/search` takes flat parameters. An
+expression tree cannot be expressed that way, so this step is: a tree-shaped
+parse in `query.js`, a serialised form on the wire, and `buildQuery` walking it.
+Sub-steps, so the project stays working between them:
+
+1. Grammar and tree in `query.js`, with the existing flat shape derived from it
+   so nothing else changes yet.
+2. Wire format and `buildQuery` over the tree in both Go servers.
+3. Adapters: Bluge full, Pagefind filters-only with honest `unsupported`
+   reporting, Orama and FlexSearch as far as each goes.
+
+### Step 48 — Emoji are not searchable
+`😃` → 0. The analyser produces **no terms at all** for an emoji: `😃` yields
+nothing and `happy 😃 day` yields `[happy] [day]`. So an emoji query has nothing
+to match with, and an emoji in a note is not indexed. Twitter's operator list
+includes `emoji` as a standalone operator, and a Twitter/X archive is full of
+them.
+
+Non-ASCII letters are fine — `ifnβ` and `café` tokenise whole — so this is
+specifically the unicode segmenter discarding symbol runs, not an encoding
+problem. A custom analyser or a separate emoji field is the fix; measure the
+index cost before adopting.
+
+Also worth deciding here: `#ifnβ` and `ifnβ` are the same query today, because
+the tokeniser drops `#`. Twitter treats `#x` as an exact hashtag match. If
+step 46 lands option 2, `#x` becomes the natural spelling for `tag:x`.
+
+---
+
 ## File inventory
 
 **movenotes-v3**
