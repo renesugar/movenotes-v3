@@ -14,14 +14,19 @@ import (
 )
 
 type sourceRecord struct {
-	ID          int      `json:"id"`
-	URL         string   `json:"url"`
-	Title       string   `json:"title"`
-	Date        string   `json:"date"`
-	Body        string   `json:"body"`
-	Summary     string   `json:"summary"`
-	Category    string   `json:"category"`
-	Tags        []string `json:"tags"`
+	ID       int      `json:"id"`
+	URL      string   `json:"url"`
+	Title    string   `json:"title"`
+	Date     string   `json:"date"`
+	Body     string   `json:"body"`
+	Summary  string   `json:"summary"`
+	Category string   `json:"category"`
+	Tags     []string `json:"tags"`
+	// DisplayTags are the tags a result card shows: the ones actually written in
+	// the note. `tags` above holds those plus every generated content word, which
+	// is what `tag:` searches, but a card showing four random content words is
+	// noise — and storing 180 tags per note for display cost 23% of the index.
+	DisplayTags []string `json:"displayTags"`
 	ReadingTime int      `json:"readingTime"`
 }
 
@@ -78,6 +83,7 @@ const (
 	maxPerPage     = 100
 	maxOffset      = 10_000_000
 	dateLayout     = "2006-01-02"
+	maxDisplayTags = 8
 )
 
 func parseParams(values url.Values) (searchParams, error) {
@@ -218,8 +224,10 @@ func toResult(match *search.DocumentMatch) (searchResult, error) {
 			result.Category = string(value)
 		case "reading":
 			result.ReadingTime, _ = strconv.Atoi(string(value))
-		case "tag":
-			tags = append(tags, string(value))
+		case "tags_display":
+			if len(value) > 0 {
+				tags = append(tags, strings.Split(string(value), "\t")...)
+			}
 		}
 		return true
 	})
