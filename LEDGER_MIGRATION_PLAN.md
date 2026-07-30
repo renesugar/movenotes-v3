@@ -1031,6 +1031,50 @@ The settled decision is written where someone would look before re-opening it:
 than assumed"), `DEPLOY_GITHUB_PAGES.md`, the theme's `README.md` and
 `PERFORMANCE.md`, and movenotes' `CHANGELOG.md`.
 
+### Step 35b — Result ordering and a resting search page *(movenotes + theme)*  ✅
+Added after step 35, from the user's requirement: *"Every query should return
+results ordered by date descending. Notes showing up in an unpredictable order or
+having to go to the last page for most recent notes would not be useful. Going to
+the Search page, showing the results can be deferred until the user initiates a
+search; an empty search being the same as `category:"All notes"`."*
+
+**Ordering.** The date sort had been conditional — requested only where there was
+no text term to rank by. Made unconditional in all four theme adapters and both Go
+servers (`site_server/search/query.go`, the theme's `search-server/main.go`), with
+`sort=score` left as an escape hatch no theme code sends. This also completes the
+Hugo/backend invariant from step 30: `term.html` renders page 1 in date order and
+the backend serves page 2, which was only sound for the query shapes that already
+sorted.
+
+The cost was the reason it had been conditional, and it did not materialise. At
+25k, cold, bytes counted at the server:
+
+| query | matches | latency | bytes |
+|---|---|---|---|
+| free text | 2,327 | 1,192 ms | 369 KB |
+| filter + text | 175 | 555 ms | 62 KB |
+| `tag:` alone | 497 | 8,962 ms | 13,274 KB |
+| empty = `category:"All notes"` | 25,000 | 7,006 ms | 5 KB (warm) |
+
+369 KB is what the unsorted free-text query cost, so the sort is free on the path
+visitors actually take; the expensive rows are the null-term shapes, unchanged.
+Page 2 was verified to continue page 1's sequence with no overlap.
+
+**A resting search page.** Arriving at `/search/` with no query ran a matchAll,
+the most expensive request Pagefind can answer. It now shows a prompt and issues
+nothing until a query is submitted: **13,503 KB / 442 requests → 86 KB / 12
+requests, none of them Pagefind's**. The same lever as step 30 — the win is in not
+searching.
+
+Nothing is lost, because the two idle meanings coincide: the grammar already
+discarded `category:"All notes"` (Joplin's phrasing for "no filter"), so it and an
+empty box are one request. Verified identical on the theme's exampleSite — 17
+notes, same order — and across four query shapes on the 25k corpus.
+
+Documented in `STATIC_SITE.md`, the generated Getting Started page, the theme's
+`README.md`, `AGENTS.md` (as an invariant, not a preference), `PERFORMANCE.md`
+(hypotheses 6 and 7) and `search-server/README.md`.
+
 ### Step 36 — Real-archive test and release
 User runs the pipeline against a real Twitter/X archive. Fix what it finds.
 Then, with the user's agreement, push `develop`.

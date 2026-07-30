@@ -214,16 +214,28 @@ configured:
 | `category:Twitter` | one category; quote a name with a space |
 | `tag:economics` | one tag; repeat the clause to require several |
 | `since:2026-07-01 until:2026-08-01` | July, by note date — `until:` is exclusive |
+| *(empty)*, or `category:"All notes"` | every note |
 
 Clauses are ANDed, and anything that does not fit — `foo:bar`, a URL — is
 searched as text.
+
+**Results are ordered newest first, always.** Whatever the query, the most
+recent note is on page 1 — an archive is read by date, and ranking would put it
+somewhere unpredictable in a long result set.
+
+**`category:"All notes"` is Joplin's phrasing for "no filter",** and the parser
+discards it, so it is exactly an empty search. Both mean every note.
+
+**Opening `/search/` runs nothing.** The page waits for a query rather than
+searching for everything on arrival — that arrival used to be the most expensive
+request on a Pagefind site (13.5 MB at 25,000 notes, now zero).
 
 **Pagefind cannot express date bounds.** On a static build the results view says
 which clauses were ignored rather than quietly returning the unbounded set.
 Everything else in the table works on both backends.
 
 `/api/search` also accepts `offset`, `limit` (max 100), `page`, `per` and
-`sort=date` for callers that are not the theme.
+`sort=score` for a caller that wants relevance ranking instead of the date order.
 
 ## 4. Optional: build the Pagefind fallback
 

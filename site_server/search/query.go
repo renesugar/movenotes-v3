@@ -130,17 +130,13 @@ func parseParams(values url.Values) (searchParams, error) {
 		params.offset = (params.page - 1) * params.per
 	}
 
-	// An explicit sort wins; otherwise sort by date exactly when there is no
-	// text to rank by, so a filter-only query is in the same order as the first
-	// page Hugo server-rendered for that term.
-	switch values.Get("sort") {
-	case "date":
-		params.sortByDate = true
-	case "score", "relevance":
-		params.sortByDate = false
-	default:
-		params.sortByDate = params.terms == "" && len(params.phrases) == 0
-	}
+	// Newest first for every query, not only for filter-only ones. An archive is
+	// read chronologically: relevance ordering puts the most recent note at an
+	// unpredictable position, and in a long result set the visitor would have to
+	// page to the end to find it. It also keeps a server-rendered first page and
+	// a searched second page in one sequence for every query shape, not just
+	// some. `sort=score` is the escape hatch for a caller that wants ranking.
+	params.sortByDate = values.Get("sort") != "score" && values.Get("sort") != "relevance"
 
 	return params, nil
 }
