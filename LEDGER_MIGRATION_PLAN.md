@@ -913,10 +913,42 @@ a pager directory per six notes — ~83,000 of them at 500k. `results.tsv` gaine
 rather than inferred, and the historical rows are marked `-` rather than
 backfilled with guesses.
 
-### Step 33 — Orama adapter and measurement *(theme)*
-`assets/js/search/backends/orama.js` behind the same interface, an index-build
-script, and the full metric set at 25k / 100k / 200k. Result written up in
-`PERFORMANCE.md` whichever way it goes.
+### Step 33 — Orama adapter and measurement *(theme)*  ✅
+Built, measured, **not promoted** — the theme's step 20 (`00194af`).
+
+Orama holds its whole index in memory, so the measurement is short: at 25,000
+notes a visitor downloads **223 MB** (bodies indexed) or **33 MB** (titles and
+summaries only) and waits **11–19 s** for the first result, against Pagefind's
+**369 KB** and about a second.
+
+| criterion (fixed in Part D before measuring) | result |
+|---|---|
+| cold time to first result ≤ Pagefind's | ❌ 11.2–18.9 s vs ~1 s |
+| first-result download within ~1.5× | ❌ 90× to 600× |
+| warm filter query < 500 ms | ✅ 19–102 ms |
+| peak heap < ~500 MB | ✅ 82 MB / 364 MB, on a desktop |
+
+Warm, Orama is genuinely extraordinary: **35 ms** for a filter over 8,924 of
+25,000 notes where Pagefind takes **6,006 ms**. It is the wrong half of the trade
+at this scale, and the rule says so.
+
+**100k and 200k were deliberately not measured.** The index is linear, so 200k
+projects to ~1.8 GB and the Node builder would need ~14 GB of RSS. No measurement
+could change a decision already failed by two orders of magnitude at the smallest
+tier, and the plan's rule gates promotion on 25k "and above". The projection is
+labelled arithmetic in `PERFORMANCE.md`, not measurement — the honest version of
+skipping work.
+
+The adapter stays in the theme, registered and documented as a **small-site**
+option: at a few thousand notes its index is a few megabytes, and it answers the
+`since:`/`until:` bounds Pagefind cannot express at all. It does not enter
+`obsidian2site.py`, which targets archives 100× larger.
+
+One finding that would have cost every site something: a static
+`import '@orama/orama'` in the adapter makes esbuild inline the library into the
+shared search bundle — **8.9 KB → 88.2 KB, for every site including Pagefind
+ones**. It is built as its own asset and imported from a runtime URL now, and only
+when a site selects the backend.
 
 ### Step 34 — FlexSearch adapter and measurement *(theme)*
 `flexsearch.js` in both configurations (fast-boot import, IndexedDB
