@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -323,5 +324,152 @@ func TestURLsInBodyAreSearchable(t *testing.T) {
 				t.Errorf("total = %d, results = %q; want %q", got.Total, urls, c.want)
 			}
 		})
+	}
+}
+
+// TestExpressionQueries covers step 47.2: the tree the grammar produces, run
+// against a real index. `cat OR dog`, `pizza -donut` and `(pizza OR -donut)` all
+// returned nothing on the real archive because the flat contract could not carry
+// an operator — every one of them became another word to AND.
+func TestExpressionQueries(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "search-source.jsonl")
+	records := []string{
+		`{"id":0,"url":"/notes/a.html","title":"Apple pie","date":"2026-07-03T00:00:00Z","body":"apple and pie","summary":"apple pie","category":"Recipes","tags":["fruit"],"readingTime":1}`,
+		`{"id":1,"url":"/notes/b.html","title":"Apple tart","date":"2026-07-02T00:00:00Z","body":"apple and tart","summary":"apple tart","category":"Recipes","tags":["fruit","sweet"],"readingTime":1}`,
+		`{"id":2,"url":"/notes/c.html","title":"Banana bread","date":"2026-07-01T00:00:00Z","body":"banana and bread","summary":"banana bread","category":"Recipes","tags":["fruit"],"readingTime":1}`,
+		`{"id":3,"url":"/notes/d.html","title":"Sourdough loaf","date":"2026-06-30T00:00:00Z","body":"flour water salt","summary":"sourdough","category":"Baking","tags":["bread"],"readingTime":1}`,
+	}
+	if err := os.WriteFile(source, []byte(strings.Join(records, "\n")+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	index := filepath.Join(root, "index")
+	if err := BuildIndex(source, index); err != nil {
+		t.Fatalf("BuildIndex: %v", err)
+	}
+	service := New(Config{SourcePath: source, IndexDir: index})
+	defer service.Close()
+
+	for _, c := range []struct {
+		name string
+		expr string
+		want []string
+	}{
+		{"a bare term", `{"type":"term","value":"apple"}`,
+			[]string{"/notes/a.html", "/notes/b.html"}},
+		{"OR", `{"type":"or","nodes":[{"type":"term","value":"apple"},{"type":"term","value":"banana"}]}`,
+			[]string{"/notes/a.html", "/notes/b.html", "/notes/c.html"}},
+		{"AND", `{"type":"and","nodes":[{"type":"term","value":"apple"},{"type":"term","value":"pie"}]}`,
+			[]string{"/notes/a.html"}},
+		{"negation with a positive", `{"type":"and","nodes":[{"type":"term","value":"apple"},{"type":"not","node":{"type":"term","value":"pie"}}]}`,
+			[]string{"/notes/b.html"}},
+		// Bluge answers a MustNot-only boolean directly — the supplied reference
+		// says it cannot, and it can.
+		{"negation alone", `{"type":"not","node":{"type":"term","value":"apple"}}`,
+			[]string{"/notes/c.html", "/notes/d.html"}},
+		{"grouping changes the reading", `{"type":"and","nodes":[{"type":"or","nodes":[{"type":"term","value":"apple"},{"type":"term","value":"banana"}]},{"type":"not","node":{"type":"term","value":"pie"}}]}`,
+			[]string{"/notes/b.html", "/notes/c.html"}},
+		// A negation cannot be a "should", so this branch becomes its own
+		// everything-minus-pie query: every note without pie, plus the pie one.
+		{"OR with a negated branch", `{"type":"or","nodes":[{"type":"term","value":"pie"},{"type":"not","node":{"type":"term","value":"apple"}}]}`,
+			[]string{"/notes/a.html", "/notes/c.html", "/notes/d.html"}},
+		{"a field inside an expression", `{"type":"and","nodes":[{"type":"field","field":"category","value":"Recipes"},{"type":"not","node":{"type":"field","field":"tag","value":"sweet"}}]}`,
+			[]string{"/notes/a.html", "/notes/c.html"}},
+		{"a phrase inside an expression", `{"type":"or","nodes":[{"type":"phrase","value":"banana and bread"},{"type":"term","value":"sourdough"}]}`,
+			[]string{"/notes/c.html", "/notes/d.html"}},
+		{"date bounds are ordinary leaves", `{"type":"and","nodes":[{"type":"field","field":"since","value":"2026-07-02"},{"type":"term","value":"apple"}]}`,
+			[]string{"/notes/a.html", "/notes/b.html"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			values := url.Values{"expr": {c.expr}}
+			recorder := httptest.NewRecorder()
+			service.Search(recorder, httptest.NewRequest(
+				http.MethodGet, "/api/search?"+values.Encode(), nil))
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("status = %d: %s", recorder.Code, recorder.Body.String())
+			}
+			var got struct {
+				Total   int `json:"total"`
+				Results []struct {
+					URL string `json:"url"`
+				} `json:"results"`
+			}
+			if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			var urls []string
+			for _, r := range got.Results {
+				urls = append(urls, r.URL)
+			}
+			sort.Strings(urls)
+			want := append([]string(nil), c.want...)
+			sort.Strings(want)
+			if got.Total != len(want) || !reflect.DeepEqual(urls, want) {
+				t.Errorf("total = %d, results = %q; want %q", got.Total, urls, want)
+			}
+		})
+	}
+}
+
+// A malformed tree is a 400 naming the problem, not a 500 and not a silently
+// empty result set.
+func TestExpressionRejectsMalformedTrees(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "search-source.jsonl")
+	if err := os.WriteFile(source,
+		[]byte(`{"id":0,"url":"/n.html","title":"N","date":"2026-07-01T00:00:00Z","body":"b","tags":[]}`+"\n"),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	index := filepath.Join(root, "index")
+	if err := BuildIndex(source, index); err != nil {
+		t.Fatal(err)
+	}
+	service := New(Config{SourcePath: source, IndexDir: index})
+	defer service.Close()
+
+	for _, c := range []struct{ name, expr, contains string }{
+		{"not json", `{oops`, "not valid JSON"},
+		{"unknown type", `{"type":"xor","nodes":[]}`, "unknown node type"},
+		{"unknown field", `{"type":"field","field":"author","value":"x"}`, "unknown field"},
+		{"empty conjunction", `{"type":"and","nodes":[]}`, "with no operands"},
+		{"valueless term", `{"type":"term","value":""}`, "with no value"},
+		{"bad date", `{"type":"field","field":"since","value":"yesterday"}`, "expected YYYY-MM-DD"},
+		{"too large", `{"type":"term","value":"` + strings.Repeat("x", maxExprBytes) + `"}`, "larger than"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			values := url.Values{"expr": {c.expr}}
+			recorder := httptest.NewRecorder()
+			service.Search(recorder, httptest.NewRequest(
+				http.MethodGet, "/api/search?"+values.Encode(), nil))
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400: %s", recorder.Code, recorder.Body.String())
+			}
+			if !strings.Contains(recorder.Body.String(), c.contains) {
+				t.Errorf("body %q does not mention %q", recorder.Body.String(), c.contains)
+			}
+		})
+	}
+}
+
+// The echo and the log line show how the query was understood, which is what
+// makes a misparse visible instead of merely surprising.
+func TestExpressionIsEchoedInGrammar(t *testing.T) {
+	for _, c := range []struct{ expr, want string }{
+		{`{"type":"term","value":"cat"}`, "cat"},
+		{`{"type":"or","nodes":[{"type":"term","value":"cat"},{"type":"term","value":"dog"}]}`, "cat OR dog"},
+		{`{"type":"and","nodes":[{"type":"term","value":"a"},{"type":"or","nodes":[{"type":"term","value":"b"},{"type":"term","value":"c"}]}]}`, "a (b OR c)"},
+		{`{"type":"and","nodes":[{"type":"term","value":"cat"},{"type":"not","node":{"type":"term","value":"grumpy"}}]}`, "cat -grumpy"},
+		{`{"type":"not","node":{"type":"or","nodes":[{"type":"term","value":"b"},{"type":"term","value":"c"}]}}`, "-(b OR c)"},
+		{`{"type":"field","field":"tag","value":"two words"}`, `tag:"two words"`},
+		{`{"type":"phrase","value":"bank of canada"}`, `"bank of canada"`},
+	} {
+		node, err := parseExpr(c.expr)
+		if err != nil {
+			t.Fatalf("parseExpr(%s): %v", c.expr, err)
+		}
+		if got := describe(searchParams{expr: node}); got != c.want {
+			t.Errorf("describe(%s) = %q, want %q", c.expr, got, c.want)
+		}
 	}
 }

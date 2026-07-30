@@ -278,6 +278,11 @@ theme puts each note's external URLs in a hidden block that Pagefind indexes.
 `/api/search` also accepts `offset`, `limit` (max 100), `page`, `per` and
 `sort=score` for a caller that wants relevance ranking instead of the date order.
 
+It accepts `expr` as well: the query as a JSON expression tree, which is how
+`OR`, negation and grouping reach the server — the other parameters are a flat
+set of ANDed clauses and cannot carry them. The theme's
+`search-server/README.md` documents the shape.
+
 ## 4. Optional: build the Pagefind fallback
 
 For static hosting, or to keep a fallback when the Go server is stopped, run
