@@ -51,6 +51,12 @@ Read these files first:
 - Generated word tags never become Hugo taxonomy terms. Explicit tags may; the
   count that reaches the taxonomy is capped. See decisions M2 and M3 in
   `LEDGER_MIGRATION_PLAN.md`.
+- Generated word tags never reach `search-source.jsonl` either. `tag:` matches
+  the tags written in a note, so it returns the same count as the tag archive
+  and as Pagefind's filter — one query, one answer, on all three. They stay
+  reachable as words and through the posting index. Step 46; putting them back
+  in `tags` silently reintroduces a three-way disagreement no test outside
+  `test_tag_searches_agree_with_the_tag_archive` would catch.
 - Search query clauses are generated in exactly one place per side: the theme's
   `_partials/search-clause.html`, and its Python equivalent here. The grammar
   tokenises on whitespace, so a value containing a space must be quoted.

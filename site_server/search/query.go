@@ -14,19 +14,19 @@ import (
 )
 
 type sourceRecord struct {
-	ID       int      `json:"id"`
-	URL      string   `json:"url"`
-	Title    string   `json:"title"`
-	Date     string   `json:"date"`
-	Body     string   `json:"body"`
-	Summary  string   `json:"summary"`
-	Category string   `json:"category"`
-	Tags     []string `json:"tags"`
-	// DisplayTags are the tags a result card shows: the ones actually written in
-	// the note. `tags` above holds those plus every generated content word, which
-	// is what `tag:` searches, but a card showing four random content words is
-	// noise — and storing 180 tags per note for display cost 23% of the index.
-	DisplayTags []string `json:"displayTags"`
+	ID       int    `json:"id"`
+	URL      string `json:"url"`
+	Title    string `json:"title"`
+	Date     string `json:"date"`
+	Body     string `json:"body"`
+	Summary  string `json:"summary"`
+	Category string `json:"category"`
+	// Tags are the tags written in the note, uncapped: what `tag:` matches and
+	// what a result card shows. It used to carry every generated content word
+	// as well, which made `tag:` answer differently from the tag archive and
+	// from Pagefind for the same query — see step 46. Generated words are still
+	// found by free text, being words of the note.
+	Tags        []string `json:"tags"`
 	ReadingTime int      `json:"readingTime"`
 }
 
