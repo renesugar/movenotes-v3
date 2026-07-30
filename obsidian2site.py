@@ -1902,10 +1902,30 @@ render one, and the search page when it is not. The search box accepts:
 | `tag:economics` | one tag; repeat it to require several |
 | `since:2026-07-01 until:2026-08-01` | July, by note date — `until:` is exclusive |
 | an empty box, or `category:"All notes"` | every note |
+| `https://example.org/news/12345/a-headline/` | notes linking that URL |
+| `example.org news` | notes linking that host and path |
 
 Results come back **newest first**, whatever the query, so the most recent note
-is always on the first page. The search page itself waits for a query rather
+is always on the first page. The search box itself waits for a query rather
 than searching for everything the moment it opens.
+
+## Searching for a link
+
+A note's links are searchable by their destination, whether the URL is written
+out or hidden behind a label. A URL is split the way a sentence is — the host
+stays whole and the path becomes words — so the whole URL, a prefix of it, or
+just its parts all find the same notes:
+
+| query | finds |
+|---|---|
+| `https://example.org/news/12345/a-headline/` | notes with that exact link |
+| `https://example.org/news/` | any link starting that way |
+| `example.org news` | the same, in any order |
+| `12345` | that one path segment |
+
+`www.` is optional — `sciencedirect.com` and `www.sciencedirect.com` find the
+same notes. Links between notes in this archive are not indexed this way; the
+note a link points at is findable as itself.
 
 @@SYNTAX_NOTE@@
 

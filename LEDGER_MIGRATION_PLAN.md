@@ -1361,9 +1361,37 @@ skipped for nearly every page.
 the other unannounced wait.
 
 ### Step 42 — Docs, and re-test on the real archive
-Update `STATIC_SITE.md`, `DEPLOY_*.md` and the generated Getting Started page to
-say that URLs are searchable and how they tokenise. Then the user re-runs the
-real archive and checks the reported queries.
+**Docs done.** A "Searching for a link" section in `STATIC_SITE.md` and in the
+generated Getting Started page, both showing how a URL splits — host whole, path
+into words — and that a whole URL, a prefix, its components in any order, or one
+path segment all find the same notes, with `www.` optional. `README.md` gained
+the same in short. `DEPLOY_GITHUB_PAGES.md` gained a verification step for it and
+says why Pagefind needs the hidden block. `DEPLOY_VERCEL.md` carries the real
+per-note index figures from step 40.
+
+Two limits are stated rather than left to be discovered: it is not a URL parser,
+so `?` and `&` are ordinary separators and a query string is searched as words;
+and a common host is a common word — `x.com` matches nearly every note of a
+Twitter/X archive and costs what a match-all costs.
+
+Verified end to end through the generator on the note from the report, built with
+`--search-backend both` and driven in a browser against Pagefind — all seven
+shapes return it:
+
+| query | results |
+|---|---|
+| the whole globalnews URL | 1 |
+| `globalnews.ca news` | 1 |
+| `https://globalnews.ca/news/` | 1 |
+| `10063968` | 1 |
+| `https://x.com/i/web/status/1720100485901000962` (label-only link) | 1 |
+| `https://x.com/JohnPasalis` (auto-linked mention) | 1 |
+| `housing https://globalnews.ca/news/` (prose + URL) | 1 |
+
+**Remaining: the user re-runs the real archive.** The existing `~/twitter_site`
+was generated before step 38, and the Bluge index is built from
+`search-source.jsonl`, which has no URLs in it — so it needs regenerating, not
+just reindexing.
 
 ---
 

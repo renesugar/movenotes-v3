@@ -180,7 +180,13 @@ After the first successful run, on the published site:
    mistake: results that 404 mean URLs are missing the `/<repo>/` prefix.
 4. **Browse Tags loads its tags, and a tag opens notes.** It reads the hashed
    posting index under `/movenotes/`, which is a separate path from Pagefind's.
-5. **`since:2026-01-01` reports itself ignored.** That message is correct here:
+5. **A link is findable by its destination.** Paste a URL a note links into the
+   search box. This works on Pagefind because the theme writes each note's
+   external URLs into a hidden block that Pagefind indexes — a link whose URL is
+   hidden behind a label would otherwise exist only in the `href`, which
+   Pagefind does not read. It costs about 14% of the index and 1.2% of the
+   published site, both measured in the theme's `PERFORMANCE.md`.
+6. **`since:2026-01-01` reports itself ignored.** That message is correct here:
    Pagefind has no date filter. It confirms the notice mechanism works rather
    than a query silently returning the unbounded set.
 

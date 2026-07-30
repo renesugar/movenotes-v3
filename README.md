@@ -405,7 +405,13 @@ Search accepts ordinary keywords, quoted phrases, `category:`, repeatable
 `tag:name`, and `since:`/`until:` date bounds (`since:` inclusive, `until:`
 exclusive). The grammar is parsed once in the browser, so every backend answers
 the same syntax — except that Pagefind has no date filter and says so rather than
-ignoring the clause.
+ignoring the clause. Results come back newest first for every query; an empty
+box means every note.
+
+**A note's links are searchable by their destination**, whether the URL is
+written out or hidden behind a label. A URL is split like a sentence — the host
+stays whole, the path becomes words — so the whole URL, a prefix of it, or its
+components in any order all find the notes that link it, and `www.` is optional.
 
 Three ways in: search, the sidebar's categories and tags, and **Browse Tags**.
 The two tag populations are stored differently, because they differ in size by
