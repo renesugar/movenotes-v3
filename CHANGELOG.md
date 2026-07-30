@@ -21,6 +21,8 @@ Changes in 3.36:
 - Ordered every search result newest first, not just the queries with no text to rank: an archive is read by date, and relevance ranking left the most recent note at an unpredictable position, sometimes on the last page. Measured free on a text query at 25,000 notes (369 KB, unchanged); `sort=score` remains for callers that want ranking.
 - Made the search page wait for a query instead of searching for everything on arrival, which on a Pagefind site was its single most expensive request: 13,503 KB across 442 requests at 25,000 notes, now 86 KB and nothing from Pagefind. An empty search still means every note, identically to `category:"All notes"`.
 - Made URLs searchable. The text handed to Bluge had every URL removed from it — Markdown link targets and bare links alike — so a note's links were visible on the page and absent from the index, and searching for one returned nothing. Link targets now ride on the indexed `body` field, which is not stored, so cards, reading time and tags are unchanged; searching a whole URL, a prefix, or its components all work.
+- Indexed the `www.`-less spelling of every link host, because a URL tokenises with its host whole: searching `sciencedirect.com` found 2 notes where `www.sciencedirect.com` found 455. Costs 0.5% of the index.
+- Measured the cost of indexing links on a real 20,000-note Twitter/X archive: the Bluge index grows 12.1% (37.48 MB to 42.03 MB) and ordinary queries are no slower. At 2.20 KB per note it is less than half the 4.85 KB the synthetic worst-case corpus produces, so `DEPLOY_VERCEL.md` now carries both figures.
 - Expanded the suite to 99 Python tests, plus Go tests over both server entry points.
 
 ---

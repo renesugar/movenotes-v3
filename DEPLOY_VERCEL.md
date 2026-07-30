@@ -217,7 +217,22 @@ around **6,000 notes**, its Hobby upload limit around **5,000**, and the functio
 bundle around **45,000**.
 
 The corpus behind those numbers is deliberately unkind — 181 unique words per
-note, each becoming a tag — so real prose should do better. Measure your own:
+note, each becoming a tag — so real prose should do better. It does, by more
+than a factor of two. The same 20,000-note measurement on a **real Twitter/X
+archive**:
+
+| | index | per note |
+|---|---|---|
+| synthetic worst case (the row above) | 97 MB | 4.85 KB |
+| real Twitter/X notes | 42 MB | **2.20 KB** |
+
+So the ~45,000-note function-bundle ceiling is a floor on what a real archive
+manages, not a limit it will hit first — at 2.20 KB/note the 250 MB bundle holds
+roughly 110,000. Both figures include indexing every link a note carries, which
+costs 12.1% of the index (37.48 MB → 42.03 MB at 20k) and is what makes a URL
+searchable at all.
+
+Treat the conservative number as the planning figure and measure your own:
 
 ```bash
 find ~/twitter_site/public -type f | wc -l      # against 15,000

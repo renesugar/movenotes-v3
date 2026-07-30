@@ -1254,11 +1254,55 @@ hero placeholder sit inside `data-pagefind-body`, so "← back to results" and
 result excerpts. Both now carry `data-pagefind-ignore`, which is where 2.3% of
 the index went.
 
-### Step 40 — Measure what indexing URLs costs
-On a bench tier: index size, build time, and the latency of the reported queries
-before and after. The Bluge index was 4.85 KB/note, which sets the Vercel
-ceiling (V3) — if URLs move it materially, `DEPLOY_VERCEL.md` needs the new
-number.
+### Step 40 — Measure what indexing URLs costs  ✅
+Measured on **20,000 real Twitter/X notes** rather than the generated bench
+corpus, which has no links in it. 72,090 URLs, 3.6 per note.
+
+| | source JSONL | Bluge index | per note | index build |
+|---|---|---|---|---|
+| before | 16.46 MB | 37.48 MB | 1.87 KB | 22.6 s |
+| + URLs | 19.70 MB | 41.83 MB | 2.19 KB | 25.5 s |
+| + URLs + host aliases (shipped) | 19.84 MB | 42.03 MB | 2.20 KB | 25.7 s |
+| **net** | +20.5% | **+12.1%** | | +13.8% |
+
+Query latency, median of 7 after a warm-up:
+
+| shape | matches | median |
+|---|---|---|
+| whole URL (a permalink) | 1 | 4.0 ms |
+| URL prefix | 1,397 | 38.7 ms |
+| host + path component | 1,401 | 31.6 ms |
+| host alone, rare | 456 | 24.6 ms |
+| host alone, common (`x.com`) | 20,000 | 188.5 ms |
+| `tag:` + URL | 103 | 13.1 ms |
+| prose word | 133 | 24.7 ms |
+| match all | 20,000 | 180.3 ms |
+
+**Ordinary queries did not get slower.** Prose, phrase, tag and match-all
+measured within run-to-run noise of the URL-free index (27.2 → 24.7 ms, 180.4 →
+180.3 ms). The only expensive URL shape is a host that nearly every note links,
+and it costs what match-all costs, for the same reason.
+
+**The measurement found a gap and it was fixed here.** A URL tokenises with its
+host whole, so `www.sciencedirect.com` is one term and searching
+`sciencedirect.com` returned **2 hits against 455** — defeating the component
+search the report asked for. `_host_aliases()` now emits the `www.`-less
+spelling as its own term, and `page.html` does the same for Pagefind:
+
+| query | before | after |
+|---|---|---|
+| `sciencedirect.com` | 2 | 456 |
+| `ncbi.nlm.nih.gov` | 5 | 1,523 |
+| `ncbi.nlm.nih.gov pmc` | 5 | 1,401 |
+| `tag:longcovid ncbi.nlm.nih.gov` | 0 | 103 |
+
+The aliases cost 0.5% of the index — 206 KB at 20k.
+
+**The Vercel ceiling is safe, and was pessimistic.** V3's 4.85 KB/note came from
+a deliberately unkind synthetic corpus; a real archive is **2.20 KB/note**
+*including* the URLs, so the 250 MB function bundle holds roughly 110,000 real
+notes against the documented ~45,000. `DEPLOY_VERCEL.md` now carries both
+figures and says which to plan with.
 
 ### Step 41 — Report progress during the post-Hugo validation *(movenotes)*
 **Symptom.** A long silent gap between Hugo's `Total in 500227 ms` and

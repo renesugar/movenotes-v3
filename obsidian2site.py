@@ -675,9 +675,31 @@ def _search_body(text: str, urls: list[str]) -> str:
     """
     if not urls:
         return text
+    parts = urls + _host_aliases(urls)
     if not text:
-        return " ".join(urls)
-    return text + " " + " ".join(urls)
+        return " ".join(parts)
+    return text + " " + " ".join(parts)
+
+
+def _host_aliases(urls: list[str]) -> list[str]:
+    """Hosts a visitor would type that the analyser would not otherwise produce.
+
+    A URL tokenises with its host whole, so `https://www.sciencedirect.com/…`
+    yields the term `www.sciencedirect.com` and a search for
+    `sciencedirect.com` finds nothing — measured on 20,000 real notes, 2 hits
+    against 455. The path needs no such help: the analyser already splits it into
+    words. Only the `www.` prefix hides a spelling people actually type.
+    """
+    aliases = []
+    for url in urls:
+        host = url.partition("://")[2].partition("/")[0].partition("?")[0]
+        # Two dots, so the alias is still host-shaped rather than a bare label.
+        # It does not tell `www.sciencedirect.com` from a contrived
+        # `www.co.uk`, and a public-suffix list is not worth carrying for a
+        # spare search term nobody would type.
+        if host.lower().startswith("www.") and host.count(".") >= 2:
+            aliases.append(host[4:])
+    return _unique(aliases)
 
 
 def _unique(values: list[str]) -> list[str]:
