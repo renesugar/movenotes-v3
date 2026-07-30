@@ -22,6 +22,9 @@ Read these files first:
    holds the in-progress migration from the Relearn theme, its decisions, and
    which step is next; `STATIC_SITE.md` is rewritten at the end of it, so where
    the two disagree the plan is current and `STATIC_SITE.md` is not.
+   `DEPLOY_VERCEL.md` documents deployment, and carries the measured platform
+   limits that decide which archives can be deployed where — do not restate
+   those numbers elsewhere from memory.
 6. `image_resources.py`, `images2resources.py`, and `quarantinelinks.py` —
    Markdown image parsing, network safety, reports, resources, and quarantine.
 7. `CHANGELOG.md` and `PERFORMANCE_REVIEW.md` — revision history and complexity
