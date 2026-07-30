@@ -897,17 +897,26 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             # already, and a word per path segment would be noise in Browse Tags.
             self.assertNotIn("zzsegment", linked["tags"])
             self.assertNotIn("globalnews", linked["tags"])
-            # A host tokenises whole, so the `www.`-less spelling is indexed too
-            # or `sciencedirect.com` misses every `www.sciencedirect.com` link.
-            # Measured on 20,000 real notes: 2 hits against 455.
+            # A host tokenises whole for Bluge, so its parent domains are
+            # indexed too or `sciencedirect.com` misses every
+            # `www.sciencedirect.com` link. Measured on 20,000 real notes: 2
+            # hits against 455. Every level, not just the `www.`-less one —
+            # a reader does not remember which subdomain a link used.
             self.assertEqual(
                 obsidian2site._host_aliases([
                     "https://www.sciencedirect.com/science/article/pii/S0001",
-                    "https://x.com/a/b",                       # no www. to strip
-                    "http://www.ncbi.nlm.nih.gov/pmc/?x=1",
+                    "https://x.com/a/b",                       # two labels, no alias
+                    "http://t.co/abc",                         # two labels, no alias
+                    "http://www.ncbi.nlm.nih.gov/pmc/?x=1",    # the whole chain
+                    "https://blogs.kqed.org/a",
+                    "https://u.kqed.org/b",                    # same parent, once
                     "https://www.sciencedirect.com/other",     # same host twice
                 ]),
-                ["sciencedirect.com", "ncbi.nlm.nih.gov"],
+                [
+                    "sciencedirect.com",
+                    "ncbi.nlm.nih.gov", "nlm.nih.gov", "nih.gov",
+                    "kqed.org",
+                ],
             )
             # Reading time is counted from the prose, which both notes share.
             self.assertEqual(linked["readingTime"], plain["readingTime"])

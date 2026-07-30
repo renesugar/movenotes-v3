@@ -774,20 +774,27 @@ def _host_aliases(urls: list[str]) -> list[str]:
     """Hosts a visitor would type that the analyser would not otherwise produce.
 
     A URL tokenises with its host whole, so `https://www.sciencedirect.com/…`
-    yields the term `www.sciencedirect.com` and a search for
+    yields the single term `www.sciencedirect.com` and a search for
     `sciencedirect.com` finds nothing — measured on 20,000 real notes, 2 hits
     against 455. The path needs no such help: the analyser already splits it into
-    words. Only the `www.` prefix hides a spelling people actually type.
+    words.
+
+    Every parent domain is indexed, not only the `www.`-less form, because the
+    subdomain a link happens to use is not something a reader remembers. One
+    archive links `www.kqed.org`, `blogs.kqed.org` and `u.kqed.org`, and
+    `kqed.org` should find all three.
+
+    Stops at two labels, so the alias is still host-shaped rather than a bare
+    `org`. That rule cannot tell `sciencedirect.com` from a contrived `co.uk`,
+    and a public-suffix list is not worth carrying for a spare search term
+    nobody would type.
     """
     aliases = []
     for url in urls:
         host = url.partition("://")[2].partition("/")[0].partition("?")[0]
-        # Two dots, so the alias is still host-shaped rather than a bare label.
-        # It does not tell `www.sciencedirect.com` from a contrived
-        # `www.co.uk`, and a public-suffix list is not worth carrying for a
-        # spare search term nobody would type.
-        if host.lower().startswith("www.") and host.count(".") >= 2:
-            aliases.append(host[4:])
+        labels = host.split(".")
+        for start in range(1, len(labels) - 1):
+            aliases.append(".".join(labels[start:]))
     return _unique(aliases)
 
 
@@ -2011,8 +2018,9 @@ just its parts all find the same notes:
 | `example.org news` | the same, in any order |
 | `12345` | that one path segment |
 
-`www.` is optional — `sciencedirect.com` and `www.sciencedirect.com` find the
-same notes. Links between notes in this archive are not indexed this way; the
+The subdomain is optional: `kqed.org` finds `www.kqed.org` and `blogs.kqed.org`
+alike. Terms match whole, though, so `t.co/iSQx` finds its note and `t.co/iSQ`
+finds nothing. Links between notes in this archive are not indexed this way; the
 note a link points at is findable as itself.
 
 @@SYNTAX_NOTE@@

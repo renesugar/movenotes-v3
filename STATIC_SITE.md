@@ -244,14 +244,20 @@ So all of these find the note, and every term still has to appear:
 - one path segment — `10063968`
 - a URL together with prose or a filter — `tag:vanre https://x.com/…`
 
-**`www.` is optional.** A host tokenises whole, so `www.sciencedirect.com` would
-not answer to `sciencedirect.com`; the shorter spelling is indexed alongside it,
-and both find the same notes.
+**The subdomain is optional.** `kqed.org` finds notes linking `www.kqed.org`,
+`blogs.kqed.org` and `u.kqed.org` alike, and `nih.gov` finds
+`www.ncbi.nlm.nih.gov` — every parent domain down to two labels is searchable.
+Which subdomain a link happened to use is not something anyone remembers.
 
-Two things this is not. It is not a URL *parser* — `?` and `&` are separators
-like any other, so a query string's parts are searched as words rather than as
-parameters. And a common host is a common word: on a Twitter/X archive `x.com`
-matches nearly every note, and costs what a match-all costs.
+Three things this is not:
+
+- It is not a URL **parser** — `?` and `&` are separators like any other, so a
+  query string's parts are searched as words rather than as parameters.
+- It does not match **partial** terms. `t.co/iSQx` finds the note that links it;
+  `t.co/iSQ` finds nothing. "A prefix of the URL" above means whole path
+  segments, not a truncated one.
+- A common host is a common **word**: on a Twitter/X archive `x.com` matches
+  nearly every note, and costs what a match-all costs.
 
 **Results are ordered newest first, always.** Whatever the query, the most
 recent note is on page 1 — an archive is read by date, and ranking would put it
