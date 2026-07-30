@@ -277,7 +277,7 @@ code must serve only `/api/*`:
 The local binary keeps its current behaviour and command line. Nothing about
 the local workflow in `STATIC_SITE.md` §3 changes.
 
-### V2 — Server refactor
+### V2 — Server refactor  ✅ (step 27)
 
 - Move index building, query parsing and the two HTTP handlers into a `server`
   package with no `log.Fatal` and no `flag` use.
@@ -288,9 +288,11 @@ the local workflow in `STATIC_SITE.md` §3 changes.
 - **Never build an index inside a function.** 100k notes take 116 s to index
   and the filesystem is read-only; the index is built at deploy time and
   shipped. A function that finds no index returns 503 with a message saying so.
-- Verify `bluge.OpenReader` can open an index on a read-only filesystem. If it
-  needs a writable directory, copy or symlink into `/tmp` on first use and
-  record the cost; this is the one genuinely unknown item in Part C.
+- ~~Verify `bluge.OpenReader` can open an index on a read-only filesystem.~~
+  **It can.** Against an index directory with every write permission removed,
+  Bluge opens it, counts it, searches it, and adds no files. No `/tmp` copy, no
+  cold-start penalty. A regression test holds it: the whole `api/` half depends
+  on it.
 
 ### V3 — Size ceiling, stated plainly in the docs
 
@@ -637,11 +639,48 @@ Relearn's Lunr filenames to Ledger's bundle; confirm a `bluge`-only build emits
 no browser search runtime. Run the full generated pipeline on the `sample/`
 vault end to end.
 
-### Step 27 — Server refactor for Vercel *(movenotes)*
-V1/V2: `server` package, `cmd/movenotes-site-server`, `api/search.go`,
-`api/health.go`, env-var configuration, lazy `sync.Once` reader, 503 when no
-index. Resolve the read-only-filesystem question for `bluge.OpenReader`. Local
-command line and behaviour unchanged; Go tests cover both entry points.
+### Step 27 — Server refactor for Vercel *(movenotes)*  ✅
+One `search` package, two entry points:
+
+```
+search/                      config, index, query, handlers — no flags, no
+                             log.Fatal, no listening
+cmd/movenotes-site-server/   local process: flags, static files, one port
+api/                         Search and Health, for a serverless runtime
+```
+
+**The open question is answered: Bluge opens a read-only index directory.** With
+every write permission removed it opens, counts, searches, and adds no files — so
+no `/tmp` copy and no cold-start penalty on a read-only serverless filesystem.
+A regression test holds it, because the entire `api/` half rests on it.
+
+- **Configuration resolves explicit → environment → default**, so a flag beats a
+  deployment's `MOVENOTES_INDEX`/`MOVENOTES_SOURCE`/`MOVENOTES_SITE`, and a
+  platform with no command line still configures the same binary. `-listen` falls
+  back to `$PORT`, then to loopback — running it by hand should not put a personal
+  archive on the network.
+- **The index is opened lazily behind `sync.Once`** and shared for the life of the
+  instance, so a cold start never asked to search pays nothing for it.
+- **Handlers never build an index.** Indexing takes minutes and needs a writable
+  filesystem; a missing index is an operational error, answered **503** with the
+  command that fixes it. Tests assert both that the status is 503 and that the
+  request created no index directory.
+- **`/api/health` fails when the index is missing** rather than reporting a
+  healthy backend — the theme's `auto` adapter reads it to decide whether a server
+  is answering, and would otherwise pick Bluge and then fail every query.
+- The two `api` functions export `Search` and `Health` rather than both exporting
+  `Handler`: distinct names keep one Go package that `go vet ./...` can check,
+  while Vercel accepts any exported `http.HandlerFunc` name.
+
+The local command line is unchanged, and `--build` still produces the same
+`server/movenotes-site-server` — only its build target moved to
+`./cmd/movenotes-site-server`. Verified by generating a site and driving it both
+with flags and with environment variables plus `$PORT`.
+
+Tests: Go tests over both halves (contract, read-only index, 503 paths,
+env-only configuration), and a Python test asserting the shared package contains
+no process concerns — comment-stripped, since the package's own doc comment says
+"no flags, no log.Fatal, no listening".
 
 ### Step 28 — Generator emits the Vercel project *(movenotes)*
 `vercel.json` per V4, root `go.mod`, `.vercelignore`, the
@@ -723,8 +762,9 @@ Then, with the user's agreement, push `develop`.
 
 ## Open questions
 
-1. **`bluge.OpenReader` on a read-only filesystem** — resolved in Step 27; the
-   fallback is a `/tmp` copy, which costs cold-start time.
+1. ~~**`bluge.OpenReader` on a read-only filesystem.**~~ Resolved in step 27:
+   it opens and searches a directory with no write permission at all, writing
+   nothing. The `/tmp` fallback is not needed.
 2. ~~**Hugo build cost of 5,000 taxonomy terms.**~~ Resolved in step 23: a term
    costs about as much as a note page, so the default cap became adaptive rather
    than a flat 5,000. Table in M3. Not yet measured at 166k notes — the shape is
