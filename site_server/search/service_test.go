@@ -83,8 +83,8 @@ func TestSearchOverABuiltIndex(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "search-source.jsonl")
 	records := []string{
-		`{"id":0,"url":"/notes/a.html","title":"Bank of Canada rate note","date":"2026-07-01T00:00:00Z","body":"the interest rate decision and canadian housing","summary":"rates","category":"Notes","tags":["canada","economics"],"displayTags":["canada","economics"],"readingTime":3}`,
-		`{"id":1,"url":"/notes/b.html","title":"Codec note","date":"2026-06-15T00:00:00Z","body":"video codecs and the av1 codec","summary":"codecs","category":"Notes","tags":["codec"],"displayTags":["codec"],"readingTime":1}`,
+		`{"id":0,"url":"/notes/a.html","title":"Bank of Canada rate note","date":"2026-07-01T00:00:00Z","body":"the interest rate decision and canadian housing","summary":"rates","category":"Notes","tags":["canada","economics"],"readingTime":3}`,
+		`{"id":1,"url":"/notes/b.html","title":"Codec note","date":"2026-06-15T00:00:00Z","body":"video codecs and the av1 codec","summary":"codecs","category":"Notes","tags":["codec"],"readingTime":1}`,
 	}
 	if err := os.WriteFile(source, []byte(strings.Join(records, "\n")+"\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -253,7 +253,7 @@ func TestURLsInBodyAreSearchable(t *testing.T) {
 			`"body":"three million more canadians in housing need than cmhc estimates suggest report ` +
 			`https://x.com/i/web/status/1720100485901000962 ` +
 			`https://globalnews.ca/news/10063968/more-canadians-housing-need-cmhc-estimates-report/",` +
-			`"summary":"three million more canadians","category":"Twitter","tags":["vanre"],"displayTags":["vanre"],"readingTime":1}`,
+			`"summary":"three million more canadians","category":"Twitter","tags":["vanre"],"readingTime":1}`,
 		`{"id":1,"url":"/notes/links.html","title":"Assorted links","date":"2026-07-01T00:00:00Z",` +
 			`"body":"pizza vs any celebrity ` +
 			`https://open.spotify.com/episode/6zDxDPCr8wiiJKmbxa7HmP?si=p_kKyulrRcSakJybqvornQ&nd=1&dlsi=17a6dea183df4c83 ` +
@@ -261,9 +261,9 @@ func TestURLsInBodyAreSearchable(t *testing.T) {
 			`http://t.co/CT… ` +
 			`https://www.imf.org/external/pubs/ft/fandd/2019/09/the-rise-of-phantom-FDI-in-tax-havens-damgaard.htm ` +
 			`https://trends.google.com/trends/explore?q=%2Fm%2F0gs6vr,pizza",` +
-			`"summary":"pizza vs any celebrity","category":"Twitter","tags":["cdnpoli"],"displayTags":["cdnpoli"],"readingTime":1}`,
+			`"summary":"pizza vs any celebrity","category":"Twitter","tags":["cdnpoli"],"readingTime":1}`,
 		`{"id":2,"url":"/notes/plain.html","title":"No links here","date":"2026-06-01T00:00:00Z",` +
-			`"body":"housing and pizza, but nothing to click","summary":"no links","category":"Notes","tags":[],"displayTags":[],"readingTime":1}`,
+			`"body":"housing and pizza, but nothing to click","summary":"no links","category":"Notes","tags":[],"readingTime":1}`,
 	}
 	if err := os.WriteFile(source, []byte(strings.Join(records, "\n")+"\n"), 0o644); err != nil {
 		t.Fatal(err)

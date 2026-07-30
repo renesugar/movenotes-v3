@@ -2033,6 +2033,10 @@ own archive pages, and appear in the sidebar. All of them — including every
 content word — stay on **Browse tags**, whose counts come from the same posting
 lists that produce its results.
 
+`tag:something` searches the tags *written* in a note, so it agrees with the
+count on that tag's archive page. To find a word the note merely contains, search
+for the word itself.
+
 ## Links and attachments
 
 Links between notes are ordinary static links. Attachments are copied into
@@ -3134,9 +3138,14 @@ def main(argv: list[str]) -> int:
                         )
                     pending_tag_counts.update(tags)
                     pending_documents.append((note_id, site_url, note_title, note_date))
-                    # Every tag goes to Bluge, including the generated word
-                    # tags and the ones the taxonomy cap left out: `tag:` in
-                    # server-side search answers for all of them.
+                    # Only the written tags go to Bluge. `tag:` used to answer
+                    # for every generated content word too, which made
+                    # `tag:ifnβ` return 23 where the tag archive showed 16 and
+                    # Pagefind showed 16 — the same query, three answers. The
+                    # generated words lose nothing by leaving: a generated tag
+                    # is by construction a word of the note, so free text still
+                    # finds it, and Browse Tags reads the posting index below,
+                    # not this file.
                     search_source.write(json.dumps({
                         "id": note_id,
                         "url": site_url,
@@ -3155,13 +3164,13 @@ def main(argv: list[str]) -> int:
                         # searched by it.
                         "summary": note_search_text[:700],
                         "category": note_category,
-                        "tags": tags,
-                        # What a result card shows: the tags written in the note.
-                        # `tags` above carries every generated content word too,
-                        # so `tag:` finds them, but a card listing four random
-                        # words looks like a bug — and storing all of them for
-                        # display cost 23% of the Bluge index.
-                        "displayTags": explicit_tags,
+                        # The tags written in the note, uncapped. The taxonomy
+                        # cap decides which get an archive page; it does not
+                        # decide what `tag:` can find, so a written tag that
+                        # missed the cap is still searchable here. That is the
+                        # one way this set is larger than the archive's, and it
+                        # is the only one.
+                        "tags": explicit_tags,
                         "readingTime": note_reading_minutes,
                     }, ensure_ascii=False, separators=(",", ":")) + "\n")
                     pending_tag_documents.extend(

@@ -1567,7 +1567,7 @@ This is the difference between the two analysers, worth stating plainly:
 From the third real-archive run. The pipeline reported no problems; these come
 from using the site.
 
-### Step 46 — Why the tag archive and `tag:` disagree  ✅ *(investigated)*
+### Step 46 — Why the tag archive and `tag:` disagree  ✅
 **Symptom.** `/tags/ifnβ/` says 16, `/search/?q=tag:ifnβ` says 23.
 
 **Cause.** They are reading two different tag sets, which is decision M2
@@ -1608,6 +1608,38 @@ set is much larger and nothing says so.
 
 Recommendation: **2**, because it makes `tag:` mean one thing everywhere and
 costs no reachability. It is a behaviour change, so it is the user's call.
+
+**Chosen: 2, and done.** `search-source.jsonl` carries the tags written in a
+note and nothing else. `displayTags` went with it — once `tags` holds only
+written tags the two lists were identical, so the Go side takes the card's tags
+from `tags`, capped at 8 as before. The theme's reference server needed no change:
+it never had `displayTags`.
+
+Verified on 200 real notes:
+
+| | `tag:` | free text | written-tag count |
+|---|---|---|---|
+| `energy` | 7 → **1** | 7 | 1 |
+| `valine` | 2 → **1** | 2 | 1 |
+| `covid` | — → **0** | 7 | 0 |
+
+`tag:` now returns the written-tag count, which is what the archive and Pagefind
+show, and free text still returns exactly what `tag:` used to. `covid` is the
+clearest case: no note writes it as a tag, seven contain the word, and the two
+queries now say so separately instead of both saying seven.
+
+**The size prediction above was wrong.** Measured at 20,000 real notes against
+the step-40 baseline:
+
+| | before | after | |
+|---|---|---|---|
+| `search-source.jsonl` | 19,839,504 | 17,111,083 | **−13.8%** |
+| Bluge index | 44,065,335 | 43,495,882 | **−1.3%** |
+
+The source file shrank as expected; the index barely moved. The generated tags
+are words of the note, so their terms were already in the dictionary from `body`
+— dropping the keyword fields removes postings, not vocabulary. The change is
+worth making for having one meaning of `tag:`, not for its size.
 
 ### Step 47 — `OR`, grouping and negation *(theme + movenotes)*
 Requested: Twitter/X's keyword and logical operators — `OR`, implicit `AND`,

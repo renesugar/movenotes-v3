@@ -336,14 +336,13 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertEqual(first_record["category"], "Folder")
             self.assertEqual(first_record["readingTime"], 1)
             self.assertTrue(first_record["summary"])
-            # Every tag reaches Bluge, including generated word tags and the ones
-            # the taxonomy cap left out, so `tag:` answers for all of them.
-            self.assertIn("codecs", first_record["tags"])   # a generated word tag
-            self.assertIn("alpha", first_record["tags"])    # a written tag
-            # A result card shows only the written tags. Cards used to list
-            # generated content words — "#jul", from a tweet's date footer — and
-            # storing all of them for display cost 23% of the Bluge index.
-            self.assertEqual(first_record["displayTags"], ["alpha", "beta"])
+            # `tag:` matches the tags written in the note and nothing else, so
+            # it agrees with the tag archive and with Pagefind. A generated word
+            # tag is still findable — as a word, which is what it is — and still
+            # reaches Browse Tags through the posting index. Step 46.
+            self.assertEqual(first_record["tags"], ["alpha", "beta"])
+            self.assertNotIn("codecs", first_record["tags"])  # a generated word tag
+            self.assertNotIn("displayTags", first_record)     # `tags` is now both
 
     def test_note_titles_are_never_added_to_sidebar_tree(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-many-") as temporary:
@@ -769,6 +768,64 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertIn(f"```text\n{broken}\n```", body)
             self.assertIsNotNone(obsidian2site._repair_http_url(broken))
             self.assertIsNone(obsidian2site._repair_http_url("http://"))
+
+    def test_tag_searches_agree_with_the_tag_archive(self) -> None:
+        """Step 46: one `tag:` meaning across the archive and both backends.
+
+        `tag:` used to answer for every generated content word, so `tag:ifnβ`
+        returned 23 where the tag archive and Pagefind showed 16 — one query,
+        three answers. It now matches the tags written in the note, which is
+        what the archive and Pagefind's filter are built from. Nothing becomes
+        unreachable: a generated tag is a word of the note, so free text finds
+        it, and Browse Tags reads the posting index, not this file.
+        """
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-tagagree-") as temporary:
+            root = Path(temporary)
+            vault, site = root / "vault", root / "site"
+            vault.mkdir()
+            (vault / "One.md").write_text(
+                "---\ntags:\n  - written\n---\n\nA note about telomerase.\n",
+                encoding="utf-8",
+            )
+            # No written tag, but the same distinctive word in its body.
+            (vault / "Two.md").write_text(
+                "Another note about telomerase.\n", encoding="utf-8"
+            )
+            run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+
+            records = {
+                r["title"]: r
+                for r in (
+                    json.loads(line) for line in
+                    (site / "server" / "search-source.jsonl")
+                    .read_text(encoding="utf-8").splitlines()
+                )
+            }
+            # The word reaches Bluge's tag field for neither note...
+            for record in records.values():
+                self.assertNotIn("telomerase", record["tags"])
+            # ...but is in the body of both, which is how it stays findable.
+            for record in records.values():
+                self.assertIn("telomerase", record["body"])
+            # A written tag is a tag, uncapped.
+            self.assertEqual(records["One"]["tags"], ["written"])
+            self.assertEqual(records["Two"]["tags"], [])
+
+            # Hugo front matter, which drives the tag archive and Pagefind's
+            # filter, agrees with what Bluge indexes.
+            metadata, _ = read_json_frontmatter(site / "content" / "notes" / "one.md")
+            self.assertEqual(metadata["tags"], ["written"])
+            metadata_two, _ = read_json_frontmatter(site / "content" / "notes" / "two.md")
+            self.assertEqual(metadata_two.get("tags", []), [])
+
+            # Browse Tags still sees the generated word: it reads the posting
+            # index, which is unaffected by what `tag:` matches.
+            bucket = f"{obsidian2site._tag_posting_bucket('telomerase'):03x}"
+            postings = json.loads(
+                (site / "static" / "movenotes" / "tag-postings" / f"{bucket}.json")
+                .read_text(encoding="utf-8")
+            )
+            self.assertEqual(len(postings["telomerase"]), 2)
 
     def test_path_maps_match_pathlib_semantics(self) -> None:
         """Step 43 replaced pathlib in `_build_path_maps` with string work.

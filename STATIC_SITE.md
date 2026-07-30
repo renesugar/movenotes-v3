@@ -338,7 +338,22 @@ differently:
 |---|---|---|
 | where | Hugo `tags` taxonomy, capped | hashed posting index under `static/movenotes/` |
 | surfaces | sidebar, `/tags/`, term archives, note footers, result cards | Browse Tags |
-| searchable by `tag:` | yes, on both backends | yes on Bluge; Pagefind filters only the taxonomy ones |
+| searchable by `tag:` | yes, on both backends | **no** — findable as ordinary words |
+
+**`tag:` means one thing everywhere.** It matches the tags *written* in a note,
+which is what the archive pages and Pagefind's filters are built from, so the
+same query returns the same count in all three places. It used to match the
+generated words too on Bluge only, which made `tag:ifnβ` return 23 where
+`/tags/ifnβ/` showed 16 — one query, three answers.
+
+Nothing became harder to find. A generated tag is by construction a word of the
+note, so plain text search returns exactly the notes `tag:` used to add, and
+Browse Tags reads the posting index rather than the search index.
+
+**One difference remains, and it only ever adds.** The taxonomy cap decides which
+tags get an archive page; it does not decide what `tag:` can find. A written tag
+that missed the cap has no archive but is still searchable, so search results are
+a superset of the archive — never the other way round.
 
 **The taxonomy is capped because every term is a page.** Measured at 5,000
 synthetic notes, a taxonomy term costs about as much to build as a note page: 200

@@ -4,7 +4,8 @@ Changes in 3.36:
 - Replaced the Relearn theme with `hugo-theme-ledger`, which is built for archives of 100,000+ notes; deleted every Relearn workaround, including the Hugo 0.158 template rewriter, both Lunr kill switches, the sidebar-element, heading, content, and custom-header partial overrides, and the fixed three-item menu.
 - Added `--ledger-theme`, keeping `--relearn-theme` as a warning alias; the copied checkout is used verbatim, skipping `exampleSite`, `node_modules`, `public`, `bench`, and `.git`.
 - Rewrote note frontmatter for the new theme: `categories`, `tags`, and `ledgerHideTitle`/`ledgerHideMeta` for notes carrying their own heading and timestamp; dropped every Relearn field, and writes nothing the theme can derive.
-- Added a two-tier tag model: written tags become a bounded Hugo taxonomy with real archive pages, while every generated content word stays in the disk-backed posting index. Both remain searchable with `tag:`.
+- Added a two-tier tag model: written tags become a bounded Hugo taxonomy with real archive pages, while every generated content word stays in the disk-backed posting index.
+- Made `tag:` mean the same thing everywhere. It matched every generated content word on Bluge only, so `tag:ifnβ` returned 23 where the tag archive and Pagefind showed 16 — one query, three answers. It now matches the tags written in a note, which is what the archive and Pagefind's filter are built from. Nothing became unreachable: a generated tag is a word of the note, so free text returns exactly what `tag:` used to add, and Browse Tags reads the posting index. Search remains a superset of the archive, because a written tag that missed the taxonomy cap is still searchable.
 - Added `--max-taxonomy-tags`, defaulting to `max(200, min(5000, notes ÷ 10))`, because a taxonomy term costs about as much to build as a note page — measured at 5,000 notes: 200 terms took 11.2 s, 5,000 took 32.2 s. Promotion is by frequency, ties broken by name, so two runs of one vault promote the same set.
 - Added `--category-mode` and `--category-name`; a note's category is its top-level vault folder by default.
 - Deleted 451 lines of hand-written search UI: `/search/` is now the theme's own view, over its grammar and its adapters. The generated project has no shortcodes at all.
@@ -30,7 +31,7 @@ Changes in 3.36:
 - Announced every phase of generation. `scanning the vault...`, `mapping N note path(s) to site URLs...`, `copying the theme...`, `copying N attachment(s)...` and `converting N note(s)...` used to run in silence; on a 166,654-note vault that was 78 s before the first line and minutes more before the first `converted` line. `--progress-every 0` silences them with the note counter.
 - Made note-path mapping 5.44× faster (86.0 s to 15.8 s at 166,654 notes) by replacing `Path.relative_to` with a string slice, slugging each directory once instead of once per note, and building one path object per note instead of five. The output is byte-identical over the whole vault, which matters because these paths are the canonical note URLs.
 - Announced the preservation bundle in `sql2obsidian.py`. Its four phases ran after the last `exported N` line with no output, which on a full library is 173,290 raw files, 6,634 resource copies and an 83 MB manifest — long enough to look like a hang. Each phase now names itself, the item loop counts like the export loop, and `--progress-every 0` silences them.
-- Expanded the suite to 101 Python tests, plus Go tests over both server entry points.
+- Expanded the suite to 102 Python tests, plus Go tests over both server entry points.
 
 ---
 

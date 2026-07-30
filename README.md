@@ -418,7 +418,9 @@ Three ways in: search, the sidebar's categories and tags, and **Browse Tags**.
 The two tag populations are stored differently, because they differ in size by
 orders of magnitude: the written tags become a bounded Hugo taxonomy with real
 archive pages, while every unique content word lives in a disk-backed posting
-index that Browse Tags reads. Both are searchable with `tag:`.
+index that Browse Tags reads. `tag:` searches the written ones, so it returns the
+same count as that tag's archive page; a generated word is found by searching for
+the word.
 
 Every generated note gets one deterministic lowercase URL, reused in Hugo
 frontmatter, exact-tag metadata, Pagefind output and Bluge records. This prevents
