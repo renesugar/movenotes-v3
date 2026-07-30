@@ -4,6 +4,12 @@ GitHub Pages serves static files and runs no server, so the Bluge search server
 has no place there: this is a **Pagefind** deployment. Search happens in the
 browser, over an index built after Hugo.
 
+Two other client-side engines — Orama and FlexSearch — were built, measured against
+Pagefind at 25,000 notes, and rejected: every in-browser index has to cross the wire
+at least once, and theirs are 33–343 MB against the 0.37 MB Pagefind fetches to
+answer a free-text query. The theme's `PERFORMANCE.md` has the numbers. Pagefind is
+the static option here, not the default among several.
+
 **Size decides whether this works at all.** A published Pages site may be no
 larger than **1 GB**, and a movenotes archive builds to roughly 20 KB per note:
 

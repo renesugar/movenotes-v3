@@ -392,6 +392,10 @@ and `PERFORMANCE.md` records why.
 
 ### Promotion rule, fixed before the numbers arrive
 
+**Outcome (step 35): neither backend passed, and neither was added.** The rule as
+written is below; the measurements are in the theme's `PERFORMANCE.md` and
+summarised in step 35.
+
 A backend becomes an `obsidian2site.py` option only if, at **25k and above**:
 
 - cold time-to-first-result is no worse than Pagefind's, and
@@ -987,12 +991,45 @@ the feature appeared to work. The fix is a tag search for a value the builder
 records as present. `db.has()` is not usable — it throws on a mounted-but-unqueried
 store.
 
-### Step 35 — Promote what earned it *(movenotes + theme)*
-Apply the Part D rule. For each backend that passed: register it in the theme's
-`BACKENDS` map, extend `--search-backend` to accept it, emit its index build in
-`--build`, extend `_validate_built_search_backend`, and add it to
-`DEPLOY_GITHUB_PAGES.md`. For each that failed: the `PERFORMANCE.md` entry is
-the deliverable, and `obsidian2site.py` does not grow an option.
+### Step 35 — Promote what earned it *(movenotes + theme)*  ✅
+**Nothing earned it, so nothing was promoted.** `--search-backend` still offers
+`both`, `bluge` and `pagefind`; `obsidian2site.py` gained no option, `--build`
+gained no step, and `_validate_built_search_backend` needed no new case.
+
+That is the rule working, not the rule being ignored. Both engines were built as
+real theme backends against the real adapter contract, measured on the same corpus
+as Pagefind with the same instrumentation, and failed the same criterion:
+
+| | index at 25k | bytes to first result | first result | heap |
+|---|---|---|---|---|
+| **Pagefind** | 114 MB | **0.37 MB** free text | **~1 s** | 6–31 MB |
+| Orama, full text | 223 MB | 223 MB | 18.9 s | 364 MB |
+| Orama, summaries | 33 MB | 33.4 MB | 11.2 s | 82 MB |
+| FlexSearch, full text | 343 MB | 343 MB | — | — |
+| FlexSearch, summaries | 74 MB | 74.5 MB | 13.1 s | 133 MB |
+| FlexSearch + IndexedDB | 74 MB | 74.5 MB then **136 KB** | 24.3 s then 14.8 s | **4–16 MB** |
+
+**One sentence explains every row: an in-browser index has to cross the wire at
+least once, and Pagefind's does not.** Pagefind fetches the fragments a query
+touches — 0.37 MB of a 114 MB index — while the others must transfer the whole
+thing before answering anything. FlexSearch over IndexedDB is the only one that
+escapes the *repeat* cost, and it still needs ~15 s to a first result and holds the
+first visit at 74.5 MB.
+
+What the losing side won, recorded because it is real: warm queries. Orama answers
+a filter over 8,924 of 25,000 notes in **35 ms** where Pagefind takes **6,006 ms**,
+and FlexSearch over IndexedDB holds the smallest heap of anything measured, 4–16 MB.
+Neither is worth 33–343 MB up front on an archive this size.
+
+Both adapters stay in the theme, registered and documented as small-site options —
+at a few thousand notes their indexes are a few megabytes, and Orama answers the
+`since:`/`until:` bounds Pagefind cannot express. Neither is offered by the
+generator, which targets archives 100× larger.
+
+The settled decision is written where someone would look before re-opening it:
+`STATIC_SITE.md` ("there is no third static option, and that was tested rather
+than assumed"), `DEPLOY_GITHUB_PAGES.md`, the theme's `README.md` and
+`PERFORMANCE.md`, and movenotes' `CHANGELOG.md`.
 
 ### Step 36 — Real-archive test and release
 User runs the pipeline against a real Twitter/X archive. Fix what it finds.
