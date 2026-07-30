@@ -1518,12 +1518,37 @@ over in memory. It completes, and no run has reported pressure from it; if a
 larger library ever does, streaming the items is the fix rather than dropping
 `indent=2`, which is what makes the file diffable.
 
-### Step 45 — Subdomain hosts *(movenotes + theme)*
+### Step 45 — Subdomain hosts *(movenotes + theme)*  ✅
 Step 40 added the `www.`-less spelling of a host because `www.sciencedirect.com`
-is one term. The same argument applies to any subdomain and is not yet handled:
-this archive links `blogs.kqed.org` and `u.kqed.org`, and a search for
-`kqed.org` does not find either. Generalise the alias from `www.` to the first
-label of any host with three or more labels, keeping both spellings indexed.
+is one term. The same argument applies to any subdomain: this archive links
+`blogs.kqed.org` and `u.kqed.org`, and `kqed.org` found neither.
+
+**Done, and it corrected step 40's theme half.** `_host_aliases()` now indexes
+every parent domain down to two labels rather than only the `www.`-less form —
+`www.ncbi.nlm.nih.gov` yields `ncbi.nlm.nih.gov`, `nlm.nih.gov` and `nih.gov`.
+Which subdomain a link used is not something a reader remembers. Two-label hosts
+(`x.com`, `t.co`) get nothing, so no alias is ever a bare `org`. Verified on the
+two real kqed notes: `kqed.org` returns both where it previously returned
+neither, and `u.kqed.org`, `www.kqed.org` and the full URL each still return
+their own.
+
+**The theme's copy of this was removed, not generalised.** Step 40 added a
+`www.` alias to `page.html` on the assumption that both backends tokenise alike.
+They do not: Pagefind splits a host on its dots at index *and* query time, so it
+already answers `sciencedirect.com`, `nih.gov` and `nlm.nih.gov` for a note
+linking `www.ncbi.nlm.nih.gov`. Verified by rebuilding with every alias removed
+and re-running those queries — all still return the note. The aliases were
+paying for terms Pagefind derives on its own, and `page.html` now says so, so
+they are not re-added.
+
+This is the difference between the two analysers, worth stating plainly:
+
+| | Bluge | Pagefind |
+|---|---|---|
+| `www.sciencedirect.com` indexes as | one term | `www`, `sciencedirect`, `com` |
+| `sciencedirect.com` matches it | only via an alias | already |
+
+**Not a defect, recorded so it is not re-investigated:**
 
 **Not a defect, recorded so it is not re-investigated:**
 

@@ -411,7 +411,8 @@ box means every note.
 **A note's links are searchable by their destination**, whether the URL is
 written out or hidden behind a label. A URL is split like a sentence — the host
 stays whole, the path becomes words — so the whole URL, a prefix of it, or its
-components in any order all find the notes that link it, and `www.` is optional.
+components in any order all find the notes that link it, and the subdomain is
+optional: `kqed.org` finds `www.kqed.org` and `blogs.kqed.org` alike.
 
 Three ways in: search, the sidebar's categories and tags, and **Browse Tags**.
 The two tag populations are stored differently, because they differ in size by
