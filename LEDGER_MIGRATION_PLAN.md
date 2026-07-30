@@ -1170,7 +1170,7 @@ two backends, because Pagefind indexes the rendered HTML:
 So `--search-backend bluge` is strictly worse than `pagefind` here, and the user
 asked for both cases: *"whether it is a bare link or in an HTML link."*
 
-### Step 38 — Index URLs for the Bluge backend *(movenotes)*
+### Step 38 — Index URLs for the Bluge backend *(movenotes)*  ✅
 Keep the URLs instead of discarding them, without regressing what the stripping
 was actually protecting.
 
@@ -1188,9 +1188,33 @@ was actually protecting.
   query like `Pizza vs any celebrity https://trends.google.com/…` only matches
   if the prose words and the URL tokens are in the same field.
 
-Tests: a note with a bare URL, one with a markdown link, one with both; assert
-the URL tokens reach `body`, that `summary` and the tag list stay clean, and
-that reading time is unchanged.
+**Done.** `_searchable_text()` became `_searchable_parts()`, returning the prose
+and the URLs it removed; `_searchable_text()` remains as the wrapper for the
+callers that only want prose (tag extraction). Markdown/HTML link targets, angle
+autolinks and bare URLs are all collected, deduped in order, and appended to
+`body` by `_search_body()`. Relative destinations are skipped — the note they
+point at is already searchable as itself. Auto-linked `@mentions` come along for
+free, so `https://x.com/JohnPasalis` is now findable too.
+
+Verified end to end on the note from the report — generator → `search-source.jsonl`
+→ `BuildIndex` → live `/api/search`, every query the user ran:
+
+| query | before | after |
+|---|---|---|
+| `https://globalnews.ca/news/10063968/more-canadians-…-report/` | 0 | 1 |
+| `10063968/more-canadians-housing-need-cmhc-estimates-report/` | 0 | 1 |
+| `globalnews.ca news` | 1 (a title, not this note) | 1 |
+| `https://globalnews.ca/news/` | 1 (a title) | 1 |
+| `https://x.com/i/web/status/1720129280733217258` | 0 | 1 |
+| `tag:affordable` + the globalnews URL | 0 | 1 |
+
+Tests: `_searchable_parts` over all four link forms plus a fenced block, and an
+end-to-end generator test asserting the URL reaches `body`, appears once rather
+than twice, stays out of `summary` and out of the tag list, and leaves reading
+time equal to the same note without links. On the Go side,
+`TestURLsInBodyAreSearchable` runs the reported queries — including the ones with
+`&` query strings, `%2F` escapes and the truncated `http://t.co/CT…` — against a
+built index. 99 Python tests, Go suite clean.
 
 ### Step 39 — Pagefind parity: index link targets *(theme)*
 Bare URLs already work on Pagefind; `href` targets do not. Pagefind can index an
@@ -1210,7 +1234,8 @@ number.
 
 **Cause.** `_validate_built_search_backend()` walks `public/` and reads every
 built HTML file — 177,682 files and 5.6 GB on this archive — running two regexes
-over each, printing nothing at any point.
+over each, printing nothing at any point. **Measured on the user's own built
+site: 529.7 s, or 8 min 50 s, with no output whatsoever.**
 
 Print what it is doing and roughly how far along it is, and reduce the work
 itself where that is free: the check only needs the search config and a Pagefind
