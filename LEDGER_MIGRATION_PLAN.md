@@ -1388,10 +1388,91 @@ shapes return it:
 | `https://x.com/JohnPasalis` (auto-linked mention) | 1 |
 | `housing https://globalnews.ca/news/` (prose + URL) | 1 |
 
-**Remaining: the user re-runs the real archive.** The existing `~/twitter_site`
-was generated before step 38, and the Bluge index is built from
-`search-source.jsonl`, which has no URLs in it — so it needs regenerating, not
-just reindexing.
+**Re-run done, and URL search works.** On the regenerated 166,654-note archive
+every query from the original report now returns notes:
+
+| query | before | after |
+|---|---|---|
+| the globalnews URL | 0 | 2 |
+| `https://x.com/i/web/status/294324228247937024` | 0 | 1 |
+| `tag:vanre https://x.com/DrCameronMurray/status/…` | 0 | 1 |
+| the Spotify URL with its query string | 0 | 1 |
+| `https://trends.google.com/trends/explore?q=%2Fm%2F0gs6vr,pizza` | 0 | 1 |
+| the upworthy URL with `?g=2` | 0 | 4 |
+| `http://t.co/CT…` | 0 | 2 |
+| the IMF article | 0 | 63 |
+| `ftp://ftp2.census.gov/geo/tiger/` | — | 1 |
+
+---
+
+## Part F — Second real-archive run
+
+Two unannounced waits reported from the run above, plus what the search log shows
+on closer reading. Numbered continuing from Part E.
+
+### Step 43 — Announce and speed up the pre-conversion phase *(movenotes)*
+**Symptom.** A long gap between `found 166,654 Markdown note(s) and 6,634
+attachment/file(s)` and `converted 1,000 of 166,654 note(s)`, longer than the
+interval between `converted` lines, with nothing printed.
+
+**Cause, measured on the user's vault.** Four unannounced steps run between those
+two lines, and one more runs *before* the first line:
+
+| step | time | note |
+|---|---|---|
+| `_scan_vault` | **78.3 s** | before `found …` — the script prints nothing at all for the first 78 s |
+| `_build_path_maps` | **87.2 s** | the reported gap |
+| `_lookup_indexes` ×2 | 9.9 s | |
+| theme `copytree` | ~0 | 520 KB |
+| `_copy_assets` | not yet timed | **2.8 GB across 6,634 files** |
+
+`_build_path_maps` is not doing expensive work, it is paying for `pathlib`.
+Profiled over 26,634 paths: `Path.relative_to` 37%, `_unique_output_path` 27%,
+`_slug_site_segment` 18%, and the rest is `drive`, `_load_parts`, `__str__`,
+`as_posix` and `with_segments` underneath those. The root is known, so
+`relative_to` can be string slicing; the parent directory of every note in a
+Twitter vault is the same one, so `_slug_site_segment` is recomputing the same
+answer 166,654 times.
+
+Do both: announce every phase, including the scan, and make the map build
+cheaper. Announcing alone would leave a two-and-a-half-minute wait that does not
+need to be that long.
+
+### Step 44 — Announce the preservation bundle *(movenotes, `sql2obsidian.py`)*
+**Symptom.** A long gap between the last `exported 166,000 Obsidian note(s)` and
+`exported 166654 note(s); preserved 173289 Joplin item(s) and 6634 raw resource
+file(s)`.
+
+**Cause.** `write_preservation_bundle()` runs four phases after the last progress
+line and prints nothing until the summary. On this vault it produces a 3.6 GB
+bundle:
+
+| phase | size |
+|---|---|
+| `shutil.rmtree` of a previous bundle | 173,290 files, 3.6 GB — only on re-export |
+| writing the raw Joplin items | **173,290 files** |
+| copying raw resource files | 6,634 |
+| building and writing `manifest.json` | **83 MB**, held in memory first |
+
+Announce each, and report progress within the item loop the way the export loop
+already does. `--progress-every 0` must silence them, as it does elsewhere.
+
+### Step 45 — Subdomain hosts *(movenotes + theme)*
+Step 40 added the `www.`-less spelling of a host because `www.sciencedirect.com`
+is one term. The same argument applies to any subdomain and is not yet handled:
+this archive links `blogs.kqed.org` and `u.kqed.org`, and a search for
+`kqed.org` does not find either. Generalise the alias from `www.` to the first
+label of any host with three or more labels, keeping both spellings indexed.
+
+**Not a defect, recorded so it is not re-investigated:**
+
+- `http://ww2.kqed.org/futureofyou/2015/03/16/a-crispr-solution-to-bubble-boy-disease/`
+  → 0 is **correct**. That URL is not in the archive; it links `www.kqed.org`,
+  `blogs.kqed.org` and `u.kqed.org`. The `ww2` → 4 hits are the ordinary word in
+  note text, nothing to do with the host.
+- `http://t.co/iSQ` → 0 while `http://t.co/iSQx` → 1 is also correct. Terms match
+  whole, so a partial one matches nothing; "prefix" in the docs means whole path
+  segments, not a partial token. Worth a sentence in `STATIC_SITE.md`.
 
 ---
 
