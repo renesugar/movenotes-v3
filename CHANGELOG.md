@@ -1,5 +1,26 @@
 # Changelog
 
+Changes in 3.36:
+- Replaced the Relearn theme with `hugo-theme-ledger`, which is built for archives of 100,000+ notes; deleted every Relearn workaround, including the Hugo 0.158 template rewriter, both Lunr kill switches, the sidebar-element, heading, content, and custom-header partial overrides, and the fixed three-item menu.
+- Added `--ledger-theme`, keeping `--relearn-theme` as a warning alias; the copied checkout is used verbatim, skipping `exampleSite`, `node_modules`, `public`, `bench`, and `.git`.
+- Rewrote note frontmatter for the new theme: `categories`, `tags`, and `ledgerHideTitle`/`ledgerHideMeta` for notes carrying their own heading and timestamp; dropped every Relearn field, and writes nothing the theme can derive.
+- Added a two-tier tag model: written tags become a bounded Hugo taxonomy with real archive pages, while every generated content word stays in the disk-backed posting index. Both remain searchable with `tag:`.
+- Added `--max-taxonomy-tags`, defaulting to `max(200, min(5000, notes ÷ 10))`, because a taxonomy term costs about as much to build as a note page — measured at 5,000 notes: 200 terms took 11.2 s, 5,000 took 32.2 s. Promotion is by frequency, ties broken by name, so two runs of one vault promote the same set.
+- Added `--category-mode` and `--category-name`; a note's category is its top-level vault folder by default.
+- Deleted 451 lines of hand-written search UI: `/search/` is now the theme's own view, over its grammar and its adapters. The generated project has no shortcodes at all.
+- Rebuilt Browse Tags on the theme's markup as one page with two modes, `/browse-tags/` and `/browse-tags/?tag=…`, importing the theme's pagination rule rather than reimplementing it; trimmed the generated stylesheet from 205 lines to 65.
+- Extended the search grammar to repeatable `tag:`, `category:`, quoted phrases, and `since:`/`until:`, parsed once in the browser; a backend that cannot honour a clause now says so instead of returning the unbounded set.
+- Converged the Bluge server on one superset HTTP contract and deleted its server-side grammar parser; `search-source.jsonl` gained `category`, `readingTime`, and `displayTags`.
+- Split the server into one `search` package with two entry points — a local process and serverless functions — with configuration resolving explicit value, then environment, then default; the index is opened lazily, read-only, and never built by a request, which answers 503 instead.
+- Stopped storing every tag in the Bluge index for display, cutting it 31% (127 MB to 97 MB at 20,000 notes) and fixing result cards that listed generated content words as if they were the note's tags.
+- Added `--vercel`, emitting `vercel.json`, `.vercelignore`, and a root Go module with `api/` functions; `--build --vercel` measures the built site against Vercel's file-count, upload, and bundle limits and reports which it exceeds.
+- Fixed subpath deployments, which were broken throughout: Hugo's `relURL` drops the baseURL's path when its argument starts with a slash, so every asset, link, and search result on a GitHub Pages project site pointed at the domain root.
+- Added `DEPLOY_VERCEL.md` and `DEPLOY_GITHUB_PAGES.md`, each leading with the measured platform limits that decide which archives can be deployed where.
+- Retargeted the post-build backend check from Relearn's Lunr filenames to the backend the built pages actually configure, and to whether the index that backend needs exists.
+- Expanded the suite to 97 Python tests, plus Go tests over both server entry points.
+
+---
+
 Changes in 3.35:
 - Disabled Relearn's native search at both the configuration and template-extension layers, preventing its default Lunr adapter, generated search index, native search box, and keyboard search handler from being emitted in Bluge-only sites.
 - Added a post-Hugo validation gate for `--search-backend bluge` that rejects any built HTML still referencing Lunr, Relearn `searchindex.js`, or Pagefind runtime assets.

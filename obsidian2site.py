@@ -33,7 +33,7 @@ import common
 import obsidian2sql
 
 __program_name__ = "obsidian2site"
-__version__ = "3.35"
+__version__ = "3.36"
 
 _IGNORED_DIRECTORY_NAMES = frozenset({
     ".git", ".hg", ".svn", ".obsidian", ".movenotes", ".trash", ".Trash",
