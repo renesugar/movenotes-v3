@@ -1703,7 +1703,29 @@ Sub-steps, so the project stays working between them:
    Brought the theme its first JS tests (`npm test`, `node --test`), 10 of them.
    The grammar is the one piece of pure logic every backend depends on and no
    build step exercises it.
-2. Wire format and `buildQuery` over the tree in both Go servers.
+2. ✅ Wire format and `buildQuery` over the tree in both Go servers. The tree
+   travels as `expr`, a JSON parameter that *is* the query when present; the flat
+   parameters stay for callers without a tree, which the contract promises to
+   `offset`/`limit` users.
+
+   `buildExpr` walks it. Bluge has no standalone negation — it is a clause of a
+   boolean — so a `not` is built as the `MustNot` of the boolean containing it,
+   and a bare `-term` becomes a `MustNot`-only boolean, which Bluge answers
+   directly. **A negated branch of an `OR` needs no special handling, and
+   assuming it did was a real bug:** `buildExpr` on a `not` already returns
+   "everything without this", so wrapping it again in match-all-minus made
+   `pie OR -apple` read as `pie OR apple`. Caught by the test that expected
+   {a, c, d} and got {a, b}.
+
+   The response echoes the tree back in the grammar's own syntax, so the log
+   line shows how a query was *understood* rather than only what arrived —
+   `{"type":"and",…}` comes back as `a (b OR c)`. Malformed trees are a 400
+   naming the problem, and both size (8 KB) and depth (32) are bounded so a
+   crafted URL cannot recurse the builder into a stack overflow.
+
+   Both servers, because the theme's is the reference implementation: 10 query
+   shapes against a real index on the movenotes side, and parse/echo/build plus
+   malformed-tree rejection on the theme side.
 3. Adapters: Bluge full, Pagefind filters-only with honest `unsupported`
    reporting, Orama and FlexSearch as far as each goes.
 

@@ -1,6 +1,7 @@
 package search
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -58,7 +59,13 @@ type searchResponse struct {
 // client-side, in the theme's assets/js/search/query.js; this server receives
 // fields and never re-parses `tag:` prefixes or quotes. Repeated fields are
 // ANDed, which is what repeating a clause means in the grammar.
+//
+// `expr` carries the expression tree when the caller sends one, and then it is
+// the whole query — the flat fields below cannot express `OR`, negation or
+// grouping. They remain for callers that have no tree: the `offset`/`limit`
+// callers the contract promises, and any adapter not yet updated.
 type searchParams struct {
+	expr       *exprNode
 	terms      string
 	phrases    []string
 	categories []string
@@ -71,6 +78,91 @@ type searchParams struct {
 	per        int
 	offset     int
 	sortByDate bool
+}
+
+// exprNode is one node of the parsed query, mirroring the tree that
+// assets/js/search/query.js builds. The shapes are:
+//
+//	{"type":"and","nodes":[…]}     {"type":"or","nodes":[…]}
+//	{"type":"not","node":{…}}      {"type":"term","value":"cat"}
+//	{"type":"phrase","value":"…"}  {"type":"field","field":"tag","value":"x"}
+//
+// Field names are the grammar's: category, tag, since, until.
+type exprNode struct {
+	Type  string      `json:"type"`
+	Nodes []*exprNode `json:"nodes,omitempty"`
+	Node  *exprNode   `json:"node,omitempty"`
+	Field string      `json:"field,omitempty"`
+	Value string      `json:"value,omitempty"`
+}
+
+// maxExprBytes bounds the tree a request may carry. A hand-typed query is a few
+// hundred bytes; this is room to spare without letting a URL become a denial of
+// service.
+const maxExprBytes = 8 << 10
+
+// maxExprDepth bounds nesting, so a crafted tree cannot recurse the builder
+// into a stack overflow.
+const maxExprDepth = 32
+
+func parseExpr(raw string) (*exprNode, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	if len(raw) > maxExprBytes {
+		return nil, fmt.Errorf("expr: larger than %d bytes", maxExprBytes)
+	}
+	var node exprNode
+	if err := json.Unmarshal([]byte(raw), &node); err != nil {
+		return nil, errors.New("expr: not valid JSON")
+	}
+	if err := validateExpr(&node, 0); err != nil {
+		return nil, err
+	}
+	return &node, nil
+}
+
+func validateExpr(node *exprNode, depth int) error {
+	if node == nil {
+		return errors.New("expr: empty node")
+	}
+	if depth > maxExprDepth {
+		return fmt.Errorf("expr: nested deeper than %d", maxExprDepth)
+	}
+	switch node.Type {
+	case "and", "or":
+		if len(node.Nodes) == 0 {
+			return fmt.Errorf("expr: %s with no operands", node.Type)
+		}
+		for _, child := range node.Nodes {
+			if err := validateExpr(child, depth+1); err != nil {
+				return err
+			}
+		}
+	case "not":
+		return validateExpr(node.Node, depth+1)
+	case "term", "phrase":
+		if node.Value == "" {
+			return fmt.Errorf("expr: %s with no value", node.Type)
+		}
+	case "field":
+		switch node.Field {
+		case "category", "tag", "since", "until":
+		default:
+			return fmt.Errorf("expr: unknown field %q", node.Field)
+		}
+		if node.Value == "" {
+			return errors.New("expr: field with no value")
+		}
+		if node.Field == "since" || node.Field == "until" {
+			if _, err := time.Parse(dateLayout, node.Value); err != nil {
+				return fmt.Errorf("%s: expected YYYY-MM-DD", node.Field)
+			}
+		}
+	default:
+		return fmt.Errorf("expr: unknown node type %q", node.Type)
+	}
+	return nil
 }
 
 type indexStamp struct {
@@ -87,7 +179,12 @@ const (
 )
 
 func parseParams(values url.Values) (searchParams, error) {
+	expr, err := parseExpr(values.Get("expr"))
+	if err != nil {
+		return searchParams{}, err
+	}
 	params := searchParams{
+		expr:       expr,
 		terms:      strings.TrimSpace(values.Get("q")),
 		phrases:    nonEmpty(values["phrase"]),
 		categories: nonEmpty(values["category"]),
@@ -141,10 +238,111 @@ func parseParams(values url.Values) (searchParams, error) {
 	return params, nil
 }
 
-// buildQuery turns the parsed fields into one Bluge query. Repeated values are
-// ANDed; a term matches the title, the summary or the body, with the title
-// weighted highest.
+// buildQuery turns the parsed query into one Bluge query. A caller that sent an
+// expression tree gets that; otherwise the flat fields are ANDed as they always
+// were. Either way a term matches the title, the summary or the body, with the
+// title weighted highest.
 func buildQuery(params searchParams) bluge.Query {
+	if params.expr != nil {
+		if query := buildExpr(params.expr); query != nil {
+			return query
+		}
+		return bluge.NewMatchAllQuery()
+	}
+	return buildFlatQuery(params)
+}
+
+// buildExpr walks the tree. Bluge has no standalone negation — it is a clause of
+// a boolean query — so a `not` is only ever built as the MustNot of the boolean
+// that contains it, which is why the and/or cases handle their negated children
+// rather than recursing blindly.
+func buildExpr(node *exprNode) bluge.Query {
+	switch node.Type {
+	case "and":
+		boolean := bluge.NewBooleanQuery()
+		positives := 0
+		for _, child := range node.Nodes {
+			if child.Type == "not" {
+				if inner := buildExpr(child.Node); inner != nil {
+					boolean.AddMustNot(inner)
+				}
+				continue
+			}
+			if query := buildExpr(child); query != nil {
+				boolean.AddMust(query)
+				positives++
+			}
+		}
+		// `-a -b` with nothing positive is every note except those: Bluge
+		// answers a MustNot-only boolean directly, no match-all needed.
+		_ = positives
+		return boolean
+
+	case "or":
+		boolean := bluge.NewBooleanQuery().SetMinShould(1)
+		for _, child := range node.Nodes {
+			// A negated branch needs no special handling here: the `not` case
+			// below already builds "everything without this", which is exactly
+			// what `a OR -b` asks that branch to contribute. Wrapping it again
+			// in a match-all-minus is a double negation, and reads as `a OR b`.
+			if query := buildExpr(child); query != nil {
+				boolean.AddShould(query)
+			}
+		}
+		return boolean
+
+	case "not":
+		// Only reached when a negation is the whole query.
+		if inner := buildExpr(node.Node); inner != nil {
+			return bluge.NewBooleanQuery().AddMustNot(inner)
+		}
+		return nil
+
+	case "term":
+		// The same "title, summary or body, title weighted highest" shape the
+		// flat path uses, one tree leaf at a time.
+		return bluge.NewBooleanQuery().SetMinShould(1).AddShould(
+			bluge.NewMatchQuery(node.Value).SetField("title").
+				SetOperator(bluge.MatchQueryOperatorAnd).SetBoost(4),
+			bluge.NewMatchQuery(node.Value).SetField("summary").
+				SetOperator(bluge.MatchQueryOperatorAnd).SetBoost(2),
+			bluge.NewMatchQuery(node.Value).SetField("body").
+				SetOperator(bluge.MatchQueryOperatorAnd),
+		)
+
+	case "phrase":
+		return bluge.NewBooleanQuery().SetMinShould(1).AddShould(
+			bluge.NewMatchPhraseQuery(node.Value).SetField("title").SetBoost(4),
+			bluge.NewMatchPhraseQuery(node.Value).SetField("summary").SetBoost(2),
+			bluge.NewMatchPhraseQuery(node.Value).SetField("body"),
+		)
+
+	case "field":
+		switch node.Field {
+		case "category":
+			return bluge.NewTermQuery(node.Value).SetField("category")
+		case "tag":
+			return bluge.NewTermQuery(strings.ToLower(node.Value)).SetField("tag")
+		case "since":
+			bound, err := time.Parse(dateLayout, node.Value)
+			if err != nil {
+				return nil
+			}
+			return bluge.NewDateRangeInclusiveQuery(bound.UTC(), time.Time{}, true, false).
+				SetField("date")
+		case "until":
+			bound, err := time.Parse(dateLayout, node.Value)
+			if err != nil {
+				return nil
+			}
+			return bluge.NewDateRangeInclusiveQuery(time.Time{}, bound.UTC(), true, false).
+				SetField("date")
+		}
+	}
+	return nil
+}
+
+func buildFlatQuery(params searchParams) bluge.Query {
 	boolean := bluge.NewBooleanQuery()
 	clauses := 0
 
@@ -236,8 +434,52 @@ func toResult(match *search.DocumentMatch) (searchResult, error) {
 }
 
 // describe rebuilds the grammar the visitor typed, for the response echo and the
-// log line. The client sends fields, so there is no raw query to quote.
+// log line. The client sends structure, not text, so this renders it back —
+// which also makes the log show how the query was *understood*, not just what
+// was typed.
 func describe(params searchParams) string {
+	if params.expr != nil {
+		return describeExpr(params.expr, false)
+	}
+	return describeFlat(params)
+}
+
+// describeExpr renders a node in the grammar's own syntax. `group` asks for
+// parentheses when the context binds tighter than the node does.
+func describeExpr(node *exprNode, group bool) string {
+	switch node.Type {
+	case "and":
+		parts := make([]string, 0, len(node.Nodes))
+		for _, child := range node.Nodes {
+			// An OR inside an AND needs brackets; AND inside OR does not,
+			// because AND already binds tighter.
+			parts = append(parts, describeExpr(child, child.Type == "or"))
+		}
+		return maybeGroup(strings.Join(parts, " "), group)
+	case "or":
+		parts := make([]string, 0, len(node.Nodes))
+		for _, child := range node.Nodes {
+			parts = append(parts, describeExpr(child, false))
+		}
+		return maybeGroup(strings.Join(parts, " OR "), group)
+	case "not":
+		return "-" + describeExpr(node.Node, node.Node.Type == "and" || node.Node.Type == "or")
+	case "phrase":
+		return strconv.Quote(node.Value)
+	case "field":
+		return clause(node.Field, node.Value)
+	}
+	return node.Value
+}
+
+func maybeGroup(text string, group bool) string {
+	if group {
+		return "(" + text + ")"
+	}
+	return text
+}
+
+func describeFlat(params searchParams) string {
 	var parts []string
 	for _, category := range params.categories {
 		parts = append(parts, clause("category", category))
