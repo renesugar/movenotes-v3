@@ -29,7 +29,8 @@ Changes in 3.36:
 - Documented link search: a "Searching for a link" section in `STATIC_SITE.md` and on the generated Getting Started page showing how a URL splits and which queries find it, plus its two limits — it is not a URL parser, and a host every note links is as common a word as it sounds.
 - Announced every phase of generation. `scanning the vault...`, `mapping N note path(s) to site URLs...`, `copying the theme...`, `copying N attachment(s)...` and `converting N note(s)...` used to run in silence; on a 166,654-note vault that was 78 s before the first line and minutes more before the first `converted` line. `--progress-every 0` silences them with the note counter.
 - Made note-path mapping 5.44× faster (86.0 s to 15.8 s at 166,654 notes) by replacing `Path.relative_to` with a string slice, slugging each directory once instead of once per note, and building one path object per note instead of five. The output is byte-identical over the whole vault, which matters because these paths are the canonical note URLs.
-- Expanded the suite to 100 Python tests, plus Go tests over both server entry points.
+- Announced the preservation bundle in `sql2obsidian.py`. Its four phases ran after the last `exported N` line with no output, which on a full library is 173,290 raw files, 6,634 resource copies and an 83 MB manifest — long enough to look like a hang. Each phase now names itself, the item loop counts like the export loop, and `--progress-every 0` silences them.
+- Expanded the suite to 101 Python tests, plus Go tests over both server entry points.
 
 ---
 

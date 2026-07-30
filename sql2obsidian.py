@@ -614,12 +614,25 @@ def write_preservation_bundle(
     obsidian_paths: dict[str, str],
     obsidian_hashes: dict[str, str],
     attachment_paths: dict[str, str],
+    progress_every: int = 0,
 ) -> tuple[int, int]:
-    """Write an importable Joplin RAW copy and a mapping manifest in the vault."""
+    """Write an importable Joplin RAW copy and a mapping manifest in the vault.
+
+    Four phases, and on a large library each takes long enough to look like a
+    hang: a full Joplin archive of 166,654 notes produces 173,290 raw item files
+    and an 83 MB manifest, 3.6 GB in all. They run after the last `exported N`
+    line, so without the reporting below the export appears to stop just before
+    finishing. `progress_every` of 0 keeps it silent, matching `--progress-every 0`.
+    """
+    def report(message: str) -> None:
+        if progress_every:
+            print(message, flush=True)
+
     preservation_root = vault_path / PRESERVATION_DIR_NAME
     if preservation_root.exists():
         # A filtered re-export must never retain stale private items from a
         # previous full export.
+        report("removing the previous preservation bundle...")
         shutil.rmtree(preservation_root)
     raw_root = preservation_root / PRESERVED_RAW_DIR_NAME
     raw_root.mkdir(parents=True, exist_ok=True)
@@ -636,6 +649,7 @@ def write_preservation_bundle(
             notesdb.JOPLIN_COLUMNS
         )
         column_sql = ", ".join(f'"{name}"' for name in dependency_columns)
+        report("resolving preserved-item dependencies...")
         dependency_rows = sqlconn.execute(
             f"SELECT {column_sql} FROM notes ORDER BY note_id"
         ).fetchall()
@@ -652,12 +666,15 @@ def write_preservation_bundle(
             if row["note_id"] in selected_note_ids
         )
 
+    report("writing preserved Joplin item(s)...")
     manifest_items = []
     raw_name_dedup = NameDeduplicator()
     included_resource_ids: set[str] = set()
     row_count = 0
     for row in rows:
         row_count += 1
+        if progress_every and row_count % progress_every == 0:
+            print(f"preserved {row_count:,} Joplin item(s)", flush=True)
         item_id = row["joplin_id"] or row["note_uuid"] or f"row-{row['note_id']}"
         source_name = Path(row["note_source_filename"] or f"{item_id}.md").name
         if not source_name.lower().endswith(".md"):
@@ -691,6 +708,7 @@ def write_preservation_bundle(
     raw_resources = raw_root / "resources"
     copied_resources = 0
     if input_resources_path.is_dir():
+        report("copying raw resource file(s)...")
         for resource_path in sorted(input_resources_path.iterdir()):
             if not resource_path.is_file():
                 continue
@@ -700,6 +718,7 @@ def write_preservation_bundle(
             shutil.copy2(resource_path, raw_resources / resource_path.name)
             copied_resources += 1
 
+    report(f"writing the preservation manifest for {len(manifest_items):,} item(s)...")
     manifest = {
         "format": "movenotes-lossless-joplin-preservation",
         "version": 1,
@@ -943,6 +962,9 @@ def main(argv: list[str]) -> int:
             obsidian_paths,
             obsidian_hashes,
             attachments.vault_paths,
+            # Verbose already prints a line per note; the phase lines would be
+            # lost in it, and its user is not the one watching for a hang.
+            progress_every=0 if args.verbose else args.progress_every,
         )
 
     summary = f"exported {note_count} note(s)"
