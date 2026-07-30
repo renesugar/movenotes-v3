@@ -22,9 +22,9 @@ Read these files first:
    holds the in-progress migration from the Relearn theme, its decisions, and
    which step is next; `STATIC_SITE.md` is rewritten at the end of it, so where
    the two disagree the plan is current and `STATIC_SITE.md` is not.
-   `DEPLOY_VERCEL.md` documents deployment, and carries the measured platform
-   limits that decide which archives can be deployed where — do not restate
-   those numbers elsewhere from memory.
+   `DEPLOY_VERCEL.md` and `DEPLOY_GITHUB_PAGES.md` document deployment, and
+   carry the measured platform limits that decide which archives can be deployed
+   where — do not restate those numbers elsewhere from memory.
 6. `image_resources.py`, `images2resources.py`, and `quarantinelinks.py` —
    Markdown image parsing, network safety, reports, resources, and quarantine.
 7. `CHANGELOG.md` and `PERFORMANCE_REVIEW.md` — revision history and complexity
@@ -54,6 +54,12 @@ Read these files first:
 - Search query clauses are generated in exactly one place per side: the theme's
   `_partials/search-clause.html`, and its Python equivalent here. The grammar
   tokenises on whitespace, so a value containing a space must be quoted.
+- Site-absolute URLs in generated templates go through the theme's
+  `_partials/site-url.html`, never `relURL` directly: `relURL` drops the
+  baseURL's path when its argument starts with a slash, which breaks every asset
+  and link on a project site published under a subpath. URLs stored in the
+  exact-tag index are site-root-relative and must be resolved against
+  `config.siteRoot`.
 - Bluge-only generated sites must not emit any browser search runtime. Keep
   `_validate_built_search_backend` and its regression together.
 - Do not override theme layouts or partials to inject site CSS/JS: the theme

@@ -432,7 +432,9 @@ external URL destinations while retaining their visible source text, links valid
 plain `@username` mentions to X, and writes a disk-backed exact tag index whose
 counts match its result lists.
 
-Deploying the result is [`DEPLOY_VERCEL.md`](DEPLOY_VERCEL.md).
+Deploying the result: [`DEPLOY_VERCEL.md`](DEPLOY_VERCEL.md) for server-side
+Bluge search, [`DEPLOY_GITHUB_PAGES.md`](DEPLOY_GITHUB_PAGES.md) for a static
+Pagefind site.
 
 See [`STATIC_SITE.md`](STATIC_SITE.md) for complete build, query, local serving,
 deployment-prefix, stop-word, embed, Pagefind fallback, and Quartz instructions.

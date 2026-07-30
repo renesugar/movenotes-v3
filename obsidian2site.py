@@ -2005,11 +2005,23 @@ function init(root) {
 
   /* ── Exact-tag results ────────────────────────────────────────────────── */
 
+  /* Stored note URLs are site-root-relative ("/notes/x.html"), so they are
+     resolved against the site root: on a project site published at /repo/,
+     assigning one straight to href would drop the subpath. The leading slash has
+     to go first, or the URL resolves against the domain instead of the base. */
+  function noteHref(url) {
+    try {
+      return new URL(String(url).replace(/^\//, ''), new URL(config.siteRoot, location.href)).href;
+    } catch (error) {
+      return url;
+    }
+  }
+
   function card(url, title, date) {
     var link = document.createElement('a');
     link.className = 'ledger-card';
     link.setAttribute('data-card', '');
-    link.href = url;
+    link.href = noteHref(url);
     var heading = document.createElement('h3');
     heading.className = 'ledger-card-title';
     heading.textContent = title;
@@ -2165,11 +2177,16 @@ _TAGS_BODY = r'''{{- $script := resources.Get "js/movenotes-tags.js" | js.Build 
       "format" "esm"
       "minify" hugo.IsProduction) -}}
 {{- if hugo.IsProduction }}{{ $script = $script | fingerprint }}{{ end -}}
+{{- /* Paths go through the theme's site-url partial, never `relURL` directly:
+       relURL drops the baseURL's path when its argument starts with a slash, so a
+       project site published at /repo/ would fetch the tag index from the domain
+       root and 404. */ -}}
 {{- $config := dict
-      "tagsBase"       ("/movenotes/tags/" | relURL)
-      "postingsBase"   ("/movenotes/tag-postings/" | relURL)
-      "documentsBase"  ("/movenotes/documents/" | relURL)
-      "pageURL"        ("/browse-tags/" | relURL)
+      "tagsBase"       (partial "site-url.html" "/movenotes/tags/")
+      "postingsBase"   (partial "site-url.html" "/movenotes/tag-postings/")
+      "documentsBase"  (partial "site-url.html" "/movenotes/documents/")
+      "pageURL"        (partial "site-url.html" "/browse-tags/")
+      "siteRoot"       (partial "site-url.html" "/")
       "postingBuckets" @@POSTING_BUCKETS@@
       "perPage"        (site.Params.pagination.search | default 20)
       "maxTagsShown"   300
@@ -2213,7 +2230,7 @@ _TAGS_BODY = r'''{{- $script := resources.Get "js/movenotes-tags.js" | js.Build 
       <span class="ledger-heading-meta" role="status" aria-live="polite"
             data-movenotes-tag-count></span>
     </div>
-    <p><a class="ledger-post-back" href="{{ "/browse-tags/" | relURL }}">&larr; all tags</a></p>
+    <p><a class="ledger-post-back" href="{{ partial "site-url.html" "/browse-tags/" }}">&larr; all tags</a></p>
     <div class="ledger-results" data-movenotes-tag-list></div>
     <div data-movenotes-tag-pager></div>
   </div>
@@ -2221,7 +2238,7 @@ _TAGS_BODY = r'''{{- $script := resources.Get "js/movenotes-tags.js" | js.Build 
   <noscript>
     <p class="ledger-page-ceiling">Browsing tags needs JavaScript, because the
     tag index is fetched one bucket at a time rather than built into every page.
-    <a href="{{ "/search/" | relURL }}">Search</a> works without it.</p>
+    <a href="{{ partial "site-url.html" "/search/" }}">Search</a> works without it.</p>
   </noscript>
 </div>
 <script type="module" src="{{ $script.RelPermalink }}"></script>

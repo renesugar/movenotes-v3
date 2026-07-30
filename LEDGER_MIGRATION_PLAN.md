@@ -779,12 +779,50 @@ would:
   instruction to start by editing `.gitignore` — a step that exists only because
   the generator got it wrong.
 
-### Step 30 — `DEPLOY_GITHUB_PAGES.md` *(movenotes)*
-Build and deploy with the static backend on GitHub Pages: the Actions workflow
-from Hugo's own host-on-GitHub-Pages page, `baseURL` handling for a project
-site, `--base-url` on the generator, where the Pagefind (and any promoted
-backend) index build goes in the workflow, and GitHub Pages' 1 GB / 100 MB
-limits against measured output sizes.
+### Step 30 — `DEPLOY_GITHUB_PAGES.md` *(movenotes + theme)*  ✅
+Written, and it leads with the size question because that is what decides
+whether GitHub Pages is possible at all: a published site may be no larger than
+**1 GB**, and an archive builds to ~20 KB/note, so the host tops out around
+**50,000 notes**.
+
+Contents: generating with the right `--base-url` for a project versus a user
+site, pushing, the Actions workflow (Hugo's own, plus a Pagefind step, minus the
+Dart Sass and Go steps this theme does not need), a five-point verification list
+on the published site, the limit table with measuring commands, and the subpath
+section below.
+
+**This step found the largest defect of the migration so far: every subpath
+deployment was broken, in both repositories.** Hugo's `relURL` drops the
+baseURL's path when its argument begins with a slash —
+
+```
+"/search/" | relURL  ->  /search/            wrong
+"search/"  | relURL  ->  /archive/search/    right
+```
+
+— and *every* site-absolute URL in the theme (23 of them) and in the generated
+templates was written the first way. On a GitHub Pages project site, which is the
+normal case, that means no stylesheet, no script, no working link, and no
+search result that resolves.
+
+Fixed by routing them all through a new theme partial, `site-url.html`, rather
+than deleting 23 slashes and hoping (theme step 18, `acdc67e`). Three runtime
+consequences needed more:
+
+- the search config's `bundlePath`, `endpoint` and `healthEndpoint` are fetched by
+  the browser, so they carry the subpath, while absolute URLs still pass through;
+- **Pagefind needed `baseUrl` in `options()`** — it records result URLs relative
+  to the directory it indexed, so every result linked to the domain root;
+- **the exact-tag index's stored note URLs** are site-root-relative, so Browse
+  Tags resolves them against `siteRoot` instead of assigning them to `href`. I
+  introduced that one in step 24 by dropping the `new URL(url, siteRoot)` the
+  Relearn-era shortcode had.
+
+Verified by building both the theme's `exampleSite` and a generated archive with
+`--base-url https://example.github.io/archive/`, serving them under `/archive/`,
+and driving search and Browse Tags in a browser: correct counts, every result
+href under `/archive/`, a followed result link returning 200, and no request
+outside the subpath but the favicon.
 
 ### Step 31 — Docs and invariants pass *(movenotes)*
 Rewrite `STATIC_SITE.md` for Ledger; update `AGENTS.md` invariants, `README.md`,

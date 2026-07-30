@@ -1052,6 +1052,40 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
         # root: the module root has no main.
         self.assertIn('"./cmd/movenotes-site-server"', build_source)
 
+    def test_site_paths_survive_a_subpath_base_url(self) -> None:
+        """A project site on GitHub Pages publishes below the domain root.
+
+        Hugo's relURL drops the baseURL's path when its argument starts with a
+        slash, so every site-absolute URL the generator writes has to go through
+        the theme's site-url partial instead. Getting this wrong 404s every asset
+        and every search result on the normal GitHub Pages deployment.
+        """
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-subpath-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            site = root / "site"
+            vault.mkdir()
+            (vault / "Note.md").write_text(
+                "---\ntags:\n  - alpha\n---\nBody about codecs.\n", encoding="utf-8"
+            )
+            run("--input", str(vault), "--output", str(site),
+                "--base-url", "https://example.github.io/archive/",
+                "--progress-every", "0")
+
+            layout = (site / "layouts" / "browse-tags.html").read_text(encoding="utf-8")
+            # No bare relURL: it is the trap this test exists for.
+            self.assertNotIn("| relURL", layout)
+            for path in ("/movenotes/tags/", "/movenotes/tag-postings/",
+                         "/movenotes/documents/", "/browse-tags/", "/search/"):
+                self.assertIn(f'partial "site-url.html" "{path}"', layout)
+            # Stored note URLs are site-root-relative, so the card resolves them
+            # against siteRoot rather than assigning them to href.
+            self.assertIn('"siteRoot"', layout)
+            script = (site / "assets" / "js" / "movenotes-tags.js").read_text(encoding="utf-8")
+            self.assertIn("function noteHref(", script)
+            self.assertIn("config.siteRoot", script)
+            self.assertIn("link.href = noteHref(url)", script)
+
     def test_vercel_project_files(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-vercel-") as temporary:
             root = Path(temporary)
