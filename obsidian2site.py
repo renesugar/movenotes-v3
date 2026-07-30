@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import functools
 import hashlib
 import html
 import json
@@ -26,7 +27,7 @@ import time
 import unicodedata
 import urllib.parse
 from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
@@ -317,17 +318,36 @@ def _safe_filename(value: str, *, maximum_bytes: int = 180) -> str:
     return _safe_segment(path.stem, maximum_bytes=stem_budget) + suffix
 
 
-def _unique_output_path(relative: PurePosixPath, used: set[str]) -> PurePosixPath:
-    parts = [
-        _safe_filename(part) if index == len(relative.parts) - 1 else _safe_segment(part)
-        for index, part in enumerate(relative.parts)
-    ]
-    candidate = PurePosixPath(*parts)
-    key = candidate.as_posix().casefold()
+def _unique_output_path(
+    parts: tuple[str, ...], used: set[str], *, safe_prefix: tuple[str, ...] | None = None
+) -> PurePosixPath:
+    """Reserve a collision-free output path, given its segments.
+
+    Takes segments rather than a `PurePosixPath` because the caller builds one
+    of these per note and pathlib dominated the cost of doing so — see step 43.
+    `safe_prefix`, when given, is the leading segments already passed through
+    `_safe_segment`, which for a vault is the same directory for every note in
+    it.
+
+    These paths are canonical note URLs, written into front matter and reused by
+    the tag index and both search backends, so the output must not drift.
+    """
+    last = len(parts) - 1
+    if safe_prefix is None:
+        safe = [
+            _safe_filename(part) if index == last else _safe_segment(part)
+            for index, part in enumerate(parts)
+        ]
+    else:
+        safe = list(safe_prefix)
+        safe.append(_safe_filename(parts[last]))
+    posix = "/".join(safe)
+    key = posix.casefold()
     if key not in used:
         used.add(key)
-        return candidate
-    digest = hashlib.sha256(relative.as_posix().encode("utf-8")).hexdigest()[:12]
+        return PurePosixPath(posix)
+    candidate = PurePosixPath(posix)
+    digest = hashlib.sha256("/".join(parts).encode("utf-8")).hexdigest()[:12]
     stem = _safe_segment(candidate.stem, maximum_bytes=160)
     suffix = candidate.suffix
     candidate = candidate.with_name(f"{stem}-{digest}{suffix}")
@@ -373,19 +393,87 @@ def _build_path_maps(
     asset_map: dict[str, PurePosixPath] = {}
     used_notes: set[str] = set()
     used_assets: set[str] = set()
+
+    # Every scanned path is under the root, so the relative form is a string
+    # slice. `Path.relative_to` was 37% of this function on a 166,654-note
+    # vault, re-deriving a prefix already known here.
+    cut = len(str(root)) + 1
+
+    def relative_posix(path: Path) -> str:
+        value = str(path)[cut:]
+        return value if os.sep == "/" else value.replace(os.sep, "/")
+
+    # A vault holds far fewer directories than notes — a Twitter archive has
+    # one — and slugging walks a string character by character. Cached per
+    # directory, the work happens once instead of once per note.
+    note_dirs: dict[str, tuple[str, ...]] = {}
+    asset_dirs: dict[str, tuple[str, ...]] = {}
+
     for path in markdown_paths:
-        relative = PurePosixPath(path.relative_to(root).as_posix())
-        parent_parts = [_slug_site_segment(part) for part in relative.parent.parts if part not in {"", "."}]
-        filename = _slug_site_segment(relative.stem) + ".md"
-        output = _unique_output_path(
-            PurePosixPath("notes", *parent_parts, filename), used_notes
+        relative = relative_posix(path)
+        parent, _, name = relative.rpartition("/")
+        slugged = note_dirs.get(parent)
+        if slugged is None:
+            slugged = tuple(
+                _slug_site_segment(part)
+                for part in parent.split("/") if part not in {"", "."}
+            )
+            note_dirs[parent] = slugged
+        # `PurePosixPath(name).stem`, without building one per note: a leading
+        # dot is not a suffix separator, and a trailing dot is not a suffix.
+        stem = (
+            name[:name.rindex(".")]
+            if "." in name[1:] and not name.endswith(".") else name
         )
-        note_map[relative.as_posix()] = output
+        filename = _slug_site_segment(stem) + ".md"
+        output = _unique_output_path(
+            ("notes",) + slugged + (filename,), used_notes,
+            safe_prefix=_safe_directory(("notes",) + slugged),
+        )
+        note_map[relative] = output
+
     for path in asset_paths:
-        relative = PurePosixPath(path.relative_to(root).as_posix())
-        output = _unique_output_path(PurePosixPath("vault-assets") / relative, used_assets)
-        asset_map[relative.as_posix()] = output
+        relative = relative_posix(path)
+        parent, _, name = relative.rpartition("/")
+        directory = asset_dirs.get(parent)
+        if directory is None:
+            directory = tuple(
+                part for part in parent.split("/") if part not in {"", "."}
+            )
+            asset_dirs[parent] = directory
+        output = _unique_output_path(
+            ("vault-assets",) + directory + (name,), used_assets,
+            safe_prefix=_safe_directory(("vault-assets",) + directory),
+        )
+        asset_map[relative] = output
+
     return note_map, asset_map
+
+
+def _phase_reporter(progress_every: int) -> Callable[[str], None]:
+    """Announce a long phase, or say nothing when progress is switched off.
+
+    A generated archive spends minutes in steps that print nothing, and silence
+    is indistinguishable from a hang. `--progress-every 0` turns these off with
+    the note counter, because a caller that wants one quiet wants both.
+    """
+    if not progress_every:
+        return lambda _message: None
+
+    def report(message: str) -> None:
+        print(message, flush=True)
+
+    return report
+
+
+@functools.lru_cache(maxsize=4096)
+def _safe_directory(parts: tuple[str, ...]) -> tuple[str, ...]:
+    """`_safe_segment` over a directory's segments, memoised.
+
+    The leading segments repeat for every note in a directory; the leaf never
+    does, so only this part is worth caching.
+    """
+    return tuple(_safe_segment(part) for part in parts)
 
 
 def _lookup_indexes(paths: Iterable[str]) -> tuple[dict[str, str], dict[str, list[str]]]:
@@ -2909,14 +2997,23 @@ def main(argv: list[str]) -> int:
         common.error("output directory must not be inside the input vault")
     _prepare_output(output, args.force)
 
+    # Everything from here to the first `converted` line used to run in
+    # silence, which on a 166,654-note vault was minutes of it. Each phase now
+    # says what it is; `--progress-every 0` silences them all, as it does the
+    # conversion counter.
+    step = _phase_reporter(args.progress_every)
+
+    step("scanning the vault...")
     markdown_paths, asset_paths = _scan_vault(input_root, args.include_hidden)
     print(f"found {len(markdown_paths):,} Markdown note(s) and {len(asset_paths):,} attachment/file(s)")
+    step(f"mapping {len(markdown_paths):,} note path(s) to site URLs...")
     note_map, asset_map = _build_path_maps(input_root, markdown_paths, asset_paths)
     note_exact, note_basenames = _lookup_indexes(note_map.keys())
     asset_exact, asset_basenames = _lookup_indexes(asset_map.keys())
 
     copied_theme = False
     if args.ledger_theme is not None:
+        step("copying the theme...")
         theme_target = output / "themes" / _LEDGER_THEME_NAME
         if theme_target.exists():
             shutil.rmtree(theme_target)
@@ -2943,7 +3040,10 @@ def main(argv: list[str]) -> int:
     )
     if args.vercel:
         _write_vercel_project(output, search_backend=args.search_backend)
+    if asset_paths:
+        step(f"copying {len(asset_paths):,} attachment(s)...")
     copied_assets = _copy_assets(input_root, output / "static", asset_map)
+    step(f"converting {len(markdown_paths):,} note(s)...")
 
     stop_words = _load_stop_words(args.stop_words)
     tag_db_path = output / ".obsidian2site-tags.sqlite"

@@ -27,7 +27,9 @@ Changes in 3.36:
 - Sped that check up 1.81× on the same archive (529.7 s to 292.2 s) by scanning bytes behind a substring test instead of decoding every page to run two regexes over it. Only 95 of 177,682 pages carry the search config, so both regexes are now skipped for nearly every page. Threads were measured and are slower — the work is a scan, not I/O wait.
 - Added a `compiling the site server...` line, the other unannounced wait during `--build`.
 - Documented link search: a "Searching for a link" section in `STATIC_SITE.md` and on the generated Getting Started page showing how a URL splits and which queries find it, plus its two limits — it is not a URL parser, and a host every note links is as common a word as it sounds.
-- Expanded the suite to 99 Python tests, plus Go tests over both server entry points.
+- Announced every phase of generation. `scanning the vault...`, `mapping N note path(s) to site URLs...`, `copying the theme...`, `copying N attachment(s)...` and `converting N note(s)...` used to run in silence; on a 166,654-note vault that was 78 s before the first line and minutes more before the first `converted` line. `--progress-every 0` silences them with the note counter.
+- Made note-path mapping 5.44× faster (86.0 s to 15.8 s at 166,654 notes) by replacing `Path.relative_to` with a string slice, slugging each directory once instead of once per note, and building one path object per note instead of five. The output is byte-identical over the whole vault, which matters because these paths are the canonical note URLs.
+- Expanded the suite to 100 Python tests, plus Go tests over both server entry points.
 
 ---
 

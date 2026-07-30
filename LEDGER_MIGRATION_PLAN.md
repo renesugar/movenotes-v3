@@ -1410,7 +1410,7 @@ every query from the original report now returns notes:
 Two unannounced waits reported from the run above, plus what the search log shows
 on closer reading. Numbered continuing from Part E.
 
-### Step 43 — Announce and speed up the pre-conversion phase *(movenotes)*
+### Step 43 — Announce and speed up the pre-conversion phase *(movenotes)*  ✅
 **Symptom.** A long gap between `found 166,654 Markdown note(s) and 6,634
 attachment/file(s)` and `converted 1,000 of 166,654 note(s)`, longer than the
 interval between `converted` lines, with nothing printed.
@@ -1437,6 +1437,35 @@ answer 166,654 times.
 Do both: announce every phase, including the scan, and make the map build
 cheaper. Announcing alone would leave a two-and-a-half-minute wait that does not
 need to be that long.
+
+**Done, both halves.**
+
+Every phase now names itself — `scanning the vault...`,
+`mapping 166,654 note path(s) to site URLs...`, `copying the theme...`,
+`copying 6,634 attachment(s)...`, `converting 166,654 note(s)...` — so the run
+is never silent, including the 78 s before the first line. `--progress-every 0`
+silences all of them, as it does the note counter; a caller that wants one quiet
+wants both.
+
+`_build_path_maps` went **86.0 s → 15.8 s, 5.44×** on the user's vault, by
+removing pathlib rather than changing what it computes:
+
+- `Path.relative_to(root)` became a string slice; the root is a known prefix of
+  every scanned path.
+- the directory prefix is slugged once per directory instead of once per note —
+  a Twitter vault has one directory and was re-slugging it 166,654 times.
+- `_unique_output_path` takes segments instead of a `PurePosixPath`, so the
+  per-note path object is built once, at the end, rather than five times.
+
+**These paths are canonical note URLs**, written into front matter and reused by
+the tag index and both search backends, so "faster" is worthless if it is not
+also identical. Verified against the previous implementation over the whole
+vault: **all 166,654 note paths and 6,634 asset paths byte-for-byte the same.**
+The stem rule needed care to match `PurePosixPath.stem` exactly — a leading dot
+is not a suffix separator and a trailing dot is not a suffix.
+
+`_lookup_indexes` (9.9 s) and `_copy_assets` (2.8 GB) were left alone; they are
+now announced, and neither is doing anything it should not.
 
 ### Step 44 — Announce the preservation bundle *(movenotes, `sql2obsidian.py`)*
 **Symptom.** A long gap between the last `exported 166,000 Obsidian note(s)` and
