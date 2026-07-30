@@ -1805,6 +1805,11 @@ render one, and the search page when it is not. The search box accepts:
 | `category:Twitter` | one category; quote a name containing a space |
 | `tag:economics` | one tag; repeat it to require several |
 | `since:2026-07-01 until:2026-08-01` | July, by note date — `until:` is exclusive |
+| an empty box, or `category:"All notes"` | every note |
+
+Results come back **newest first**, whatever the query, so the most recent note
+is always on the first page. The search page itself waits for a query rather
+than searching for everything the moment it opens.
 
 @@SYNTAX_NOTE@@
 

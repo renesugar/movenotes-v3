@@ -88,20 +88,21 @@ func TestParseParamsDateBounds(t *testing.T) {
 	}
 }
 
-// A filter-only query must come back newest-first, because the theme
-// server-renders page 1 of an over-limit term in Hugo's date order and this
-// server serves page 2. Ranking one of them by score would make the two pages
-// slices of different sequences, which repeats and skips notes.
-func TestParseParamsSortsByDateOnlyWithoutText(t *testing.T) {
+// Every query comes back newest-first. An archive is read chronologically, and
+// it is what keeps a server-rendered first page and a searched second page in one
+// sequence — with relevance ranking on some query shapes they were slices of
+// different sequences, which repeats and skips notes.
+func TestParseParamsSortsByDateUnlessScoreIsAskedFor(t *testing.T) {
 	for raw, want := range map[string]bool{
-		"":                        true,
-		"tag=canadian":            true,
-		"since=2026-07-01":        true,
-		"q=housing":               false,
-		"phrase=Bank+of+Canada":   false,
-		"tag=canadian&q=housing":  false,
-		"q=housing&sort=date":     true,
-		"tag=canadian&sort=score": false,
+		"":                         true,
+		"tag=canadian":             true,
+		"since=2026-07-01":         true,
+		"q=housing":                true,
+		"phrase=Bank+of+Canada":    true,
+		"tag=canadian&q=housing":   true,
+		"q=housing&sort=date":      true,
+		"tag=canadian&sort=score":  false,
+		"q=housing&sort=relevance": false,
 	} {
 		if got := params(t, raw).sortByDate; got != want {
 			t.Errorf("parseParams(%q).sortByDate = %v, want %v", raw, got, want)
