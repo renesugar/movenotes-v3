@@ -770,6 +770,49 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertIsNotNone(obsidian2site._repair_http_url(broken))
             self.assertIsNone(obsidian2site._repair_http_url("http://"))
 
+    def test_path_maps_match_pathlib_semantics(self) -> None:
+        """Step 43 replaced pathlib in `_build_path_maps` with string work.
+
+        These paths are the canonical note URLs, so the rules it reproduces are
+        pinned here: how a stem is taken, that a directory is slugged the same
+        whether it holds one note or many, and that assets keep their tree.
+        """
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-paths-") as temporary:
+            vault = Path(temporary)
+            names = [
+                "plain.md",
+                "two.dots.md",          # stem keeps the inner dot
+                ".hidden.md",           # a leading dot is not a suffix separator
+                "Ünïcode Note.md",
+                "spaces and (parens).md",
+            ]
+            for name in names:
+                (vault / "Notes").mkdir(exist_ok=True)
+                (vault / "Notes" / name).write_text("x", encoding="utf-8")
+            (vault / "attachments" / "deep").mkdir(parents=True)
+            (vault / "attachments" / "deep" / "file.png").write_bytes(b"x")
+
+            # include_hidden, or `.hidden.md` is not scanned at all and the
+            # leading-dot stem rule goes untested.
+            markdown, assets = obsidian2site._scan_vault(vault, True)
+            notes, files = obsidian2site._build_path_maps(vault, markdown, assets)
+
+            self.assertEqual(notes["Notes/plain.md"].as_posix(), "notes/notes/plain.md")
+            self.assertEqual(notes["Notes/two.dots.md"].as_posix(), "notes/notes/two.dots.md")
+            self.assertEqual(notes["Notes/.hidden.md"].as_posix(), "notes/notes/hidden.md")
+            # Every note in one directory gets the same slugged prefix, which is
+            # what the per-directory cache has to guarantee.
+            self.assertEqual(
+                {path.parent.as_posix() for path in notes.values()}, {"notes/notes"}
+            )
+            # Assets keep their directory tree under vault-assets/.
+            self.assertEqual(
+                files["attachments/deep/file.png"].as_posix(),
+                "vault-assets/attachments/deep/file.png",
+            )
+            # Distinct sources never collide on one output path.
+            self.assertEqual(len({p.as_posix() for p in notes.values()}), len(names))
+
     def test_searchable_parts_separates_prose_from_urls(self) -> None:
         """The unit the URL fix turns on, in the forms a real note uses.
 
