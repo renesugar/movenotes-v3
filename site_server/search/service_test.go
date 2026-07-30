@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -231,5 +233,95 @@ func TestOpensAReadOnlyIndexDirectory(t *testing.T) {
 	}
 	if after, _ := os.ReadDir(index); len(after) != before {
 		t.Errorf("opening the index changed its contents: %d files, was %d", len(after), before)
+	}
+}
+
+// TestURLsInBodyAreSearchable is the step-38 regression test: the queries a user
+// ran against a real 166,654-note archive, all of which returned nothing because
+// the generator deleted every URL before indexing it. See step 37 in
+// LEDGER_MIGRATION_PLAN.md.
+//
+// The bodies here are what the fixed generator emits — prose, then the note's
+// links appended. Nothing about the query side changed; Bluge's standard
+// analyser already tokenised URLs well, keeping the host whole and splitting the
+// path into words. That is what makes searching by component work.
+func TestURLsInBodyAreSearchable(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "search-source.jsonl")
+	records := []string{
+		`{"id":0,"url":"/notes/housing.html","title":"@JohnPasalis legalize housing","date":"2026-07-02T00:00:00Z",` +
+			`"body":"three million more canadians in housing need than cmhc estimates suggest report ` +
+			`https://x.com/i/web/status/1720100485901000962 ` +
+			`https://globalnews.ca/news/10063968/more-canadians-housing-need-cmhc-estimates-report/",` +
+			`"summary":"three million more canadians","category":"Twitter","tags":["vanre"],"displayTags":["vanre"],"readingTime":1}`,
+		`{"id":1,"url":"/notes/links.html","title":"Assorted links","date":"2026-07-01T00:00:00Z",` +
+			`"body":"pizza vs any celebrity ` +
+			`https://open.spotify.com/episode/6zDxDPCr8wiiJKmbxa7HmP?si=p_kKyulrRcSakJybqvornQ&nd=1&dlsi=17a6dea183df4c83 ` +
+			`http://www.upworthy.com/a-12-year-old-egyptian-boy-flabbergasts-an-interviewer-they-werent-expecting-a-political-genius-4?g=2 ` +
+			`http://t.co/CT… ` +
+			`https://www.imf.org/external/pubs/ft/fandd/2019/09/the-rise-of-phantom-FDI-in-tax-havens-damgaard.htm ` +
+			`https://trends.google.com/trends/explore?q=%2Fm%2F0gs6vr,pizza",` +
+			`"summary":"pizza vs any celebrity","category":"Twitter","tags":["cdnpoli"],"displayTags":["cdnpoli"],"readingTime":1}`,
+		`{"id":2,"url":"/notes/plain.html","title":"No links here","date":"2026-06-01T00:00:00Z",` +
+			`"body":"housing and pizza, but nothing to click","summary":"no links","category":"Notes","tags":[],"displayTags":[],"readingTime":1}`,
+	}
+	if err := os.WriteFile(source, []byte(strings.Join(records, "\n")+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	index := filepath.Join(root, "index")
+	if err := BuildIndex(source, index); err != nil {
+		t.Fatalf("BuildIndex: %v", err)
+	}
+	service := New(Config{SourcePath: source, IndexDir: index})
+	defer service.Close()
+
+	for _, c := range []struct {
+		name   string
+		values url.Values
+		want   []string
+	}{
+		{"whole url", url.Values{"q": {"https://globalnews.ca/news/10063968/more-canadians-housing-need-cmhc-estimates-report/"}}, []string{"/notes/housing.html"}},
+		{"url without the scheme", url.Values{"q": {"globalnews.ca/news/10063968/more-canadians-housing-need-cmhc-estimates-report/"}}, []string{"/notes/housing.html"}},
+		{"path segment and the rest", url.Values{"q": {"10063968/more-canadians-housing-need-cmhc-estimates-report/"}}, []string{"/notes/housing.html"}},
+		{"url as a quoted phrase", url.Values{"phrase": {"https://globalnews.ca/news/10063968/more-canadians-housing-need-cmhc-estimates-report/"}}, []string{"/notes/housing.html"}},
+		{"components, space separated", url.Values{"q": {"globalnews.ca news"}}, []string{"/notes/housing.html"}},
+		{"url prefix", url.Values{"q": {"https://globalnews.ca/news/"}}, []string{"/notes/housing.html"}},
+		{"x.com permalink", url.Values{"q": {"https://x.com/i/web/status/1720100485901000962"}}, []string{"/notes/housing.html"}},
+		{"tag and url together", url.Values{"tag": {"vanre"}, "q": {"https://x.com/i/web/status/1720100485901000962"}}, []string{"/notes/housing.html"}},
+		{"prose word and url together", url.Values{"q": {"housing https://globalnews.ca/news/"}}, []string{"/notes/housing.html"}},
+		{"query string with ampersands", url.Values{"q": {"https://open.spotify.com/episode/6zDxDPCr8wiiJKmbxa7HmP?si=p_kKyulrRcSakJybqvornQ&nd=1&dlsi=17a6dea183df4c83"}}, []string{"/notes/links.html"}},
+		{"percent escapes", url.Values{"q": {"https://trends.google.com/trends/explore?q=%2Fm%2F0gs6vr,pizza"}}, []string{"/notes/links.html"}},
+		{"url with a trailing query flag", url.Values{"q": {"http://www.upworthy.com/a-12-year-old-egyptian-boy-flabbergasts-an-interviewer-they-werent-expecting-a-political-genius-4?g=2"}}, []string{"/notes/links.html"}},
+		{"truncated t.co link", url.Values{"q": {"http://t.co/CT…"}}, []string{"/notes/links.html"}},
+		{"imf article", url.Values{"q": {"https://www.imf.org/external/pubs/ft/fandd/2019/09/the-rise-of-phantom-FDI-in-tax-havens-damgaard.htm"}}, []string{"/notes/links.html"}},
+		// A host is a term like any other, so it selects only the notes linking it.
+		{"host alone", url.Values{"q": {"t.co"}}, []string{"/notes/links.html"}},
+		// The note that links nothing is still found by its prose, and never by a link.
+		{"prose still matches the linkless note", url.Values{"q": {"click"}}, []string{"/notes/plain.html"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			service.Search(recorder, httptest.NewRequest(
+				http.MethodGet, "/api/search?"+c.values.Encode(), nil))
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("status = %d: %s", recorder.Code, recorder.Body.String())
+			}
+			var got struct {
+				Total   int `json:"total"`
+				Results []struct {
+					URL string `json:"url"`
+				} `json:"results"`
+			}
+			if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			var urls []string
+			for _, r := range got.Results {
+				urls = append(urls, r.URL)
+			}
+			if got.Total != len(c.want) || !reflect.DeepEqual(urls, c.want) {
+				t.Errorf("total = %d, results = %q; want %q", got.Total, urls, c.want)
+			}
+		})
 	}
 }

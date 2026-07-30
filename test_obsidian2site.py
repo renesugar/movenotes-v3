@@ -770,6 +770,93 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertIsNotNone(obsidian2site._repair_http_url(broken))
             self.assertIsNone(obsidian2site._repair_http_url("http://"))
 
+    def test_searchable_parts_separates_prose_from_urls(self) -> None:
+        """The unit the URL fix turns on, in the forms a real note uses.
+
+        A bare URL, a labelled link, an angle autolink and a link carrying a
+        title all have to reach the URL list; a relative destination must not,
+        because the note it points at is already searchable as itself.
+        """
+        text, urls = obsidian2site._searchable_parts(
+            "Bare https://globalnews.ca/news/10063968/more-canadians-report/\n\n"
+            "Labelled [@JohnPasalis](https://x.com/i/web/status/1720100485901000962)\n\n"
+            "Angle <https://open.spotify.com/episode/6zDxDPCr8wiiJKmbxa7HmP?si=abc>\n\n"
+            "Titled [fund](https://www.imf.org/external/phantom-fdi.htm \"Phantom FDI\")\n\n"
+            "Relative [another note](../notes/other.md)\n\n"
+            "Repeated https://x.com/i/web/status/1720100485901000962\n\n"
+            "```text\nhttps://fenced.example.com/secret\n```\n"
+        )
+
+        # Order follows the substitution order — Markdown links, then angle
+        # autolinks, then bare URLs — and repeats are dropped.
+        self.assertEqual(urls, [
+            "https://x.com/i/web/status/1720100485901000962",
+            "https://www.imf.org/external/phantom-fdi.htm",
+            "https://open.spotify.com/episode/6zDxDPCr8wiiJKmbxa7HmP?si=abc",
+            "https://globalnews.ca/news/10063968/more-canadians-report/",
+        ])
+        # Labels survive; the destinations they hid do not stay in the prose.
+        self.assertIn("@JohnPasalis", text)
+        self.assertIn("fund", text)
+        self.assertNotIn("http", text)
+        # A fenced block is not note text, so its URL is neither prose nor index.
+        self.assertNotIn("fenced.example.com", " ".join(urls))
+
+    def test_note_urls_are_searchable_without_reaching_cards_or_tags(self) -> None:
+        """Step 38: URLs go to the Bluge `body`, and nowhere else.
+
+        `body` is indexed and not stored, so a URL is findable without a result
+        card opening with a tracking link, without inflating reading time, and
+        without adding a word tag per path segment.
+        """
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-urls-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            site = root / "site"
+            vault.mkdir()
+            prose = "Three million more Canadians in housing need than estimates suggest.\n"
+            (vault / "Linked.md").write_text(
+                prose +
+                "\nhttps://globalnews.ca/news/10063968/zzsegment-housing-report/\n\n"
+                "In reply to [@JohnPasalis](https://x.com/i/web/status/1720100485901000962)\n\n"
+                "Repeated https://globalnews.ca/news/10063968/zzsegment-housing-report/\n",
+                encoding="utf-8",
+            )
+            (vault / "Plain.md").write_text(prose, encoding="utf-8")
+
+            run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+            records = {
+                record["title"]: record
+                for record in (
+                    json.loads(line) for line in
+                    (site / "server" / "search-source.jsonl")
+                    .read_text(encoding="utf-8").splitlines()
+                )
+            }
+            linked, plain = records["Linked"], records["Plain"]
+
+            # The whole URL is searchable, and so is every component of it: the
+            # analyser keeps the host and splits the path into words.
+            self.assertIn(
+                "https://globalnews.ca/news/10063968/zzsegment-housing-report/",
+                linked["body"],
+            )
+            self.assertIn("https://x.com/i/web/status/1720100485901000962", linked["body"])
+            # Once, not twice: the same URL appears bare and behind a label.
+            self.assertEqual(
+                linked["body"].count("https://globalnews.ca/news/10063968/zzsegment-housing-report/"),
+                1,
+            )
+            # What a card renders stays prose.
+            self.assertNotIn("http", linked["summary"])
+            self.assertIn("Canadians", linked["summary"])
+            # A URL is not a source of tags: 121,433 of them on the real archive
+            # already, and a word per path segment would be noise in Browse Tags.
+            self.assertNotIn("zzsegment", linked["tags"])
+            self.assertNotIn("globalnews", linked["tags"])
+            # Reading time is counted from the prose, which both notes share.
+            self.assertEqual(linked["readingTime"], plain["readingTime"])
+
     def test_copied_ledger_theme_is_used_verbatim(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-theme-") as temporary:
             root = Path(temporary)

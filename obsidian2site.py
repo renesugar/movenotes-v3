@@ -587,7 +587,19 @@ def _tags_from_frontmatter(value: object) -> set[str]:
     return set()
 
 
-def _searchable_text(body: str) -> str:
+def _searchable_parts(body: str) -> tuple[str, list[str]]:
+    """Split a note into prose and the URLs the prose no longer contains.
+
+    Two outputs because they are wanted in different places. The prose is what a
+    result card shows, what reading time is counted from, and what tag extraction
+    reads; the URLs have to be searchable but must never be displayed. Keeping
+    them apart is why a summary does not open with a tracking link and why tag
+    extraction does not gain a word tag per URL path segment.
+
+    Removing them used to be the whole story, and it made every URL unfindable on
+    the Bluge backend — the built page showed a link the index did not have. See
+    step 37 in LEDGER_MIGRATION_PLAN.md.
+    """
     lines: list[str] = []
     fence: str | None = None
     for line in body.splitlines():
@@ -606,14 +618,73 @@ def _searchable_text(body: str) -> str:
         ),
         text,
     )
-    # Preserve Markdown link labels before removing their external destinations.
-    # Removing bare URLs first leaves fragments such as ``[label](`` in Bluge
-    # summaries and search text.
-    text = _MARKDOWN_LINK_RE.sub(lambda match: match.group(2), text)
-    text = re.sub(r"<https?://[^>]+>", " ", text, flags=re.IGNORECASE)
-    text = re.sub(r"https?://\S+", " ", text)
+
+    urls: list[str] = []
+
+    def take_link(match: re.Match[str]) -> str:
+        # The label stays in the prose, the destination goes to the URL list: a
+        # `[@JohnPasalis](https://x.com/i/web/status/…)` is read as a name and
+        # searched as a link.
+        target = _link_target_url(match.group(3))
+        if target:
+            urls.append(target)
+        return match.group(2)
+
+    def take_url(match: re.Match[str]) -> str:
+        urls.append(match.group(1) if match.lastindex else match.group(0))
+        return " "
+
+    # Markdown links first. Removing bare URLs before them leaves fragments such
+    # as ``[label](`` in the prose.
+    text = _MARKDOWN_LINK_RE.sub(take_link, text)
+    text = _ANGLE_URL_RE.sub(take_url, text)
+    text = _BARE_URL_RE.sub(take_url, text)
     text = re.sub(r"<[^>]+>", " ", text)
-    return text
+    return text, _unique(urls)
+
+
+def _searchable_text(body: str) -> str:
+    """The prose alone, for callers that have no use for the URLs."""
+    return _searchable_parts(body)[0]
+
+
+def _link_target_url(raw: str) -> str | None:
+    """The http(s) URL a Markdown link points at, or None.
+
+    A destination may carry a title — ``[label](https://host/p "Title")`` — or be
+    angle-wrapped, and only the first whitespace-delimited part is the URL.
+    Relative destinations are skipped: an internal note path is already
+    searchable as the note it points to.
+    """
+    target = raw.strip()
+    if target.startswith("<"):
+        target = target[1:].partition(">")[0]
+    parts = target.split()
+    target = parts[0] if parts else ""
+    return target if _BARE_URL_RE.fullmatch(target) else None
+
+
+def _search_body(text: str, urls: list[str]) -> str:
+    """The Bluge `body` field: the note's prose followed by its links.
+
+    Bluge's standard analyser tokenises a URL usefully on its own — it keeps the
+    host whole and splits the path into words, so
+    `https://globalnews.ca/news/10063968/more-canadians-…` yields `globalnews.ca`,
+    `news`, `10063968` and the rest. Appending the raw URLs is therefore enough to
+    make both a whole-URL search and a search for its components work.
+    """
+    if not urls:
+        return text
+    if not text:
+        return " ".join(urls)
+    return text + " " + " ".join(urls)
+
+
+def _unique(values: list[str]) -> list[str]:
+    """Order-preserving dedupe. A note usually links the same URL twice — once
+    bare and once behind a label — and the index need not carry it twice."""
+    seen: set[str] = set()
+    return [v for v in values if not (v in seen or seen.add(v))]
 
 
 def _extract_tags(
@@ -1132,7 +1203,8 @@ def _process_note(
         hide_title=twitter_note, hide_meta=twitter_note,
     ) + "\n" + converted
     destination.write_text(content, encoding="utf-8", newline="\n")
-    search_text = re.sub(r"\s+", " ", _searchable_text(f"{title}\n{converted}")).strip()
+    search_text, search_urls = _searchable_parts(f"{title}\n{converted}")
+    search_text = re.sub(r"\s+", " ", search_text).strip()
     return (
         tags,
         explicit_tags,
@@ -1141,6 +1213,7 @@ def _process_note(
         title,
         date,
         search_text,
+        search_urls,
         category,
         _reading_minutes(search_text),
         url_stats[0],
@@ -2857,6 +2930,7 @@ def main(argv: list[str]) -> int:
                             note_title,
                             note_date,
                             note_search_text,
+                            note_search_urls,
                             note_category,
                             note_reading_minutes,
                             note_repaired_urls,
@@ -2878,7 +2952,17 @@ def main(argv: list[str]) -> int:
                         "url": site_url,
                         "title": note_title,
                         "date": note_date,
-                        "body": note_search_text,
+                        # The URLs ride on `body` rather than in a field of
+                        # their own because `buildQuery` ANDs terms within a
+                        # field and ORs across fields: a mixed query such as
+                        # `Pizza vs any celebrity https://trends.google.com/…`
+                        # only matches if the prose words and the URL tokens sit
+                        # in the same field. `body` is indexed and not stored,
+                        # so nothing a result card renders changes.
+                        "body": _search_body(note_search_text, note_search_urls),
+                        # Displayed, so it stays prose. A card that opened with a
+                        # tracking link would be worse than one that cannot be
+                        # searched by it.
                         "summary": note_search_text[:700],
                         "category": note_category,
                         "tags": tags,
