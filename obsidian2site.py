@@ -1035,6 +1035,17 @@ def _frontmatter_json(
     return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
 
 
+def _reading_minutes(text: str) -> int:
+    """Reading time in minutes, matching Hugo's .ReadingTime.
+
+    Hugo divides the word count by 213 and rounds up. The theme falls back to
+    .ReadingTime for its own pages, but a search result rendered from the Bluge
+    index has no Hugo page behind it, so the number has to travel in the index.
+    """
+    words = len(text.split())
+    return max(1, -(-words // 213)) if words else 0
+
+
 def _process_note(
     source_path: Path,
     *,
@@ -1051,7 +1062,7 @@ def _process_note(
     note_embeds: str,
     category_mode: str,
     category_name: str,
-) -> tuple[list[str], list[str], str, str, str, str, str, int, int]:
+) -> tuple[list[str], list[str], str, str, str, str, str, str, int, int, int]:
     source_relative = PurePosixPath(source_path.relative_to(input_root).as_posix())
     output_relative = note_map[source_relative.as_posix()]
     raw = source_path.read_text(encoding="utf-8-sig")
@@ -1113,6 +1124,8 @@ def _process_note(
         title,
         date,
         search_text,
+        category,
+        _reading_minutes(search_text),
         url_stats[0],
         url_stats[1],
     )
@@ -1142,7 +1155,8 @@ def _open_tag_database(path: Path) -> sqlite3.Connection:
     connection.execute("CREATE INDEX tags_bucket_idx ON tags(bucket, tag)")
     connection.execute(
         "CREATE TABLE documents ("
-        "note_id INTEGER PRIMARY KEY, url TEXT NOT NULL, title TEXT NOT NULL)"
+        "note_id INTEGER PRIMARY KEY, url TEXT NOT NULL, title TEXT NOT NULL, "
+        "date TEXT NOT NULL)"
     )
     connection.execute(
         "CREATE TABLE tag_documents ("
@@ -1181,11 +1195,11 @@ def _tag_posting_bucket(tag: str) -> int:
 
 def _update_tag_documents(
     connection: sqlite3.Connection,
-    documents: Iterable[tuple[int, str, str]],
+    documents: Iterable[tuple[int, str, str, str]],
     associations: Iterable[tuple[int, str, int]],
 ) -> None:
     connection.executemany(
-        "INSERT INTO documents(note_id, url, title) VALUES (?, ?, ?)",
+        "INSERT INTO documents(note_id, url, title, date) VALUES (?, ?, ?, ?)",
         sorted(documents, key=lambda row: row[0]),
     )
     connection.executemany(
@@ -1367,8 +1381,8 @@ def _write_document_chunks(
     first = True
     row_count = 0
     try:
-        for note_id, url, title in connection.execute(
-            "SELECT note_id, url, title FROM documents ORDER BY note_id"
+        for note_id, url, title, date in connection.execute(
+            "SELECT note_id, url, title, date FROM documents ORDER BY note_id"
         ):
             note_id = int(note_id)
             chunk = note_id // _DOCUMENT_CHUNK_SIZE
@@ -1389,7 +1403,10 @@ def _write_document_chunks(
             first = False
             json.dump(str(note_id), handle)
             handle.write(":")
-            json.dump([str(url), str(title)], handle, ensure_ascii=False, separators=(",", ":"))
+            json.dump(
+                [str(url), str(title), str(date)[:10]],
+                handle, ensure_ascii=False, separators=(",", ":"),
+            )
             row_count += 1
     finally:
         if handle is not None:
@@ -1425,7 +1442,8 @@ def _write_tag_index(connection: sqlite3.Connection, static_root: Path) -> int:
     (target / "manifest.json").write_text(
         json.dumps(
             {
-                "version": 2,
+                # 3: document chunk records carry a date as their third field.
+                "version": 3,
                 "total": total,
                 "buckets": manifest,
                 "posting_buckets": posting_manifest,
@@ -1478,9 +1496,10 @@ def _write_hugo_project(
     content = output / "content"
     layouts = output / "layouts"
     static = output / "static"
+    assets = output / "assets" / "js"
     for path in (
-        content / "notes", layouts / "shortcodes",
-        static / "css", static / "js",
+        content / "notes", layouts,
+        static / "css", static / "js", assets,
     ):
         path.mkdir(parents=True, exist_ok=True)
 
@@ -1603,7 +1622,7 @@ capitalizeListTitles = false
             "date": generated_at,
             "lastmod": generated_at,
         }, ensure_ascii=False, separators=(",", ":"))
-        + "\n{{< movenotes-start >}}\n",
+        + "\n" + _getting_started_body(search_backend),
         encoding="utf-8",
     )
     (content / "search.md").write_text(
@@ -1625,7 +1644,7 @@ capitalizeListTitles = false
             "url": "/browse-tags/",
             "date": generated_at,
         }, separators=(",", ":"))
-        + "\n{{< movenotes-tags >}}\n",
+        + "\n",
         encoding="utf-8",
     )
     (content / "notes" / "_index.md").write_text(
@@ -1634,18 +1653,18 @@ capitalizeListTitles = false
         encoding="utf-8",
     )
 
+    # No shortcodes at all: /search/ is the theme's own view, driven by its
+    # grammar and its Pagefind/Bluge adapters; Getting Started is prose in
+    # about.md; and Browse Tags needs the asset pipeline, so its body belongs in
+    # a layout rather than a shortcode.
     (layouts / "browse-tags.html").write_text(
-        _BROWSE_TAGS_LAYOUT, encoding="utf-8"
+        _BROWSE_TAGS_LAYOUT.replace("@@TAGS_BODY@@", _tags_body()),
+        encoding="utf-8",
     )
-    (layouts / "shortcodes" / "movenotes-start.html").write_text(
-        _getting_started_shortcode(search_backend), encoding="utf-8"
-    )
-    (layouts / "shortcodes" / "movenotes-search.html").write_text(
-        _search_shortcode(search_backend), encoding="utf-8"
-    )
-    (layouts / "shortcodes" / "movenotes-tags.html").write_text(
-        _tags_shortcode(search_backend), encoding="utf-8"
-    )
+    # An assets/ module rather than a static file: it imports the theme's
+    # paging.js through Hugo's asset pipeline, so the page-number windowing rule
+    # is the theme's one implementation and not a copy of it.
+    (assets / "movenotes-tags.js").write_text(_TAGS_SCRIPT, encoding="utf-8")
     (static / "css" / "movenotes-site.css").write_text(
         _SITE_CSS, encoding="utf-8"
     )
@@ -1681,13 +1700,15 @@ capitalizeListTitles = false
 _BROWSE_TAGS_LAYOUT = r'''{{ define "main" }}
 {{- /* Generated by obsidian2site.py. Browse Tags is a movenotes view, not one of
        the theme's: it reads the hashed posting index under static/movenotes/,
-       which holds every generated word tag. The theme's /tags/ grid shows the
-       Hugo tag taxonomy, which is the smaller, explicit set. */ -}}
+       which holds every tag, including every generated content word. The theme's
+       /tags/ grid shows the Hugo tag taxonomy, which is the smaller set of the
+       most frequent written tags. */ -}}
 <div class="ledger-heading">
   <span class="ledger-eyebrow">movenotes</span>
   <h1>{{ .Title }}</h1>
 </div>
-{{ .Content }}
+{{ with .Content }}<div class="ledger-prose">{{ . }}</div>{{ end }}
+@@TAGS_BODY@@
 {{ end }}
 '''
 
@@ -1727,797 +1748,530 @@ _NAVIGATION_SCRIPT = r'''(() => {
 })();
 '''
 
-_GETTING_STARTED_SHORTCODE = r'''<div class="movenotes-start" data-pagefind-ignore>
-  <p class="movenotes-lead">A fast, private reading interface for a very large Obsidian vault. Notes stay out of the navigation tree so the browser remains responsive even when the archive contains more than 100,000 pages.</p>
-  <div class="movenotes-start-grid">
-    <a class="movenotes-start-card" href="{{ "search.html" | relURL }}">
-      <span class="movenotes-start-icon"><i class="fas fa-magnifying-glass" aria-hidden="true"></i></span>
-      <span><strong>Search the archive</strong><small>Use the generated Bluge server for fast server-side search, with Pagefind as a static-hosting fallback.</small></span>
-      <i class="fas fa-arrow-right movenotes-start-arrow" aria-hidden="true"></i>
-    </a>
-    <a class="movenotes-start-card" href="{{ "tags.html" | relURL }}">
-      <span class="movenotes-start-icon"><i class="fas fa-tags" aria-hidden="true"></i></span>
-      <span><strong>Browse tags</strong><small>Find explicit Obsidian tags and generated content words through compact tag buckets.</small></span>
-      <i class="fas fa-arrow-right movenotes-start-arrow" aria-hidden="true"></i>
-    </a>
-  </div>
-  <div class="movenotes-start-details">
-    <section>
-      <h2>Search</h2>
-      <p>Enter words, quoted phrases, tag:name, since:YYYY-MM-DD, or until:YYYY-MM-DD. The generated Go server searches Bluge on disk; Pagefind remains a static-hosting fallback.</p>
-    </section>
-    <section>
-      <h2>Tags</h2>
-      <p>Type at least two characters to load one matching tag bucket. Selecting a tag opens the exact set of notes counted by the tag index, without loading Pagefind.</p>
-    </section>
-    <section>
-      <h2>Navigation</h2>
-      <p>Links between notes become ordinary static links. Attachments are copied into <code>static/vault-assets</code>.</p>
-    </section>
-  </div>
+_GETTING_STARTED_BODY = r'''A reading interface for a very large Obsidian vault.
+No note is ever listed in the navigation, and no page grows with the size of the
+archive, so the site stays responsive past 100,000 notes.
+
+<div class="movenotes-start-grid">
+  <a class="movenotes-start-card" data-card href="/search/">
+    <strong>Search</strong>
+    <small>@@SEARCH_CARD@@</small>
+  </a>
+  <a class="movenotes-start-card" data-card href="/browse-tags/">
+    <strong>Browse tags</strong>
+    <small>Every tag in the archive — the ones written in notes and every unique
+    content word — with the exact notes each one carries.</small>
+  </a>
 </div>
+
+## Finding notes
+
+Sidebar categories and tags open an archive when the term is small enough to
+render one, and the search page when it is not. The search box accepts:
+
+| query | meaning |
+|---|---|
+| `canadian housing` | both words, anywhere in the note |
+| `"Bank of Canada"` | that exact phrase |
+| `category:Twitter` | one category; quote a name containing a space |
+| `tag:economics` | one tag; repeat it to require several |
+| `since:2026-07-01 until:2026-08-01` | July, by note date — `until:` is exclusive |
+
+@@SYNTAX_NOTE@@
+
+## Two kinds of tag
+
+A note's tags are the tags written in it plus every unique non-filler word it
+contains. The most frequent written tags become ordinary site tags, with their
+own archive pages, and appear in the sidebar. All of them — including every
+content word — stay on **Browse tags**, whose counts come from the same posting
+lists that produce its results.
+
+## Links and attachments
+
+Links between notes are ordinary static links. Attachments are copied into
+`static/vault-assets`.
 '''
 
-
-def _getting_started_shortcode(search_backend: str) -> str:
-    if search_backend == "bluge":
-        return _GETTING_STARTED_SHORTCODE.replace(
-            "Use the generated Bluge server for fast server-side search, with Pagefind as a static-hosting fallback.",
-            "Use the generated Bluge server for fast server-side search without downloading a browser index.",
-        ).replace(
-            "The generated Go server searches Bluge on disk; Pagefind remains a static-hosting fallback.",
-            "The generated Go server searches the Bluge index on disk and returns only the visible result page.",
-        ).replace(", without loading Pagefind", "").replace(
-            ' data-pagefind-ignore', ''
-        )
-    if search_backend == "pagefind":
-        return _GETTING_STARTED_SHORTCODE.replace(
-            "Use the generated Bluge server for fast server-side search, with Pagefind as a static-hosting fallback.",
-            "Use Pagefind for fully static browser-side search.",
-        ).replace(
-            "The generated Go server searches Bluge on disk; Pagefind remains a static-hosting fallback.",
-            "Pagefind downloads only the index chunks needed for the submitted query.",
-        )
-    return _GETTING_STARTED_SHORTCODE
+_SEARCH_CARD_BLUGE = (
+    "Server-side search over the whole archive. Only the result page you are "
+    "looking at crosses the connection."
+)
+_SEARCH_CARD_PAGEFIND = (
+    "Static browser-side search. Only the index fragments a query touches are "
+    "downloaded."
+)
+_SEARCH_CARD_BOTH = (
+    "Server-side search when the generated Go server is running, with static "
+    "Pagefind search as the fallback."
+)
+_SYNTAX_NOTE_PAGEFIND = (
+    "Date bounds need the Bluge backend. On a statically hosted site the search "
+    "page says so rather than quietly ignoring them."
+)
+_SYNTAX_NOTE_BLUGE = "Every clause above is answered by the Bluge server."
 
 
-_SEARCH_SHORTCODE = r'''<div class="movenotes-search-page" data-pagefind-ignore>
-  <form id="movenotes-search-form" class="movenotes-tool-form" role="search">
-    <label for="movenotes-q">Search all notes</label>
-    <div class="movenotes-search-row">
-      <input id="movenotes-q" name="q" type="search" autocomplete="off" placeholder='Words, "quoted phrase", tag:name, since:YYYY-MM-DD, until:YYYY-MM-DD'>
-      <button type="submit"><i class="fas fa-magnifying-glass" aria-hidden="true"></i><span>Search</span></button>
-    </div>
-    <p id="movenotes-filter-label" class="movenotes-filter-label"></p>
-  </form>
-  <p id="movenotes-search-status" class="movenotes-status" role="status"></p>
-  <ol id="movenotes-search-results" class="movenotes-results"></ol>
-  <button id="movenotes-more" class="movenotes-more" type="button" hidden>Load more results</button>
-</div>
-<script type="module">
-const params = new URLSearchParams(location.search);
-const input = document.querySelector('#movenotes-q');
-const form = document.querySelector('#movenotes-search-form');
-const status = document.querySelector('#movenotes-search-status');
-const resultsElement = document.querySelector('#movenotes-search-results');
-const moreButton = document.querySelector('#movenotes-more');
-const filterLabel = document.querySelector('#movenotes-filter-label');
-const allowServer = @@ALLOW_SERVER@@;
-const allowPagefind = @@ALLOW_PAGEFIND@@;
-const pagefindUrl = @@PAGEFIND_URL@@;
-const tagManifestUrl = '{{ "movenotes/tags/manifest.json" | relURL }}';
-const tagPostingsBase = '{{ "movenotes/tag-postings/" | relURL }}';
-const documentsBase = '{{ "movenotes/documents/" | relURL }}';
-const siteRoot = new URL('{{ "/" | relURL }}', location.href);
-const serverHealthUrl = new URL('api/health', siteRoot).href;
-const serverSearchUrl = new URL('api/search', siteRoot).href;
-const pageSize = 20;
-const jsonCache = new Map();
-let pagefindReady;
-let serverReady;
-let results = [];
-let tagResultIds = [];
-let serverTotal = 0;
-let shown = 0;
-let searchGeneration = 0;
-let resultMode = allowServer ? 'server' : 'pagefind';
-let selectedTag = (params.get('tag') || '').trim().toLowerCase();
-input.value = params.get('q') || selectedTag;
-if (selectedTag) filterLabel.textContent = `Exact tag: ${selectedTag}`;
+def _getting_started_body(search_backend: str) -> str:
+    """Markdown for the Getting Started page.
 
-function escapeText(value) { return String(value ?? ''); }
-function tagPostingBucket(value) {
-  let hash = 0x811c9dc5;
-  for (const byte of new TextEncoder().encode(value)) {
-    hash ^= byte;
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return (hash & 0xfff).toString(16).padStart(3, '0');
-}
-async function loadJson(url) {
-  if (!jsonCache.has(url)) jsonCache.set(url, fetch(url).then(response => {
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    return response.json();
-  }));
-  return jsonCache.get(url);
-}
-async function hasServer() {
-  if (!allowServer) return false;
-  serverReady ||= fetch(serverHealthUrl, {cache: 'no-store', signal: AbortSignal.timeout(3000)})
-    .then(response => response.ok)
-    .catch(() => false);
-  return serverReady;
-}
-async function ensurePagefind() {
-  if (!allowPagefind) throw new Error('Pagefind was not generated for this site');
-  pagefindReady ||= (async () => {
-    const module = await import(pagefindUrl);
-    await module.options({
-      excerptLength: 18,
-      metaCacheTag: '{{ site.Params.movenotesBuildId }}',
-    });
-    await module.init();
-    return module;
-  })();
-  return pagefindReady;
-}
-function appendResult(fragment, url, title, excerpt, useHtml = false, date = '') {
-  const item = document.createElement('li');
-  const link = document.createElement('a');
-  link.href = url;
-  link.textContent = escapeText(title || url);
-  const detail = document.createElement('p');
-  if (useHtml) detail.innerHTML = excerpt || '';
-  else detail.textContent = excerpt || '';
-  if (date) {
-    const time = document.createElement('time');
-    time.dateTime = date;
-    time.textContent = date.slice(0, 10);
-    item.append(link, time, detail);
-  } else {
-    item.append(link, detail);
-  }
-  fragment.append(item);
-}
-async function renderPagefindMore(generation = searchGeneration) {
-  const start = shown;
-  const end = Math.min(results.length, start + pageSize);
-  moreButton.disabled = true;
-  const rows = await Promise.all(
-    results.slice(start, end).map(result => result.data().catch(error => {
-      console.warn('Unable to load a Pagefind result', error);
-      return null;
-    }))
-  );
-  if (generation !== searchGeneration) return;
-  const fragment = document.createDocumentFragment();
-  rows.forEach(data => {
-    if (!data) return;
-    appendResult(fragment, data.url, data.meta?.title || data.url, data.excerpt || '', true);
-  });
-  shown = end;
-  resultsElement.append(fragment);
-  moreButton.hidden = shown >= results.length;
-  moreButton.disabled = false;
-}
-async function renderServerMore(generation = searchGeneration) {
-  moreButton.disabled = true;
-  const url = new URL(serverSearchUrl);
-  if (selectedTag) url.searchParams.set('tag', selectedTag);
-  else url.searchParams.set('q', input.value.trim());
-  url.searchParams.set('offset', String(shown));
-  url.searchParams.set('limit', String(pageSize));
-  const response = await fetch(url, {headers: {'Accept': 'application/json'}});
-  if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
-  const payload = await response.json();
-  if (generation !== searchGeneration) return;
-  serverTotal = Number(payload.total || 0);
-  const fragment = document.createDocumentFragment();
-  for (const row of payload.results || []) {
-    appendResult(fragment, row.url, row.title || row.url, row.excerpt || '', false, row.date || '');
-  }
-  shown += (payload.results || []).length;
-  resultsElement.append(fragment);
-  status.textContent = selectedTag
-    ? `${serverTotal.toLocaleString()} result(s) with exact tag “${selectedTag}” · Bluge server`
-    : `${serverTotal.toLocaleString()} result(s) · Bluge server`;
-  moreButton.hidden = shown >= serverTotal;
-  moreButton.disabled = false;
-}
-async function renderTagMore(generation = searchGeneration) {
-  const start = shown;
-  const end = Math.min(tagResultIds.length, start + pageSize);
-  moreButton.disabled = true;
-  const manifest = await loadJson(tagManifestUrl);
-  const chunkSize = Number(manifest.document_chunk_size || 512);
-  const neededChunks = new Set(
-    tagResultIds.slice(start, end).map(noteId => Math.floor(Number(noteId) / chunkSize))
-  );
-  const chunks = new Map(await Promise.all(Array.from(neededChunks, async chunk => {
-    const name = chunk.toString(16).padStart(6, '0');
-    return [chunk, await loadJson(`${documentsBase}${name}.json`)];
-  })));
-  if (generation !== searchGeneration) return;
-  const fragment = document.createDocumentFragment();
-  for (const noteId of tagResultIds.slice(start, end)) {
-    const chunk = Math.floor(Number(noteId) / chunkSize);
-    const record = chunks.get(chunk)?.[String(noteId)];
-    if (!record) continue;
-    const [relativeUrl, title] = record;
-    appendResult(fragment, new URL(relativeUrl, siteRoot).href, title || relativeUrl, `Exact tag match · ${relativeUrl}`);
-  }
-  shown = end;
-  resultsElement.append(fragment);
-  moreButton.hidden = shown >= tagResultIds.length;
-  moreButton.disabled = false;
-}
-async function searchExactTag(generation) {
-  resultMode = 'tag';
-  status.textContent = 'Loading exact tag index…';
-  const manifest = await loadJson(tagManifestUrl);
-  const bucket = tagPostingBucket(selectedTag);
-  if (!Object.prototype.hasOwnProperty.call(manifest.posting_buckets || {}, bucket)) {
-    tagResultIds = [];
-  } else {
-    const postings = await loadJson(`${tagPostingsBase}${bucket}.json`);
-    tagResultIds = postings[selectedTag] || [];
-  }
-  if (generation !== searchGeneration) return;
-  status.textContent = `${tagResultIds.length.toLocaleString()} result(s) with exact tag “${selectedTag}”`;
-  await renderTagMore(generation);
-}
-async function searchPagefind(generation) {
-  resultMode = 'pagefind';
-  status.textContent = 'Loading browser search index…';
-  const pagefind = await ensurePagefind();
-  const response = await pagefind.search(input.value.trim() || null);
-  if (generation !== searchGeneration) return;
-  results = response.results || [];
-  status.textContent = `${results.length.toLocaleString()} result(s) · Pagefind fallback`;
-  await renderPagefindMore(generation);
-}
-async function searchServer(generation) {
-  resultMode = 'server';
-  status.textContent = 'Searching server index…';
-  await renderServerMore(generation);
-}
-async function search() {
-  const generation = ++searchGeneration;
-  resultsElement.replaceChildren();
-  shown = 0;
-  results = [];
-  tagResultIds = [];
-  serverTotal = 0;
-  moreButton.hidden = true;
-  form.setAttribute('aria-busy', 'true');
-  try {
-    if (selectedTag && allowServer && await hasServer()) await searchServer(generation);
-    else if (selectedTag) await searchExactTag(generation);
-    else if (allowServer && await hasServer()) await searchServer(generation);
-    else if (allowPagefind) await searchPagefind(generation);
-    else throw new Error('Bluge server is unavailable');
-  } catch (error) {
-    if (generation !== searchGeneration) return;
-    status.textContent = selectedTag
-      ? 'The exact tag index is unavailable. Regenerate the site with obsidian2site.py.'
-      : (allowPagefind ? 'Search is unavailable. Start the generated Go server or rebuild Pagefind.' : 'Search is unavailable. Start the generated movenotes-site-server.');
-    console.error(error);
-  } finally {
-    if (generation === searchGeneration) form.removeAttribute('aria-busy');
-  }
-}
-form.addEventListener('submit', event => {
-  event.preventDefault();
-  selectedTag = '';
-  filterLabel.textContent = '';
-  const next = new URL(location.href);
-  next.searchParams.delete('tag');
-  input.value.trim() ? next.searchParams.set('q', input.value.trim()) : next.searchParams.delete('q');
-  history.replaceState({}, '', next);
-  search();
-});
-moreButton.addEventListener('click', () => {
-  if (resultMode === 'tag') renderTagMore();
-  else if (resultMode === 'server') renderServerMore();
-  else renderPagefindMore();
-});
-let preloadTimer;
-input.addEventListener('input', () => {
-  if (selectedTag || !allowPagefind) return;
-  clearTimeout(preloadTimer);
-  const term = input.value.trim();
-  if (!term) return;
-  preloadTimer = setTimeout(async () => {
-    try {
-      if (!allowServer || !(await hasServer())) (await ensurePagefind()).preload(term);
-    } catch (_error) { /* The submitted search will show the actionable error. */ }
-  }, 120);
-});
-window.addEventListener('pagehide', () => {
-  if (allowPagefind && pagefindReady) pagefindReady.then(module => module.destroy?.()).catch(() => {});
-});
-if (input.value || selectedTag) search();
-</script>
-'''
-
-
-_SEARCH_SHORTCODE_BLUGE = r'''<div class="movenotes-search-page">
-  <form id="movenotes-search-form" class="movenotes-tool-form" role="search">
-    <label for="movenotes-q">Search all notes</label>
-    <div class="movenotes-search-row">
-      <input id="movenotes-q" name="q" type="search" autocomplete="off" placeholder='Words, "quoted phrase", tag:name, since:YYYY-MM-DD, until:YYYY-MM-DD'>
-      <button type="submit"><i class="fas fa-magnifying-glass" aria-hidden="true"></i><span>Search</span></button>
-    </div>
-    <p id="movenotes-filter-label" class="movenotes-filter-label"></p>
-  </form>
-  <p id="movenotes-search-status" class="movenotes-status" role="status"></p>
-  <ol id="movenotes-search-results" class="movenotes-results"></ol>
-  <button id="movenotes-more" class="movenotes-more" type="button" hidden>Load more results</button>
-</div>
-<script type="module">
-const params = new URLSearchParams(location.search);
-const input = document.querySelector('#movenotes-q');
-const form = document.querySelector('#movenotes-search-form');
-const status = document.querySelector('#movenotes-search-status');
-const resultsElement = document.querySelector('#movenotes-search-results');
-const moreButton = document.querySelector('#movenotes-more');
-const filterLabel = document.querySelector('#movenotes-filter-label');
-const tagManifestUrl = '{{ "movenotes/tags/manifest.json" | relURL }}';
-const tagPostingsBase = '{{ "movenotes/tag-postings/" | relURL }}';
-const documentsBase = '{{ "movenotes/documents/" | relURL }}';
-const siteRoot = new URL('{{ "/" | relURL }}', location.href);
-const serverHealthUrl = new URL('api/health', siteRoot).href;
-const serverSearchUrl = new URL('api/search', siteRoot).href;
-const pageSize = 20;
-const jsonCache = new Map();
-let serverReady;
-let tagResultIds = [];
-let serverTotal = 0;
-let shown = 0;
-let searchGeneration = 0;
-let resultMode = 'server';
-let selectedTag = (params.get('tag') || '').trim().toLowerCase();
-input.value = params.get('q') || selectedTag;
-if (selectedTag) filterLabel.textContent = `Exact tag: ${selectedTag}`;
-
-function escapeText(value) { return String(value ?? ''); }
-function tagPostingBucket(value) {
-  let hash = 0x811c9dc5;
-  for (const byte of new TextEncoder().encode(value)) {
-    hash ^= byte;
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return (hash & 0xfff).toString(16).padStart(3, '0');
-}
-async function loadJson(url) {
-  if (!jsonCache.has(url)) jsonCache.set(url, fetch(url).then(response => {
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    return response.json();
-  }));
-  return jsonCache.get(url);
-}
-async function hasServer() {
-  serverReady ||= fetch(serverHealthUrl, {cache: 'no-store', signal: AbortSignal.timeout(3000)})
-    .then(response => response.ok)
-    .catch(() => false);
-  return serverReady;
-}
-function appendResult(fragment, url, title, excerpt, date = '') {
-  const item = document.createElement('li');
-  const link = document.createElement('a');
-  link.href = url;
-  link.textContent = escapeText(title || url);
-  const detail = document.createElement('p');
-  detail.textContent = excerpt || '';
-  if (date) {
-    const time = document.createElement('time');
-    time.dateTime = date;
-    time.textContent = date.slice(0, 10);
-    item.append(link, time, detail);
-  } else item.append(link, detail);
-  fragment.append(item);
-}
-async function renderServerMore(generation = searchGeneration) {
-  moreButton.disabled = true;
-  const url = new URL(serverSearchUrl);
-  if (selectedTag) url.searchParams.set('tag', selectedTag);
-  else url.searchParams.set('q', input.value.trim());
-  url.searchParams.set('offset', String(shown));
-  url.searchParams.set('limit', String(pageSize));
-  const response = await fetch(url, {headers: {'Accept': 'application/json'}});
-  if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
-  const payload = await response.json();
-  if (generation !== searchGeneration) return;
-  serverTotal = Number(payload.total || 0);
-  const fragment = document.createDocumentFragment();
-  for (const row of payload.results || []) {
-    appendResult(fragment, row.url, row.title || row.url, row.excerpt || '', row.date || '');
-  }
-  shown += (payload.results || []).length;
-  resultsElement.append(fragment);
-  status.textContent = selectedTag
-    ? `${serverTotal.toLocaleString()} result(s) with exact tag “${selectedTag}” · Bluge server`
-    : `${serverTotal.toLocaleString()} result(s) · Bluge server`;
-  moreButton.hidden = shown >= serverTotal;
-  moreButton.disabled = false;
-}
-async function renderTagMore(generation = searchGeneration) {
-  const start = shown;
-  const end = Math.min(tagResultIds.length, start + pageSize);
-  moreButton.disabled = true;
-  const manifest = await loadJson(tagManifestUrl);
-  const chunkSize = Number(manifest.document_chunk_size || 512);
-  const neededChunks = new Set(tagResultIds.slice(start, end).map(id => Math.floor(Number(id) / chunkSize)));
-  const chunks = new Map(await Promise.all(Array.from(neededChunks, async chunk => {
-    const name = chunk.toString(16).padStart(6, '0');
-    return [chunk, await loadJson(`${documentsBase}${name}.json`)];
-  })));
-  if (generation !== searchGeneration) return;
-  const fragment = document.createDocumentFragment();
-  for (const noteId of tagResultIds.slice(start, end)) {
-    const record = chunks.get(Math.floor(Number(noteId) / chunkSize))?.[String(noteId)];
-    if (!record) continue;
-    const [relativeUrl, title] = record;
-    appendResult(fragment, new URL(relativeUrl, siteRoot).href, title || relativeUrl, `Exact tag match · ${relativeUrl}`);
-  }
-  shown = end;
-  resultsElement.append(fragment);
-  moreButton.hidden = shown >= tagResultIds.length;
-  moreButton.disabled = false;
-}
-async function searchExactTagFallback(generation) {
-  resultMode = 'tag';
-  status.textContent = 'Bluge server unavailable; loading the compact exact-tag fallback…';
-  const manifest = await loadJson(tagManifestUrl);
-  const bucket = tagPostingBucket(selectedTag);
-  if (!Object.prototype.hasOwnProperty.call(manifest.posting_buckets || {}, bucket)) tagResultIds = [];
-  else tagResultIds = (await loadJson(`${tagPostingsBase}${bucket}.json`))[selectedTag] || [];
-  if (generation !== searchGeneration) return;
-  status.textContent = `${tagResultIds.length.toLocaleString()} result(s) with exact tag “${selectedTag}” · static fallback`;
-  await renderTagMore(generation);
-}
-async function search() {
-  const generation = ++searchGeneration;
-  resultsElement.replaceChildren();
-  shown = 0;
-  tagResultIds = [];
-  serverTotal = 0;
-  resultMode = 'server';
-  moreButton.hidden = true;
-  form.setAttribute('aria-busy', 'true');
-  try {
-    if (await hasServer()) {
-      status.textContent = 'Searching Bluge server…';
-      await renderServerMore(generation);
-    } else if (selectedTag) await searchExactTagFallback(generation);
-    else throw new Error('Bluge server is unavailable');
-  } catch (error) {
-    if (generation !== searchGeneration) return;
-    status.textContent = 'Search is unavailable. Start the generated movenotes-site-server.';
-    console.error(error);
-  } finally {
-    if (generation === searchGeneration) form.removeAttribute('aria-busy');
-  }
-}
-form.addEventListener('submit', event => {
-  event.preventDefault();
-  selectedTag = '';
-  filterLabel.textContent = '';
-  const next = new URL(location.href);
-  next.searchParams.delete('tag');
-  input.value.trim() ? next.searchParams.set('q', input.value.trim()) : next.searchParams.delete('q');
-  history.replaceState({}, '', next);
-  serverReady = undefined;
-  search();
-});
-moreButton.addEventListener('click', () => {
-  if (resultMode === 'tag') renderTagMore();
-  else renderServerMore();
-});
-if (input.value || selectedTag) search();
-</script>
-'''
-
-
-def _search_shortcode(search_backend: str) -> str:
-    if search_backend == "bluge":
-        return _SEARCH_SHORTCODE_BLUGE
-    allow_server = search_backend == "both"
-    allow_pagefind = search_backend in {"both", "pagefind"}
-    pagefind_url = "'{{ \"pagefind/pagefind.js\" | relURL }}'" if allow_pagefind else "''"
+    Plain Markdown in `content/about.md` rather than a shortcode: a `{{< >}}`
+    shortcode's output is not run through the Markdown renderer, and this page is
+    prose. Only the two cards are inline HTML, which goldmark passes through.
+    """
+    card = {
+        "bluge": _SEARCH_CARD_BLUGE,
+        "pagefind": _SEARCH_CARD_PAGEFIND,
+    }.get(search_backend, _SEARCH_CARD_BOTH)
+    note = (
+        _SYNTAX_NOTE_PAGEFIND if search_backend == "pagefind"
+        else _SYNTAX_NOTE_BLUGE
+    )
     return (
-        _SEARCH_SHORTCODE
-        .replace("@@ALLOW_SERVER@@", "true" if allow_server else "false")
-        .replace("@@ALLOW_PAGEFIND@@", "true" if allow_pagefind else "false")
-        .replace("@@PAGEFIND_URL@@", pagefind_url)
+        _GETTING_STARTED_BODY
+        .replace("@@SEARCH_CARD@@", card)
+        .replace("@@SYNTAX_NOTE@@", note)
     )
 
-_TAGS_SHORTCODE = r'''<div class="movenotes-tags-page" data-pagefind-ignore>
-  <div class="movenotes-tool-form">
-    <label for="movenotes-tag-filter">Find a tag</label>
-    <div class="movenotes-tag-filter-control">
-      <i class="fas fa-filter" aria-hidden="true"></i>
-      <input id="movenotes-tag-filter" type="search" placeholder="Type at least two characters" autocomplete="off">
-    </div>
-  </div>
-  <p id="movenotes-tags-status" class="movenotes-status" role="status">Loading frequent tags…</p>
-  <ul id="movenotes-tags-list" class="movenotes-tag-list"></ul>
-</div>
-<script type="module">
-const input = document.querySelector('#movenotes-tag-filter');
-const status = document.querySelector('#movenotes-tags-status');
-const list = document.querySelector('#movenotes-tags-list');
-const base = '{{ "movenotes/tags/" | relURL }}';
-const searchUrl = '{{ "search.html" | relURL }}';
-let manifest;
-const cache = new Map();
-function bucketFor(value) {
-  const normalized = value.normalize('NFKD').toLowerCase();
-  const chars = Array.from(normalized).filter(character => /[\p{L}\p{N}]/u.test(character));
-  if (!chars.length) return '__';
-  if (/^[a-z0-9]$/.test(chars[0])) {
-    const ascii = chars.filter(character => /^[a-z0-9]$/.test(character)).join('');
-    return (ascii + '_').slice(0, 2);
-  }
-  return `u${chars[0].codePointAt(0).toString(16)}`;
-}
-function render(rows, label) {
-  list.replaceChildren();
-  const fragment = document.createDocumentFragment();
-  for (const [tag, count] of rows.slice(0, 300)) {
-    const item = document.createElement('li');
-    const link = document.createElement('a');
-    link.href = `${searchUrl}?tag=${encodeURIComponent(tag)}`;
-    link.textContent = tag;
-    const badge = document.createElement('span');
-    badge.textContent = Number(count).toLocaleString();
-    item.append(link, badge);
-    fragment.append(item);
-  }
-  list.append(fragment);
-  status.textContent = `${label}: ${rows.length.toLocaleString()} tag(s)`;
-}
-async function loadJson(name) {
-  if (!cache.has(name)) cache.set(name, fetch(base + name).then(response => {
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    return response.json();
-  }));
-  return cache.get(name);
-}
-async function update() {
-  const query = input.value.trim().toLowerCase();
-  try {
-    if (!query) return render(await loadJson('top.json'), 'Most frequent');
-    if (query.length < 2) {
-      status.textContent = 'Type at least two characters, or clear the field for frequent tags.';
-      list.replaceChildren();
-      return;
+
+_TAGS_SCRIPT = r'''/* Browse Tags: the movenotes tag index, in two modes.
+
+   Without ?tag=, a filterable list of tags read from bucketed static JSON.
+   With ?tag=, the exact set of notes carrying that tag, read from the hashed
+   posting index and the chunked document metadata.
+
+   Why this exists next to the theme's own search: a note's tags are the union of
+   its explicit tags and every unique non-filler word in it, which is far more
+   terms than a Hugo taxonomy can hold. Only the most frequent explicit tags
+   become taxonomy terms, and Pagefind can only filter on those. This page
+   answers for every tag, and its counts come from the same posting lists that
+   produce the badges — so the number on a tag and the number of results it
+   opens are the same number by construction.
+
+   windowPages comes from the theme, deliberately: the "page 1, current ±1, last"
+   rule is already implemented three times there and a fourth copy would drift. */
+
+import { windowPages } from './search/paging.js';
+
+var root = document.querySelector('[data-movenotes-tags]');
+if (root) init(root);
+
+function init(root) {
+  var config = JSON.parse(root.querySelector('[data-movenotes-tags-config]').textContent);
+  var browser = root.querySelector('[data-movenotes-tag-browser]');
+  var filter = root.querySelector('[data-movenotes-tag-filter]');
+  var grid = root.querySelector('[data-movenotes-tag-grid]');
+  var browserStatus = root.querySelector('[data-movenotes-tag-status]');
+  var results = root.querySelector('[data-movenotes-tag-results]');
+  var resultsHeading = root.querySelector('[data-movenotes-tag-heading]');
+  var resultsCount = root.querySelector('[data-movenotes-tag-count]');
+  var resultsList = root.querySelector('[data-movenotes-tag-list]');
+  var resultsPager = root.querySelector('[data-movenotes-tag-pager]');
+
+  var cache = new Map();
+  var manifest = null;
+  var token = 0;
+
+  /* Both bucket functions mirror obsidian2site.py exactly. They decide which
+     file to fetch, so a difference here is a 404, not a wrong answer. */
+  function displayBucket(value) {
+    var chars = Array.from(value.normalize('NFKD').toLowerCase())
+      .filter(function (character) { return /[\p{L}\p{N}]/u.test(character); });
+    if (!chars.length) return '__';
+    if (/^[a-z0-9]$/.test(chars[0])) {
+      return (chars.filter(function (c) { return /^[a-z0-9]$/.test(c); }).join('') + '_').slice(0, 2);
     }
-    manifest ||= await loadJson('manifest.json');
-    const bucket = bucketFor(query);
-    if (!Object.prototype.hasOwnProperty.call(manifest.buckets, bucket)) {
-      return render([], `Tags matching “${query}”`);
-    }
-    const rows = await loadJson(`${bucket}.json`);
-    render(rows.filter(([tag]) => tag.includes(query)), `Tags matching “${query}”`);
-  } catch (error) {
-    status.textContent = 'Tag index is unavailable.';
-    console.error(error);
+    return 'u' + chars[0].codePointAt(0).toString(16);
   }
+
+  function postingBucket(value) {
+    var hash = 0x811c9dc5;
+    var bytes = new TextEncoder().encode(value);
+    for (var i = 0; i < bytes.length; i++) {
+      hash ^= bytes[i];
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return (hash & (config.postingBuckets - 1)).toString(16).padStart(3, '0');
+  }
+
+  function loadJson(url) {
+    if (!cache.has(url)) {
+      cache.set(url, fetch(url).then(function (response) {
+        if (!response.ok) throw new Error(response.status + ' ' + response.statusText);
+        return response.json();
+      }));
+    }
+    return cache.get(url);
+  }
+
+  function currentTag() {
+    return (new URLSearchParams(location.search).get('tag') || '').trim().toLowerCase();
+  }
+
+  function currentPage() {
+    return parseInt(new URLSearchParams(location.search).get('page'), 10) || 1;
+  }
+
+  /* ── Tag browser ──────────────────────────────────────────────────────── */
+
+  function renderTags(rows, label) {
+    grid.textContent = '';
+    var fragment = document.createDocumentFragment();
+    rows.slice(0, config.maxTagsShown).forEach(function (row) {
+      var cell = document.createElement('a');
+      cell.className = 'ledger-grid-cell';
+      cell.href = config.pageURL + '?tag=' + encodeURIComponent(row[0]);
+      var name = document.createElement('span');
+      name.className = 'ledger-grid-name';
+      name.textContent = '#' + row[0];
+      var count = document.createElement('span');
+      count.className = 'ledger-grid-count';
+      count.textContent = Number(row[1]).toLocaleString();
+      var hint = document.createElement('span');
+      hint.className = 'ledger-sr-only';
+      hint.textContent = ' notes';
+      count.appendChild(hint);
+      cell.append(name, count);
+      fragment.appendChild(cell);
+    });
+    grid.appendChild(fragment);
+    var total = rows.length;
+    browserStatus.textContent = label + ': ' + total.toLocaleString() +
+      (total === 1 ? ' tag' : ' tags') +
+      (total > config.maxTagsShown
+        ? ' · showing the first ' + config.maxTagsShown.toLocaleString()
+        : '');
+  }
+
+  async function updateBrowser() {
+    var mine = ++token;
+    var query = filter.value.trim().toLowerCase();
+    try {
+      if (!query) {
+        var top = await loadJson(config.tagsBase + 'top.json');
+        if (mine === token) renderTags(top, 'Most frequent');
+        return;
+      }
+      if (query.length < 2) {
+        grid.textContent = '';
+        browserStatus.textContent =
+          'Type at least two characters, or clear the field for the most frequent tags.';
+        return;
+      }
+      manifest = manifest || await loadJson(config.tagsBase + 'manifest.json');
+      var bucket = displayBucket(query);
+      var rows = Object.prototype.hasOwnProperty.call(manifest.buckets, bucket)
+        ? await loadJson(config.tagsBase + bucket + '.json')
+        : [];
+      if (mine !== token) return;
+      renderTags(
+        rows.filter(function (row) { return row[0].indexOf(query) !== -1; }),
+        'Tags matching “' + query + '”'
+      );
+    } catch (error) {
+      browserStatus.textContent = 'The tag index is unavailable.';
+      if (window.console) console.error('[movenotes] tag index:', error);
+    }
+  }
+
+  /* ── Exact-tag results ────────────────────────────────────────────────── */
+
+  function card(url, title, date) {
+    var link = document.createElement('a');
+    link.className = 'ledger-card';
+    link.setAttribute('data-card', '');
+    link.href = url;
+    var heading = document.createElement('h3');
+    heading.className = 'ledger-card-title';
+    heading.textContent = title;
+    link.appendChild(heading);
+    var meta = document.createElement('div');
+    meta.className = 'ledger-card-meta';
+    var spacer = document.createElement('span');
+    spacer.className = 'ledger-spacer';
+    spacer.style.minWidth = '8px';
+    meta.appendChild(spacer);
+    var when = document.createElement('span');
+    when.className = 'ledger-card-date';
+    when.textContent = date || '';
+    meta.appendChild(when);
+    link.appendChild(meta);
+    return link;
+  }
+
+  function pager(tag, page, pages) {
+    var nav = document.createElement('nav');
+    nav.className = 'ledger-pagination';
+    nav.setAttribute('aria-label', 'Pagination');
+
+    function step(label, target, disabled) {
+      var node = document.createElement(disabled ? 'span' : 'a');
+      node.className = 'ledger-page-step';
+      node.textContent = label;
+      if (disabled) node.setAttribute('aria-disabled', 'true');
+      else node.href = pageHref(tag, target);
+      return node;
+    }
+
+    nav.appendChild(step('‹ Prev', page - 1, page <= 1));
+    windowPages(page, pages).forEach(function (number) {
+      if (number === null) {
+        var gap = document.createElement('span');
+        gap.className = 'ledger-page-gap';
+        gap.textContent = '…';
+        gap.setAttribute('aria-hidden', 'true');
+        nav.appendChild(gap);
+        return;
+      }
+      var link = document.createElement('a');
+      link.className = 'ledger-page-number';
+      link.href = pageHref(tag, number);
+      link.textContent = String(number);
+      if (number === page) link.setAttribute('aria-current', 'page');
+      nav.appendChild(link);
+    });
+    nav.appendChild(step('Next ›', page + 1, page >= pages));
+    return nav;
+  }
+
+  function pageHref(tag, page) {
+    var query = '?tag=' + encodeURIComponent(tag) + (page > 1 ? '&page=' + page : '');
+    return config.pageURL + query;
+  }
+
+  async function showResults(tag, page) {
+    var mine = ++token;
+    browser.hidden = true;
+    results.hidden = false;
+    resultsHeading.textContent = '#' + tag;
+    resultsCount.textContent = 'Loading the exact tag index…';
+    resultsList.textContent = '';
+    resultsPager.textContent = '';
+    try {
+      manifest = manifest || await loadJson(config.tagsBase + 'manifest.json');
+      var bucket = postingBucket(tag);
+      var ids = [];
+      if (Object.prototype.hasOwnProperty.call(manifest.posting_buckets || {}, bucket)) {
+        var postings = await loadJson(config.postingsBase + bucket + '.json');
+        ids = postings[tag] || [];
+      }
+      if (mine !== token) return;
+
+      var pages = Math.max(1, Math.ceil(ids.length / config.perPage));
+      page = Math.min(Math.max(1, page), pages);
+      resultsCount.textContent = ids.length.toLocaleString() +
+        (ids.length === 1 ? ' note' : ' notes') +
+        (pages > 1 ? ' · page ' + page + ' of ' + pages.toLocaleString() : '');
+      if (!ids.length) {
+        resultsList.appendChild(emptyState(tag));
+        return;
+      }
+
+      /* Only this page's note IDs are resolved, and only the chunks they fall
+         in are fetched — the whole point of chunking the metadata. */
+      var slice = ids.slice((page - 1) * config.perPage, page * config.perPage);
+      var chunkSize = Number(manifest.document_chunk_size || 512);
+      var wanted = {};
+      slice.forEach(function (id) { wanted[Math.floor(Number(id) / chunkSize)] = true; });
+      var chunks = new Map();
+      await Promise.all(Object.keys(wanted).map(async function (chunk) {
+        var name = Number(chunk).toString(16).padStart(6, '0');
+        chunks.set(Number(chunk), await loadJson(config.documentsBase + name + '.json'));
+      }));
+      if (mine !== token) return;
+
+      var fragment = document.createDocumentFragment();
+      slice.forEach(function (id) {
+        var record = (chunks.get(Math.floor(Number(id) / chunkSize)) || {})[String(id)];
+        if (!record) return;
+        fragment.appendChild(card(record[0], record[1] || record[0], record[2]));
+      });
+      resultsList.appendChild(fragment);
+      if (pages > 1) resultsPager.appendChild(pager(tag, page, pages));
+    } catch (error) {
+      resultsCount.textContent = 'The tag index is unavailable.';
+      if (window.console) console.error('[movenotes] exact tag:', error);
+    }
+  }
+
+  function emptyState(tag) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'ledger-empty';
+    var title = document.createElement('p');
+    title.className = 'ledger-empty-title';
+    title.textContent = 'No notes carry the tag “' + tag + '”';
+    wrapper.appendChild(title);
+    return wrapper;
+  }
+
+  function route() {
+    var tag = currentTag();
+    if (tag) {
+      showResults(tag, currentPage());
+    } else {
+      browser.hidden = false;
+      results.hidden = true;
+      updateBrowser();
+    }
+  }
+
+  var timer;
+  filter.addEventListener('input', function () {
+    clearTimeout(timer);
+    timer = setTimeout(updateBrowser, 160);
+  });
+  filter.form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    clearTimeout(timer);
+    updateBrowser();
+  });
+  window.addEventListener('popstate', route);
+  route();
 }
-let timer;
-input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(update, 160); });
-update();
-</script>
 '''
 
-def _tags_shortcode(search_backend: str) -> str:
-    if search_backend == "bluge":
-        return _TAGS_SHORTCODE.replace(' data-pagefind-ignore', '')
-    return _TAGS_SHORTCODE
+
+_TAGS_BODY = r'''{{- $script := resources.Get "js/movenotes-tags.js" | js.Build (dict
+      "targetPath" "js/movenotes-tags.js"
+      "format" "esm"
+      "minify" hugo.IsProduction) -}}
+{{- if hugo.IsProduction }}{{ $script = $script | fingerprint }}{{ end -}}
+{{- $config := dict
+      "tagsBase"       ("/movenotes/tags/" | relURL)
+      "postingsBase"   ("/movenotes/tag-postings/" | relURL)
+      "documentsBase"  ("/movenotes/documents/" | relURL)
+      "pageURL"        ("/browse-tags/" | relURL)
+      "postingBuckets" @@POSTING_BUCKETS@@
+      "perPage"        (site.Params.pagination.search | default 20)
+      "maxTagsShown"   300
+-}}
+<div class="movenotes-tags" data-movenotes-tags>
+  <script type="application/json" data-movenotes-tags-config>{{ $config | jsonify | safeJS }}</script>
+
+  <div data-movenotes-tag-browser>
+    <p class="ledger-prose-lead">Every tag in the archive: the tags written in a
+    note plus every unique content word. Counts come from the same posting lists
+    the results do.</p>
+
+    {{- /* The theme's search-bar classes, its own data attributes deliberately
+           not reused: this filter is not the site search and must not be driven
+           by the theme's search controller. */ -}}
+    <div class="ledger-searchbar">
+      <form class="ledger-searchbar-row" role="search" onsubmit="return false">
+        <div class="ledger-searchbar-field" data-card>
+          <span class="ledger-searchbar-glyph" aria-hidden="true">&#x2315;</span>
+          <label class="ledger-sr-only" for="movenotes-tag-filter">Find a tag</label>
+          <input class="ledger-searchbar-input" id="movenotes-tag-filter" type="search"
+                 placeholder="Filter tags — type at least two characters"
+                 autocomplete="off" spellcheck="false" data-movenotes-tag-filter>
+        </div>
+      </form>
+      <div class="ledger-meta">
+        <span class="ledger-meta-count" role="status" aria-live="polite"
+              data-movenotes-tag-status>Loading the most frequent tags…</span>
+      </div>
+    </div>
+
+    <div class="ledger-grid" data-movenotes-tag-grid></div>
+  </div>
+
+  <div data-movenotes-tag-results hidden>
+    <div class="ledger-heading">
+      <span class="ledger-eyebrow">exact tag</span>
+      {{- /* h2, not h1: these results are a section of this page, whose h1 is
+             its title. */ -}}
+      <h2 data-movenotes-tag-heading></h2>
+      <span class="ledger-heading-meta" role="status" aria-live="polite"
+            data-movenotes-tag-count></span>
+    </div>
+    <p><a class="ledger-post-back" href="{{ "/browse-tags/" | relURL }}">&larr; all tags</a></p>
+    <div class="ledger-results" data-movenotes-tag-list></div>
+    <div data-movenotes-tag-pager></div>
+  </div>
+
+  <noscript>
+    <p class="ledger-page-ceiling">Browsing tags needs JavaScript, because the
+    tag index is fetched one bucket at a time rather than built into every page.
+    <a href="{{ "/search/" | relURL }}">Search</a> works without it.</p>
+  </noscript>
+</div>
+<script type="module" src="{{ $script.RelPermalink }}"></script>
+'''
 
 
-_SITE_CSS = r'''
-:root {
-  --MENU-S-width: 17rem;
-  --MENU-M-width: 18rem;
-  --MENU-L-width: 20rem;
-  --movenotes-radius: .65rem;
-  --movenotes-border: color-mix(in srgb, currentColor 18%, transparent);
-  --movenotes-muted: color-mix(in srgb, currentColor 68%, transparent);
-  --movenotes-surface: color-mix(in srgb, currentColor 5%, transparent);
-  --movenotes-surface-hover: color-mix(in srgb, currentColor 9%, transparent);
-}
+def _tags_body() -> str:
+    """The Browse Tags body, for the generated layout.
 
-.movenotes-tag-filter-control {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  min-width: 0;
-  border: 1px solid var(--movenotes-border);
-  border-radius: var(--movenotes-radius);
-  background: var(--movenotes-surface);
-  padding: .15rem .2rem .15rem .65rem;
-  transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
-}
-.movenotes-tag-filter-control:focus-within {
-  border-color: currentColor;
-  background: transparent;
-  box-shadow: 0 0 0 .15rem color-mix(in srgb, currentColor 12%, transparent);
-}
-.movenotes-tag-filter-control input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  padding: .55rem 0;
-}
-.movenotes-tag-filter-control input::placeholder { color: var(--movenotes-muted); opacity: 1; }
+    No Pagefind opt-out markers anywhere in it: the theme scopes indexing to note
+    articles with a single data-pagefind-body, so this page is outside the index
+    whatever the backend.
+    """
+    return _TAGS_BODY.replace(
+        "@@POSTING_BUCKETS@@", str(_TAG_POSTING_BUCKETS)
+    )
 
 
-.movenotes-index-metadata {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  overflow: hidden !important;
-  clip: rect(0 0 0 0) !important;
-  white-space: nowrap !important;
+_SITE_CSS = r'''/* movenotes additions to the Ledger theme.
+
+   Everything the theme already provides is used as-is — result cards, the tag
+   grid, headings, pagers, the search bar — so this file only styles what the
+   theme has no equivalent for. It is loaded through params.extraCSS, after the
+   theme's stylesheet, and uses the theme's tokens so all three themes and the
+   contrast palette keep working.
+
+   Kept deliberately small: it is fetched on every page of the archive. */
+
+.ledger-prose-lead {
+  margin: 0 0 var(--gap-result, 14px);
+  font: 400 15px/1.6 var(--font-sans);
+  color: var(--dim);
 }
 
-.movenotes-lead {
-  max-width: 58rem;
-  margin: -.35rem 0 1.5rem;
-  color: var(--movenotes-muted);
-  font-size: 1.08rem;
-  line-height: 1.75;
-}
+/* Getting Started: two cards pointing at the two ways in. */
 .movenotes-start-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  margin: 1.25rem 0 2rem;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  margin: 0 0 22px;
 }
+
 .movenotes-start-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: .9rem;
-  padding: 1.1rem;
-  border: 1px solid var(--movenotes-border);
-  border-radius: .85rem;
-  background: var(--movenotes-surface);
-  color: inherit !important;
-  text-decoration: none !important;
-  transition: transform .16s ease, border-color .16s ease, background-color .16s ease;
+  display: block;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--panel2);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color .16s ease, background-color .16s ease;
 }
+
 .movenotes-start-card:hover {
-  transform: translateY(-2px);
-  border-color: currentColor;
-  background: var(--movenotes-surface-hover);
+  border-color: var(--accent);
+  background: var(--hover);
 }
-.movenotes-start-card strong { display: block; margin-bottom: .25rem; font-size: 1.05rem; }
-.movenotes-start-card small { display: block; color: var(--movenotes-muted); line-height: 1.5; }
-.movenotes-start-icon {
-  display: grid;
-  place-items: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: .75rem;
-  background: color-mix(in srgb, currentColor 12%, transparent);
-}
-.movenotes-start-arrow { opacity: .55; }
-.movenotes-start-details {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.4rem;
-  margin-top: 1rem;
-}
-.movenotes-start-details h2 { margin: 0 0 .45rem; font-size: 1.15rem; }
-.movenotes-start-details p { margin: 0; color: var(--movenotes-muted); line-height: 1.65; }
 
-.movenotes-tool-form { max-width: 58rem; margin-bottom: .9rem; }
-.movenotes-tool-form > label { display: block; font-weight: 650; margin-bottom: .45rem; }
-.movenotes-search-row { display: flex; align-items: stretch; gap: .6rem; }
-.movenotes-search-row input {
-  min-width: 0;
-  flex: 1;
-  border: 1px solid var(--movenotes-border);
-  border-radius: var(--movenotes-radius);
-  background: var(--movenotes-surface);
-  color: inherit;
-  font: inherit;
-  padding: .75rem .85rem;
-  outline: 0;
+.movenotes-start-card strong {
+  display: block;
+  margin-bottom: 4px;
+  font: 600 14px/1.4 var(--font-sans);
 }
-.movenotes-search-row input:focus {
-  border-color: currentColor;
-  box-shadow: 0 0 0 .15rem color-mix(in srgb, currentColor 12%, transparent);
-}
-.movenotes-search-row button,
-.movenotes-more {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: .45rem;
-  border: 1px solid var(--movenotes-border);
-  border-radius: var(--movenotes-radius);
-  background: color-mix(in srgb, currentColor 12%, transparent);
-  color: inherit;
-  font: inherit;
-  font-weight: 650;
-  padding: .7rem 1rem;
-  cursor: pointer;
-}
-.movenotes-search-row button:hover,
-.movenotes-more:hover { background: color-mix(in srgb, currentColor 20%, transparent); }
-.movenotes-filter-label,
-.movenotes-status { color: var(--movenotes-muted); min-height: 1.5rem; }
-.movenotes-results { display: grid; gap: .75rem; padding: 0; list-style: none; counter-reset: movenotes-result; }
-.movenotes-results li {
-  position: relative;
-  counter-increment: movenotes-result;
-  border: 1px solid var(--movenotes-border);
-  border-radius: var(--movenotes-radius);
-  background: var(--movenotes-surface);
-  padding: .9rem 1rem .9rem 3rem;
-}
-.movenotes-results li::before {
-  content: counter(movenotes-result);
-  position: absolute;
-  left: 1rem;
-  top: .95rem;
-  color: var(--movenotes-muted);
-  font-variant-numeric: tabular-nums;
-}
-.movenotes-results li > a { display: inline-block; font-weight: 680; text-decoration: none; }
-.movenotes-results li > a:hover { text-decoration: underline; }
-.movenotes-results p { margin: .35rem 0 0; color: var(--movenotes-muted); line-height: 1.55; overflow-wrap: anywhere; }
-.movenotes-results mark { border-radius: .2rem; padding: 0 .08em; }
-.movenotes-more { margin-top: 1rem; }
 
-.movenotes-tag-filter-control { max-width: 58rem; padding-left: .8rem; }
-.movenotes-tag-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
-  gap: .6rem;
-  padding: 0;
-  list-style: none;
+.movenotes-start-card small {
+  display: block;
+  font: 400 12px/1.55 var(--font-mono);
+  color: var(--dim);
 }
-.movenotes-tag-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: .75rem;
-  min-width: 0;
-  border: 1px solid var(--movenotes-border);
-  border-radius: .55rem;
-  background: var(--movenotes-surface);
-  padding: .55rem .7rem;
-}
-.movenotes-tag-list a { min-width: 0; overflow-wrap: anywhere; text-decoration: none; }
-.movenotes-tag-list a:hover { text-decoration: underline; }
-.movenotes-tag-list span {
-  flex: 0 0 auto;
-  color: var(--movenotes-muted);
-  font-variant-numeric: tabular-nums;
-}
-.movenotes-invalid-url { overflow-wrap: anywhere; text-decoration: underline dotted; cursor: help; }
 
-@media (max-width: 52rem) {
-  .movenotes-start-grid,
-  .movenotes-start-details { grid-template-columns: 1fr; }
+/* Browse Tags result cards have a title and a date and no body text, because
+   that is all the exact-tag index stores. Pull the meta row up so the card does
+   not look like a card with something missing. */
+[data-movenotes-tag-list] .ledger-card-meta {
+  margin-top: 6px;
 }
-@media (max-width: 36rem) {
-  .movenotes-search-row { flex-direction: column; }
-  .movenotes-search-row button { width: 100%; }
-  .movenotes-results li { padding-left: 2.65rem; }
-}
+
 @media (prefers-reduced-motion: reduce) {
-  .movenotes-start-card,
-  .movenotes-tag-filter-control { transition: none; }
+  .movenotes-start-card { transition: none; }
 }
 '''
 
@@ -2691,7 +2445,7 @@ def main(argv: list[str]) -> int:
     repaired_urls = 0
     preserved_urls = 0
     pending_tag_counts: Counter[str] = Counter()
-    pending_documents: list[tuple[int, str, str]] = []
+    pending_documents: list[tuple[int, str, str, str]] = []
     pending_tag_documents: list[tuple[int, str, int]] = []
     pending_explicit_tags: list[tuple[str, int]] = []
     pending_tag_notes = 0
@@ -2749,6 +2503,8 @@ def main(argv: list[str]) -> int:
                             note_title,
                             note_date,
                             note_search_text,
+                            note_category,
+                            note_reading_minutes,
                             note_repaired_urls,
                             note_preserved_urls,
                         ) = future.result()
@@ -2759,7 +2515,10 @@ def main(argv: list[str]) -> int:
                             f"failed converting Obsidian note {source_path!s}: {exc}"
                         )
                     pending_tag_counts.update(tags)
-                    pending_documents.append((note_id, site_url, note_title))
+                    pending_documents.append((note_id, site_url, note_title, note_date))
+                    # Every tag goes to Bluge, including the generated word
+                    # tags and the ones the taxonomy cap left out: `tag:` in
+                    # server-side search answers for all of them.
                     search_source.write(json.dumps({
                         "id": note_id,
                         "url": site_url,
@@ -2767,7 +2526,9 @@ def main(argv: list[str]) -> int:
                         "date": note_date,
                         "body": note_search_text,
                         "summary": note_search_text[:700],
+                        "category": note_category,
                         "tags": tags,
+                        "readingTime": note_reading_minutes,
                     }, ensure_ascii=False, separators=(",", ":")) + "\n")
                     pending_tag_documents.extend(
                         (_tag_posting_bucket(tag), tag, note_id) for tag in tags

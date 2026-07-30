@@ -499,18 +499,94 @@ the sidebar is byte-identical between `/` and note 4,999 — decision D2 and the
 `partialCached` invariant both holding through generated config. 23 tests in
 `test_obsidian2site.py`, 91 across the suite.
 
-### Step 24 — Generator: Browse Tags and exact-tag results on Ledger *(movenotes)*
-Port the `movenotes-tags` and `movenotes-search` shortcode behaviour onto
-Ledger's markup and CSS variables: keep the hashed posting index, the chunked
-document metadata, and the rule that the displayed tag count and the result
-count come from the same set of unique note IDs. Trim `_SITE_CSS` to what
-Ledger does not provide.
+### Step 24 — Generator: Browse Tags and exact-tag results on Ledger *(movenotes)*  ✅
+**The generated project now has no shortcodes at all**, and 451 lines of
+hand-written search UI are gone.
 
-### Step 25 — Bluge server: M7 contract *(movenotes + theme)*
-Extend `site_server` to the superset contract; add `category` and
-`readingTime` to `search-source.jsonl`; keep phrase/tag/date operators; update
-the theme's reference server identically. Add regressions for both request
-styles and for the new fields.
+`/search/` is the theme's own view: its grammar, its two adapters, its results.
+The two search shortcodes (`movenotes-search`, 451 lines across the Pagefind and
+Bluge variants) are deleted outright — everything they did that still matters is
+either in the theme now or on Browse Tags.
+
+**Browse Tags is the one view that stays movenotes'**, because it answers for
+every tag, not just the ones that reached the Hugo taxonomy. A generated word
+tag like `housing` is not a taxonomy term and not a Pagefind filter; the hashed
+posting index is the only thing that can resolve it. It grew the exact-tag
+results the search page used to hold, so the browser and the results for a tag
+are now one page: `/browse-tags/` and `/browse-tags/?tag=x`.
+
+Structural decisions:
+
+- **No shortcodes.** Getting Started is plain Markdown in `about.md` — a `{{< >}}`
+  shortcode's output is never run through the Markdown renderer, and that page is
+  prose with a table. Browse Tags needs `resources.Get`/`js.Build`, so its body
+  belongs in a layout. Neither needed a shortcode indirection.
+- **The tag page imports the theme's `paging.js`** through Hugo's asset pipeline
+  (`assets/js/movenotes-tags.js`, bundled with `js.Build`). The theme's AGENTS.md
+  records that the page-number windowing rule already exists three times there; a
+  fourth copy in generated JS would have been the trap it warns about. Verified
+  that a project asset can import a theme asset before relying on it.
+- **The tag filter borrows the theme's search-bar classes but none of its data
+  attributes**, so the theme's search controller does not try to drive it.
+- **Document chunks carry a date** (`[url, title, date]`, manifest version 3) so
+  an exact-tag result card looks like every other card on the site. Ten bytes a
+  note, read 512 notes at a time.
+- **`_SITE_CSS`: 205 lines → 65.** Result cards, the tag grid, headings, pagers,
+  the search bar and the empty state are all the theme's. What is left is the two
+  Getting Started cards, a lead paragraph, and one spacing fix — written against
+  the theme's tokens so all three palettes keep working.
+
+Verified in a browser: the filter's three states (frequent, too-short, matching);
+a tag's badge count and the number of results it opens are the same number;
+`?tag=housing` resolves a generated word tag Pagefind cannot filter on; paging
+across three pages repeats and skips nothing, with correct `aria-current` and
+disabled ends; an unknown tag gets the empty state; and the Getting Started
+Markdown renders as a table rather than as literal pipes.
+
+### Step 25 — Bluge server: M7 contract *(movenotes + theme)*  ✅
+`site_server` now speaks the superset contract, and the theme's UI drives it end
+to end. The theme's reference server was already moved in step 21, so this step
+brought movenotes' to the same shape.
+
+**The server-side grammar parser is deleted** — `splitQuery`, `parseQuery`, the
+`since|until|tag` regex, ~110 lines. The grammar is parsed once, client-side, in
+`query.js`; this server receives fields (`q`, repeatable `phrase`/`category`/
+`tag`, `since`, `until`) and must never grow a second parser. A test asserts
+those symbols stay gone.
+
+The rest: `page`/`per` accepted alongside `offset`/`limit` with both resolved in
+the response; `backend`, `query`, `total`, `page`, `per`, `offset`, `limit`;
+result items carrying `title`, `summary`, `url`, `category`, `tags`, `date`,
+`readingTime`; `Server-Timing` and one log line per request; 400 on a malformed
+or inverted date range; `/api/health` returning `{"backend":"bluge","notes":N}`.
+
+`search-source.jsonl` gained `category` and `readingTime`. Reading time is
+computed in Python with Hugo's own rule (words ÷ 213, rounded up) because a
+result rendered from the index has no Hugo page behind it to ask. `summary` was
+already there. Every tag still reaches Bluge — generated word tags included, and
+the ones the taxonomy cap left out — so `tag:` answers for all of them in
+server-side search, which is the compensation for the cap.
+
+Deviations from M7 as written:
+
+- **No `excerpt` field.** M7 listed it for continuity with the old response, but
+  the only consumer was the search shortcode deleted in step 24, and `summary`
+  carries the same text. A duplicate field with no reader is worse than a
+  removed one.
+- **`/api/health` reports `notes`, not `documents`.** The M7 contract's key wins;
+  nothing consumed the old one.
+
+One defect the browser caught: cards showed `2026-07-28T18:08:00Z · 1 min`
+because the server returned the note's full RFC 3339 timestamp where the contract
+specifies `YYYY-MM-DD`. Trimmed at the result boundary — the stored value and the
+indexed date field keep full precision, so date-range queries are unaffected.
+
+Verified against the generated site with the real server: category filter, two
+tags ANDed, phrase, free terms, date window, `offset`/`limit` paging, a generated
+word tag, and a rejected bad date — first over HTTP, then through the theme's
+search UI, where `tag:housing` returns the same 9 notes the Browse Tags badge
+claims. 23 tests in `test_obsidian2site.py`, 91 across the Python suite, and the
+Go server's own tests pin the parsing rules two clients depend on.
 
 ### Step 26 — Build pipeline, `auto` backend, and backend validation *(movenotes + theme)*
 Add the `auto` search adapter to the theme — probe `/api/health`, use Bluge when

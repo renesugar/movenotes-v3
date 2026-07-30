@@ -1,0 +1,222 @@
+- generic [active] [ref=f9e1]:
+  - link "Skip to content" [ref=f9e2] [cursor=pointer]:
+    - /url: "#ledger-main"
+  - generic [ref=f9e3]:
+    - banner [ref=f9e4]:
+      - link "Test Archive" [ref=f9e5] [cursor=pointer]:
+        - /url: /
+      - navigation "Main" [ref=f9e8]:
+        - link "Home" [ref=f9e9] [cursor=pointer]:
+          - /url: /
+        - link "Tags" [ref=f9e10] [cursor=pointer]:
+          - /url: /tags/
+        - link "About" [ref=f9e11] [cursor=pointer]:
+          - /url: /about/
+        - link "Search" [ref=f9e12] [cursor=pointer]:
+          - /url: /search/
+      - button "Theme Light theme" [ref=f9e14] [cursor=pointer]:
+        - generic [ref=f9e16]: Theme
+        - generic [ref=f9e17]: Light theme
+        - generic [ref=f9e18]: ▼
+    - generic [ref=f9e19]:
+      - complementary "Categories and tags" [ref=f9e20]:
+        - generic [ref=f9e21]:
+          - heading [level=2] [ref=f9e22]:
+            - button "Categories 3" [expanded] [ref=f9e23] [cursor=pointer]:
+              - generic [ref=f9e24]: ▼
+              - generic [ref=f9e25]: Categories
+              - generic [ref=f9e26]: "3"
+          - generic [ref=f9e28]:
+            - link "All notes 10 notes" [ref=f9e29] [cursor=pointer]:
+              - /url: /search/?q=category%3A%22All+notes%22
+              - generic [ref=f9e30]: ▸
+              - generic [ref=f9e31]: All notes
+              - generic [ref=f9e32]:
+                - text: "10"
+                - generic [ref=f9e33]: notes
+            - link "Twitter 8 notes" [ref=f9e34] [cursor=pointer]:
+              - /url: /categories/twitter/
+              - generic [ref=f9e35]: ▸
+              - generic [ref=f9e36]: Twitter
+              - generic [ref=f9e37]:
+                - text: "8"
+                - generic [ref=f9e38]: notes
+            - link "Notes 2 notes" [ref=f9e39] [cursor=pointer]:
+              - /url: /categories/notes/
+              - generic [ref=f9e40]: ▸
+              - generic [ref=f9e41]: Notes
+              - generic [ref=f9e42]:
+                - text: "2"
+                - generic [ref=f9e43]: notes
+        - generic [ref=f9e44]:
+          - heading [level=2] [ref=f9e45]:
+            - button "Tags 5" [expanded] [ref=f9e46] [cursor=pointer]:
+              - generic [ref=f9e47]: ▼
+              - generic [ref=f9e48]: Tags
+              - generic [ref=f9e49]: "5"
+          - generic [ref=f9e51]:
+            - link "pizza 8 notes" [ref=f9e52] [cursor=pointer]:
+              - /url: /tags/pizza/
+              - generic [ref=f9e53]: "#"
+              - generic [ref=f9e54]: pizza
+              - generic [ref=f9e55]:
+                - text: "8"
+                - generic [ref=f9e56]: notes
+            - link "canada 1 notes" [ref=f9e57] [cursor=pointer]:
+              - /url: /tags/canada/
+              - generic [ref=f9e58]: "#"
+              - generic [ref=f9e59]: canada
+              - generic [ref=f9e60]:
+                - text: "1"
+                - generic [ref=f9e61]: notes
+            - link "codec 1 notes" [ref=f9e62] [cursor=pointer]:
+              - /url: /tags/codec/
+              - generic [ref=f9e63]: "#"
+              - generic [ref=f9e64]: codec
+              - generic [ref=f9e65]:
+                - text: "1"
+                - generic [ref=f9e66]: notes
+            - link "economics 1 notes" [ref=f9e67] [cursor=pointer]:
+              - /url: /tags/economics/
+              - generic [ref=f9e68]: "#"
+              - generic [ref=f9e69]: economics
+              - generic [ref=f9e70]:
+                - text: "1"
+                - generic [ref=f9e71]: notes
+            - link "interest 1 notes" [ref=f9e72] [cursor=pointer]:
+              - /url: /tags/interest/
+              - generic [ref=f9e73]: "#"
+              - generic [ref=f9e74]: interest
+              - generic [ref=f9e75]:
+                - text: "1"
+                - generic [ref=f9e76]: notes
+      - separator "Resize sidebar" [ref=f9e77]
+      - main [ref=f9e79]:
+        - generic [ref=f9e80]:
+          - generic [ref=f9e81]:
+            - generic [ref=f9e82]: movenotes
+            - heading "Browse Tags" [level=1] [ref=f9e83]
+          - generic [ref=f9e85]:
+            - paragraph [ref=f9e86]: "Every tag in the archive: the tags written in a note plus every unique content word. Counts come from the same posting lists the results do."
+            - generic [ref=f9e87]:
+              - search [ref=f9e88]:
+                - generic [ref=f9e89]:
+                  - generic [ref=f9e90]: ⌕
+                  - generic [ref=f9e91]: Find a tag
+                  - searchbox "Find a tag" [ref=f9e92]
+              - status [ref=f9e94]: "Most frequent: 18 tags"
+            - generic [ref=f9e95]:
+              - link "#canada 9 notes" [ref=f9e96] [cursor=pointer]:
+                - /url: /browse-tags/?tag=canada
+                - generic [ref=f9e97]: "#canada"
+                - generic [ref=f9e98]:
+                  - text: "9"
+                  - generic [ref=f9e99]: notes
+              - link "#housing 9 notes" [ref=f9e100] [cursor=pointer]:
+                - /url: /browse-tags/?tag=housing
+                - generic [ref=f9e101]: "#housing"
+                - generic [ref=f9e102]:
+                  - text: "9"
+                  - generic [ref=f9e103]: notes
+              - link "#jul 8 notes" [ref=f9e104] [cursor=pointer]:
+                - /url: /browse-tags/?tag=jul
+                - generic [ref=f9e105]: "#jul"
+                - generic [ref=f9e106]:
+                  - text: "8"
+                  - generic [ref=f9e107]: notes
+              - link "#pizza 8 notes" [ref=f9e108] [cursor=pointer]:
+                - /url: /browse-tags/?tag=pizza
+                - generic [ref=f9e109]: "#pizza"
+                - generic [ref=f9e110]:
+                  - text: "8"
+                  - generic [ref=f9e111]: notes
+              - link "#reply 8 notes" [ref=f9e112] [cursor=pointer]:
+                - /url: /browse-tags/?tag=reply
+                - generic [ref=f9e113]: "#reply"
+                - generic [ref=f9e114]:
+                  - text: "8"
+                  - generic [ref=f9e115]: notes
+              - link "#someone 8 notes" [ref=f9e116] [cursor=pointer]:
+                - /url: /browse-tags/?tag=someone
+                - generic [ref=f9e117]: "#someone"
+                - generic [ref=f9e118]:
+                  - text: "8"
+                  - generic [ref=f9e119]: notes
+              - link "#codec 2 notes" [ref=f9e120] [cursor=pointer]:
+                - /url: /browse-tags/?tag=codec
+                - generic [ref=f9e121]: "#codec"
+                - generic [ref=f9e122]:
+                  - text: "2"
+                  - generic [ref=f9e123]: notes
+              - link "#note 2 notes" [ref=f9e124] [cursor=pointer]:
+                - /url: /browse-tags/?tag=note
+                - generic [ref=f9e125]: "#note"
+                - generic [ref=f9e126]:
+                  - text: "2"
+                  - generic [ref=f9e127]: notes
+              - link "#av1 1 notes" [ref=f9e128] [cursor=pointer]:
+                - /url: /browse-tags/?tag=av1
+                - generic [ref=f9e129]: "#av1"
+                - generic [ref=f9e130]:
+                  - text: "1"
+                  - generic [ref=f9e131]: notes
+              - link "#bank 1 notes" [ref=f9e132] [cursor=pointer]:
+                - /url: /browse-tags/?tag=bank
+                - generic [ref=f9e133]: "#bank"
+                - generic [ref=f9e134]:
+                  - text: "1"
+                  - generic [ref=f9e135]: notes
+              - link "#canadian 1 notes" [ref=f9e136] [cursor=pointer]:
+                - /url: /browse-tags/?tag=canadian
+                - generic [ref=f9e137]: "#canadian"
+                - generic [ref=f9e138]:
+                  - text: "1"
+                  - generic [ref=f9e139]: notes
+              - link "#codecs 1 notes" [ref=f9e140] [cursor=pointer]:
+                - /url: /browse-tags/?tag=codecs
+                - generic [ref=f9e141]: "#codecs"
+                - generic [ref=f9e142]:
+                  - text: "1"
+                  - generic [ref=f9e143]: notes
+              - link "#decision 1 notes" [ref=f9e144] [cursor=pointer]:
+                - /url: /browse-tags/?tag=decision
+                - generic [ref=f9e145]: "#decision"
+                - generic [ref=f9e146]:
+                  - text: "1"
+                  - generic [ref=f9e147]: notes
+              - link "#economics 1 notes" [ref=f9e148] [cursor=pointer]:
+                - /url: /browse-tags/?tag=economics
+                - generic [ref=f9e149]: "#economics"
+                - generic [ref=f9e150]:
+                  - text: "1"
+                  - generic [ref=f9e151]: notes
+              - link "#interest 1 notes" [ref=f9e152] [cursor=pointer]:
+                - /url: /browse-tags/?tag=interest
+                - generic [ref=f9e153]: "#interest"
+                - generic [ref=f9e154]:
+                  - text: "1"
+                  - generic [ref=f9e155]: notes
+              - link "#notes 1 notes" [ref=f9e156] [cursor=pointer]:
+                - /url: /browse-tags/?tag=notes
+                - generic [ref=f9e157]: "#notes"
+                - generic [ref=f9e158]:
+                  - text: "1"
+                  - generic [ref=f9e159]: notes
+              - link "#rate 1 notes" [ref=f9e160] [cursor=pointer]:
+                - /url: /browse-tags/?tag=rate
+                - generic [ref=f9e161]: "#rate"
+                - generic [ref=f9e162]:
+                  - text: "1"
+                  - generic [ref=f9e163]: notes
+              - link "#see 1 notes" [ref=f9e164] [cursor=pointer]:
+                - /url: /browse-tags/?tag=see
+                - generic [ref=f9e165]: "#see"
+                - generic [ref=f9e166]:
+                  - text: "1"
+                  - generic [ref=f9e167]: notes
+        - generic [ref=f9e168]:
+          - generic [ref=f9e169]: Test Archive
+          - generic [ref=f9e170]: 10 notes · 2 categories · 5 tags
+          - generic [ref=f9e171]: Ledger theme for Hugo
+          - link "RSS" [ref=f9e172] [cursor=pointer]:
+            - /url: /index.xml
