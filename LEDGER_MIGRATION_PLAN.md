@@ -1216,11 +1216,43 @@ time equal to the same note without links. On the Go side,
 `&` query strings, `%2F` escapes and the truncated `http://t.co/CT…` — against a
 built index. 99 Python tests, Go suite clean.
 
-### Step 39 — Pagefind parity: index link targets *(theme)*
-Bare URLs already work on Pagefind; `href` targets do not. Pagefind can index an
-attribute (`data-pagefind-index-attrs`), which a Hugo link render hook can apply
-to links in note content. Investigate, then measure the index-size cost before
-adopting — the Pagefind index is already the constraint on a static deployment.
+### Step 39 — Pagefind parity: index link targets *(theme)*  ✅
+Bare URLs already worked on Pagefind because they render as their own label;
+`href` targets did not.
+
+**Done, but not the way this step assumed.** `data-pagefind-index-attrs="href"`
+on each anchor — via a link render hook — was built and measured first. It works
+and it is slightly *larger* (4.19 MB against 4.14 MB at 5k), and it was rejected
+on excerpt quality: Pagefind builds excerpts from indexed text in document order,
+so inline URLs splice themselves between the sentences around them and a plain
+prose search returns a card full of links.
+
+What shipped instead: `page.html` collects the external URLs out of `.Content`
+into a hidden `<p class="ledger-link-index">` at the end of the note. Pagefind
+indexes hidden elements, so the URLs are searchable, and being at the end they
+are excerpted only when a URL is what matched. That is the same shape as the
+Bluge fix — URLs at the end of `body`, never in `summary` — so the two backends
+now agree on both what is searchable and what a card shows.
+
+Measured on **5,000 real Twitter/X notes** (17,643 external links, 3.5 per note),
+rather than the bench corpus, which has no link density:
+
+| | indexed words | Pagefind index | published site |
+|---|---|---|---|
+| before | 36,003 | 3.62 MB | 84.49 MB |
+| net after | 54,084 (+50%) | 4.14 MB (**+14.3%**) | 85.47 MB (**+1.2%**) |
+
+1.2% on the published site is noise against the 1 GB Pages ceiling; the index
+cost is real but bounded. Verified in the browser on that corpus: the href-only
+permalink `https://x.com/i/web/status/1790923109308182758` returns its note where
+it previously returned nothing, `x.com status` returns 5, and a prose query's
+excerpt is clean.
+
+**Two pre-existing excerpt leaks fixed in the same pass.** The back link and the
+hero placeholder sit inside `data-pagefind-body`, so "← back to results" and
+"hero image · 1600×640" were indexed once per note and appeared at the front of
+result excerpts. Both now carry `data-pagefind-ignore`, which is where 2.3% of
+the index went.
 
 ### Step 40 — Measure what indexing URLs costs
 On a bench tier: index size, build time, and the latency of the reported queries
