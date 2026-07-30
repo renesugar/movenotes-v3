@@ -294,13 +294,42 @@ the local workflow in `STATIC_SITE.md` §3 changes.
   cold-start penalty. A regression test holds it: the whole `api/` half depends
   on it.
 
-### V3 — Size ceiling, stated plainly in the docs
+### V3 — Size ceiling  ✅ measured (step 28)
 
-The ~1.11 KB/note figure (111 MB at 100k) comes from an index without term
-positions, so it is a **floor**, not the size of a phrase-capable index — see
-step 21's finding 3. Re-measure before publishing a note count. On that floor,
-with a ~30 MB binary, the 250 MB cap lands at roughly **150k–190k notes**; the
-real ceiling is lower. The documentation will give the arithmetic, the
+**The earlier arithmetic was wrong by about 4×.** Measured on a generated 20,000-
+note site: the Bluge index is **97 MB — 4.85 KB/note**, not the 1.11 KB/note the
+theme's positions-free index suggested. Where it goes, measured by rebuilding the
+same corpus three ways:
+
+| index | size at 20k | per note |
+|---|---|---|
+| as first shipped (every tag stored) | 127 MB | 6.35 KB |
+| display tags only (**shipped now**) | 97 MB | 4.85 KB |
+| also without body term positions | 72 MB | 3.60 KB |
+
+So the 250 MB function bundle, shared with a ~30 MB binary, is full at roughly
+**45,000 notes** — not 150k. Body positions are the remaining 25 MB and buy
+phrase search, which is worth keeping.
+
+The corpus is deliberately near worst case: 181 *unique* words per note, each
+becoming a tag, so the inverted index carries 181 keyword terms per document.
+Real prose repeats itself and should do better — but the honest number to
+document is the measured one, with the caveat.
+
+**Two harder limits arrive first, though**, both measured on that same 20k site:
+
+| limit | value | 20k-note site |
+|---|---|---|
+| source files per CLI deployment | 15,000 | **49,277** |
+| source upload, Hobby / Pro | 100 MB / 1 GB | **397 MB** |
+| function bundle | 250 MB | 97 MB index + binary |
+| build time | 45 min | n/a — the site is built locally |
+
+A CLI deployment of a 20k-note archive is therefore already impossible, well
+before the index ceiling matters. Past ~6k notes the options are a Git-connected
+project (the build container clones rather than uploads), or hosting the static
+site somewhere without a file-count limit and pointing the theme's search at a
+Bluge server elsewhere. The documentation will give the arithmetic, the
 `du -sh` command to check, and three options past the ceiling:
 
 1. static search (Pagefind, or whatever Part C promotes) on Vercel, no Go;
@@ -682,10 +711,41 @@ env-only configuration), and a Python test asserting the shared package contains
 no process concerns — comment-stripped, since the package's own doc comment says
 "no flags, no log.Fatal, no listening".
 
-### Step 28 — Generator emits the Vercel project *(movenotes)*
-`vercel.json` per V4, root `go.mod`, `.vercelignore`, the
-`--ledger-theme`-required check, and a `--vercel` flag (or unconditional
-emission — decide when the layout is real) plus the index-size warning from V3.
+### Step 28 — Generator emits the Vercel project *(movenotes)*  ✅
+`--vercel` — a flag, not always-on, because a root `go.mod` collides with Hugo's
+module mode — emits `vercel.json`, `.vercelignore`, and for Bluge builds a root Go
+module with `api/search.go` and `api/health.go`.
+
+**Deployment shape: build locally, deploy the output.** No `buildCommand`. Hugo,
+Pagefind and a Bluge index inside one 45-minute Vercel build is not a plan for a
+six-figure archive, and it makes the index a build product whose path into the
+function bundle is unverifiable. Built locally, the index is deployment *source*.
+
+- **The root module is derived from `server/go.mod`**, every requirement rewritten
+  as indirect, so the two cannot drift. Verified by building `./api/...` in a
+  generated project with no `go mod tidy` — which caught a parser bug that
+  dropped the one direct dependency, because `require x v1` and `require (` both
+  start with `require`.
+- **`--search-backend pagefind` + `--vercel` emits no Go at all** and needs no
+  copied theme. It also adds Hugo's own `go.mod` to `.vercelignore`: a root
+  `go.mod` is precisely what makes Vercel's Go runtime decide a project is Go.
+- **`--vercel` with Bluge refuses without `--ledger-theme`**, exits 1, and creates
+  nothing.
+- **`--build --vercel` measures the site against Vercel's limits** and says which
+  ones it fails. See V3: at 20,000 notes the file-count and upload limits are
+  already exceeded, long before the index ceiling.
+
+**Two defects found while measuring, both fixed:**
+
+1. **The Bluge index was 31% larger than it needed to be.** Every tag was stored
+   for display, including all ~181 generated content words per note. Now only the
+   written tags are stored; every tag is still *indexed*, so `tag:housing` finds
+   a generated word tag exactly as before. 127 MB → 97 MB at 20k notes.
+2. **Result cards were showing generated content words as tags** — a Twitter note
+   displayed `#canada #housing #jul`, where "jul" comes from the date in its
+   footer. Cards now show the note's written tags, which for that note is
+   `#pizza`. This was visible in step 25's own verification output and I read past
+   it.
 
 ### Step 29 — `DEPLOY_VERCEL.md` *(movenotes)*
 Build and deploy the Hugo site with the Bluge backend on Vercel: prerequisites,
@@ -770,10 +830,16 @@ Then, with the user's agreement, push `develop`.
    than a flat 5,000. Table in M3. Not yet measured at 166k notes — the shape is
    linear in terms at 5k, and the theme has run 5,000 terms at 500k notes, but
    neither is the same as measuring it.
-3. **Whether `vercel.json`'s `includeFiles` picks up an index generated during
-   the build** rather than committed. If not, the index must be committed or
-   built in CI and uploaded. Settled in Step 28.
-4. **Whether `--vercel` is a flag or always-on.** Deciding once the emitted
-   layout exists (Step 28).
-5. **The phrase-capable Bluge index size**, which sets the Vercel ceiling. Open
-   since step 21; measured in step 27 or 32.
+3. **Whether `includeFiles` puts the Bluge index into the function bundle.**
+   Step 28 made it moot for build-generated files by building locally instead —
+   the index is part of the deployment source, not a build product. Whether
+   Vercel then copies it into the bundle is still unverified, and cannot be
+   verified without deploying. The failure is loud rather than silent:
+   `/api/health` answers 503 naming the path it looked for. **Check it on the
+   first deploy.**
+4. ~~**Whether `--vercel` is a flag or always-on.**~~ A flag: emitting a root
+   `go.mod` unconditionally would collide with Hugo's module mode, which claims
+   that same file. Settled in step 28.
+5. ~~**The phrase-capable Bluge index size**, which sets the Vercel ceiling.~~
+   Measured in step 28: 4.85 KB/note on a near-worst-case corpus, so the 250 MB
+   function bundle holds roughly 45,000 notes. See V3.

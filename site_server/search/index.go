@@ -98,10 +98,17 @@ func BuildIndex(sourcePath, indexDir string) error {
 		if category := strings.TrimSpace(record.Category); category != "" {
 			document.AddField(bluge.NewKeywordField("category", category).StoreValue())
 		}
+		// Indexed, not stored: `tag:` has to match every tag, including each
+		// generated content word, but nothing reads them back — that is what
+		// tags_display is for, and storing all of them cost 23% of the index.
 		for _, tag := range record.Tags {
 			if tag = strings.TrimSpace(strings.ToLower(tag)); tag != "" {
-				document.AddField(bluge.NewKeywordField("tag", tag).StoreValue())
+				document.AddField(bluge.NewKeywordField("tag", tag))
 			}
+		}
+		// Stored, not indexed: what a result card shows.
+		if display := displayTags(record); display != "" {
+			document.AddField(bluge.NewStoredOnlyField("tags_display", []byte(display)))
 		}
 		batch.Update(document.ID(), document)
 		batchCount++
@@ -145,4 +152,20 @@ func BuildIndex(sourcePath, indexDir string) error {
 	}
 	log.Printf("indexed %d notes", total)
 	return nil
+}
+
+// displayTags joins the tags a result card shows, tab-separated because a tag
+// cannot contain a tab. Falls back to nothing rather than to every content word:
+// a card with four random words on it looks like a bug.
+func displayTags(record sourceRecord) string {
+	kept := make([]string, 0, len(record.DisplayTags))
+	for _, tag := range record.DisplayTags {
+		if tag = strings.TrimSpace(tag); tag != "" {
+			kept = append(kept, tag)
+		}
+		if len(kept) >= maxDisplayTags {
+			break
+		}
+	}
+	return strings.Join(kept, "\t")
 }

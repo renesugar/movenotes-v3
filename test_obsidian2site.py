@@ -336,6 +336,10 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             # the taxonomy cap left out, so `tag:` answers for all of them.
             self.assertIn("codecs", first_record["tags"])   # a generated word tag
             self.assertIn("alpha", first_record["tags"])    # a written tag
+            # A result card shows only the written tags. Cards used to list
+            # generated content words — "#jul", from a tweet's date footer — and
+            # storing all of them for display cost 23% of the Bluge index.
+            self.assertEqual(first_record["displayTags"], ["alpha", "beta"])
 
     def test_note_titles_are_never_added_to_sidebar_tree(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-many-") as temporary:
@@ -1043,6 +1047,117 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
         # The local binary comes from the command package now, not the module
         # root: the module root has no main.
         self.assertIn('"./cmd/movenotes-site-server"', build_source)
+
+    def test_vercel_project_files(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-vercel-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            theme = root / "theme"
+            (theme / "layouts").mkdir(parents=True)
+            vault.mkdir()
+            (vault / "Note.md").write_text("---\ntags:\n  - alpha\n---\nBody.\n", encoding="utf-8")
+
+            site = root / "site"
+            run("--input", str(vault), "--output", str(site), "--ledger-theme", str(theme),
+                "--vercel", "--progress-every", "0")
+
+            config = json.loads((site / "vercel.json").read_text(encoding="utf-8"))
+            self.assertEqual(config["outputDirectory"], "public")
+            # The index is data, so it has to be named explicitly to reach the
+            # function; nothing else about it is discoverable.
+            self.assertEqual(
+                config["functions"]["api/*.go"]["includeFiles"],
+                "server/bluge-index/**",
+            )
+            # No build command: building Hugo, Pagefind and a Bluge index inside
+            # one 45-minute Vercel build is not a plan.
+            self.assertNotIn("buildCommand", config)
+
+            # Vercel's Go runtime needs go.mod at the project root, and its
+            # requirements are derived from the server module's so the two cannot
+            # drift — including the direct dependency, which a first attempt
+            # dropped because `require x v1` and `require (` both start the same.
+            root_module = (site / "go.mod").read_text(encoding="utf-8")
+            self.assertIn("module movenotes/site", root_module)
+            self.assertIn("replace movenotes/site-server => ./server", root_module)
+            self.assertIn("github.com/blugelabs/bluge v0.2.2 // indirect", root_module)
+            server_module = (site / "server" / "go.mod").read_text(encoding="utf-8")
+            for line in server_module.splitlines():
+                requirement = line.strip().removeprefix("require").strip()
+                if requirement.startswith("github.com/") or requirement.startswith("golang.org/"):
+                    self.assertIn(requirement.split("//")[0].strip(), root_module)
+            self.assertTrue((site / "go.sum").is_file())
+
+            self.assertIn("func Search(", (site / "api" / "search.go").read_text(encoding="utf-8"))
+            self.assertIn("func Health(", (site / "api" / "health.go").read_text(encoding="utf-8"))
+            # The CDN serves the static files; a generated archive's public/ is
+            # far larger than any function bundle.
+            self.assertNotIn("FileServer", (site / "api" / "search.go").read_text(encoding="utf-8"))
+
+            ignore = (site / ".vercelignore").read_text(encoding="utf-8")
+            # Hugo inputs stay out: Vercel counts uploaded source files against a
+            # 15,000-file limit.
+            for excluded in ("content/", "themes/", "server/search-source.jsonl"):
+                self.assertIn(excluded, ignore)
+            # What the deployment actually needs must not be excluded.
+            for kept in ("api/", "public/", "server/bluge-index"):
+                self.assertNotIn(f"\n{kept}\n", ignore)
+
+    def test_vercel_static_only_ships_no_go(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-vercel-static-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            site = root / "site"
+            vault.mkdir()
+            (vault / "Note.md").write_text("Body.\n", encoding="utf-8")
+
+            # Static-only needs no Go module, so it does not need a copied theme
+            # either.
+            run("--input", str(vault), "--output", str(site), "--vercel",
+                "--search-backend", "pagefind", "--progress-every", "0")
+            config = json.loads((site / "vercel.json").read_text(encoding="utf-8"))
+            self.assertNotIn("functions", config)
+            self.assertFalse((site / "api").exists())
+            # Hugo's module file must not be uploaded: a root go.mod is exactly
+            # what makes Vercel's Go runtime detect a Go project.
+            ignore = (site / ".vercelignore").read_text(encoding="utf-8")
+            self.assertIn("go.mod", ignore)
+
+    def test_vercel_with_bluge_requires_a_copied_theme(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-vercel-refuse-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            vault.mkdir()
+            (vault / "Note.md").write_text("Body.\n", encoding="utf-8")
+            result = run("--input", str(vault), "--output", str(root / "site"),
+                         "--vercel", "--search-backend", "bluge",
+                         "--progress-every", "0", check=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("--ledger-theme", result.stderr)
+            # Hugo's module mode claims the same go.mod, and `go mod tidy` would
+            # strip the theme from it.
+            self.assertFalse((root / "site").exists())
+
+    def test_vercel_readiness_measures_platform_limits(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-readiness-") as temporary:
+            output = Path(temporary)
+            public = output / "public"
+            public.mkdir()
+            (public / "index.html").write_text("<html></html>", encoding="utf-8")
+            index = output / "server" / "bluge-index"
+            index.mkdir(parents=True)
+            (index / "000.seg").write_bytes(b"x")
+
+            small = obsidian2site._vercel_readiness(output, "both")
+            self.assertTrue(any("built site" in line for line in small))
+            self.assertFalse(any("!" in line for line in small), small)
+
+            # Over the file-count limit: a 20k-note archive builds ~49,000 files,
+            # so this is the common case, not an edge one.
+            for number in range(obsidian2site._VERCEL_MAX_SOURCE_FILES + 1):
+                (public / f"note-{number}.html").write_text("x", encoding="utf-8")
+            crowded = obsidian2site._vercel_readiness(output, "both")
+            self.assertTrue(any("15,000-file limit" in line for line in crowded), crowded)
 
     def test_server_package_keeps_process_concerns_out_of_the_shared_code(self) -> None:
         """The search package is wrapped by two entry points, one serverless.

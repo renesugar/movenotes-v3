@@ -23,8 +23,8 @@ func TestFunctionsAnswerFromEnvironmentConfiguration(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "search-source.jsonl")
 	records := strings.Join([]string{
-		`{"id":0,"url":"/notes/a.html","title":"First","date":"2026-07-01T00:00:00Z","body":"canadian housing","category":"Notes","tags":["canada"],"readingTime":2}`,
-		`{"id":1,"url":"/notes/b.html","title":"Second","date":"2026-06-01T00:00:00Z","body":"video codecs","category":"Notes","tags":["codec"],"readingTime":1}`,
+		`{"id":0,"url":"/notes/a.html","title":"First","date":"2026-07-01T00:00:00Z","body":"canadian housing","category":"Notes","tags":["canada"],"displayTags":["canada"],"readingTime":2}`,
+		`{"id":1,"url":"/notes/b.html","title":"Second","date":"2026-06-01T00:00:00Z","body":"video codecs","category":"Notes","tags":["codec"],"displayTags":["codec"],"readingTime":1}`,
 	}, "\n") + "\n"
 	if err := os.WriteFile(source, []byte(records), 0o644); err != nil {
 		t.Fatal(err)

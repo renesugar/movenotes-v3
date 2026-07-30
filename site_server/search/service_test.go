@@ -81,8 +81,8 @@ func TestSearchOverABuiltIndex(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "search-source.jsonl")
 	records := []string{
-		`{"id":0,"url":"/notes/a.html","title":"Bank of Canada rate note","date":"2026-07-01T00:00:00Z","body":"the interest rate decision and canadian housing","summary":"rates","category":"Notes","tags":["canada","economics"],"readingTime":3}`,
-		`{"id":1,"url":"/notes/b.html","title":"Codec note","date":"2026-06-15T00:00:00Z","body":"video codecs and the av1 codec","summary":"codecs","category":"Notes","tags":["codec"],"readingTime":1}`,
+		`{"id":0,"url":"/notes/a.html","title":"Bank of Canada rate note","date":"2026-07-01T00:00:00Z","body":"the interest rate decision and canadian housing","summary":"rates","category":"Notes","tags":["canada","economics"],"displayTags":["canada","economics"],"readingTime":3}`,
+		`{"id":1,"url":"/notes/b.html","title":"Codec note","date":"2026-06-15T00:00:00Z","body":"video codecs and the av1 codec","summary":"codecs","category":"Notes","tags":["codec"],"displayTags":["codec"],"readingTime":1}`,
 	}
 	if err := os.WriteFile(source, []byte(strings.Join(records, "\n")+"\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -170,6 +170,8 @@ func TestSearchOverABuiltIndex(t *testing.T) {
 	if first.Category != "Notes" || first.ReadingTime != 1 || first.Title != "Codec note" {
 		t.Errorf("result = %+v", first)
 	}
+	// A card shows the tags written in the note, not the generated content
+	// words: `tag:` matches all of them, but only these are stored.
 	if len(first.Tags) != 1 || first.Tags[0] != "codec" {
 		t.Errorf("tags = %q", first.Tags)
 	}
