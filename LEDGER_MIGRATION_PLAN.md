@@ -1683,8 +1683,26 @@ expression tree cannot be expressed that way, so this step is: a tree-shaped
 parse in `query.js`, a serialised form on the wire, and `buildQuery` walking it.
 Sub-steps, so the project stays working between them:
 
-1. Grammar and tree in `query.js`, with the existing flat shape derived from it
-   so nothing else changes yet.
+1. ✅ Grammar and tree in `query.js`, with the existing flat shape derived from
+   it. Done in hugo-theme-ledger 5391d6d: recursive descent over
+   `disjunction → conjunction → unary → primary`, AND binding tighter than OR,
+   `OR` uppercase only so the word stays searchable.
+
+   Two tokeniser rules keep URLs intact, which Part E worked to make searchable:
+   `(` opens a group only at a token's start, and a trailing `)` is given back
+   only when unmatched *within* that token, so `…/Function_(mathematics)` keeps
+   its pair while `pizza)` gives its bracket back. `-` negates only as a prefix,
+   leaving `covid-19` alone.
+
+   Backends untouched. The flat fields they read are derived from the tree and
+   identical for any operator-free query — pinned by a test — while a query using
+   operators is approximated as every positive leaf ANDed, with
+   `parsed.operators` naming what was approximated. Already an improvement:
+   `(sourdough)` was a literal term matching nothing and now matches 2.
+
+   Brought the theme its first JS tests (`npm test`, `node --test`), 10 of them.
+   The grammar is the one piece of pure logic every backend depends on and no
+   build step exercises it.
 2. Wire format and `buildQuery` over the tree in both Go servers.
 3. Adapters: Bluge full, Pagefind filters-only with honest `unsupported`
    reporting, Orama and FlexSearch as far as each goes.
