@@ -950,9 +950,42 @@ shared search bundle — **8.9 KB → 88.2 KB, for every site including Pagefind
 ones**. It is built as its own asset and imported from a runtime URL now, and only
 when a site selects the backend.
 
-### Step 34 — FlexSearch adapter and measurement *(theme)*
-`flexsearch.js` in both configurations (fast-boot import, IndexedDB
-persistent), same metrics, same write-up.
+### Step 34 — FlexSearch adapter and measurement *(theme)*  ✅
+Built in both configurations, measured, **not promoted** — the theme's step 21
+(`da2745a`).
+
+The IndexedDB configuration was the plan's one real hope: "the only candidate with
+a shape that can compete at 100k+". It half-delivers.
+
+| | index at 25k | first result | bytes | heap |
+|---|---|---|---|---|
+| memory, title+body | 342.7 MB | — | 342.7 MB | — |
+| memory, title+summary | 74.4 MB | 13.1 s | 74.5 MB | 133 MB |
+| indexeddb, first visit | 74.4 MB | 24.3 s | 74.5 MB | 4 MB |
+| indexeddb, second visit | — | 14.8 s | **136 KB** | 16 MB |
+| *Pagefind* | 114 MB | ~1 s | **0.37 MB** | 6–31 MB |
+
+**What it wins:** repeat visits download nothing, and the heap drops to 4–16 MB —
+lower than Pagefind's. The memory-pressure objection to a client-side index is
+genuinely solved.
+
+**What it does not:** the first visit still transfers the whole index, because a
+browser cannot be shipped a prepopulated IndexedDB. Time-to-first-result stays at
+~15 s even on a repeat visit, since reading 40 MB back out of IndexedDB is not
+free. And queries get *slower* than in memory — 1,313 ms against 109 ms — because
+each one now goes through storage.
+
+FlexSearch also covers the least of the grammar: no count API (whole match sets are
+materialised for a total and for paging, which is where that 1,313 ms goes), no
+numeric range filter (dates applied after searching, reported approximate), tag
+clauses ORed rather than ANDed (intersected in the adapter), no phrase operator.
+
+I made one of the two recorded traps myself and measured it before noticing:
+detecting an already-populated IndexedDB with an empty tag filter matches nothing
+whether or not data is there, so every visit silently re-downloaded 74.5 MB while
+the feature appeared to work. The fix is a tag search for a value the builder
+records as present. `db.has()` is not usable — it throws on a mounted-but-unqueried
+store.
 
 ### Step 35 — Promote what earned it *(movenotes + theme)*
 Apply the Part D rule. For each backend that passed: register it in the theme's
