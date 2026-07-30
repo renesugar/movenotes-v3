@@ -61,7 +61,12 @@ Read these files first:
   exact-tag index are site-root-relative and must be resolved against
   `config.siteRoot`.
 - Bluge-only generated sites must not emit any browser search runtime. Keep
-  `_validate_built_search_backend` and its regression together.
+  `_validate_built_search_backend` and its regression together. It reads every
+  built page, because the guarantee is that *none* references a browser index —
+  so it is the one step whose cost scales with the whole site, and it must keep
+  saying what it is doing. It reads bytes behind a substring test rather than
+  decoding UTF-8 for two regexes, which is easy to undo by reaching for
+  `read_text`. Worth 1.81× on a 177,682-page archive.
 - Do not override theme layouts or partials to inject site CSS/JS: the theme
   reads `params.extraCSS` and `params.extraJS`. Overriding a theme partial
   duplicates code that will drift.

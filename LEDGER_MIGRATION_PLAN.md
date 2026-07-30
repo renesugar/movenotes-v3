@@ -1313,11 +1313,52 @@ built HTML file — 177,682 files and 5.6 GB on this archive — running two reg
 over each, printing nothing at any point. **Measured on the user's own built
 site: 529.7 s, or 8 min 50 s, with no output whatsoever.**
 
-Print what it is doing and roughly how far along it is, and reduce the work
-itself where that is free: the check only needs the search config and a Pagefind
-runtime reference, so scanning bytes rather than decoding UTF-8, and stopping
-early per file, are both available. Keep the guarantee — it exists to catch a
-build that silently configures the wrong backend.
+**Done.** Two changes, and the guarantee is unchanged — every page is still
+read, because the point is that *no* page references a browser index, and
+narrowing the walk to pages carrying the search view would check only the pages
+least likely to be wrong.
+
+It now says what it is doing: a line naming the page count before it starts, one
+every 20,000 pages, and a closing line with the elapsed time. `--progress-every 0`
+silences all three, as it does for conversion.
+
+And it reads bytes behind a substring test instead of decoding UTF-8 to run two
+regexes over it. **End to end on the same 177,682-page site: 529.7 s → 292.2 s,
+1.81×** (335 → 608 pages/s).
+
+Per-strategy, over 20,000 pages with a shared warm-up, best of two runs each:
+
+| | time | rate |
+|---|---|---|
+| read only — the floor | 1.23 s | 16,257 pages/s |
+| `read_text` + 2 regexes | 48.73 s | 410 pages/s |
+| bytes + substring prefilter | 16.36 s | 1,222 pages/s |
+| bytes + `.lower()` + prefilter | 16.83 s | 1,188 pages/s |
+
+> **Why the subset says 2.9× and the archive says 1.81×**, which is worth
+> recording because the first reading of it was wrong. The suspicion was that
+> the variants had been timed in sequence and the first one warmed the cache for
+> the rest; re-running with a shared warm-up reproduced the same numbers, so
+> that was not it. Reading is only 1.23 s of the 48.73 s — the pass is
+> CPU-bound, and cache state barely moves it.
+>
+> The subset is what differs. `rglob` order puts small files first: those 20,000
+> pages average 10.8 KB against the site-wide ~31 KB, and the prefilters' win
+> shrinks as pages get bigger, because a `.lower()` and two substring scans over
+> 31 KB cost more than over 11 KB while the decode they replace does too. Trust
+> the end-to-end figure; the subset flatters the change.
+
+Threads were measured and are *slower* — the work is a GIL-held scan, not I/O
+wait — so it stays serial. `.lower()` measured free against a case-sensitive
+prefilter, so the regexes keep their exact case-insensitivity rather than the
+pass assuming Hugo always emits lowercase attributes.
+
+The prefilters are what pay: only **95 of 177,682** pages carry the search
+config, and a Bluge build should mention Pagefind on none, so both regexes are
+skipped for nearly every page.
+
+`compiling the site server...` was added too — `go build` after `go mod tidy` was
+the other unannounced wait.
 
 ### Step 42 — Docs, and re-test on the real archive
 Update `STATIC_SITE.md`, `DEPLOY_*.md` and the generated Getting Started page to

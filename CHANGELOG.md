@@ -23,6 +23,9 @@ Changes in 3.36:
 - Made URLs searchable. The text handed to Bluge had every URL removed from it — Markdown link targets and bare links alike — so a note's links were visible on the page and absent from the index, and searching for one returned nothing. Link targets now ride on the indexed `body` field, which is not stored, so cards, reading time and tags are unchanged; searching a whole URL, a prefix, or its components all work.
 - Indexed the `www.`-less spelling of every link host, because a URL tokenises with its host whole: searching `sciencedirect.com` found 2 notes where `www.sciencedirect.com` found 455. Costs 0.5% of the index.
 - Measured the cost of indexing links on a real 20,000-note Twitter/X archive: the Bluge index grows 12.1% (37.48 MB to 42.03 MB) and ordinary queries are no slower. At 2.20 KB per note it is less than half the 4.85 KB the synthetic worst-case corpus produces, so `DEPLOY_VERCEL.md` now carries both figures.
+- Made the post-Hugo backend check say what it is doing. On a 166,654-note archive it read 177,682 built pages and 5.6 GB in silence, taking 8m50s that looked like a hang; it now names the page count, reports every 20,000 pages, and prints its elapsed time, all silenced by `--progress-every 0`.
+- Sped that check up 1.81× on the same archive (529.7 s to 292.2 s) by scanning bytes behind a substring test instead of decoding every page to run two regexes over it. Only 95 of 177,682 pages carry the search config, so both regexes are now skipped for nearly every page. Threads were measured and are slower — the work is a scan, not I/O wait.
+- Added a `compiling the site server...` line, the other unannounced wait during `--build`.
 - Expanded the suite to 99 Python tests, plus Go tests over both server entry points.
 
 ---

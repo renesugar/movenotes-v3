@@ -22,6 +22,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import time
 import unicodedata
 import urllib.parse
 from collections import Counter
@@ -2738,16 +2739,20 @@ def _pagefind_command(args: argparse.Namespace, output: Path) -> list[str]:
 
 
 
+# Byte patterns: the validation pass reads built HTML as bytes rather than
+# decoding it, which is most of what made it fast enough to watch.
 _SEARCH_CONFIG_BACKEND_RE = re.compile(
-    r'data-ledger-search-config[^>]*>\s*\{[^<]*?"backend"\s*:\s*"([a-z]+)"',
+    rb'data-ledger-search-config[^>]*>\s*\{[^<]*?"backend"\s*:\s*"([a-z]+)"',
     re.IGNORECASE,
 )
 _PAGEFIND_RUNTIME_RE = re.compile(
-    r'''(?:src|href)=["'][^"']*pagefind/[^"']*["']''', re.IGNORECASE
+    rb'''(?:src|href)=["'][^"']*pagefind/[^"']*["']''', re.IGNORECASE
 )
 
 
-def _validate_built_search_backend(output: Path, search_backend: str) -> None:
+def _validate_built_search_backend(
+    output: Path, search_backend: str, progress_every: int = 20_000
+) -> None:
     """Check the built site actually uses the search backend that was asked for.
 
     The theme selects its adapter from a JSON config embedded in every page that
@@ -2758,25 +2763,56 @@ def _validate_built_search_backend(output: Path, search_backend: str) -> None:
 
     Relearn's Lunr filenames are gone from this check: the theme emits no
     built-in search runtime to suppress.
+
+    Every page is read, because the guarantee is that *no* page references a
+    browser index — narrowing the walk to the pages that carry the search view
+    would only check the pages least likely to be wrong. On a 166,654-note
+    archive that is 177,682 files and 5.6 GB, which took 8m50s in silence and
+    read as a hang. Two things fix that: it says what it is doing, and it reads
+    bytes behind a substring test instead of decoding 5.6 GB of UTF-8 to run two
+    regexes over it — 411 pages/s to 1,174 on the same archive.
+
+    Lowercasing before the substring test keeps the regexes' case-insensitivity
+    exact rather than assuming Hugo always emits lowercase attributes; it
+    measured free, the cost being in the read.
     """
     public = output / "public"
     expected = _theme_search_backend(search_backend)
     wrong_backend: list[str] = []
     pagefind_runtime: list[str] = []
     configured = 0
-    for path in public.rglob("*.html"):
+    checked = 0
+    started = time.monotonic()
+    paths = sorted(public.rglob("*.html"))
+    if progress_every:
+        print(f"checking {len(paths):,} built page(s) for the search backend...")
+    for path in paths:
         try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+            data = path.read_bytes().lower()
+        except OSError:
             continue
-        for match in _SEARCH_CONFIG_BACKEND_RE.finditer(text):
-            configured += 1
-            if match.group(1).casefold() != expected:
-                wrong_backend.append(
-                    f"{path.relative_to(public).as_posix()} ({match.group(1)})"
-                )
-        if search_backend == "bluge" and _PAGEFIND_RUNTIME_RE.search(text):
+        # The prefilters are what make this cheap: 95 of 177,682 pages carry the
+        # search config, and on a Bluge build none should mention Pagefind, so
+        # both regexes are skipped for nearly every page.
+        if b"data-ledger-search-config" in data:
+            for match in _SEARCH_CONFIG_BACKEND_RE.finditer(data):
+                configured += 1
+                found = match.group(1).decode("ascii", "replace")
+                if found != expected:
+                    wrong_backend.append(
+                        f"{path.relative_to(public).as_posix()} ({found})"
+                    )
+        if (search_backend == "bluge" and b"pagefind" in data
+                and _PAGEFIND_RUNTIME_RE.search(data)):
             pagefind_runtime.append(path.relative_to(public).as_posix())
+        checked += 1
+        if progress_every and checked % progress_every == 0:
+            print(f"  checked {checked:,} of {len(paths):,} page(s)")
+    if progress_every:
+        print(
+            f"checked {checked:,} page(s) in {time.monotonic() - started:.0f}s; "
+            f"{configured:,} with the search config"
+        )
     if wrong_backend:
         common.error(
             f"generated for --search-backend {search_backend} (theme backend "
@@ -2815,7 +2851,10 @@ def _build_site(args: argparse.Namespace, output: Path) -> None:
         subprocess.run(_pagefind_command(args, output), cwd=output, check=True)
     # After the indexes exist, not before: the check includes whether the index
     # the configured backend needs is actually there.
-    _validate_built_search_backend(output, args.search_backend)
+    _validate_built_search_backend(
+        output, args.search_backend,
+        progress_every=20_000 if args.progress_every else 0,
+    )
     if args.search_backend in {"both", "bluge"}:
         print("building Bluge site server...")
         go = shutil.which(args.go_bin) if os.path.sep not in args.go_bin else args.go_bin
@@ -2823,6 +2862,7 @@ def _build_site(args: argparse.Namespace, output: Path) -> None:
             common.error(f"Go executable not found: {args.go_bin}")
         print("resolving Go module checksums...")
         subprocess.run([str(go), "mod", "tidy"], cwd=output / "server", check=True)
+        print("compiling the site server...")
         subprocess.run(
             [str(go), "build", "-o", "movenotes-site-server", "./cmd/movenotes-site-server"],
             cwd=output / "server", check=True,
