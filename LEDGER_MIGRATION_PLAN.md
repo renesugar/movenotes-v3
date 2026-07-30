@@ -1467,7 +1467,7 @@ is not a suffix separator and a trailing dot is not a suffix.
 `_lookup_indexes` (9.9 s) and `_copy_assets` (2.8 GB) were left alone; they are
 now announced, and neither is doing anything it should not.
 
-### Step 44 — Announce the preservation bundle *(movenotes, `sql2obsidian.py`)*
+### Step 44 — Announce the preservation bundle *(movenotes, `sql2obsidian.py`)*  ✅
 **Symptom.** A long gap between the last `exported 166,000 Obsidian note(s)` and
 `exported 166654 note(s); preserved 173289 Joplin item(s) and 6634 raw resource
 file(s)`.
@@ -1485,6 +1485,38 @@ bundle:
 
 Announce each, and report progress within the item loop the way the export loop
 already does. `--progress-every 0` must silence them, as it does elsewhere.
+
+**Done.** Verified by exporting the user's own database — same 166,654 notes,
+173,289 items, 6,634 resources and byte-identical 82,969,993-byte manifest as
+their run:
+
+```
+exported 160,000 Obsidian note(s)
+writing preserved Joplin item(s)...
+preserved 20,000 Joplin item(s)
+…
+preserved 160,000 Joplin item(s)
+copying raw resource file(s)...
+writing the preservation manifest for 173,289 item(s)...
+exported 166654 note(s); preserved 173289 Joplin item(s) and 6634 raw resource file(s)
+```
+
+`removing the previous preservation bundle...` appears only on a re-export,
+which is the one phase whose cost is invisible in the summary — deleting the
+173,290 files of the last run. `--verbose` suppresses the phase lines, since it
+already prints a line per note and its user is not the one watching for a hang.
+
+A regression covers all three states: the phases and the counter on a first
+export, the removal line on a re-export, and silence under
+`--progress-every 0` — with the counter asserted as a whole line, because the
+summary contains "preserved N Joplin item(s) and …" and a substring test would
+pass without the counter existing at all.
+
+**Left alone, worth knowing.** `manifest_items` holds 173,289 dicts before
+`json.dumps` renders them into an 83 MB string, so the manifest is built twice
+over in memory. It completes, and no run has reported pressure from it; if a
+larger library ever does, streaming the items is the fix rather than dropping
+`indent=2`, which is what makes the file diffable.
 
 ### Step 45 — Subdomain hosts *(movenotes + theme)*
 Step 40 added the `www.`-less spelling of a host because `www.sciencedirect.com`
