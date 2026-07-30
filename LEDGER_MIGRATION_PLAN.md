@@ -1079,6 +1079,150 @@ Documented in `STATIC_SITE.md`, the generated Getting Started page, the theme's
 User runs the pipeline against a real Twitter/X archive. Fix what it finds.
 Then, with the user's agreement, push `develop`.
 
+**Run 1: 166,654 notes, `--search-backend bluge --build`.** The pipeline
+completed and the site served. Two defects found, both in Part E.
+
+---
+
+## Part E — What the real archive found
+
+Findings from the step-36 run on a 166,654-note Twitter/X vault. Numbered
+continuing from step 36 so the sequence stays readable.
+
+### Step 37 — Diagnose: URLs are not searchable  ✅
+**Symptom.** Searching a URL returns nothing on a Bluge site:
+`https://globalnews.ca/news/10063968/more-canadians-housing-need-cmhc-estimates-report/`
+→ 0, `https://x.com/i/web/status/294324228247937024` → 0,
+`tag:vanre https://x.com/DrCameronMurray/status/1591306824804106240` → 0. A few
+URL queries *do* return results, which made the failure look random.
+
+**Cause.** `_searchable_text()` in `obsidian2site.py:590` deletes every URL from
+the text that becomes the Bluge `body` and `summary`:
+
+```python
+text = _MARKDOWN_LINK_RE.sub(lambda match: match.group(2), text)  # keeps the label, drops the target
+text = re.sub(r"<https?://[^>]+>", " ", text, flags=re.IGNORECASE)
+text = re.sub(r"https?://\S+", " ", text)
+```
+
+The stripping is deliberate but was a *display* decision — the comment above it
+is about `[label](` fragments appearing in summaries. Nothing about it was meant
+to decide what is searchable, and the effect was never measured against a corpus
+with URLs in it.
+
+Verified against the user's own generated data, not inferred:
+
+```
+note body in the vault:  https://globalnews.ca/news/10063968/more-canadians-...
+same note in search-source.jsonl:
+  "@JohnPasalis \"legalize housing\" - making illegal suites… In reply to:
+   @JohnPasalis … 3 million more Canadians in housing need than CMHC estimates
+   suggest: report … 10:22 AM · Nov 02, 2023 🔁 0 💙 0"
+```
+
+Occurrence counts across all 166,654 indexed records:
+
+| string | in `title` | in `body` |
+|---|---|---|
+| `10063968` | 0 | 0 |
+| `globalnews.ca` | 1 | 0 |
+| `ncbi.nlm.nih.gov` | 8,667 | 0 |
+| `PMC4603207` | 11 | 0 |
+| `x.com/i/web/status` | 0 | 0 |
+
+**The `body` field contains no URLs at all.** Every URL query that appeared to
+work was matching the *title*, which is stored raw and keeps whatever URL the
+tweet text happened to contain — `PMC4603207` → 11 hits, `globalnews.ca` → 1 hit.
+Two more were false positives of a different kind:
+`more-canadians-housing-need-cmhc-estimates-report` → 2 hits is the analyser
+splitting on `-` and matching the ordinary words *more/canadians/housing/need/
+report* in unrelated notes; the string itself appears in no record.
+
+**Not an analyser problem.** Bluge's default is `NewStandardAnalyzer()` —
+unicode tokenizer plus lowercase, no stemming and no stop-word list — and it
+tokenises URLs well, keeping hosts whole and splitting paths into words:
+
+```
+https://globalnews.ca/news/10063968/more-canadians-housing-need-cmhc-estimates-report/
+  [https] [globalnews.ca] [news] [10063968] [more] [canadians] [housing] [need]
+  [cmhc] [estimates] [report]
+http://www.upworthy.com/a-12-year-old-egyptian-boy-…-genius-4?g=2
+  [http] [www.upworthy.com] [a] [12] [year] [old] [egyptian] [boy] … [g] [2]
+http://t.co/CT…                    [http] [t.co] [ct]
+```
+
+Every query the user reported would match on these tokens if the text were
+indexed, including the component searches they asked for — `globalnews.ca news`
+and `https://globalnews.ca/news/` both reduce to tokens that a note carrying that
+URL would hold. So the fix is to stop deleting the text, not to change how it is
+analysed.
+
+**The site disagrees with its own index.** The built page shows the URL twice —
+`<a href=https://globalnews.ca/news/10063968/…>https://globalnews.ca/news/10063968/…</a>`
+— so a visitor reads a URL the search index does not have. This also splits the
+two backends, because Pagefind indexes the rendered HTML:
+
+| where the URL is | Bluge | Pagefind |
+|---|---|---|
+| bare URL (rendered as an autolink) | ✗ stripped from the source | ✓ indexed as visible text |
+| markdown/HTML link target (`[label](url)`) | ✗ stripped | ✗ `href` is not visible text |
+
+So `--search-backend bluge` is strictly worse than `pagefind` here, and the user
+asked for both cases: *"whether it is a bare link or in an HTML link."*
+
+### Step 38 — Index URLs for the Bluge backend *(movenotes)*
+Keep the URLs instead of discarding them, without regressing what the stripping
+was actually protecting.
+
+- Split the one function in two: the prose text (URLs removed, unchanged) and
+  the URLs it removed, returned alongside.
+- `body` becomes prose + the URL text. Body is indexed and **not** stored, so
+  nothing a result card shows changes.
+- `summary`, `readingTime` and tag extraction keep using the clean prose text:
+  summary is displayed, reading time would inflate, and feeding URL components
+  to `_extract_tags` would add a word tag per path segment on top of 121,433
+  existing tags.
+- Both link forms are covered: markdown/HTML targets and bare URLs.
+- Appending to `body` rather than adding a separate `urls` field is deliberate.
+  `buildQuery` ANDs terms *within* a field and ORs across fields, so a mixed
+  query like `Pizza vs any celebrity https://trends.google.com/…` only matches
+  if the prose words and the URL tokens are in the same field.
+
+Tests: a note with a bare URL, one with a markdown link, one with both; assert
+the URL tokens reach `body`, that `summary` and the tag list stay clean, and
+that reading time is unchanged.
+
+### Step 39 — Pagefind parity: index link targets *(theme)*
+Bare URLs already work on Pagefind; `href` targets do not. Pagefind can index an
+attribute (`data-pagefind-index-attrs`), which a Hugo link render hook can apply
+to links in note content. Investigate, then measure the index-size cost before
+adopting — the Pagefind index is already the constraint on a static deployment.
+
+### Step 40 — Measure what indexing URLs costs
+On a bench tier: index size, build time, and the latency of the reported queries
+before and after. The Bluge index was 4.85 KB/note, which sets the Vercel
+ceiling (V3) — if URLs move it materially, `DEPLOY_VERCEL.md` needs the new
+number.
+
+### Step 41 — Report progress during the post-Hugo validation *(movenotes)*
+**Symptom.** A long silent gap between Hugo's `Total in 500227 ms` and
+`building Bluge site server...`, with no output, which reads as a hang.
+
+**Cause.** `_validate_built_search_backend()` walks `public/` and reads every
+built HTML file — 177,682 files and 5.6 GB on this archive — running two regexes
+over each, printing nothing at any point.
+
+Print what it is doing and roughly how far along it is, and reduce the work
+itself where that is free: the check only needs the search config and a Pagefind
+runtime reference, so scanning bytes rather than decoding UTF-8, and stopping
+early per file, are both available. Keep the guarantee — it exists to catch a
+build that silently configures the wrong backend.
+
+### Step 42 — Docs, and re-test on the real archive
+Update `STATIC_SITE.md`, `DEPLOY_*.md` and the generated Getting Started page to
+say that URLs are searchable and how they tokenise. Then the user re-runs the
+real archive and checks the reported queries.
+
 ---
 
 ## File inventory
