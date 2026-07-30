@@ -215,9 +215,43 @@ configured:
 | `tag:economics` | one tag; repeat the clause to require several |
 | `since:2026-07-01 until:2026-08-01` | July, by note date — `until:` is exclusive |
 | *(empty)*, or `category:"All notes"` | every note |
+| `https://globalnews.ca/news/10063968/…` | notes linking that URL |
+| `globalnews.ca news` | notes linking that host and path |
 
 Clauses are ANDed, and anything that does not fit — `foo:bar`, a URL — is
 searched as text.
+
+### Searching for a link
+
+**A note's links are searchable, whether the URL is visible or behind a label.**
+`https://globalnews.ca/news/…` and `[the report](https://globalnews.ca/news/…)`
+are both findable by their destination. Internal links are not indexed: the note
+they point at is already searchable as itself.
+
+A URL is split the way a sentence is — the host stays whole, the path becomes
+words:
+
+```
+https://globalnews.ca/news/10063968/more-canadians-housing-need-cmhc-estimates-report/
+  globalnews.ca  news  10063968  more  canadians  housing  need  cmhc  estimates  report
+```
+
+So all of these find the note, and every term still has to appear:
+
+- the whole URL, pasted in
+- a prefix of it — `https://globalnews.ca/news/`
+- its components in any order — `globalnews.ca news`
+- one path segment — `10063968`
+- a URL together with prose or a filter — `tag:vanre https://x.com/…`
+
+**`www.` is optional.** A host tokenises whole, so `www.sciencedirect.com` would
+not answer to `sciencedirect.com`; the shorter spelling is indexed alongside it,
+and both find the same notes.
+
+Two things this is not. It is not a URL *parser* — `?` and `&` are separators
+like any other, so a query string's parts are searched as words rather than as
+parameters. And a common host is a common word: on a Twitter/X archive `x.com`
+matches nearly every note, and costs what a match-all costs.
 
 **Results are ordered newest first, always.** Whatever the query, the most
 recent note is on page 1 — an archive is read by date, and ranking would put it
@@ -232,7 +266,8 @@ request on a Pagefind site (13.5 MB at 25,000 notes, now zero).
 
 **Pagefind cannot express date bounds.** On a static build the results view says
 which clauses were ignored rather than quietly returning the unbounded set.
-Everything else in the table works on both backends.
+Everything else in the table works on both backends, link search included — the
+theme puts each note's external URLs in a hidden block that Pagefind indexes.
 
 `/api/search` also accepts `offset`, `limit` (max 100), `page`, `per` and
 `sort=score` for a caller that wants relevance ranking instead of the date order.

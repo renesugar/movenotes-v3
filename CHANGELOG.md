@@ -26,6 +26,7 @@ Changes in 3.36:
 - Made the post-Hugo backend check say what it is doing. On a 166,654-note archive it read 177,682 built pages and 5.6 GB in silence, taking 8m50s that looked like a hang; it now names the page count, reports every 20,000 pages, and prints its elapsed time, all silenced by `--progress-every 0`.
 - Sped that check up 1.81× on the same archive (529.7 s to 292.2 s) by scanning bytes behind a substring test instead of decoding every page to run two regexes over it. Only 95 of 177,682 pages carry the search config, so both regexes are now skipped for nearly every page. Threads were measured and are slower — the work is a scan, not I/O wait.
 - Added a `compiling the site server...` line, the other unannounced wait during `--build`.
+- Documented link search: a "Searching for a link" section in `STATIC_SITE.md` and on the generated Getting Started page showing how a URL splits and which queries find it, plus its two limits — it is not a URL parser, and a host every note links is as common a word as it sounds.
 - Expanded the suite to 99 Python tests, plus Go tests over both server entry points.
 
 ---
