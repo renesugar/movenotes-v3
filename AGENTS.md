@@ -98,8 +98,21 @@ Read these files first:
 Run:
 
 ```bash
-python3 -m unittest -v test_movenotes.py test_image_resources.py test_obsidian2sql.py test_obsidian2site.py
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_movenotes.py test_image_resources.py test_obsidian2sql.py test_obsidian2site.py
 ```
+
+The scripts change often and the tests run them as subprocesses, so a
+`__pycache__` left by an earlier run can shadow the edit under test — which
+fails in a way that looks like a bug in the change rather than a stale
+byte-code file. `.gitignore` keeps it out of commits; this keeps it from being
+written at all.
+
+**Both are needed, and `-B` alone is not enough.** `-B` is a command-line flag,
+so it applies to the test process and not to the interpreters it spawns —
+running the suite with `-B` still writes a `__pycache__`, of `common`,
+`notesdb`, `constants` and the rest, imported by the scripts under test.
+`PYTHONDONTWRITEBYTECODE` is an environment variable, so the subprocesses
+inherit it.
 
 Some environments intermittently stall when all subprocess-heavy notebook
 filtering tests share one process; running test classes independently is an
