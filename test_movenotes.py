@@ -920,6 +920,62 @@ class LosslessPreservationTest(unittest.TestCase):
             self.assertEqual(len(manifest["items"]), len(raw_items))
             self.assertTrue(all(item["sha256"] for item in manifest["items"]))
 
+    def test_preservation_bundle_reports_its_phases(self) -> None:
+        """Step 44: the bundle runs after the last `exported N` line.
+
+        On a full Joplin library it writes 173,290 files and an 83 MB manifest,
+        long enough that silence there reads as a hang. Each phase says what it
+        is, the item loop counts like the export loop, and `--progress-every 0`
+        turns all of it off.
+        """
+        with tempfile.TemporaryDirectory(prefix="movenotes-phases-") as tmp_name:
+            tmp = Path(tmp_name)
+            source, sqlite_dir, vault = tmp / "raw", tmp / "db", tmp / "vault"
+            for path in (source, sqlite_dir, vault):
+                path.mkdir(parents=True)
+            (source / "resources").mkdir()
+            note_id = "b" * 32
+            (source / f"{note_id}.md").write_bytes(
+                f"Phase Note\n\nBody\n\nid: {note_id}\ntype_: 1".encode()
+            )
+            run("joplin2sql.py", "--input", str(source), "--output", str(sqlite_dir))
+
+            first = run(
+                "sql2obsidian.py", "--input", str(sqlite_dir), "--output", str(vault),
+                "--progress-every", "1",
+            )
+            self.assertIn("writing preserved Joplin item(s)...", first.stdout)
+            # An exact line: the summary also contains "preserved 1 Joplin
+            # item(s) and ...", so a substring test would pass without the
+            # counter existing at all.
+            self.assertIn("preserved 1 Joplin item(s)", first.stdout.splitlines())
+            self.assertIn("writing the preservation manifest for", first.stdout)
+            # Nothing to remove on a first export.
+            self.assertNotIn("removing the previous preservation bundle", first.stdout)
+
+            # A re-export deletes the old bundle first, which on a real library
+            # is thousands of files and the slowest phase of the four.
+            second = run(
+                "sql2obsidian.py", "--input", str(sqlite_dir), "--output", str(vault),
+                "--progress-every", "1",
+            )
+            self.assertIn("removing the previous preservation bundle...", second.stdout)
+
+            quiet = run(
+                "sql2obsidian.py", "--input", str(sqlite_dir), "--output", str(vault),
+                "--progress-every", "0",
+            )
+            for phase in (
+                "removing the previous preservation bundle",
+                "writing preserved Joplin item(s)",
+                "copying raw resource file(s)",
+                "writing the preservation manifest",
+            ):
+                self.assertNotIn(phase, quiet.stdout)
+            self.assertNotIn("preserved 1 Joplin item(s)", quiet.stdout.splitlines())
+            # The summary is not progress and must survive.
+            self.assertIn("preserved 1 Joplin item(s) and", quiet.stdout)
+
     def test_conflicting_resource_id_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory(prefix="movenotes-collision-") as tmp_name:
             tmp = Path(tmp_name)

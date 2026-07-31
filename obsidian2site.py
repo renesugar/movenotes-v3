@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Convert an Obsidian vault into a scalable Hugo + Pagefind static site.
+"""Convert an Obsidian vault into a scalable Hugo static site.
 
-The generated Hugo project uses the Relearn documentation theme while replacing
-its page-tree sidebar with a fixed Getting Started / Search / Tags navigation.
-Markdown notes are hidden from the theme menu and are found through Pagefind or
-the disk-backed tag index. The converter is standard-library-only; Hugo,
-Relearn, and Pagefind are external build-time tools.
+The generated Hugo project uses the Ledger theme, which is built for archives of
+100k+ notes: no page tree is ever enumerated, unbounded surfaces are capped, and
+search is a swappable backend. Notes are found through server-side Bluge search,
+the Pagefind static fallback, or the disk-backed tag index. The converter is
+standard-library-only; Hugo, the theme, Go, and Pagefind are external build-time
+tools.
 """
 
 from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import functools
 import hashlib
 import html
 import json
@@ -21,10 +23,11 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import time
 import unicodedata
 import urllib.parse
 from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
@@ -32,7 +35,7 @@ import common
 import obsidian2sql
 
 __program_name__ = "obsidian2site"
-__version__ = "3.35"
+__version__ = "3.36"
 
 _IGNORED_DIRECTORY_NAMES = frozenset({
     ".git", ".hg", ".svn", ".obsidian", ".movenotes", ".trash", ".Trash",
@@ -86,16 +89,24 @@ yourself yourselves http https www com net org html amp rt via tco x twitter
 status tweet tweets post posts image images video videos
 """.split())
 
-_RELEARN_HUGO_0158_REPLACEMENTS = (
-    (".Language.LanguageDirection", ".Language.Direction"),
-    (".Language.LanguageCode", ".Language.Locale"),
-    (".Language.LanguageName", ".Language.Label"),
-    (".Language.Lang", ".Language.Name"),
-    ("$site.Sites", "hugo.Sites"),
-    ("site.Sites", "hugo.Sites"),
-    (".Site.Sites", "hugo.Sites"),
-    (".Page.Sites", "hugo.Sites"),
-)
+_LEDGER_THEME_NAME = "hugo-theme-ledger"
+_LEDGER_THEME_MODULE = "github.com/renesugar/hugo-theme-ledger"
+
+# Bounds on the automatic taxonomy-tag cap. Measured at 5,000 synthetic notes: a
+# taxonomy term costs about as much to build as a note page (200 terms → 11.2 s,
+# 2,000 → 18.6 s, 5,000 → 32.2 s), so terms have to stay a small fraction of the
+# note count or a small archive pays more for its tags than for its notes. The
+# upper bound is the term count the theme has been benchmarked at.
+_MINIMUM_TAXONOMY_TAGS = 200
+_MAXIMUM_TAXONOMY_TAGS = 5000
+_TAXONOMY_TAGS_PER_NOTE = 10
+
+
+def _automatic_taxonomy_tag_cap(notes: int) -> int:
+    return max(
+        _MINIMUM_TAXONOMY_TAGS,
+        min(_MAXIMUM_TAXONOMY_TAGS, notes // _TAXONOMY_TAGS_PER_NOTE),
+    )
 
 
 def _build_argument_parser() -> argparse.ArgumentParser:
@@ -136,6 +147,25 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         help="Optional UTF-8 file containing additional filler words",
     )
     parser.add_argument(
+        "--category-mode", choices=("folder", "fixed", "none"), default="folder",
+        help=("Note category: from the top-level vault folder (default), one "
+              "fixed name, or none"),
+    )
+    parser.add_argument(
+        "--category-name",
+        help=("Category for --category-mode fixed, and for notes at the vault "
+              "root under folder mode (default: the site title)"),
+    )
+    parser.add_argument(
+        "--max-taxonomy-tags", type=int,
+        help=("Most frequent explicit tags to publish as Hugo taxonomy terms; "
+              "the rest stay searchable through the tag index and Bluge. A term "
+              "page costs about as much to build as a note page, so the default "
+              "keeps terms at a tenth of the note count, bounded to "
+              f"{_MINIMUM_TAXONOMY_TAGS}–{_MAXIMUM_TAXONOMY_TAGS}. 0 removes the "
+              "cap"),
+    )
+    parser.add_argument(
         "--include-hidden", action="store_true",
         help="Include dot-prefixed vault directories except .movenotes",
     )
@@ -144,8 +174,15 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         help="Convert ![[Note]] to a link (scalable default) or transclude its body",
     )
     parser.add_argument(
+        "--ledger-theme", type=Path,
+        help="Copy an existing hugo-theme-ledger checkout into the generated site",
+    )
+    parser.add_argument(
         "--relearn-theme", type=Path,
-        help="Copy an existing hugo-theme-relearn checkout into the generated site",
+        help=(
+            "Deprecated alias for --ledger-theme, kept because it appears in "
+            "published command lines; the generated site uses hugo-theme-ledger"
+        ),
     )
     parser.add_argument(
         "--build", action="store_true",
@@ -153,9 +190,15 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--search-backend", choices=("both", "bluge", "pagefind"), default="both",
-        help=("Search runtime to generate. 'bluge' emits no Pagefind or Relearn/Lunr "
-              "runtime; 'both' keeps Pagefind only as a static-hosting fallback "
+        help=("Search runtime to generate. 'bluge' emits no browser search index; "
+              "'both' keeps Pagefind only as a static-hosting fallback "
               "(default: both)"),
+    )
+    parser.add_argument(
+        "--vercel", action="store_true",
+        help=("Also emit Vercel deployment files: vercel.json, .vercelignore, "
+              "and — unless --search-backend pagefind — a root Go module with "
+              "api/ functions for Bluge search"),
     )
     parser.add_argument(
         "--force", action="store_true",
@@ -179,8 +222,31 @@ def _validate_args(args: argparse.Namespace) -> None:
         common.error("--tag-batch-size must be at least 1")
     if args.minimum_word_length < 1:
         common.error("--minimum-word-length must be at least 1")
-    if args.relearn_theme is not None and not args.relearn_theme.is_dir():
-        common.error(f"Relearn theme directory does not exist: {args.relearn_theme}")
+    if args.relearn_theme is not None and args.ledger_theme is None:
+        # Accepted, not silently reinterpreted: the copied theme is Ledger now.
+        print(
+            "warning: --relearn-theme is deprecated; treating it as --ledger-theme. "
+            "The generated site uses hugo-theme-ledger.",
+            file=sys.stderr,
+        )
+        args.ledger_theme = args.relearn_theme
+    elif args.relearn_theme is not None:
+        common.error("pass either --ledger-theme or --relearn-theme, not both")
+    if args.ledger_theme is not None and not args.ledger_theme.is_dir():
+        common.error(f"Ledger theme directory does not exist: {args.ledger_theme}")
+    if args.max_taxonomy_tags is not None and args.max_taxonomy_tags < 0:
+        common.error("--max-taxonomy-tags cannot be negative")
+    if args.vercel and args.search_backend != "pagefind" and args.ledger_theme is None:
+        # Vercel's Go runtime needs go.mod at the project root, and Hugo's module
+        # mode needs that same file for the theme import — `go mod tidy` would
+        # then strip the theme, since no Go file imports it. A copied theme keeps
+        # the root go.mod for Go alone.
+        common.error(
+            "--vercel with Bluge search requires --ledger-theme: the Go runtime "
+            "needs go.mod at the project root, which Hugo's module mode also "
+            "claims. Use --search-backend pagefind for a static-only Vercel "
+            "deployment, which needs no Go module at all."
+        )
 
 
 def _is_hidden_part(part: str) -> bool:
@@ -252,17 +318,36 @@ def _safe_filename(value: str, *, maximum_bytes: int = 180) -> str:
     return _safe_segment(path.stem, maximum_bytes=stem_budget) + suffix
 
 
-def _unique_output_path(relative: PurePosixPath, used: set[str]) -> PurePosixPath:
-    parts = [
-        _safe_filename(part) if index == len(relative.parts) - 1 else _safe_segment(part)
-        for index, part in enumerate(relative.parts)
-    ]
-    candidate = PurePosixPath(*parts)
-    key = candidate.as_posix().casefold()
+def _unique_output_path(
+    parts: tuple[str, ...], used: set[str], *, safe_prefix: tuple[str, ...] | None = None
+) -> PurePosixPath:
+    """Reserve a collision-free output path, given its segments.
+
+    Takes segments rather than a `PurePosixPath` because the caller builds one
+    of these per note and pathlib dominated the cost of doing so — see step 43.
+    `safe_prefix`, when given, is the leading segments already passed through
+    `_safe_segment`, which for a vault is the same directory for every note in
+    it.
+
+    These paths are canonical note URLs, written into front matter and reused by
+    the tag index and both search backends, so the output must not drift.
+    """
+    last = len(parts) - 1
+    if safe_prefix is None:
+        safe = [
+            _safe_filename(part) if index == last else _safe_segment(part)
+            for index, part in enumerate(parts)
+        ]
+    else:
+        safe = list(safe_prefix)
+        safe.append(_safe_filename(parts[last]))
+    posix = "/".join(safe)
+    key = posix.casefold()
     if key not in used:
         used.add(key)
-        return candidate
-    digest = hashlib.sha256(relative.as_posix().encode("utf-8")).hexdigest()[:12]
+        return PurePosixPath(posix)
+    candidate = PurePosixPath(posix)
+    digest = hashlib.sha256("/".join(parts).encode("utf-8")).hexdigest()[:12]
     stem = _safe_segment(candidate.stem, maximum_bytes=160)
     suffix = candidate.suffix
     candidate = candidate.with_name(f"{stem}-{digest}{suffix}")
@@ -308,19 +393,87 @@ def _build_path_maps(
     asset_map: dict[str, PurePosixPath] = {}
     used_notes: set[str] = set()
     used_assets: set[str] = set()
+
+    # Every scanned path is under the root, so the relative form is a string
+    # slice. `Path.relative_to` was 37% of this function on a 166,654-note
+    # vault, re-deriving a prefix already known here.
+    cut = len(str(root)) + 1
+
+    def relative_posix(path: Path) -> str:
+        value = str(path)[cut:]
+        return value if os.sep == "/" else value.replace(os.sep, "/")
+
+    # A vault holds far fewer directories than notes — a Twitter archive has
+    # one — and slugging walks a string character by character. Cached per
+    # directory, the work happens once instead of once per note.
+    note_dirs: dict[str, tuple[str, ...]] = {}
+    asset_dirs: dict[str, tuple[str, ...]] = {}
+
     for path in markdown_paths:
-        relative = PurePosixPath(path.relative_to(root).as_posix())
-        parent_parts = [_slug_site_segment(part) for part in relative.parent.parts if part not in {"", "."}]
-        filename = _slug_site_segment(relative.stem) + ".md"
-        output = _unique_output_path(
-            PurePosixPath("notes", *parent_parts, filename), used_notes
+        relative = relative_posix(path)
+        parent, _, name = relative.rpartition("/")
+        slugged = note_dirs.get(parent)
+        if slugged is None:
+            slugged = tuple(
+                _slug_site_segment(part)
+                for part in parent.split("/") if part not in {"", "."}
+            )
+            note_dirs[parent] = slugged
+        # `PurePosixPath(name).stem`, without building one per note: a leading
+        # dot is not a suffix separator, and a trailing dot is not a suffix.
+        stem = (
+            name[:name.rindex(".")]
+            if "." in name[1:] and not name.endswith(".") else name
         )
-        note_map[relative.as_posix()] = output
+        filename = _slug_site_segment(stem) + ".md"
+        output = _unique_output_path(
+            ("notes",) + slugged + (filename,), used_notes,
+            safe_prefix=_safe_directory(("notes",) + slugged),
+        )
+        note_map[relative] = output
+
     for path in asset_paths:
-        relative = PurePosixPath(path.relative_to(root).as_posix())
-        output = _unique_output_path(PurePosixPath("vault-assets") / relative, used_assets)
-        asset_map[relative.as_posix()] = output
+        relative = relative_posix(path)
+        parent, _, name = relative.rpartition("/")
+        directory = asset_dirs.get(parent)
+        if directory is None:
+            directory = tuple(
+                part for part in parent.split("/") if part not in {"", "."}
+            )
+            asset_dirs[parent] = directory
+        output = _unique_output_path(
+            ("vault-assets",) + directory + (name,), used_assets,
+            safe_prefix=_safe_directory(("vault-assets",) + directory),
+        )
+        asset_map[relative] = output
+
     return note_map, asset_map
+
+
+def _phase_reporter(progress_every: int) -> Callable[[str], None]:
+    """Announce a long phase, or say nothing when progress is switched off.
+
+    A generated archive spends minutes in steps that print nothing, and silence
+    is indistinguishable from a hang. `--progress-every 0` turns these off with
+    the note counter, because a caller that wants one quiet wants both.
+    """
+    if not progress_every:
+        return lambda _message: None
+
+    def report(message: str) -> None:
+        print(message, flush=True)
+
+    return report
+
+
+@functools.lru_cache(maxsize=4096)
+def _safe_directory(parts: tuple[str, ...]) -> tuple[str, ...]:
+    """`_safe_segment` over a directory's segments, memoised.
+
+    The leading segments repeat for every note in a directory; the leaf never
+    does, so only this part is worth caching.
+    """
+    return tuple(_safe_segment(part) for part in parts)
 
 
 def _lookup_indexes(paths: Iterable[str]) -> tuple[dict[str, str], dict[str, list[str]]]:
@@ -448,7 +601,7 @@ def _normalise_heading_text(value: str) -> str:
 
 
 def _remove_redundant_leading_heading(body: str, title: str) -> str:
-    """Remove an initial H1 that merely repeats Relearn's generated page title."""
+    """Remove an initial H1 that merely repeats the theme's generated page title."""
     expected = _normalise_heading_text(title)
     if not expected:
         return body
@@ -523,7 +676,19 @@ def _tags_from_frontmatter(value: object) -> set[str]:
     return set()
 
 
-def _searchable_text(body: str) -> str:
+def _searchable_parts(body: str) -> tuple[str, list[str]]:
+    """Split a note into prose and the URLs the prose no longer contains.
+
+    Two outputs because they are wanted in different places. The prose is what a
+    result card shows, what reading time is counted from, and what tag extraction
+    reads; the URLs have to be searchable but must never be displayed. Keeping
+    them apart is why a summary does not open with a tracking link and why tag
+    extraction does not gain a word tag per URL path segment.
+
+    Removing them used to be the whole story, and it made every URL unfindable on
+    the Bluge backend — the built page showed a link the index did not have. See
+    step 37 in LEDGER_MIGRATION_PLAN.md.
+    """
     lines: list[str] = []
     fence: str | None = None
     for line in body.splitlines():
@@ -542,14 +707,102 @@ def _searchable_text(body: str) -> str:
         ),
         text,
     )
-    # Preserve Markdown link labels before removing their external destinations.
-    # Removing bare URLs first leaves fragments such as ``[label](`` in Bluge
-    # summaries and search text.
-    text = _MARKDOWN_LINK_RE.sub(lambda match: match.group(2), text)
-    text = re.sub(r"<https?://[^>]+>", " ", text, flags=re.IGNORECASE)
-    text = re.sub(r"https?://\S+", " ", text)
+
+    urls: list[str] = []
+
+    def take_link(match: re.Match[str]) -> str:
+        # The label stays in the prose, the destination goes to the URL list: a
+        # `[@JohnPasalis](https://x.com/i/web/status/…)` is read as a name and
+        # searched as a link.
+        target = _link_target_url(match.group(3))
+        if target:
+            urls.append(target)
+        return match.group(2)
+
+    def take_url(match: re.Match[str]) -> str:
+        urls.append(match.group(1) if match.lastindex else match.group(0))
+        return " "
+
+    # Markdown links first. Removing bare URLs before them leaves fragments such
+    # as ``[label](`` in the prose.
+    text = _MARKDOWN_LINK_RE.sub(take_link, text)
+    text = _ANGLE_URL_RE.sub(take_url, text)
+    text = _BARE_URL_RE.sub(take_url, text)
     text = re.sub(r"<[^>]+>", " ", text)
-    return text
+    return text, _unique(urls)
+
+
+def _searchable_text(body: str) -> str:
+    """The prose alone, for callers that have no use for the URLs."""
+    return _searchable_parts(body)[0]
+
+
+def _link_target_url(raw: str) -> str | None:
+    """The http(s) URL a Markdown link points at, or None.
+
+    A destination may carry a title — ``[label](https://host/p "Title")`` — or be
+    angle-wrapped, and only the first whitespace-delimited part is the URL.
+    Relative destinations are skipped: an internal note path is already
+    searchable as the note it points to.
+    """
+    target = raw.strip()
+    if target.startswith("<"):
+        target = target[1:].partition(">")[0]
+    parts = target.split()
+    target = parts[0] if parts else ""
+    return target if _BARE_URL_RE.fullmatch(target) else None
+
+
+def _search_body(text: str, urls: list[str]) -> str:
+    """The Bluge `body` field: the note's prose followed by its links.
+
+    Bluge's standard analyser tokenises a URL usefully on its own — it keeps the
+    host whole and splits the path into words, so
+    `https://globalnews.ca/news/10063968/more-canadians-…` yields `globalnews.ca`,
+    `news`, `10063968` and the rest. Appending the raw URLs is therefore enough to
+    make both a whole-URL search and a search for its components work.
+    """
+    if not urls:
+        return text
+    parts = urls + _host_aliases(urls)
+    if not text:
+        return " ".join(parts)
+    return text + " " + " ".join(parts)
+
+
+def _host_aliases(urls: list[str]) -> list[str]:
+    """Hosts a visitor would type that the analyser would not otherwise produce.
+
+    A URL tokenises with its host whole, so `https://www.sciencedirect.com/…`
+    yields the single term `www.sciencedirect.com` and a search for
+    `sciencedirect.com` finds nothing — measured on 20,000 real notes, 2 hits
+    against 455. The path needs no such help: the analyser already splits it into
+    words.
+
+    Every parent domain is indexed, not only the `www.`-less form, because the
+    subdomain a link happens to use is not something a reader remembers. One
+    archive links `www.kqed.org`, `blogs.kqed.org` and `u.kqed.org`, and
+    `kqed.org` should find all three.
+
+    Stops at two labels, so the alias is still host-shaped rather than a bare
+    `org`. That rule cannot tell `sciencedirect.com` from a contrived `co.uk`,
+    and a public-suffix list is not worth carrying for a spare search term
+    nobody would type.
+    """
+    aliases = []
+    for url in urls:
+        host = url.partition("://")[2].partition("/")[0].partition("?")[0]
+        labels = host.split(".")
+        for start in range(1, len(labels) - 1):
+            aliases.append(".".join(labels[start:]))
+    return _unique(aliases)
+
+
+def _unique(values: list[str]) -> list[str]:
+    """Order-preserving dedupe. A note usually links the same URL twice — once
+    bare and once behind a label — and the index need not carry it twice."""
+    seen: set[str] = set()
+    return [v for v in values if not (v in seen or seen.add(v))]
 
 
 def _extract_tags(
@@ -933,27 +1186,70 @@ def _is_twitter_note(metadata: dict[str, object]) -> bool:
     return False
 
 
+def _note_category(
+    source_relative: PurePosixPath, *, mode: str, fixed_name: str,
+) -> str:
+    """Return the note's category, or "" when categories are disabled.
+
+    Folder mode uses the top-level vault folder, which is meaningful for the
+    archives this converter targets (``Twitter/``, ``Notes/``). The name is used
+    verbatim, not slugged: it is display text and it is what a `category:` query
+    has to match.
+    """
+    if mode == "none":
+        return ""
+    if mode == "fixed":
+        return fixed_name
+    parts = source_relative.parts
+    if len(parts) > 1:
+        return parts[0]
+    return fixed_name
+
+
 def _frontmatter_json(
     *, title: str, date: str, lastmod: str, source_path: str,
-    explicit_tags: list[str], site_url: str, aliases: list[str] | None = None,
-    hide_heading: bool = False, hide_author_date: bool = False,
+    site_url: str, category: str = "", tags: list[str] | None = None,
+    aliases: list[str] | None = None,
+    hide_title: bool = False, hide_meta: bool = False,
 ) -> str:
+    """Front matter for one note.
+
+    Deliberately small: it is repeated once per note, so 166k notes pay for
+    every field. Nothing is written that the theme can derive — no summary
+    (Hugo's own `.Summary` is what result cards fall back to, and the post view
+    refuses to use it as a standfirst because it duplicates the body directly
+    below it) and no readingTime (`.ReadingTime`). The boolean switches are
+    emitted only when true, since the theme's default for both is false.
+    """
     data: dict[str, object] = {
         "title": title,
         "date": date,
         "lastmod": lastmod,
-        "hidden": True,
-        "disableBreadcrumb": True,
-        "disableToc": True,
         "url": site_url,
         "movenotes_source_path": source_path,
-        "movenotes_explicit_tags": explicit_tags,
-        "movenotes_hide_heading": hide_heading,
-        "hideAuthorDate": hide_author_date,
     }
+    if category:
+        data["categories"] = [category]
+    if tags:
+        data["tags"] = tags
+    if hide_title:
+        data["ledgerHideTitle"] = True
+    if hide_meta:
+        data["ledgerHideMeta"] = True
     if aliases:
         data["aliases"] = aliases
     return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+
+
+def _reading_minutes(text: str) -> int:
+    """Reading time in minutes, matching Hugo's .ReadingTime.
+
+    Hugo divides the word count by 213 and rounds up. The theme falls back to
+    .ReadingTime for its own pages, but a search result rendered from the Bluge
+    index has no Hugo page behind it, so the number has to travel in the index.
+    """
+    words = len(text.split())
+    return max(1, -(-words // 213)) if words else 0
 
 
 def _process_note(
@@ -970,7 +1266,9 @@ def _process_note(
     stop_words: frozenset[str],
     minimum_word_length: int,
     note_embeds: str,
-) -> tuple[list[str], str, str, str, str, str, int, int]:
+    category_mode: str,
+    category_name: str,
+) -> tuple[list[str], list[str], str, str, str, str, str, str, int, int, int]:
     source_relative = PurePosixPath(source_path.relative_to(input_root).as_posix())
     output_relative = note_map[source_relative.as_posix()]
     raw = source_path.read_text(encoding="utf-8-sig")
@@ -1011,22 +1309,31 @@ def _process_note(
     destination.parent.mkdir(parents=True, exist_ok=True)
     hugo_url = _note_hugo_url(output_relative)
     site_url = _note_site_url(output_relative)
+    category = _note_category(
+        source_relative, mode=category_mode, fixed_name=category_name
+    )
+    # Every explicit tag is written now; the ones that do not survive the
+    # taxonomy cap are removed afterwards, once the global counts are known.
     content = _frontmatter_json(
         title=title, date=date, lastmod=lastmod,
-        source_path=source_relative.as_posix(), explicit_tags=explicit_tags,
-        site_url=hugo_url, hide_heading=twitter_note,
-        hide_author_date=twitter_note,
+        source_path=source_relative.as_posix(),
+        site_url=hugo_url, category=category, tags=explicit_tags,
+        hide_title=twitter_note, hide_meta=twitter_note,
     ) + "\n" + converted
     destination.write_text(content, encoding="utf-8", newline="\n")
-    search_text = re.sub(r"\s+", " ", _searchable_text(f"{title}\n{converted}")).strip()
-    summary = search_text[:700]
+    search_text, search_urls = _searchable_parts(f"{title}\n{converted}")
+    search_text = re.sub(r"\s+", " ", search_text).strip()
     return (
         tags,
+        explicit_tags,
         source_relative.as_posix(),
         site_url,
         title,
         date,
         search_text,
+        search_urls,
+        category,
+        _reading_minutes(search_text),
         url_stats[0],
         url_stats[1],
     )
@@ -1056,12 +1363,21 @@ def _open_tag_database(path: Path) -> sqlite3.Connection:
     connection.execute("CREATE INDEX tags_bucket_idx ON tags(bucket, tag)")
     connection.execute(
         "CREATE TABLE documents ("
-        "note_id INTEGER PRIMARY KEY, url TEXT NOT NULL, title TEXT NOT NULL)"
+        "note_id INTEGER PRIMARY KEY, url TEXT NOT NULL, title TEXT NOT NULL, "
+        "date TEXT NOT NULL)"
     )
     connection.execute(
         "CREATE TABLE tag_documents ("
         "posting_bucket INTEGER NOT NULL, tag TEXT NOT NULL, note_id INTEGER NOT NULL, "
         "PRIMARY KEY(posting_bucket, tag, note_id)) WITHOUT ROWID"
+    )
+    # Explicit tags only — the ones eligible to become Hugo taxonomy terms.
+    # Generated word tags never enter the taxonomy, so they are not recorded
+    # here; they live in tag_documents with everything else.
+    connection.execute(
+        "CREATE TABLE explicit_tags ("
+        "tag TEXT NOT NULL, note_id INTEGER NOT NULL, "
+        "PRIMARY KEY(tag, note_id)) WITHOUT ROWID"
     )
     return connection
 
@@ -1087,17 +1403,107 @@ def _tag_posting_bucket(tag: str) -> int:
 
 def _update_tag_documents(
     connection: sqlite3.Connection,
-    documents: Iterable[tuple[int, str, str]],
+    documents: Iterable[tuple[int, str, str, str]],
     associations: Iterable[tuple[int, str, int]],
 ) -> None:
     connection.executemany(
-        "INSERT INTO documents(note_id, url, title) VALUES (?, ?, ?)",
+        "INSERT INTO documents(note_id, url, title, date) VALUES (?, ?, ?, ?)",
         sorted(documents, key=lambda row: row[0]),
     )
     connection.executemany(
         "INSERT INTO tag_documents(posting_bucket, tag, note_id) VALUES (?, ?, ?)",
         sorted(associations),
     )
+
+
+def _update_explicit_tags(
+    connection: sqlite3.Connection, associations: Iterable[tuple[str, int]]
+) -> None:
+    connection.executemany(
+        "INSERT OR IGNORE INTO explicit_tags(tag, note_id) VALUES (?, ?)",
+        sorted(associations),
+    )
+
+
+def _rewrite_note_tags(path: Path, promoted: frozenset[str]) -> bool:
+    """Drop demoted tags from one note's front matter. Returns True if changed.
+
+    Front matter is a single JSON line, so this rewrites the first line and
+    copies the body through untouched.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    first, separator, body = text.partition("\n")
+    try:
+        data = json.loads(first)
+    except (ValueError, json.JSONDecodeError):
+        return False
+    tags = data.get("tags")
+    if not isinstance(tags, list):
+        return False
+    kept = [tag for tag in tags if tag in promoted]
+    if len(kept) == len(tags):
+        return False
+    if kept:
+        data["tags"] = kept
+    else:
+        data.pop("tags")
+    path.write_text(
+        json.dumps(data, ensure_ascii=False, separators=(",", ":")) + separator + body,
+        encoding="utf-8", newline="\n",
+    )
+    return True
+
+
+def _apply_taxonomy_tag_cap(
+    connection: sqlite3.Connection, content_root: Path, maximum: int
+) -> tuple[int, int, int]:
+    """Keep only the most frequent explicit tags in Hugo's taxonomy.
+
+    Returns (distinct explicit tags, promoted, notes rewritten).
+
+    Every taxonomy term is a generated page, so an archive with 50k distinct
+    hashtags would add 50k pages to the build. The cap keeps that bounded.
+    Demoted tags are not lost: they stay in the hashed posting index behind
+    Browse Tags and in the Bluge index, so `tag:` still finds them.
+
+    This runs after conversion because promotion needs global counts, which are
+    only complete once every note has been read. Notes are rewritten rather than
+    buffered because a vault's bodies do not fit in memory. Only the notes
+    carrying a demoted tag are touched, so a vault under the cap pays nothing.
+    """
+    total = connection.execute(
+        "SELECT COUNT(*) FROM (SELECT tag FROM explicit_tags GROUP BY tag)"
+    ).fetchone()[0]
+    if maximum == 0 or total <= maximum:
+        return total, total, 0
+
+    # Ties break by tag name so two runs of the same vault promote the same set.
+    connection.execute("CREATE TEMP TABLE promoted_tags (tag TEXT PRIMARY KEY)")
+    connection.execute(
+        "INSERT INTO promoted_tags(tag) SELECT tag FROM explicit_tags "
+        "GROUP BY tag ORDER BY COUNT(*) DESC, tag ASC LIMIT ?",
+        (maximum,),
+    )
+    promoted = frozenset(
+        row[0] for row in connection.execute("SELECT tag FROM promoted_tags")
+    )
+    rewritten = 0
+    cursor = connection.execute(
+        "SELECT DISTINCT documents.url FROM explicit_tags "
+        "LEFT JOIN promoted_tags ON promoted_tags.tag = explicit_tags.tag "
+        "JOIN documents ON documents.note_id = explicit_tags.note_id "
+        "WHERE promoted_tags.tag IS NULL"
+    )
+    for (url,) in cursor:
+        # The canonical URL is the generated content path with a .html suffix.
+        relative = PurePosixPath(url.lstrip("/")).with_suffix(".md")
+        if _rewrite_note_tags(content_root / Path(relative.as_posix()), promoted):
+            rewritten += 1
+    connection.execute("DROP TABLE promoted_tags")
+    return total, len(promoted), rewritten
 
 
 def _tag_bucket(tag: str) -> str:
@@ -1183,8 +1589,8 @@ def _write_document_chunks(
     first = True
     row_count = 0
     try:
-        for note_id, url, title in connection.execute(
-            "SELECT note_id, url, title FROM documents ORDER BY note_id"
+        for note_id, url, title, date in connection.execute(
+            "SELECT note_id, url, title, date FROM documents ORDER BY note_id"
         ):
             note_id = int(note_id)
             chunk = note_id // _DOCUMENT_CHUNK_SIZE
@@ -1205,7 +1611,10 @@ def _write_document_chunks(
             first = False
             json.dump(str(note_id), handle)
             handle.write(":")
-            json.dump([str(url), str(title)], handle, ensure_ascii=False, separators=(",", ":"))
+            json.dump(
+                [str(url), str(title), str(date)[:10]],
+                handle, ensure_ascii=False, separators=(",", ":"),
+            )
             row_count += 1
     finally:
         if handle is not None:
@@ -1241,7 +1650,8 @@ def _write_tag_index(connection: sqlite3.Connection, static_root: Path) -> int:
     (target / "manifest.json").write_text(
         json.dumps(
             {
-                "version": 2,
+                # 3: document chunk records carry a date as their third field.
+                "version": 3,
                 "total": total,
                 "buckets": manifest,
                 "posting_buckets": posting_manifest,
@@ -1267,37 +1677,24 @@ def _copy_assets(input_root: Path, static_root: Path, asset_map: dict[str, PureP
     return copied
 
 
-def _modernize_copied_relearn_theme(theme_root: Path) -> int:
-    """Update a copied Relearn checkout for Hugo's v0.158+ template APIs."""
-    changed_files = 0
-    layouts = theme_root / "layouts"
-    if not layouts.is_dir():
-        return 0
-    for path in layouts.rglob("*"):
-        if not path.is_file() or path.suffix.casefold() not in {
-            ".html", ".gotmpl", ".xml", ".json", ".txt",
-        }:
-            continue
-        try:
-            original = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        updated = original
-        for old, new in _RELEARN_HUGO_0158_REPLACEMENTS:
-            updated = updated.replace(old, new)
-        if updated != original:
-            path.write_text(updated, encoding="utf-8", newline="\n")
-            changed_files += 1
-    return changed_files
-
-
 def _toml_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
+def _theme_search_backend(search_backend: str) -> str:
+    """Map the movenotes backend choice onto the theme's adapter name.
+
+    ``both`` becomes the theme's ``auto`` adapter, which probes ``/api/health``
+    and uses Bluge when the generated server answers and Pagefind when nothing
+    does — one build that works whether or not the server is running, which is
+    what ``both`` has always meant here.
+    """
+    return {"pagefind": "pagefind", "bluge": "bluge"}.get(search_backend, "auto")
+
+
 def _write_hugo_project(
     output: Path, *, title: str, base_url: str, locale: str,
-    copied_theme: bool, search_backend: str,
+    copied_theme: bool, search_backend: str, vercel: bool = False,
 ) -> None:
     generated_at = (
         datetime.now(timezone.utc).replace(microsecond=0)
@@ -1307,104 +1704,109 @@ def _write_hugo_project(
     content = output / "content"
     layouts = output / "layouts"
     static = output / "static"
-    assets = output / "assets"
+    assets = output / "assets" / "js"
     for path in (
-        content / "notes", layouts / "partials", layouts / "shortcodes",
-        layouts / "partials" / "sidebar" / "element",
-        layouts / "partials" / "dependencies",
+        content / "notes", layouts,
         static / "css", static / "js", assets,
     ):
         path.mkdir(parents=True, exist_ok=True)
 
-    module = "" if copied_theme else """
+    module = "" if copied_theme else f"""
 [module]
   [[module.imports]]
-    path = 'github.com/McShelby/hugo-theme-relearn'
+    path = '{_LEDGER_THEME_MODULE}'
 """
-    theme_line = "theme = 'hugo-theme-relearn'\n" if copied_theme else ""
+    theme_line = f"theme = '{_LEDGER_THEME_NAME}'\n" if copied_theme else ""
+    # Notes carry an explicit `url` ending in .html, so uglyURLs is unnecessary
+    # for them and would only push the theme's own pages to /search.html, which
+    # its templates do not link to. Auxiliary pages stay directory-style.
+    # `locale`, not `languageCode`: Hugo deprecated the latter in v0.158.
     hugo_toml = f"""baseURL = {_toml_string(base_url)}
 locale = {_toml_string(locale)}
 title = {_toml_string(title)}
-uglyURLs = true
 enableRobotsTXT = true
 buildFuture = true
 buildExpired = true
 buildDrafts = true
-disableKinds = ['taxonomy', 'term', 'RSS']
+# Terms are used verbatim in search queries (tag:codec), so they must not be
+# title-cased for display.
+capitalizeListTitles = false
 {theme_line}
-[params]
-  movenotesBuildId = {_toml_string(build_id)}
-  disableLandingPageButton = true
-  disableBreadcrumb = true
-  disableNextPrev = true
-  disableToc = true
-  disableAnchorCopy = true
-  disableInlineCopyToClipBoard = true
-  showVisitedLinks = false
-  hideAuthorName = true
-  hideAuthorEmail = true
-  themeVariant = ['relearn-light', 'relearn-dark']
-  search = false
-  movenotesSearchBackend = {_toml_string(search_backend)}
+[taxonomies]
+  category = 'categories'
+  tag = 'tags'
 
-  [[params.sidebarheadermenus]]
-    type = 'custom'
-    identifier = 'movenotes-search'
-    main = true
+[pagination]
+  pagerSize = 20
 
-    [[params.sidebarheadermenus.elements]]
-      type = 'movenotes-search'
-
-  [[params.sidebarheadermenus]]
-    type = 'divider'
-    identifier = 'movenotes-search-divider'
-
-  [[params.sidebarmenus]]
-    type = 'menu'
-    identifier = 'movenotes'
-    main = true
-    disableTitle = true
-
-  [[params.sidebarfootermenus]]
-    type = 'divider'
-    identifier = 'movenotes-footer-divider'
-
-  [[params.sidebarfootermenus]]
-    type = 'custom'
-    identifier = 'movenotes-theme-switcher'
-
-    [[params.sidebarfootermenus.elements]]
-      type = 'variantswitcher'
-
-[menus]
-  [[menus.movenotes]]
-    identifier = 'getting-started'
-    name = 'Getting Started'
-    pageRef = '/'
-    weight = 10
-    pre = '<i class="fa-fw fas fa-compass"></i> '
-
-  [[menus.movenotes]]
-    identifier = 'search'
-    name = 'Search'
-    pageRef = '/search'
-    weight = 20
-    pre = '<i class="fa-fw fas fa-magnifying-glass"></i> '
-
-  [[menus.movenotes]]
-    identifier = 'browse-tags'
-    name = 'Browse Tags'
-    pageRef = '/tags'
-    weight = 30
-    pre = '<i class="fa-fw fas fa-tags"></i> '
+# A feed of a six-figure archive is neither useful nor cheap to generate.
+[services.rss]
+  limit = 20
 
 [markup]
   [markup.goldmark]
     [markup.goldmark.renderer]
       unsafe = true
 
+[params]
+  movenotesBuildId = {_toml_string(build_id)}
+  movenotesSearchBackend = {_toml_string(search_backend)}
+  mainSections = ['notes']
+  defaultTheme = 'light'
+  # A local archive should not reach out to a font CDN to render.
+  googleFonts = false
+  siteBlurb = ''
+  # Above this many notes a category or tag routes to search instead of
+  # rendering a paginated archive.
+  taxonomyPageLimit = 25
+  extraCSS = ['/css/movenotes-site.css']
+  extraJS = ['/js/movenotes-nav.js']
+
+  [params.pagination]
+    home = 20
+    term = 20
+    search = 20
+    tagsGrid = 60
+    sidebarCategories = 7
+    sidebarCategoriesMobile = 6
+    sidebarTags = 9
+    sidebarTagsMobile = 8
+
+  [params.sidebar]
+    width = 282
+    minWidth = 190
+    maxWidth = 460
+    order = 'count'
+    allNotesLabel = 'All notes'
+    maxTerms = 200
+
+  [params.post]
+    # 100k striped placeholders are noise, not design.
+    heroPlaceholder = false
+
+  [params.search]
+    backend = {_toml_string(_theme_search_backend(search_backend))}
+    bundlePath = '/pagefind/pagefind.js'
+    endpoint = '/api/search'
+    healthEndpoint = '/api/health'
+
+  # Both ceilings matter here: either surface can hold the whole archive.
+  [params.scale]
+    maxHomePagerPages = 500
+    maxSectionPagerPages = 500
+
+  [params.footer]
+    rss = true
+    sourceURL = ''
+
+  [params.taxonomy]
+    categoryPlural = 'categories'
+    tagPlural = 'tags'
+
 [outputs]
-  home = ['HTML']
+  home = ['html', 'rss']
+  section = ['html']
+  term = ['html']
 {module}"""
     (output / "hugo.toml").write_text(hugo_toml, encoding="utf-8")
     if not copied_theme:
@@ -1412,92 +1814,66 @@ disableKinds = ['taxonomy', 'term', 'RSS']
             "module movenotes/generated-site\n\ngo 1.20\n", encoding="utf-8"
         )
 
-    home = {
-        "title": "Getting Started",
-        "date": generated_at,
-        "lastmod": generated_at,
-        "disableBreadcrumb": True,
-        "disableToc": True,
-        "hideAuthorDate": False,
-    }
-    if search_backend in {"both", "pagefind"}:
-        home["pagefind_ignore"] = True
-    getting_started = (
-        json.dumps(home, ensure_ascii=False, separators=(",", ":"))
-        + "\n{{< movenotes-start >}}\n"
+    # Home is the theme's own view: a primed search bar over the newest notes,
+    # capped by params.scale. It needs no body.
+    (content / "_index.md").write_text(
+        json.dumps(
+            {"title": title, "date": generated_at, "lastmod": generated_at},
+            ensure_ascii=False, separators=(",", ":"),
+        ) + "\n",
+        encoding="utf-8",
     )
-    (content / "_index.md").write_text(getting_started, encoding="utf-8")
-    search_meta = {
-        "title": "Search",
-        "hidden": True,
-        "hideAuthorDate": True,
-    }
-    if search_backend in {"both", "pagefind"}:
-        search_meta["pagefind_ignore"] = True
+    (content / "about.md").write_text(
+        json.dumps({
+            "title": "Getting Started",
+            "layout": "about",
+            "url": "/about/",
+            "date": generated_at,
+            "lastmod": generated_at,
+        }, ensure_ascii=False, separators=(",", ":"))
+        + "\n" + _getting_started_body(search_backend),
+        encoding="utf-8",
+    )
     (content / "search.md").write_text(
-        json.dumps(search_meta, separators=(",", ":"))
-        + "\n{{< movenotes-search >}}\n",
+        json.dumps({
+            "title": "Search",
+            "layout": "search",
+            "url": "/search/",
+            "date": generated_at,
+        }, separators=(",", ":"))
+        + "\n",
         encoding="utf-8",
     )
-    tags_meta = {
-        "title": "Browse Tags",
-        "hidden": True,
-        "hideAuthorDate": True,
-    }
-    if search_backend in {"both", "pagefind"}:
-        tags_meta["pagefind_ignore"] = True
-    (content / "tags.md").write_text(
-        json.dumps(tags_meta, separators=(",", ":"))
-        + "\n{{< movenotes-tags >}}\n",
+    # Browse Tags lists every generated word tag from the disk-backed posting
+    # index, which is a different set from the Hugo tag taxonomy behind /tags/.
+    (content / "browse-tags.md").write_text(
+        json.dumps({
+            "title": "Browse Tags",
+            "layout": "browse-tags",
+            "url": "/browse-tags/",
+            "date": generated_at,
+        }, separators=(",", ":"))
+        + "\n",
         encoding="utf-8",
     )
-    notes_meta = {
-        "title": "Notes",
-        "hidden": True,
-        "hideAuthorDate": True,
-    }
-    if search_backend in {"both", "pagefind"}:
-        notes_meta["pagefind_ignore"] = True
     (content / "notes" / "_index.md").write_text(
-        json.dumps(notes_meta, separators=(",", ":"))
-        + "\nNotes are available through search and tags.\n",
+        json.dumps({"title": "Notes", "date": generated_at}, separators=(",", ":"))
+        + "\n",
         encoding="utf-8",
     )
 
-    (layouts / "partials" / "content.html").write_text(
-        _content_partial(search_backend), encoding="utf-8"
+    # No shortcodes at all: /search/ is the theme's own view, driven by its
+    # grammar and its Pagefind/Bluge adapters; Getting Started is prose in
+    # about.md; and Browse Tags needs the asset pipeline, so its body belongs in
+    # a layout rather than a shortcode.
+    (layouts / "browse-tags.html").write_text(
+        _BROWSE_TAGS_LAYOUT.replace("@@TAGS_BODY@@", _tags_body()),
+        encoding="utf-8",
     )
-    (layouts / "partials" / "custom-header.html").write_text(
-        _CUSTOM_HEADER_PARTIAL, encoding="utf-8"
-    )
-    # Authoritative cross-version kill switch for Relearn's built-in search.
-    # It prevents both the legacy/current Lunr runtime and the native search box.
-    disabled_theme_search = (
-        "{{- /* movenotes supplies its own search UI and backend. */ -}}\n"
-    )
-    (layouts / "partials" / "dependencies" / "search.html").write_text(
-        disabled_theme_search, encoding="utf-8"
-    )
-    # Some older Relearn releases call the adapter partial more directly.
-    (layouts / "partials" / "dependencies" / "search-lunr.html").write_text(
-        disabled_theme_search, encoding="utf-8"
-    )
-    (layouts / "partials" / "heading.html").write_text(
-        _HEADING_PARTIAL, encoding="utf-8"
-    )
-    (
-        layouts / "partials" / "sidebar" / "element" /
-        "movenotes-search.html"
-    ).write_text(_SIDEBAR_SEARCH_PARTIAL, encoding="utf-8")
-    (layouts / "shortcodes" / "movenotes-start.html").write_text(
-        _getting_started_shortcode(search_backend), encoding="utf-8"
-    )
-    (layouts / "shortcodes" / "movenotes-search.html").write_text(
-        _search_shortcode(search_backend), encoding="utf-8"
-    )
-    (layouts / "shortcodes" / "movenotes-tags.html").write_text(
-        _tags_shortcode(search_backend), encoding="utf-8"
-    )
+    # An assets/ module rather than a static file: it imports the theme's
+    # paging.js through Hugo's asset pipeline, so the page-number windowing rule
+    # is the theme's one implementation and not a copy of it.
+    (assets / "movenotes-tags.js").write_text(_TAGS_SCRIPT, encoding="utf-8")
     (static / "css" / "movenotes-site.css").write_text(
         _SITE_CSS, encoding="utf-8"
     )
@@ -1513,70 +1889,49 @@ disableKinds = ['taxonomy', 'term', 'RSS']
 
     pagefind_config = output / "pagefind.yml"
     if search_backend in {"both", "pagefind"}:
+        # No exclude_selectors: the theme scopes indexing with a single
+        # data-pagefind-body on note articles, so the shell and the standalone
+        # pages are already out of the index.
         pagefind_config.write_text(
-            "site: public\noutput_path: public/pagefind\nkeep_index_url: false\n"
-            "exclude_selectors:\n  - '[data-pagefind-ignore]'\n",
+            "site: public\noutput_path: public/pagefind\nkeep_index_url: false\n",
             encoding="utf-8",
         )
     else:
         pagefind_config.unlink(missing_ok=True)
+    # public/ and the Bluge index are build outputs, so they are normally
+    # ignored. A Git-based Vercel deployment is the exception: it deploys exactly
+    # those two, because the alternative is rebuilding a six-figure archive
+    # inside a 45-minute build. Under --vercel they stay tracked rather than
+    # making the deployment instructions start with "edit .gitignore".
+    ignored = ["/resources/", ".hugo_build.lock", "/server/bluge-index.building/",
+               "/server/bluge-index.stamp.json", "/server/movenotes-site-server",
+               "/.vercel/"]
+    if vercel:
+        ignored.insert(0, "# --vercel: public/ and server/bluge-index/ are")
+        ignored.insert(1, "# deliberately tracked — a Git deployment ships them.")
+    else:
+        ignored.insert(0, "/public/")
+        ignored.insert(1, "/server/bluge-index/")
     (output / ".gitignore").write_text(
-        "/public/\n/resources/\n.hugo_build.lock\n/server/bluge-index/\n"
-        "/server/bluge-index.building/\n/server/bluge-index.stamp.json\n"
-        "/server/movenotes-site-server\n",
-        encoding="utf-8",
+        "\n".join(ignored) + "\n", encoding="utf-8"
     )
 
 
-_SIDEBAR_SEARCH_PARTIAL = r'''<li class="movenotes-sidebar-search-item">
-  <form class="movenotes-sidebar-search padding" action="{{ "search.html" | relURL }}" method="get" role="search">
-    <label class="a11y-only" for="movenotes-sidebar-q">Search all notes</label>
-    <div class="movenotes-sidebar-search-control">
-      <i class="fa-fw fas fa-magnifying-glass" aria-hidden="true"></i>
-      <input id="movenotes-sidebar-q" name="q" type="search" placeholder="Search all notes" autocomplete="off">
-      <button type="submit" aria-label="Search"><i class="fas fa-arrow-right" aria-hidden="true"></i></button>
-    </div>
-  </form>
-</li>
+_BROWSE_TAGS_LAYOUT = r'''{{ define "main" }}
+{{- /* Generated by obsidian2site.py. Browse Tags is a movenotes view, not one of
+       the theme's: it reads the hashed posting index under static/movenotes/,
+       which holds every tag, including every generated content word. The theme's
+       /tags/ grid shows the Hugo tag taxonomy, which is the smaller set of the
+       most frequent written tags. */ -}}
+<div class="ledger-heading">
+  <span class="ledger-eyebrow">movenotes</span>
+  <h1>{{ .Title }}</h1>
+</div>
+{{ with .Content }}<div class="ledger-prose">{{ . }}</div>{{ end }}
+@@TAGS_BODY@@
+{{ end }}
 '''
 
-_CONTENT_PARTIAL_PAGEFIND = r'''{{- if .Params.pagefind_ignore }}
-<div data-pagefind-ignore>{{ .Content }}</div>
-{{- else }}
-<article data-pagefind-body>
-  <div class="movenotes-index-metadata" data-pagefind-ignore>
-    <span data-pagefind-meta="title" data-pagefind-weight="10">{{ .Title }}</span>
-    {{- range .Params.movenotes_explicit_tags }}
-    <span data-pagefind-filter="tag">{{ . }}</span>
-    {{- end }}
-  </div>
-  {{ .Content }}
-</article>
-{{- end }}
-'''
-
-_CONTENT_PARTIAL_PLAIN = r'''<article>
-  {{ .Content }}
-</article>
-'''
-
-
-def _content_partial(search_backend: str) -> str:
-    if search_backend in {"both", "pagefind"}:
-        return _CONTENT_PARTIAL_PAGEFIND
-    return _CONTENT_PARTIAL_PLAIN
-
-
-_HEADING_PARTIAL = r'''{{- if not .Params.movenotes_hide_heading }}
-{{- $title := partial "title.gotmpl" (dict "page" .) }}
-<h1 id="{{ $title | plainify | anchorize }}">{{ $title }}</h1>
-{{- end }}
-'''
-
-
-_CUSTOM_HEADER_PARTIAL = r'''<link rel="stylesheet" href="{{ "css/movenotes-site.css" | relURL }}">
-<script defer src="{{ "js/movenotes-nav.js" | relURL }}"></script>
-'''
 
 _NAVIGATION_SCRIPT = r'''(() => {
   const prefetched = new Set();
@@ -1613,816 +1968,583 @@ _NAVIGATION_SCRIPT = r'''(() => {
 })();
 '''
 
-_GETTING_STARTED_SHORTCODE = r'''<div class="movenotes-start" data-pagefind-ignore>
-  <p class="movenotes-lead">A fast, private reading interface for a very large Obsidian vault. Notes stay out of the navigation tree so the browser remains responsive even when the archive contains more than 100,000 pages.</p>
-  <div class="movenotes-start-grid">
-    <a class="movenotes-start-card" href="{{ "search.html" | relURL }}">
-      <span class="movenotes-start-icon"><i class="fas fa-magnifying-glass" aria-hidden="true"></i></span>
-      <span><strong>Search the archive</strong><small>Use the generated Bluge server for fast server-side search, with Pagefind as a static-hosting fallback.</small></span>
-      <i class="fas fa-arrow-right movenotes-start-arrow" aria-hidden="true"></i>
-    </a>
-    <a class="movenotes-start-card" href="{{ "tags.html" | relURL }}">
-      <span class="movenotes-start-icon"><i class="fas fa-tags" aria-hidden="true"></i></span>
-      <span><strong>Browse tags</strong><small>Find explicit Obsidian tags and generated content words through compact tag buckets.</small></span>
-      <i class="fas fa-arrow-right movenotes-start-arrow" aria-hidden="true"></i>
-    </a>
-  </div>
-  <div class="movenotes-start-details">
-    <section>
-      <h2>Search</h2>
-      <p>Enter words, quoted phrases, tag:name, since:YYYY-MM-DD, or until:YYYY-MM-DD. The generated Go server searches Bluge on disk; Pagefind remains a static-hosting fallback.</p>
-    </section>
-    <section>
-      <h2>Tags</h2>
-      <p>Type at least two characters to load one matching tag bucket. Selecting a tag opens the exact set of notes counted by the tag index, without loading Pagefind.</p>
-    </section>
-    <section>
-      <h2>Navigation</h2>
-      <p>Links between notes become ordinary static links. Attachments are copied into <code>static/vault-assets</code>.</p>
-    </section>
-  </div>
+_GETTING_STARTED_BODY = r'''A reading interface for a very large Obsidian vault.
+No note is ever listed in the navigation, and no page grows with the size of the
+archive, so the site stays responsive past 100,000 notes.
+
+<div class="movenotes-start-grid">
+  <a class="movenotes-start-card" data-card href="/search/">
+    <strong>Search</strong>
+    <small>@@SEARCH_CARD@@</small>
+  </a>
+  <a class="movenotes-start-card" data-card href="/browse-tags/">
+    <strong>Browse tags</strong>
+    <small>Every tag in the archive — the ones written in notes and every unique
+    content word — with the exact notes each one carries.</small>
+  </a>
 </div>
+
+## Finding notes
+
+Sidebar categories and tags open an archive when the term is small enough to
+render one, and the search page when it is not. The search box accepts:
+
+| query | meaning |
+|---|---|
+| `canadian housing` | both words, anywhere in the note |
+| `"Bank of Canada"` | that exact phrase |
+| `category:Twitter` | one category; quote a name containing a space |
+| `tag:economics` | one tag; repeat it to require several |
+| `since:2026-07-01 until:2026-08-01` | July, by note date — `until:` is exclusive |
+| an empty box, or `category:"All notes"` | every note |
+| `cat OR dog` | either one — `OR` must be capitals |
+| `housing -rental` | with the first word, without the second |
+| `(rent OR lease) tag:vanre` | grouping, to say which goes with which |
+| `🔁` | an emoji; two together mean both |
+| `https://example.org/news/12345/a-headline/` | notes linking that URL |
+| `example.org news` | notes linking that host and path |
+
+Results come back **newest first**, whatever the query, so the most recent note
+is always on the first page. The search box itself waits for a query rather
+than searching for everything the moment it opens.
+
+## Searching for a link
+
+A note's links are searchable by their destination, whether the URL is written
+out or hidden behind a label. A URL is split the way a sentence is — the host
+stays whole and the path becomes words — so the whole URL, a prefix of it, or
+just its parts all find the same notes:
+
+| query | finds |
+|---|---|
+| `https://example.org/news/12345/a-headline/` | notes with that exact link |
+| `https://example.org/news/` | any link starting that way |
+| `example.org news` | the same, in any order |
+| `12345` | that one path segment |
+
+The subdomain is optional: `kqed.org` finds `www.kqed.org` and `blogs.kqed.org`
+alike. Terms match whole, though, so `t.co/iSQx` finds its note and `t.co/iSQ`
+finds nothing. Links between notes in this archive are not indexed this way; the
+note a link points at is findable as itself.
+
+@@SYNTAX_NOTE@@
+
+## Two kinds of tag
+
+A note's tags are the tags written in it plus every unique non-filler word it
+contains. The most frequent written tags become ordinary site tags, with their
+own archive pages, and appear in the sidebar. All of them — including every
+content word — stay on **Browse tags**, whose counts come from the same posting
+lists that produce its results.
+
+`tag:something` searches the tags *written* in a note, so it agrees with the
+count on that tag's archive page. To find a word the note merely contains, search
+for the word itself.
+
+## Links and attachments
+
+Links between notes are ordinary static links. Attachments are copied into
+`static/vault-assets`.
 '''
 
-
-def _getting_started_shortcode(search_backend: str) -> str:
-    if search_backend == "bluge":
-        return _GETTING_STARTED_SHORTCODE.replace(
-            "Use the generated Bluge server for fast server-side search, with Pagefind as a static-hosting fallback.",
-            "Use the generated Bluge server for fast server-side search without downloading a browser index.",
-        ).replace(
-            "The generated Go server searches Bluge on disk; Pagefind remains a static-hosting fallback.",
-            "The generated Go server searches the Bluge index on disk and returns only the visible result page.",
-        ).replace(", without loading Pagefind", "").replace(
-            ' data-pagefind-ignore', ''
-        )
-    if search_backend == "pagefind":
-        return _GETTING_STARTED_SHORTCODE.replace(
-            "Use the generated Bluge server for fast server-side search, with Pagefind as a static-hosting fallback.",
-            "Use Pagefind for fully static browser-side search.",
-        ).replace(
-            "The generated Go server searches Bluge on disk; Pagefind remains a static-hosting fallback.",
-            "Pagefind downloads only the index chunks needed for the submitted query.",
-        )
-    return _GETTING_STARTED_SHORTCODE
+_SEARCH_CARD_BLUGE = (
+    "Server-side search over the whole archive. Only the result page you are "
+    "looking at crosses the connection."
+)
+_SEARCH_CARD_PAGEFIND = (
+    "Static browser-side search. Only the index fragments a query touches are "
+    "downloaded."
+)
+_SEARCH_CARD_BOTH = (
+    "Server-side search when the generated Go server is running, with static "
+    "Pagefind search as the fallback."
+)
+_SYNTAX_NOTE_PAGEFIND = (
+    "Date bounds, `OR`, negation and grouping need the Bluge backend. On a "
+    "statically hosted site those queries run as though every word were "
+    "required, and the search page says which operators it dropped rather than "
+    "quietly answering a different question."
+)
+_SYNTAX_NOTE_BLUGE = "Every clause above is answered by the Bluge server."
 
 
-_SEARCH_SHORTCODE = r'''<div class="movenotes-search-page" data-pagefind-ignore>
-  <form id="movenotes-search-form" class="movenotes-tool-form" role="search">
-    <label for="movenotes-q">Search all notes</label>
-    <div class="movenotes-search-row">
-      <input id="movenotes-q" name="q" type="search" autocomplete="off" placeholder='Words, "quoted phrase", tag:name, since:YYYY-MM-DD, until:YYYY-MM-DD'>
-      <button type="submit"><i class="fas fa-magnifying-glass" aria-hidden="true"></i><span>Search</span></button>
-    </div>
-    <p id="movenotes-filter-label" class="movenotes-filter-label"></p>
-  </form>
-  <p id="movenotes-search-status" class="movenotes-status" role="status"></p>
-  <ol id="movenotes-search-results" class="movenotes-results"></ol>
-  <button id="movenotes-more" class="movenotes-more" type="button" hidden>Load more results</button>
-</div>
-<script type="module">
-const params = new URLSearchParams(location.search);
-const input = document.querySelector('#movenotes-q');
-const form = document.querySelector('#movenotes-search-form');
-const status = document.querySelector('#movenotes-search-status');
-const resultsElement = document.querySelector('#movenotes-search-results');
-const moreButton = document.querySelector('#movenotes-more');
-const filterLabel = document.querySelector('#movenotes-filter-label');
-const allowServer = @@ALLOW_SERVER@@;
-const allowPagefind = @@ALLOW_PAGEFIND@@;
-const pagefindUrl = @@PAGEFIND_URL@@;
-const tagManifestUrl = '{{ "movenotes/tags/manifest.json" | relURL }}';
-const tagPostingsBase = '{{ "movenotes/tag-postings/" | relURL }}';
-const documentsBase = '{{ "movenotes/documents/" | relURL }}';
-const siteRoot = new URL('{{ "/" | relURL }}', location.href);
-const serverHealthUrl = new URL('api/health', siteRoot).href;
-const serverSearchUrl = new URL('api/search', siteRoot).href;
-const pageSize = 20;
-const jsonCache = new Map();
-let pagefindReady;
-let serverReady;
-let results = [];
-let tagResultIds = [];
-let serverTotal = 0;
-let shown = 0;
-let searchGeneration = 0;
-let resultMode = allowServer ? 'server' : 'pagefind';
-let selectedTag = (params.get('tag') || '').trim().toLowerCase();
-input.value = params.get('q') || selectedTag;
-if (selectedTag) filterLabel.textContent = `Exact tag: ${selectedTag}`;
+def _getting_started_body(search_backend: str) -> str:
+    """Markdown for the Getting Started page.
 
-function escapeText(value) { return String(value ?? ''); }
-function tagPostingBucket(value) {
-  let hash = 0x811c9dc5;
-  for (const byte of new TextEncoder().encode(value)) {
-    hash ^= byte;
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return (hash & 0xfff).toString(16).padStart(3, '0');
-}
-async function loadJson(url) {
-  if (!jsonCache.has(url)) jsonCache.set(url, fetch(url).then(response => {
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    return response.json();
-  }));
-  return jsonCache.get(url);
-}
-async function hasServer() {
-  if (!allowServer) return false;
-  serverReady ||= fetch(serverHealthUrl, {cache: 'no-store', signal: AbortSignal.timeout(3000)})
-    .then(response => response.ok)
-    .catch(() => false);
-  return serverReady;
-}
-async function ensurePagefind() {
-  if (!allowPagefind) throw new Error('Pagefind was not generated for this site');
-  pagefindReady ||= (async () => {
-    const module = await import(pagefindUrl);
-    await module.options({
-      excerptLength: 18,
-      metaCacheTag: '{{ site.Params.movenotesBuildId }}',
-    });
-    await module.init();
-    return module;
-  })();
-  return pagefindReady;
-}
-function appendResult(fragment, url, title, excerpt, useHtml = false, date = '') {
-  const item = document.createElement('li');
-  const link = document.createElement('a');
-  link.href = url;
-  link.textContent = escapeText(title || url);
-  const detail = document.createElement('p');
-  if (useHtml) detail.innerHTML = excerpt || '';
-  else detail.textContent = excerpt || '';
-  if (date) {
-    const time = document.createElement('time');
-    time.dateTime = date;
-    time.textContent = date.slice(0, 10);
-    item.append(link, time, detail);
-  } else {
-    item.append(link, detail);
-  }
-  fragment.append(item);
-}
-async function renderPagefindMore(generation = searchGeneration) {
-  const start = shown;
-  const end = Math.min(results.length, start + pageSize);
-  moreButton.disabled = true;
-  const rows = await Promise.all(
-    results.slice(start, end).map(result => result.data().catch(error => {
-      console.warn('Unable to load a Pagefind result', error);
-      return null;
-    }))
-  );
-  if (generation !== searchGeneration) return;
-  const fragment = document.createDocumentFragment();
-  rows.forEach(data => {
-    if (!data) return;
-    appendResult(fragment, data.url, data.meta?.title || data.url, data.excerpt || '', true);
-  });
-  shown = end;
-  resultsElement.append(fragment);
-  moreButton.hidden = shown >= results.length;
-  moreButton.disabled = false;
-}
-async function renderServerMore(generation = searchGeneration) {
-  moreButton.disabled = true;
-  const url = new URL(serverSearchUrl);
-  if (selectedTag) url.searchParams.set('tag', selectedTag);
-  else url.searchParams.set('q', input.value.trim());
-  url.searchParams.set('offset', String(shown));
-  url.searchParams.set('limit', String(pageSize));
-  const response = await fetch(url, {headers: {'Accept': 'application/json'}});
-  if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
-  const payload = await response.json();
-  if (generation !== searchGeneration) return;
-  serverTotal = Number(payload.total || 0);
-  const fragment = document.createDocumentFragment();
-  for (const row of payload.results || []) {
-    appendResult(fragment, row.url, row.title || row.url, row.excerpt || '', false, row.date || '');
-  }
-  shown += (payload.results || []).length;
-  resultsElement.append(fragment);
-  status.textContent = selectedTag
-    ? `${serverTotal.toLocaleString()} result(s) with exact tag “${selectedTag}” · Bluge server`
-    : `${serverTotal.toLocaleString()} result(s) · Bluge server`;
-  moreButton.hidden = shown >= serverTotal;
-  moreButton.disabled = false;
-}
-async function renderTagMore(generation = searchGeneration) {
-  const start = shown;
-  const end = Math.min(tagResultIds.length, start + pageSize);
-  moreButton.disabled = true;
-  const manifest = await loadJson(tagManifestUrl);
-  const chunkSize = Number(manifest.document_chunk_size || 512);
-  const neededChunks = new Set(
-    tagResultIds.slice(start, end).map(noteId => Math.floor(Number(noteId) / chunkSize))
-  );
-  const chunks = new Map(await Promise.all(Array.from(neededChunks, async chunk => {
-    const name = chunk.toString(16).padStart(6, '0');
-    return [chunk, await loadJson(`${documentsBase}${name}.json`)];
-  })));
-  if (generation !== searchGeneration) return;
-  const fragment = document.createDocumentFragment();
-  for (const noteId of tagResultIds.slice(start, end)) {
-    const chunk = Math.floor(Number(noteId) / chunkSize);
-    const record = chunks.get(chunk)?.[String(noteId)];
-    if (!record) continue;
-    const [relativeUrl, title] = record;
-    appendResult(fragment, new URL(relativeUrl, siteRoot).href, title || relativeUrl, `Exact tag match · ${relativeUrl}`);
-  }
-  shown = end;
-  resultsElement.append(fragment);
-  moreButton.hidden = shown >= tagResultIds.length;
-  moreButton.disabled = false;
-}
-async function searchExactTag(generation) {
-  resultMode = 'tag';
-  status.textContent = 'Loading exact tag index…';
-  const manifest = await loadJson(tagManifestUrl);
-  const bucket = tagPostingBucket(selectedTag);
-  if (!Object.prototype.hasOwnProperty.call(manifest.posting_buckets || {}, bucket)) {
-    tagResultIds = [];
-  } else {
-    const postings = await loadJson(`${tagPostingsBase}${bucket}.json`);
-    tagResultIds = postings[selectedTag] || [];
-  }
-  if (generation !== searchGeneration) return;
-  status.textContent = `${tagResultIds.length.toLocaleString()} result(s) with exact tag “${selectedTag}”`;
-  await renderTagMore(generation);
-}
-async function searchPagefind(generation) {
-  resultMode = 'pagefind';
-  status.textContent = 'Loading browser search index…';
-  const pagefind = await ensurePagefind();
-  const response = await pagefind.search(input.value.trim() || null);
-  if (generation !== searchGeneration) return;
-  results = response.results || [];
-  status.textContent = `${results.length.toLocaleString()} result(s) · Pagefind fallback`;
-  await renderPagefindMore(generation);
-}
-async function searchServer(generation) {
-  resultMode = 'server';
-  status.textContent = 'Searching server index…';
-  await renderServerMore(generation);
-}
-async function search() {
-  const generation = ++searchGeneration;
-  resultsElement.replaceChildren();
-  shown = 0;
-  results = [];
-  tagResultIds = [];
-  serverTotal = 0;
-  moreButton.hidden = true;
-  form.setAttribute('aria-busy', 'true');
-  try {
-    if (selectedTag && allowServer && await hasServer()) await searchServer(generation);
-    else if (selectedTag) await searchExactTag(generation);
-    else if (allowServer && await hasServer()) await searchServer(generation);
-    else if (allowPagefind) await searchPagefind(generation);
-    else throw new Error('Bluge server is unavailable');
-  } catch (error) {
-    if (generation !== searchGeneration) return;
-    status.textContent = selectedTag
-      ? 'The exact tag index is unavailable. Regenerate the site with obsidian2site.py.'
-      : (allowPagefind ? 'Search is unavailable. Start the generated Go server or rebuild Pagefind.' : 'Search is unavailable. Start the generated movenotes-site-server.');
-    console.error(error);
-  } finally {
-    if (generation === searchGeneration) form.removeAttribute('aria-busy');
-  }
-}
-form.addEventListener('submit', event => {
-  event.preventDefault();
-  selectedTag = '';
-  filterLabel.textContent = '';
-  const next = new URL(location.href);
-  next.searchParams.delete('tag');
-  input.value.trim() ? next.searchParams.set('q', input.value.trim()) : next.searchParams.delete('q');
-  history.replaceState({}, '', next);
-  search();
-});
-moreButton.addEventListener('click', () => {
-  if (resultMode === 'tag') renderTagMore();
-  else if (resultMode === 'server') renderServerMore();
-  else renderPagefindMore();
-});
-let preloadTimer;
-input.addEventListener('input', () => {
-  if (selectedTag || !allowPagefind) return;
-  clearTimeout(preloadTimer);
-  const term = input.value.trim();
-  if (!term) return;
-  preloadTimer = setTimeout(async () => {
-    try {
-      if (!allowServer || !(await hasServer())) (await ensurePagefind()).preload(term);
-    } catch (_error) { /* The submitted search will show the actionable error. */ }
-  }, 120);
-});
-window.addEventListener('pagehide', () => {
-  if (allowPagefind && pagefindReady) pagefindReady.then(module => module.destroy?.()).catch(() => {});
-});
-if (input.value || selectedTag) search();
-</script>
-'''
-
-
-_SEARCH_SHORTCODE_BLUGE = r'''<div class="movenotes-search-page">
-  <form id="movenotes-search-form" class="movenotes-tool-form" role="search">
-    <label for="movenotes-q">Search all notes</label>
-    <div class="movenotes-search-row">
-      <input id="movenotes-q" name="q" type="search" autocomplete="off" placeholder='Words, "quoted phrase", tag:name, since:YYYY-MM-DD, until:YYYY-MM-DD'>
-      <button type="submit"><i class="fas fa-magnifying-glass" aria-hidden="true"></i><span>Search</span></button>
-    </div>
-    <p id="movenotes-filter-label" class="movenotes-filter-label"></p>
-  </form>
-  <p id="movenotes-search-status" class="movenotes-status" role="status"></p>
-  <ol id="movenotes-search-results" class="movenotes-results"></ol>
-  <button id="movenotes-more" class="movenotes-more" type="button" hidden>Load more results</button>
-</div>
-<script type="module">
-const params = new URLSearchParams(location.search);
-const input = document.querySelector('#movenotes-q');
-const form = document.querySelector('#movenotes-search-form');
-const status = document.querySelector('#movenotes-search-status');
-const resultsElement = document.querySelector('#movenotes-search-results');
-const moreButton = document.querySelector('#movenotes-more');
-const filterLabel = document.querySelector('#movenotes-filter-label');
-const tagManifestUrl = '{{ "movenotes/tags/manifest.json" | relURL }}';
-const tagPostingsBase = '{{ "movenotes/tag-postings/" | relURL }}';
-const documentsBase = '{{ "movenotes/documents/" | relURL }}';
-const siteRoot = new URL('{{ "/" | relURL }}', location.href);
-const serverHealthUrl = new URL('api/health', siteRoot).href;
-const serverSearchUrl = new URL('api/search', siteRoot).href;
-const pageSize = 20;
-const jsonCache = new Map();
-let serverReady;
-let tagResultIds = [];
-let serverTotal = 0;
-let shown = 0;
-let searchGeneration = 0;
-let resultMode = 'server';
-let selectedTag = (params.get('tag') || '').trim().toLowerCase();
-input.value = params.get('q') || selectedTag;
-if (selectedTag) filterLabel.textContent = `Exact tag: ${selectedTag}`;
-
-function escapeText(value) { return String(value ?? ''); }
-function tagPostingBucket(value) {
-  let hash = 0x811c9dc5;
-  for (const byte of new TextEncoder().encode(value)) {
-    hash ^= byte;
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return (hash & 0xfff).toString(16).padStart(3, '0');
-}
-async function loadJson(url) {
-  if (!jsonCache.has(url)) jsonCache.set(url, fetch(url).then(response => {
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    return response.json();
-  }));
-  return jsonCache.get(url);
-}
-async function hasServer() {
-  serverReady ||= fetch(serverHealthUrl, {cache: 'no-store', signal: AbortSignal.timeout(3000)})
-    .then(response => response.ok)
-    .catch(() => false);
-  return serverReady;
-}
-function appendResult(fragment, url, title, excerpt, date = '') {
-  const item = document.createElement('li');
-  const link = document.createElement('a');
-  link.href = url;
-  link.textContent = escapeText(title || url);
-  const detail = document.createElement('p');
-  detail.textContent = excerpt || '';
-  if (date) {
-    const time = document.createElement('time');
-    time.dateTime = date;
-    time.textContent = date.slice(0, 10);
-    item.append(link, time, detail);
-  } else item.append(link, detail);
-  fragment.append(item);
-}
-async function renderServerMore(generation = searchGeneration) {
-  moreButton.disabled = true;
-  const url = new URL(serverSearchUrl);
-  if (selectedTag) url.searchParams.set('tag', selectedTag);
-  else url.searchParams.set('q', input.value.trim());
-  url.searchParams.set('offset', String(shown));
-  url.searchParams.set('limit', String(pageSize));
-  const response = await fetch(url, {headers: {'Accept': 'application/json'}});
-  if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
-  const payload = await response.json();
-  if (generation !== searchGeneration) return;
-  serverTotal = Number(payload.total || 0);
-  const fragment = document.createDocumentFragment();
-  for (const row of payload.results || []) {
-    appendResult(fragment, row.url, row.title || row.url, row.excerpt || '', row.date || '');
-  }
-  shown += (payload.results || []).length;
-  resultsElement.append(fragment);
-  status.textContent = selectedTag
-    ? `${serverTotal.toLocaleString()} result(s) with exact tag “${selectedTag}” · Bluge server`
-    : `${serverTotal.toLocaleString()} result(s) · Bluge server`;
-  moreButton.hidden = shown >= serverTotal;
-  moreButton.disabled = false;
-}
-async function renderTagMore(generation = searchGeneration) {
-  const start = shown;
-  const end = Math.min(tagResultIds.length, start + pageSize);
-  moreButton.disabled = true;
-  const manifest = await loadJson(tagManifestUrl);
-  const chunkSize = Number(manifest.document_chunk_size || 512);
-  const neededChunks = new Set(tagResultIds.slice(start, end).map(id => Math.floor(Number(id) / chunkSize)));
-  const chunks = new Map(await Promise.all(Array.from(neededChunks, async chunk => {
-    const name = chunk.toString(16).padStart(6, '0');
-    return [chunk, await loadJson(`${documentsBase}${name}.json`)];
-  })));
-  if (generation !== searchGeneration) return;
-  const fragment = document.createDocumentFragment();
-  for (const noteId of tagResultIds.slice(start, end)) {
-    const record = chunks.get(Math.floor(Number(noteId) / chunkSize))?.[String(noteId)];
-    if (!record) continue;
-    const [relativeUrl, title] = record;
-    appendResult(fragment, new URL(relativeUrl, siteRoot).href, title || relativeUrl, `Exact tag match · ${relativeUrl}`);
-  }
-  shown = end;
-  resultsElement.append(fragment);
-  moreButton.hidden = shown >= tagResultIds.length;
-  moreButton.disabled = false;
-}
-async function searchExactTagFallback(generation) {
-  resultMode = 'tag';
-  status.textContent = 'Bluge server unavailable; loading the compact exact-tag fallback…';
-  const manifest = await loadJson(tagManifestUrl);
-  const bucket = tagPostingBucket(selectedTag);
-  if (!Object.prototype.hasOwnProperty.call(manifest.posting_buckets || {}, bucket)) tagResultIds = [];
-  else tagResultIds = (await loadJson(`${tagPostingsBase}${bucket}.json`))[selectedTag] || [];
-  if (generation !== searchGeneration) return;
-  status.textContent = `${tagResultIds.length.toLocaleString()} result(s) with exact tag “${selectedTag}” · static fallback`;
-  await renderTagMore(generation);
-}
-async function search() {
-  const generation = ++searchGeneration;
-  resultsElement.replaceChildren();
-  shown = 0;
-  tagResultIds = [];
-  serverTotal = 0;
-  resultMode = 'server';
-  moreButton.hidden = true;
-  form.setAttribute('aria-busy', 'true');
-  try {
-    if (await hasServer()) {
-      status.textContent = 'Searching Bluge server…';
-      await renderServerMore(generation);
-    } else if (selectedTag) await searchExactTagFallback(generation);
-    else throw new Error('Bluge server is unavailable');
-  } catch (error) {
-    if (generation !== searchGeneration) return;
-    status.textContent = 'Search is unavailable. Start the generated movenotes-site-server.';
-    console.error(error);
-  } finally {
-    if (generation === searchGeneration) form.removeAttribute('aria-busy');
-  }
-}
-form.addEventListener('submit', event => {
-  event.preventDefault();
-  selectedTag = '';
-  filterLabel.textContent = '';
-  const next = new URL(location.href);
-  next.searchParams.delete('tag');
-  input.value.trim() ? next.searchParams.set('q', input.value.trim()) : next.searchParams.delete('q');
-  history.replaceState({}, '', next);
-  serverReady = undefined;
-  search();
-});
-moreButton.addEventListener('click', () => {
-  if (resultMode === 'tag') renderTagMore();
-  else renderServerMore();
-});
-if (input.value || selectedTag) search();
-</script>
-'''
-
-
-def _search_shortcode(search_backend: str) -> str:
-    if search_backend == "bluge":
-        return _SEARCH_SHORTCODE_BLUGE
-    allow_server = search_backend == "both"
-    allow_pagefind = search_backend in {"both", "pagefind"}
-    pagefind_url = "'{{ \"pagefind/pagefind.js\" | relURL }}'" if allow_pagefind else "''"
+    Plain Markdown in `content/about.md` rather than a shortcode: a `{{< >}}`
+    shortcode's output is not run through the Markdown renderer, and this page is
+    prose. Only the two cards are inline HTML, which goldmark passes through.
+    """
+    card = {
+        "bluge": _SEARCH_CARD_BLUGE,
+        "pagefind": _SEARCH_CARD_PAGEFIND,
+    }.get(search_backend, _SEARCH_CARD_BOTH)
+    note = (
+        _SYNTAX_NOTE_PAGEFIND if search_backend == "pagefind"
+        else _SYNTAX_NOTE_BLUGE
+    )
     return (
-        _SEARCH_SHORTCODE
-        .replace("@@ALLOW_SERVER@@", "true" if allow_server else "false")
-        .replace("@@ALLOW_PAGEFIND@@", "true" if allow_pagefind else "false")
-        .replace("@@PAGEFIND_URL@@", pagefind_url)
+        _GETTING_STARTED_BODY
+        .replace("@@SEARCH_CARD@@", card)
+        .replace("@@SYNTAX_NOTE@@", note)
     )
 
-_TAGS_SHORTCODE = r'''<div class="movenotes-tags-page" data-pagefind-ignore>
-  <div class="movenotes-tool-form">
-    <label for="movenotes-tag-filter">Find a tag</label>
-    <div class="movenotes-tag-filter-control">
-      <i class="fas fa-filter" aria-hidden="true"></i>
-      <input id="movenotes-tag-filter" type="search" placeholder="Type at least two characters" autocomplete="off">
-    </div>
-  </div>
-  <p id="movenotes-tags-status" class="movenotes-status" role="status">Loading frequent tags…</p>
-  <ul id="movenotes-tags-list" class="movenotes-tag-list"></ul>
-</div>
-<script type="module">
-const input = document.querySelector('#movenotes-tag-filter');
-const status = document.querySelector('#movenotes-tags-status');
-const list = document.querySelector('#movenotes-tags-list');
-const base = '{{ "movenotes/tags/" | relURL }}';
-const searchUrl = '{{ "search.html" | relURL }}';
-let manifest;
-const cache = new Map();
-function bucketFor(value) {
-  const normalized = value.normalize('NFKD').toLowerCase();
-  const chars = Array.from(normalized).filter(character => /[\p{L}\p{N}]/u.test(character));
-  if (!chars.length) return '__';
-  if (/^[a-z0-9]$/.test(chars[0])) {
-    const ascii = chars.filter(character => /^[a-z0-9]$/.test(character)).join('');
-    return (ascii + '_').slice(0, 2);
-  }
-  return `u${chars[0].codePointAt(0).toString(16)}`;
-}
-function render(rows, label) {
-  list.replaceChildren();
-  const fragment = document.createDocumentFragment();
-  for (const [tag, count] of rows.slice(0, 300)) {
-    const item = document.createElement('li');
-    const link = document.createElement('a');
-    link.href = `${searchUrl}?tag=${encodeURIComponent(tag)}`;
-    link.textContent = tag;
-    const badge = document.createElement('span');
-    badge.textContent = Number(count).toLocaleString();
-    item.append(link, badge);
-    fragment.append(item);
-  }
-  list.append(fragment);
-  status.textContent = `${label}: ${rows.length.toLocaleString()} tag(s)`;
-}
-async function loadJson(name) {
-  if (!cache.has(name)) cache.set(name, fetch(base + name).then(response => {
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    return response.json();
-  }));
-  return cache.get(name);
-}
-async function update() {
-  const query = input.value.trim().toLowerCase();
-  try {
-    if (!query) return render(await loadJson('top.json'), 'Most frequent');
-    if (query.length < 2) {
-      status.textContent = 'Type at least two characters, or clear the field for frequent tags.';
-      list.replaceChildren();
-      return;
+
+_TAGS_SCRIPT = r'''/* Browse Tags: the movenotes tag index, in two modes.
+
+   Without ?tag=, a filterable list of tags read from bucketed static JSON.
+   With ?tag=, the exact set of notes carrying that tag, read from the hashed
+   posting index and the chunked document metadata.
+
+   Why this exists next to the theme's own search: a note's tags are the union of
+   its explicit tags and every unique non-filler word in it, which is far more
+   terms than a Hugo taxonomy can hold. Only the most frequent explicit tags
+   become taxonomy terms, and Pagefind can only filter on those. This page
+   answers for every tag, and its counts come from the same posting lists that
+   produce the badges — so the number on a tag and the number of results it
+   opens are the same number by construction.
+
+   windowPages comes from the theme, deliberately: the "page 1, current ±1, last"
+   rule is already implemented three times there and a fourth copy would drift. */
+
+import { windowPages } from './search/paging.js';
+
+var root = document.querySelector('[data-movenotes-tags]');
+if (root) init(root);
+
+function init(root) {
+  var config = JSON.parse(root.querySelector('[data-movenotes-tags-config]').textContent);
+  var browser = root.querySelector('[data-movenotes-tag-browser]');
+  var filter = root.querySelector('[data-movenotes-tag-filter]');
+  var grid = root.querySelector('[data-movenotes-tag-grid]');
+  var browserStatus = root.querySelector('[data-movenotes-tag-status]');
+  var results = root.querySelector('[data-movenotes-tag-results]');
+  var resultsHeading = root.querySelector('[data-movenotes-tag-heading]');
+  var resultsCount = root.querySelector('[data-movenotes-tag-count]');
+  var resultsList = root.querySelector('[data-movenotes-tag-list]');
+  var resultsPager = root.querySelector('[data-movenotes-tag-pager]');
+
+  var cache = new Map();
+  var manifest = null;
+  var token = 0;
+
+  /* Both bucket functions mirror obsidian2site.py exactly. They decide which
+     file to fetch, so a difference here is a 404, not a wrong answer. */
+  function displayBucket(value) {
+    var chars = Array.from(value.normalize('NFKD').toLowerCase())
+      .filter(function (character) { return /[\p{L}\p{N}]/u.test(character); });
+    if (!chars.length) return '__';
+    if (/^[a-z0-9]$/.test(chars[0])) {
+      return (chars.filter(function (c) { return /^[a-z0-9]$/.test(c); }).join('') + '_').slice(0, 2);
     }
-    manifest ||= await loadJson('manifest.json');
-    const bucket = bucketFor(query);
-    if (!Object.prototype.hasOwnProperty.call(manifest.buckets, bucket)) {
-      return render([], `Tags matching “${query}”`);
-    }
-    const rows = await loadJson(`${bucket}.json`);
-    render(rows.filter(([tag]) => tag.includes(query)), `Tags matching “${query}”`);
-  } catch (error) {
-    status.textContent = 'Tag index is unavailable.';
-    console.error(error);
+    return 'u' + chars[0].codePointAt(0).toString(16);
   }
+
+  function postingBucket(value) {
+    var hash = 0x811c9dc5;
+    var bytes = new TextEncoder().encode(value);
+    for (var i = 0; i < bytes.length; i++) {
+      hash ^= bytes[i];
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return (hash & (config.postingBuckets - 1)).toString(16).padStart(3, '0');
+  }
+
+  function loadJson(url) {
+    if (!cache.has(url)) {
+      cache.set(url, fetch(url).then(function (response) {
+        if (!response.ok) throw new Error(response.status + ' ' + response.statusText);
+        return response.json();
+      }));
+    }
+    return cache.get(url);
+  }
+
+  function currentTag() {
+    return (new URLSearchParams(location.search).get('tag') || '').trim().toLowerCase();
+  }
+
+  function currentPage() {
+    return parseInt(new URLSearchParams(location.search).get('page'), 10) || 1;
+  }
+
+  /* ── Tag browser ──────────────────────────────────────────────────────── */
+
+  function renderTags(rows, label) {
+    grid.textContent = '';
+    var fragment = document.createDocumentFragment();
+    rows.slice(0, config.maxTagsShown).forEach(function (row) {
+      var cell = document.createElement('a');
+      cell.className = 'ledger-grid-cell';
+      cell.href = config.pageURL + '?tag=' + encodeURIComponent(row[0]);
+      var name = document.createElement('span');
+      name.className = 'ledger-grid-name';
+      name.textContent = '#' + row[0];
+      var count = document.createElement('span');
+      count.className = 'ledger-grid-count';
+      count.textContent = Number(row[1]).toLocaleString();
+      var hint = document.createElement('span');
+      hint.className = 'ledger-sr-only';
+      hint.textContent = ' notes';
+      count.appendChild(hint);
+      cell.append(name, count);
+      fragment.appendChild(cell);
+    });
+    grid.appendChild(fragment);
+    var total = rows.length;
+    browserStatus.textContent = label + ': ' + total.toLocaleString() +
+      (total === 1 ? ' tag' : ' tags') +
+      (total > config.maxTagsShown
+        ? ' · showing the first ' + config.maxTagsShown.toLocaleString()
+        : '');
+  }
+
+  async function updateBrowser() {
+    var mine = ++token;
+    var query = filter.value.trim().toLowerCase();
+    try {
+      if (!query) {
+        var top = await loadJson(config.tagsBase + 'top.json');
+        if (mine === token) renderTags(top, 'Most frequent');
+        return;
+      }
+      if (query.length < 2) {
+        grid.textContent = '';
+        browserStatus.textContent =
+          'Type at least two characters, or clear the field for the most frequent tags.';
+        return;
+      }
+      manifest = manifest || await loadJson(config.tagsBase + 'manifest.json');
+      var bucket = displayBucket(query);
+      var rows = Object.prototype.hasOwnProperty.call(manifest.buckets, bucket)
+        ? await loadJson(config.tagsBase + bucket + '.json')
+        : [];
+      if (mine !== token) return;
+      renderTags(
+        rows.filter(function (row) { return row[0].indexOf(query) !== -1; }),
+        'Tags matching “' + query + '”'
+      );
+    } catch (error) {
+      browserStatus.textContent = 'The tag index is unavailable.';
+      if (window.console) console.error('[movenotes] tag index:', error);
+    }
+  }
+
+  /* ── Exact-tag results ────────────────────────────────────────────────── */
+
+  /* Stored note URLs are site-root-relative ("/notes/x.html"), so they are
+     resolved against the site root: on a project site published at /repo/,
+     assigning one straight to href would drop the subpath. The leading slash has
+     to go first, or the URL resolves against the domain instead of the base. */
+  function noteHref(url) {
+    try {
+      return new URL(String(url).replace(/^\//, ''), new URL(config.siteRoot, location.href)).href;
+    } catch (error) {
+      return url;
+    }
+  }
+
+  function card(url, title, date) {
+    var link = document.createElement('a');
+    link.className = 'ledger-card';
+    link.setAttribute('data-card', '');
+    link.href = noteHref(url);
+    var heading = document.createElement('h3');
+    heading.className = 'ledger-card-title';
+    heading.textContent = title;
+    link.appendChild(heading);
+    var meta = document.createElement('div');
+    meta.className = 'ledger-card-meta';
+    var spacer = document.createElement('span');
+    spacer.className = 'ledger-spacer';
+    spacer.style.minWidth = '8px';
+    meta.appendChild(spacer);
+    var when = document.createElement('span');
+    when.className = 'ledger-card-date';
+    when.textContent = date || '';
+    meta.appendChild(when);
+    link.appendChild(meta);
+    return link;
+  }
+
+  function pager(tag, page, pages) {
+    var nav = document.createElement('nav');
+    nav.className = 'ledger-pagination';
+    nav.setAttribute('aria-label', 'Pagination');
+
+    function step(label, target, disabled) {
+      var node = document.createElement(disabled ? 'span' : 'a');
+      node.className = 'ledger-page-step';
+      node.textContent = label;
+      if (disabled) node.setAttribute('aria-disabled', 'true');
+      else node.href = pageHref(tag, target);
+      return node;
+    }
+
+    nav.appendChild(step('‹ Prev', page - 1, page <= 1));
+    windowPages(page, pages).forEach(function (number) {
+      if (number === null) {
+        var gap = document.createElement('span');
+        gap.className = 'ledger-page-gap';
+        gap.textContent = '…';
+        gap.setAttribute('aria-hidden', 'true');
+        nav.appendChild(gap);
+        return;
+      }
+      var link = document.createElement('a');
+      link.className = 'ledger-page-number';
+      link.href = pageHref(tag, number);
+      link.textContent = String(number);
+      if (number === page) link.setAttribute('aria-current', 'page');
+      nav.appendChild(link);
+    });
+    nav.appendChild(step('Next ›', page + 1, page >= pages));
+    return nav;
+  }
+
+  function pageHref(tag, page) {
+    var query = '?tag=' + encodeURIComponent(tag) + (page > 1 ? '&page=' + page : '');
+    return config.pageURL + query;
+  }
+
+  async function showResults(tag, page) {
+    var mine = ++token;
+    browser.hidden = true;
+    results.hidden = false;
+    resultsHeading.textContent = '#' + tag;
+    resultsCount.textContent = 'Loading the exact tag index…';
+    resultsList.textContent = '';
+    resultsPager.textContent = '';
+    try {
+      manifest = manifest || await loadJson(config.tagsBase + 'manifest.json');
+      var bucket = postingBucket(tag);
+      var ids = [];
+      if (Object.prototype.hasOwnProperty.call(manifest.posting_buckets || {}, bucket)) {
+        var postings = await loadJson(config.postingsBase + bucket + '.json');
+        ids = postings[tag] || [];
+      }
+      if (mine !== token) return;
+
+      var pages = Math.max(1, Math.ceil(ids.length / config.perPage));
+      page = Math.min(Math.max(1, page), pages);
+      resultsCount.textContent = ids.length.toLocaleString() +
+        (ids.length === 1 ? ' note' : ' notes') +
+        (pages > 1 ? ' · page ' + page + ' of ' + pages.toLocaleString() : '');
+      if (!ids.length) {
+        resultsList.appendChild(emptyState(tag));
+        return;
+      }
+
+      /* Only this page's note IDs are resolved, and only the chunks they fall
+         in are fetched — the whole point of chunking the metadata. */
+      var slice = ids.slice((page - 1) * config.perPage, page * config.perPage);
+      var chunkSize = Number(manifest.document_chunk_size || 512);
+      var wanted = {};
+      slice.forEach(function (id) { wanted[Math.floor(Number(id) / chunkSize)] = true; });
+      var chunks = new Map();
+      await Promise.all(Object.keys(wanted).map(async function (chunk) {
+        var name = Number(chunk).toString(16).padStart(6, '0');
+        chunks.set(Number(chunk), await loadJson(config.documentsBase + name + '.json'));
+      }));
+      if (mine !== token) return;
+
+      var fragment = document.createDocumentFragment();
+      slice.forEach(function (id) {
+        var record = (chunks.get(Math.floor(Number(id) / chunkSize)) || {})[String(id)];
+        if (!record) return;
+        fragment.appendChild(card(record[0], record[1] || record[0], record[2]));
+      });
+      resultsList.appendChild(fragment);
+      if (pages > 1) resultsPager.appendChild(pager(tag, page, pages));
+    } catch (error) {
+      resultsCount.textContent = 'The tag index is unavailable.';
+      if (window.console) console.error('[movenotes] exact tag:', error);
+    }
+  }
+
+  function emptyState(tag) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'ledger-empty';
+    var title = document.createElement('p');
+    title.className = 'ledger-empty-title';
+    title.textContent = 'No notes carry the tag “' + tag + '”';
+    wrapper.appendChild(title);
+    return wrapper;
+  }
+
+  function route() {
+    var tag = currentTag();
+    if (tag) {
+      showResults(tag, currentPage());
+    } else {
+      browser.hidden = false;
+      results.hidden = true;
+      updateBrowser();
+    }
+  }
+
+  var timer;
+  filter.addEventListener('input', function () {
+    clearTimeout(timer);
+    timer = setTimeout(updateBrowser, 160);
+  });
+  filter.form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    clearTimeout(timer);
+    updateBrowser();
+  });
+  window.addEventListener('popstate', route);
+  route();
 }
-let timer;
-input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(update, 160); });
-update();
-</script>
 '''
 
-def _tags_shortcode(search_backend: str) -> str:
-    if search_backend == "bluge":
-        return _TAGS_SHORTCODE.replace(' data-pagefind-ignore', '')
-    return _TAGS_SHORTCODE
+
+_TAGS_BODY = r'''{{- $script := resources.Get "js/movenotes-tags.js" | js.Build (dict
+      "targetPath" "js/movenotes-tags.js"
+      "format" "esm"
+      "minify" hugo.IsProduction) -}}
+{{- if hugo.IsProduction }}{{ $script = $script | fingerprint }}{{ end -}}
+{{- /* Paths go through the theme's site-url partial, never `relURL` directly:
+       relURL drops the baseURL's path when its argument starts with a slash, so a
+       project site published at /repo/ would fetch the tag index from the domain
+       root and 404. */ -}}
+{{- $config := dict
+      "tagsBase"       (partial "site-url.html" "/movenotes/tags/")
+      "postingsBase"   (partial "site-url.html" "/movenotes/tag-postings/")
+      "documentsBase"  (partial "site-url.html" "/movenotes/documents/")
+      "pageURL"        (partial "site-url.html" "/browse-tags/")
+      "siteRoot"       (partial "site-url.html" "/")
+      "postingBuckets" @@POSTING_BUCKETS@@
+      "perPage"        (site.Params.pagination.search | default 20)
+      "maxTagsShown"   300
+-}}
+<div class="movenotes-tags" data-movenotes-tags>
+  <script type="application/json" data-movenotes-tags-config>{{ $config | jsonify | safeJS }}</script>
+
+  <div data-movenotes-tag-browser>
+    <p class="ledger-prose-lead">Every tag in the archive: the tags written in a
+    note plus every unique content word. Counts come from the same posting lists
+    the results do.</p>
+
+    {{- /* The theme's search-bar classes, its own data attributes deliberately
+           not reused: this filter is not the site search and must not be driven
+           by the theme's search controller. */ -}}
+    <div class="ledger-searchbar">
+      <form class="ledger-searchbar-row" role="search" onsubmit="return false">
+        <div class="ledger-searchbar-field" data-card>
+          <span class="ledger-searchbar-glyph" aria-hidden="true">&#x2315;</span>
+          <label class="ledger-sr-only" for="movenotes-tag-filter">Find a tag</label>
+          <input class="ledger-searchbar-input" id="movenotes-tag-filter" type="search"
+                 placeholder="Filter tags — type at least two characters"
+                 autocomplete="off" spellcheck="false" data-movenotes-tag-filter>
+        </div>
+      </form>
+      <div class="ledger-meta">
+        <span class="ledger-meta-count" role="status" aria-live="polite"
+              data-movenotes-tag-status>Loading the most frequent tags…</span>
+      </div>
+    </div>
+
+    <div class="ledger-grid" data-movenotes-tag-grid></div>
+  </div>
+
+  <div data-movenotes-tag-results hidden>
+    <div class="ledger-heading">
+      <span class="ledger-eyebrow">exact tag</span>
+      {{- /* h2, not h1: these results are a section of this page, whose h1 is
+             its title. */ -}}
+      <h2 data-movenotes-tag-heading></h2>
+      <span class="ledger-heading-meta" role="status" aria-live="polite"
+            data-movenotes-tag-count></span>
+    </div>
+    <p><a class="ledger-post-back" href="{{ partial "site-url.html" "/browse-tags/" }}">&larr; all tags</a></p>
+    <div class="ledger-results" data-movenotes-tag-list></div>
+    <div data-movenotes-tag-pager></div>
+  </div>
+
+  <noscript>
+    <p class="ledger-page-ceiling">Browsing tags needs JavaScript, because the
+    tag index is fetched one bucket at a time rather than built into every page.
+    <a href="{{ partial "site-url.html" "/search/" }}">Search</a> works without it.</p>
+  </noscript>
+</div>
+<script type="module" src="{{ $script.RelPermalink }}"></script>
+'''
 
 
-_SITE_CSS = r'''
-:root {
-  --MENU-S-width: 17rem;
-  --MENU-M-width: 18rem;
-  --MENU-L-width: 20rem;
-  --movenotes-radius: .65rem;
-  --movenotes-border: color-mix(in srgb, currentColor 18%, transparent);
-  --movenotes-muted: color-mix(in srgb, currentColor 68%, transparent);
-  --movenotes-surface: color-mix(in srgb, currentColor 5%, transparent);
-  --movenotes-surface-hover: color-mix(in srgb, currentColor 9%, transparent);
+def _tags_body() -> str:
+    """The Browse Tags body, for the generated layout.
+
+    No Pagefind opt-out markers anywhere in it: the theme scopes indexing to note
+    articles with a single data-pagefind-body, so this page is outside the index
+    whatever the backend.
+    """
+    return _TAGS_BODY.replace(
+        "@@POSTING_BUCKETS@@", str(_TAG_POSTING_BUCKETS)
+    )
+
+
+_SITE_CSS = r'''/* movenotes additions to the Ledger theme.
+
+   Everything the theme already provides is used as-is — result cards, the tag
+   grid, headings, pagers, the search bar — so this file only styles what the
+   theme has no equivalent for. It is loaded through params.extraCSS, after the
+   theme's stylesheet, and uses the theme's tokens so all three themes and the
+   contrast palette keep working.
+
+   Kept deliberately small: it is fetched on every page of the archive. */
+
+.ledger-prose-lead {
+  margin: 0 0 var(--gap-result, 14px);
+  font: 400 15px/1.6 var(--font-sans);
+  color: var(--dim);
 }
 
-/* Keep Relearn's complete sidebar shell. Only the custom element inside it is styled. */
-.movenotes-sidebar-search-item { list-style: none; }
-.movenotes-sidebar-search { display: block; padding-top: .55rem !important; padding-bottom: .55rem !important; }
-.movenotes-sidebar-search-control,
-.movenotes-tag-filter-control {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  min-width: 0;
-  border: 1px solid var(--movenotes-border);
-  border-radius: var(--movenotes-radius);
-  background: var(--movenotes-surface);
-  padding: .15rem .2rem .15rem .65rem;
-  transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
-}
-.movenotes-sidebar-search-control:focus-within,
-.movenotes-tag-filter-control:focus-within {
-  border-color: currentColor;
-  background: transparent;
-  box-shadow: 0 0 0 .15rem color-mix(in srgb, currentColor 12%, transparent);
-}
-.movenotes-sidebar-search-control input,
-.movenotes-tag-filter-control input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  padding: .55rem 0;
-}
-.movenotes-sidebar-search-control input::placeholder,
-.movenotes-tag-filter-control input::placeholder { color: var(--movenotes-muted); opacity: 1; }
-.movenotes-sidebar-search-control button {
-  display: grid;
-  place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border: 0;
-  border-radius: .5rem;
-  background: color-mix(in srgb, currentColor 12%, transparent);
-  color: inherit;
-  cursor: pointer;
-}
-.movenotes-sidebar-search-control button:hover { background: color-mix(in srgb, currentColor 20%, transparent); }
-
-.movenotes-index-metadata {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  overflow: hidden !important;
-  clip: rect(0 0 0 0) !important;
-  white-space: nowrap !important;
-}
-
-.movenotes-lead {
-  max-width: 58rem;
-  margin: -.35rem 0 1.5rem;
-  color: var(--movenotes-muted);
-  font-size: 1.08rem;
-  line-height: 1.75;
-}
+/* Getting Started: two cards pointing at the two ways in. */
 .movenotes-start-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  margin: 1.25rem 0 2rem;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  margin: 0 0 22px;
 }
+
 .movenotes-start-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: .9rem;
-  padding: 1.1rem;
-  border: 1px solid var(--movenotes-border);
-  border-radius: .85rem;
-  background: var(--movenotes-surface);
-  color: inherit !important;
-  text-decoration: none !important;
-  transition: transform .16s ease, border-color .16s ease, background-color .16s ease;
+  display: block;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--panel2);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color .16s ease, background-color .16s ease;
 }
+
 .movenotes-start-card:hover {
-  transform: translateY(-2px);
-  border-color: currentColor;
-  background: var(--movenotes-surface-hover);
+  border-color: var(--accent);
+  background: var(--hover);
 }
-.movenotes-start-card strong { display: block; margin-bottom: .25rem; font-size: 1.05rem; }
-.movenotes-start-card small { display: block; color: var(--movenotes-muted); line-height: 1.5; }
-.movenotes-start-icon {
-  display: grid;
-  place-items: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: .75rem;
-  background: color-mix(in srgb, currentColor 12%, transparent);
-}
-.movenotes-start-arrow { opacity: .55; }
-.movenotes-start-details {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.4rem;
-  margin-top: 1rem;
-}
-.movenotes-start-details h2 { margin: 0 0 .45rem; font-size: 1.15rem; }
-.movenotes-start-details p { margin: 0; color: var(--movenotes-muted); line-height: 1.65; }
 
-.movenotes-tool-form { max-width: 58rem; margin-bottom: .9rem; }
-.movenotes-tool-form > label { display: block; font-weight: 650; margin-bottom: .45rem; }
-.movenotes-search-row { display: flex; align-items: stretch; gap: .6rem; }
-.movenotes-search-row input {
-  min-width: 0;
-  flex: 1;
-  border: 1px solid var(--movenotes-border);
-  border-radius: var(--movenotes-radius);
-  background: var(--movenotes-surface);
-  color: inherit;
-  font: inherit;
-  padding: .75rem .85rem;
-  outline: 0;
+.movenotes-start-card strong {
+  display: block;
+  margin-bottom: 4px;
+  font: 600 14px/1.4 var(--font-sans);
 }
-.movenotes-search-row input:focus {
-  border-color: currentColor;
-  box-shadow: 0 0 0 .15rem color-mix(in srgb, currentColor 12%, transparent);
-}
-.movenotes-search-row button,
-.movenotes-more {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: .45rem;
-  border: 1px solid var(--movenotes-border);
-  border-radius: var(--movenotes-radius);
-  background: color-mix(in srgb, currentColor 12%, transparent);
-  color: inherit;
-  font: inherit;
-  font-weight: 650;
-  padding: .7rem 1rem;
-  cursor: pointer;
-}
-.movenotes-search-row button:hover,
-.movenotes-more:hover { background: color-mix(in srgb, currentColor 20%, transparent); }
-.movenotes-filter-label,
-.movenotes-status { color: var(--movenotes-muted); min-height: 1.5rem; }
-.movenotes-results { display: grid; gap: .75rem; padding: 0; list-style: none; counter-reset: movenotes-result; }
-.movenotes-results li {
-  position: relative;
-  counter-increment: movenotes-result;
-  border: 1px solid var(--movenotes-border);
-  border-radius: var(--movenotes-radius);
-  background: var(--movenotes-surface);
-  padding: .9rem 1rem .9rem 3rem;
-}
-.movenotes-results li::before {
-  content: counter(movenotes-result);
-  position: absolute;
-  left: 1rem;
-  top: .95rem;
-  color: var(--movenotes-muted);
-  font-variant-numeric: tabular-nums;
-}
-.movenotes-results li > a { display: inline-block; font-weight: 680; text-decoration: none; }
-.movenotes-results li > a:hover { text-decoration: underline; }
-.movenotes-results p { margin: .35rem 0 0; color: var(--movenotes-muted); line-height: 1.55; overflow-wrap: anywhere; }
-.movenotes-results mark { border-radius: .2rem; padding: 0 .08em; }
-.movenotes-more { margin-top: 1rem; }
 
-.movenotes-tag-filter-control { max-width: 58rem; padding-left: .8rem; }
-.movenotes-tag-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
-  gap: .6rem;
-  padding: 0;
-  list-style: none;
+.movenotes-start-card small {
+  display: block;
+  font: 400 12px/1.55 var(--font-mono);
+  color: var(--dim);
 }
-.movenotes-tag-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: .75rem;
-  min-width: 0;
-  border: 1px solid var(--movenotes-border);
-  border-radius: .55rem;
-  background: var(--movenotes-surface);
-  padding: .55rem .7rem;
-}
-.movenotes-tag-list a { min-width: 0; overflow-wrap: anywhere; text-decoration: none; }
-.movenotes-tag-list a:hover { text-decoration: underline; }
-.movenotes-tag-list span {
-  flex: 0 0 auto;
-  color: var(--movenotes-muted);
-  font-variant-numeric: tabular-nums;
-}
-.movenotes-invalid-url { overflow-wrap: anywhere; text-decoration: underline dotted; cursor: help; }
 
-@media (max-width: 52rem) {
-  .movenotes-start-grid,
-  .movenotes-start-details { grid-template-columns: 1fr; }
+/* Browse Tags result cards have a title and a date and no body text, because
+   that is all the exact-tag index stores. Pull the meta row up so the card does
+   not look like a card with something missing. */
+[data-movenotes-tag-list] .ledger-card-meta {
+  margin-top: 6px;
 }
-@media (max-width: 36rem) {
-  .movenotes-search-row { flex-direction: column; }
-  .movenotes-search-row button { width: 100%; }
-  .movenotes-results li { padding-left: 2.65rem; }
-}
+
 @media (prefers-reduced-motion: reduce) {
-  .movenotes-start-card,
-  .movenotes-sidebar-search-control,
-  .movenotes-tag-filter-control { transition: none; }
+  .movenotes-start-card { transition: none; }
 }
 '''
 
@@ -2449,6 +2571,264 @@ def _prepare_output(output: Path, force: bool) -> None:
             ):
                 (output / name).unlink(missing_ok=True)
     output.mkdir(parents=True, exist_ok=True)
+
+
+# Vercel's own limits, from https://vercel.com/docs/limits and
+# https://vercel.com/docs/functions/limitations. They decide which deployment
+# shape an archive of a given size can use at all, so the generator reports
+# against them rather than leaving it to be discovered on a failed deploy.
+_VERCEL_MAX_SOURCE_FILES = 15_000
+_VERCEL_MAX_UPLOAD_BYTES_HOBBY = 100 * 1024 * 1024
+_VERCEL_MAX_UPLOAD_BYTES_PRO = 1024 * 1024 * 1024
+_VERCEL_MAX_FUNCTION_BYTES = 250 * 1024 * 1024
+
+_VERCEL_API_SEARCH = '''// Vercel function: GET /api/search.
+//
+// Generated by obsidian2site.py. The whole implementation lives in the server
+// module beside it; this file exists because Vercel's Go runtime turns each
+// exported http.HandlerFunc under api/ into a function, and needs go.mod at the
+// project root.
+//
+// The CDN serves public/, so nothing here touches static files: a generated
+// archive's public/ is far larger than any function bundle limit.
+package handler
+
+import (
+	"net/http"
+	"sync"
+
+	"movenotes/site-server/search"
+)
+
+var (
+	once    sync.Once
+	service *search.Service
+)
+
+// shared returns the per-instance service. Configuration comes from the
+// environment, because a deployment has no command line, and the index is opened
+// on the first request that needs it.
+func shared() *search.Service {
+	once.Do(func() { service = search.New(search.Config{}) })
+	return service
+}
+
+// Search answers GET /api/search.
+func Search(w http.ResponseWriter, r *http.Request) {
+	shared().Search(w, r)
+}
+'''
+
+_VERCEL_API_HEALTH = '''// Vercel function: GET /api/health. Generated by obsidian2site.py.
+package handler
+
+import "net/http"
+
+// Health answers GET /api/health.
+//
+// The theme's `auto` search backend probes this to decide whether a server is
+// answering at all. It answers 503 when the index is missing rather than
+// reporting a healthy backend with nothing behind it.
+func Health(w http.ResponseWriter, r *http.Request) {
+	shared().Health(w, r)
+}
+'''
+
+_VERCEL_ROOT_GO_MOD_HEADER = '''// Generated by obsidian2site.py. Vercel's Go runtime looks for go.mod at the
+// project root; the implementation stays in server/, reached with a local
+// replace so there is one copy of it.
+//
+// The requirements below are the server module's, rewritten as indirect: the
+// root module contains only the api/ wrappers, and everything they need comes
+// through that module. Derived from server/go.mod at generation time so the two
+// cannot drift.
+module movenotes/site
+
+go {go_version}
+
+require movenotes/site-server v0.0.0
+
+replace movenotes/site-server => ./server
+'''
+
+
+def _vercel_root_go_mod(server_go_mod: str) -> str:
+    """Build the root module file from the server module's.
+
+    A `go build` at the project root has to be able to resolve every package it
+    reaches, which for a module whose only code is two wrappers means listing the
+    whole transitive set as indirect. Copying it from the server module keeps one
+    source of truth; hard-coding nineteen dependencies here would rot.
+    """
+    version = "1.20"
+    requirements: list[str] = []
+    for line in server_go_mod.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("go ") and len(stripped.split()) == 2:
+            version = stripped.split()[1]
+            continue
+        if not stripped or stripped.startswith(("module ", ")", "//", "replace ")):
+            continue
+        # `require path version` and `require (` both start with require; only the
+        # single-line form carries a requirement, and dropping it silently is how
+        # the direct dependency went missing the first time.
+        if stripped.startswith("require"):
+            stripped = stripped[len("require"):].strip()
+            if not stripped or stripped == "(":
+                continue
+        # Every requirement is indirect from the root module's point of view.
+        requirement = stripped.split("//", 1)[0].strip()
+        if requirement:
+            requirements.append(f"\t{requirement} // indirect")
+    header = _VERCEL_ROOT_GO_MOD_HEADER.format(go_version=version)
+    if not requirements:
+        return header
+    return header + "\nrequire (\n" + "\n".join(sorted(requirements)) + "\n)\n"
+
+_VERCEL_IGNORE = '''# Generated by obsidian2site.py.
+#
+# Vercel counts uploaded *source* files against a 15,000-file limit, so the Hugo
+# inputs stay out of the deployment: the site is built before deploying, and only
+# the built output, the search index and the functions are needed.
+content/
+themes/
+layouts/
+assets/
+static/
+resources/
+.hugo_build.lock
+hugo.toml
+pagefind.yml
+.movenotes-static-site.json
+
+# The JSONL is the index's *source*. Functions never read it — they never build —
+# and on a large archive it is bigger than the index itself.
+server/search-source.jsonl
+server/bluge-index.stamp.json
+server/movenotes-site-server
+'''
+
+
+def _vercel_json(search_backend: str) -> str:
+    """The deployment configuration.
+
+    No build command: the site is built locally, because building on Vercel means
+    Hugo, Pagefind and the Bluge index inside one 45-minute build. Static files
+    come from public/; the index rides along with the functions through
+    includeFiles.
+    """
+    # No trailingSlash setting on purpose. The theme links to directory-style
+    # paths (/search/, /tags/x/) while notes are .html files, so enforcing either
+    # form turns every internal navigation into a 308 redirect.
+    config: dict[str, object] = {
+        "$schema": "https://openapi.vercel.sh/vercel.json",
+        "outputDirectory": "public",
+    }
+    if search_backend != "pagefind":
+        config["functions"] = {
+            "api/*.go": {
+                # The index is data, not code, so it has to be named explicitly.
+                # Verify after the first deploy that it arrived: /api/health
+                # answers 503 with the path it looked for when it did not.
+                "includeFiles": "server/bluge-index/**",
+                "maxDuration": 30,
+            }
+        }
+    return json.dumps(config, indent=2) + "\n"
+
+
+def _write_vercel_project(output: Path, *, search_backend: str) -> None:
+    (output / "vercel.json").write_text(
+        _vercel_json(search_backend), encoding="utf-8"
+    )
+    ignore = _VERCEL_IGNORE
+    if search_backend == "pagefind":
+        # Any go.mod here belongs to Hugo's module mode, not to us, and a root
+        # go.mod is exactly what makes Vercel's Go runtime detect a Go project.
+        # A static deployment must not ship one.
+        ignore += "\n# Hugo's module file; a static deployment has no Go in it.\ngo.mod\ngo.sum\n"
+    (output / ".vercelignore").write_text(ignore, encoding="utf-8")
+    if search_backend == "pagefind":
+        # Static only: no Go, no functions, nothing to configure.
+        return
+    api = output / "api"
+    api.mkdir(parents=True, exist_ok=True)
+    (api / "search.go").write_text(_VERCEL_API_SEARCH, encoding="utf-8")
+    (api / "health.go").write_text(_VERCEL_API_HEALTH, encoding="utf-8")
+    (output / "go.mod").write_text(
+        _vercel_root_go_mod(
+            (output / "server" / "go.mod").read_text(encoding="utf-8")
+        ),
+        encoding="utf-8",
+    )
+    # The root module builds the same dependency set as the server module, so its
+    # checksums are the server module's.
+    shutil.copyfile(output / "server" / "go.sum", output / "go.sum")
+
+
+def _directory_size(path: Path) -> tuple[int, int]:
+    """Return (bytes, files) under path, following no symlinks."""
+    total = 0
+    files = 0
+    for entry in path.rglob("*"):
+        if entry.is_file() and not entry.is_symlink():
+            try:
+                total += entry.stat().st_size
+            except OSError:
+                continue
+            files += 1
+    return total, files
+
+
+def _vercel_readiness(output: Path, search_backend: str) -> list[str]:
+    """Measure the generated site against Vercel's limits.
+
+    Every one of these is a hard platform limit that turns into a failed deploy
+    or a broken search page, and every one of them is only visible once the site
+    has actually been built. Measuring beats guessing from a note count.
+    """
+    notes: list[str] = []
+    public = output / "public"
+    if public.is_dir():
+        size, files = _directory_size(public)
+        notes.append(
+            f"built site: {files:,} files, {size / 1024 / 1024:.0f} MB"
+        )
+        if files > _VERCEL_MAX_SOURCE_FILES:
+            notes.append(
+                f"  ! {files:,} files exceeds Vercel's {_VERCEL_MAX_SOURCE_FILES:,}-file "
+                "limit for a CLI deployment. Deploy from a Git repository "
+                "instead, where the build container clones the project, or host "
+                "the static site somewhere without a file-count limit."
+            )
+        if size > _VERCEL_MAX_UPLOAD_BYTES_PRO:
+            notes.append(
+                "  ! larger than the 1 GB source upload limit (Pro; 100 MB on "
+                "Hobby). A CLI deployment of this site will be rejected."
+            )
+        elif size > _VERCEL_MAX_UPLOAD_BYTES_HOBBY:
+            notes.append(
+                "  ! larger than the 100 MB source upload limit on Hobby; needs "
+                "Pro, Git deployment, or another host."
+            )
+    index = output / "server" / "bluge-index"
+    if search_backend != "pagefind" and index.is_dir():
+        size, _files = _directory_size(index)
+        notes.append(f"Bluge index: {size / 1024 / 1024:.0f} MB")
+        if size > _VERCEL_MAX_FUNCTION_BYTES:
+            notes.append(
+                f"  ! over Vercel's {_VERCEL_MAX_FUNCTION_BYTES // 1024 // 1024} MB "
+                "function bundle limit, which the index has to fit inside along "
+                "with the binary. Run Bluge on a host that keeps a process "
+                "instead, and point params.search.endpoint at it — or publish "
+                "statically with --search-backend pagefind."
+            )
+        elif size > _VERCEL_MAX_FUNCTION_BYTES * 3 // 4:
+            notes.append(
+                "  ! within 25% of the 250 MB function bundle limit; the compiled "
+                "binary shares that budget."
+            )
+    return notes
 
 
 def _write_site_marker(output: Path, input_root: Path, note_count: int, asset_count: int) -> None:
@@ -2485,29 +2865,101 @@ def _pagefind_command(args: argparse.Namespace, output: Path) -> list[str]:
 
 
 
-def _validate_built_search_backend(output: Path, search_backend: str) -> None:
-    """Reject generated HTML that accidentally activates an unwanted browser index."""
-    if search_backend != "bluge":
-        return
+# Byte patterns: the validation pass reads built HTML as bytes rather than
+# decoding it, which is most of what made it fast enough to watch.
+_SEARCH_CONFIG_BACKEND_RE = re.compile(
+    rb'data-ledger-search-config[^>]*>\s*\{[^<]*?"backend"\s*:\s*"([a-z]+)"',
+    re.IGNORECASE,
+)
+_PAGEFIND_RUNTIME_RE = re.compile(
+    rb'''(?:src|href)=["'][^"']*pagefind/[^"']*["']''', re.IGNORECASE
+)
+
+
+def _validate_built_search_backend(
+    output: Path, search_backend: str, progress_every: int = 20_000
+) -> None:
+    """Check the built site actually uses the search backend that was asked for.
+
+    The theme selects its adapter from a JSON config embedded in every page that
+    carries the search view, so that value — not a script filename — is what
+    decides which index a visitor downloads. A `bluge` build that shipped
+    `"backend":"pagefind"` would look fine and quietly load a browser index; a
+    `both` build missing its Pagefind index would fall back to nothing.
+
+    Relearn's Lunr filenames are gone from this check: the theme emits no
+    built-in search runtime to suppress.
+
+    Every page is read, because the guarantee is that *no* page references a
+    browser index — narrowing the walk to the pages that carry the search view
+    would only check the pages least likely to be wrong. On a 166,654-note
+    archive that is 177,682 files and 5.6 GB, which took 8m50s in silence and
+    read as a hang. Two things fix that: it says what it is doing, and it reads
+    bytes behind a substring test instead of decoding 5.6 GB of UTF-8 to run two
+    regexes over it — 411 pages/s to 1,174 on the same archive.
+
+    Lowercasing before the substring test keeps the regexes' case-insensitivity
+    exact rather than assuming Hugo always emits lowercase attributes; it
+    measured free, the cost being in the read.
+    """
     public = output / "public"
-    forbidden = re.compile(
-        r'''(?:src|href)=["'][^"']*(?:lunr(?:[.-]|\.js)|searchindex(?:[.-]|\.js)|pagefind/)[^"']*["']''',
-        re.IGNORECASE,
-    )
-    offenders: list[str] = []
-    for path in public.rglob("*.html"):
+    expected = _theme_search_backend(search_backend)
+    wrong_backend: list[str] = []
+    pagefind_runtime: list[str] = []
+    configured = 0
+    checked = 0
+    started = time.monotonic()
+    paths = sorted(public.rglob("*.html"))
+    if progress_every:
+        print(f"checking {len(paths):,} built page(s) for the search backend...")
+    for path in paths:
         try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+            data = path.read_bytes().lower()
+        except OSError:
             continue
-        if forbidden.search(text):
-            offenders.append(path.relative_to(public).as_posix())
-            if len(offenders) >= 10:
-                break
-    if offenders:
+        # The prefilters are what make this cheap: 95 of 177,682 pages carry the
+        # search config, and on a Bluge build none should mention Pagefind, so
+        # both regexes are skipped for nearly every page.
+        if b"data-ledger-search-config" in data:
+            for match in _SEARCH_CONFIG_BACKEND_RE.finditer(data):
+                configured += 1
+                found = match.group(1).decode("ascii", "replace")
+                if found != expected:
+                    wrong_backend.append(
+                        f"{path.relative_to(public).as_posix()} ({found})"
+                    )
+        if (search_backend == "bluge" and b"pagefind" in data
+                and _PAGEFIND_RUNTIME_RE.search(data)):
+            pagefind_runtime.append(path.relative_to(public).as_posix())
+        checked += 1
+        if progress_every and checked % progress_every == 0:
+            print(f"  checked {checked:,} of {len(paths):,} page(s)")
+    if progress_every:
+        print(
+            f"checked {checked:,} page(s) in {time.monotonic() - started:.0f}s; "
+            f"{configured:,} with the search config"
+        )
+    if wrong_backend:
         common.error(
-            "Bluge build still references a browser search index in: "
-            + ", ".join(offenders)
+            f"generated for --search-backend {search_backend} (theme backend "
+            f"'{expected}') but the built pages configure: "
+            + ", ".join(sorted(wrong_backend)[:10])
+        )
+    if pagefind_runtime:
+        common.error(
+            "Bluge-only build still references a browser search index in: "
+            + ", ".join(sorted(pagefind_runtime)[:10])
+        )
+    if not configured:
+        common.error(
+            "no search view was built: expected the theme's search config on at "
+            "least the /search/ page. Is the theme missing or out of date?"
+        )
+    # A build that will fall back to Pagefind needs the index it falls back to.
+    if expected in {"pagefind", "auto"} and not (public / "pagefind").is_dir():
+        common.error(
+            f"theme backend '{expected}' needs a Pagefind index, but "
+            f"{public / 'pagefind'} was not built"
         )
 
 
@@ -2520,10 +2972,15 @@ def _build_site(args: argparse.Namespace, output: Path) -> None:
         [str(hugo), "--source", str(output), "--destination", str(output / "public"), "--gc", "--minify"],
         check=True,
     )
-    _validate_built_search_backend(output, args.search_backend)
     if args.search_backend in {"both", "pagefind"}:
         print("building Pagefind index...")
         subprocess.run(_pagefind_command(args, output), cwd=output, check=True)
+    # After the indexes exist, not before: the check includes whether the index
+    # the configured backend needs is actually there.
+    _validate_built_search_backend(
+        output, args.search_backend,
+        progress_every=20_000 if args.progress_every else 0,
+    )
     if args.search_backend in {"both", "bluge"}:
         print("building Bluge site server...")
         go = shutil.which(args.go_bin) if os.path.sep not in args.go_bin else args.go_bin
@@ -2531,7 +2988,11 @@ def _build_site(args: argparse.Namespace, output: Path) -> None:
             common.error(f"Go executable not found: {args.go_bin}")
         print("resolving Go module checksums...")
         subprocess.run([str(go), "mod", "tidy"], cwd=output / "server", check=True)
-        subprocess.run([str(go), "build", "-o", "movenotes-site-server", "."], cwd=output / "server", check=True)
+        print("compiling the site server...")
+        subprocess.run(
+            [str(go), "build", "-o", "movenotes-site-server", "./cmd/movenotes-site-server"],
+            cwd=output / "server", check=True,
+        )
         print("building Bluge search index...")
         subprocess.run(
             [
@@ -2554,21 +3015,36 @@ def main(argv: list[str]) -> int:
         common.error("output directory must not be inside the input vault")
     _prepare_output(output, args.force)
 
+    # Everything from here to the first `converted` line used to run in
+    # silence, which on a 166,654-note vault was minutes of it. Each phase now
+    # says what it is; `--progress-every 0` silences them all, as it does the
+    # conversion counter.
+    step = _phase_reporter(args.progress_every)
+
+    step("scanning the vault...")
     markdown_paths, asset_paths = _scan_vault(input_root, args.include_hidden)
     print(f"found {len(markdown_paths):,} Markdown note(s) and {len(asset_paths):,} attachment/file(s)")
+    step(f"mapping {len(markdown_paths):,} note path(s) to site URLs...")
     note_map, asset_map = _build_path_maps(input_root, markdown_paths, asset_paths)
     note_exact, note_basenames = _lookup_indexes(note_map.keys())
     asset_exact, asset_basenames = _lookup_indexes(asset_map.keys())
 
     copied_theme = False
-    modernized_theme_files = 0
-    if args.relearn_theme is not None:
-        theme_target = output / "themes" / "hugo-theme-relearn"
+    if args.ledger_theme is not None:
+        step("copying the theme...")
+        theme_target = output / "themes" / _LEDGER_THEME_NAME
         if theme_target.exists():
             shutil.rmtree(theme_target)
         theme_target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(args.relearn_theme, theme_target)
-        modernized_theme_files = _modernize_copied_relearn_theme(theme_target)
+        # No post-copy rewriting: Ledger tracks current Hugo template APIs, so a
+        # checkout that does not build is a theme bug to fix in the theme.
+        shutil.copytree(
+            args.ledger_theme, theme_target,
+            ignore=shutil.ignore_patterns(
+                ".git", "node_modules", "public", "resources", "bench",
+                "exampleSite", "tmp-corpus",
+            ),
+        )
         copied_theme = True
 
     _write_hugo_project(
@@ -2578,13 +3054,14 @@ def main(argv: list[str]) -> int:
         locale=args.locale,
         copied_theme=copied_theme,
         search_backend=args.search_backend,
+        vercel=args.vercel,
     )
-    if modernized_theme_files:
-        print(
-            f"updated {modernized_theme_files:,} copied Relearn template file(s) "
-            "for Hugo 0.158+ APIs"
-        )
+    if args.vercel:
+        _write_vercel_project(output, search_backend=args.search_backend)
+    if asset_paths:
+        step(f"copying {len(asset_paths):,} attachment(s)...")
     copied_assets = _copy_assets(input_root, output / "static", asset_map)
+    step(f"converting {len(markdown_paths):,} note(s)...")
 
     stop_words = _load_stop_words(args.stop_words)
     tag_db_path = output / ".obsidian2site-tags.sqlite"
@@ -2595,9 +3072,15 @@ def main(argv: list[str]) -> int:
     repaired_urls = 0
     preserved_urls = 0
     pending_tag_counts: Counter[str] = Counter()
-    pending_documents: list[tuple[int, str, str]] = []
+    pending_documents: list[tuple[int, str, str, str]] = []
     pending_tag_documents: list[tuple[int, str, int]] = []
+    pending_explicit_tags: list[tuple[str, int]] = []
     pending_tag_notes = 0
+    category_name = args.category_name or (args.title or input_root.name)
+    maximum_taxonomy_tags = (
+        _automatic_taxonomy_tag_cap(len(markdown_paths))
+        if args.max_taxonomy_tags is None else args.max_taxonomy_tags
+    )
     search_source_path = output / "server" / "search-source.jsonl"
     search_source = search_source_path.open("w", encoding="utf-8", newline="\n")
     try:
@@ -2624,6 +3107,8 @@ def main(argv: list[str]) -> int:
                     stop_words=stop_words,
                     minimum_word_length=args.minimum_word_length,
                     note_embeds=args.note_embeds,
+                    category_mode=args.category_mode,
+                    category_name=category_name,
                 )
                 pending[future] = (path, note_id)
                 return True
@@ -2639,11 +3124,15 @@ def main(argv: list[str]) -> int:
                     try:
                         (
                             tags,
+                            explicit_tags,
                             _source,
                             site_url,
                             note_title,
                             note_date,
                             note_search_text,
+                            note_search_urls,
+                            note_category,
+                            note_reading_minutes,
                             note_repaired_urls,
                             note_preserved_urls,
                         ) = future.result()
@@ -2654,18 +3143,47 @@ def main(argv: list[str]) -> int:
                             f"failed converting Obsidian note {source_path!s}: {exc}"
                         )
                     pending_tag_counts.update(tags)
-                    pending_documents.append((note_id, site_url, note_title))
+                    pending_documents.append((note_id, site_url, note_title, note_date))
+                    # Only the written tags go to Bluge. `tag:` used to answer
+                    # for every generated content word too, which made
+                    # `tag:ifnβ` return 23 where the tag archive showed 16 and
+                    # Pagefind showed 16 — the same query, three answers. The
+                    # generated words lose nothing by leaving: a generated tag
+                    # is by construction a word of the note, so free text still
+                    # finds it, and Browse Tags reads the posting index below,
+                    # not this file.
                     search_source.write(json.dumps({
                         "id": note_id,
                         "url": site_url,
                         "title": note_title,
                         "date": note_date,
-                        "body": note_search_text,
+                        # The URLs ride on `body` rather than in a field of
+                        # their own because `buildQuery` ANDs terms within a
+                        # field and ORs across fields: a mixed query such as
+                        # `Pizza vs any celebrity https://trends.google.com/…`
+                        # only matches if the prose words and the URL tokens sit
+                        # in the same field. `body` is indexed and not stored,
+                        # so nothing a result card renders changes.
+                        "body": _search_body(note_search_text, note_search_urls),
+                        # Displayed, so it stays prose. A card that opened with a
+                        # tracking link would be worse than one that cannot be
+                        # searched by it.
                         "summary": note_search_text[:700],
-                        "tags": tags,
+                        "category": note_category,
+                        # The tags written in the note, uncapped. The taxonomy
+                        # cap decides which get an archive page; it does not
+                        # decide what `tag:` can find, so a written tag that
+                        # missed the cap is still searchable here. That is the
+                        # one way this set is larger than the archive's, and it
+                        # is the only one.
+                        "tags": explicit_tags,
+                        "readingTime": note_reading_minutes,
                     }, ensure_ascii=False, separators=(",", ":")) + "\n")
                     pending_tag_documents.extend(
                         (_tag_posting_bucket(tag), tag, note_id) for tag in tags
+                    )
+                    pending_explicit_tags.extend(
+                        (tag, note_id) for tag in explicit_tags
                     )
                     repaired_urls += note_repaired_urls
                     preserved_urls += note_preserved_urls
@@ -2677,9 +3195,11 @@ def main(argv: list[str]) -> int:
                             pending_documents,
                             pending_tag_documents,
                         )
+                        _update_explicit_tags(tag_connection, pending_explicit_tags)
                         pending_tag_counts.clear()
                         pending_documents.clear()
                         pending_tag_documents.clear()
+                        pending_explicit_tags.clear()
                         pending_tag_notes = 0
                     processed += 1
                     submit_next()
@@ -2692,10 +3212,15 @@ def main(argv: list[str]) -> int:
                 pending_documents,
                 pending_tag_documents,
             )
+            _update_explicit_tags(tag_connection, pending_explicit_tags)
             pending_tag_counts.clear()
             pending_documents.clear()
             pending_tag_documents.clear()
+            pending_explicit_tags.clear()
         tag_connection.commit()
+        explicit_total, promoted_tags, demoted_notes = _apply_taxonomy_tag_cap(
+            tag_connection, output / "content", maximum_taxonomy_tags
+        )
         tag_count = _write_tag_index(tag_connection, output / "static")
     finally:
         search_source.close()
@@ -2711,6 +3236,23 @@ def main(argv: list[str]) -> int:
         f"generated Hugo project: {processed:,} note(s), {copied_assets:,} file(s), "
         f"{tag_count:,} unique tag(s)"
     )
+    if explicit_total:
+        published = (
+            f"{promoted_tags:,} of {explicit_total:,} explicit tag(s) published as "
+            "Hugo taxonomy terms"
+        )
+        if promoted_tags < explicit_total:
+            chosen = (
+                "" if args.max_taxonomy_tags is not None
+                else f" (automatic cap for {processed:,} note(s))"
+            )
+            print(
+                f"{published}{chosen}; the other {explicit_total - promoted_tags:,} "
+                f"stay searchable through the tag index and Bluge "
+                f"({demoted_notes:,} note(s) rewritten)"
+            )
+        else:
+            print(published)
     if repaired_urls or preserved_urls:
         print(
             f"checked URLs: {repaired_urls:,} repaired link target(s), "
@@ -2726,6 +3268,10 @@ def main(argv: list[str]) -> int:
     if args.build:
         _build_site(args, output)
         print(f"built Hugo site in '{output / 'public'}'")
+        if args.vercel:
+            print("Vercel deployment readiness:")
+            for line in _vercel_readiness(output, args.search_backend):
+                print(f"  {line}")
         if args.search_backend in {"both", "bluge"}:
             print(f"serve with '{server_command}'")
         elif args.search_backend == "pagefind":
@@ -2733,7 +3279,11 @@ def main(argv: list[str]) -> int:
     else:
         print(f"run 'hugo --source {output}'")
         if args.search_backend in {"both", "bluge"}:
-            print(f"then build the server with 'cd {output / 'server'} && {args.go_bin} mod tidy && {args.go_bin} build -o movenotes-site-server .'")
+            print(
+                f"then build the server with 'cd {output / 'server'} && "
+                f"{args.go_bin} mod tidy && {args.go_bin} build -o movenotes-site-server "
+                "./cmd/movenotes-site-server'"
+            )
             print(f"and serve with '{server_command}'")
         if args.search_backend in {"both", "pagefind"}:
             print(f"for static hosting fallback, run 'npx -y pagefind --site {output / 'public'}'")

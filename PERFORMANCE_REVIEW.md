@@ -132,7 +132,7 @@ batch note bytes + tags), rather than O(total vault bytes).
 maps, bounds pending conversion jobs to approximately twice the worker count,
 and stores global tag counts plus exact tag-to-note associations in temporary
 SQLite. Tag JSON is emitted one prefix, posting, or document bucket at a time.
-Individual note titles are not rendered into the Relearn sidebar.
+Individual note titles are never rendered into the sidebar.
 
 Generated non-filler-word tags are not copied into every note's Hugo
 frontmatter or into Pagefind filters. Only explicit Obsidian frontmatter or
@@ -148,8 +148,8 @@ separate and depends on their installed versions, theme cache, and note text.
 
 ## Browser-side search and navigation scaling (3.32)
 
-The generated site no longer replaces Relearn’s sidebar shell. Keeping the
-theme’s supported structure avoids malformed layout state and lets Relearn’s
+The generated site overrides no theme shell. Keeping the theme’s supported
+structure avoids malformed layout state and lets the theme’s
 responsive navigation code operate on the DOM it expects. The custom sidebar
 contains only three fixed links and one search field, independent of vault size.
 
