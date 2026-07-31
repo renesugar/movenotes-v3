@@ -118,3 +118,6 @@ dmypy.json
 
 # Browser-verification scratch output
 /.playwright-mcp/
+
+# Per-machine Claude Code settings
+/.claude/
