@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/blugelabs/bluge"
 )
@@ -105,6 +106,12 @@ func BuildIndex(sourcePath, indexDir string) error {
 				document.AddField(bluge.NewKeywordField("tag", tag))
 			}
 		}
+		// Emoji as keywords, because the analyser drops them from the text
+		// fields entirely. Title as well as body: a tweet's own text is the
+		// title here, and that is where most of them are.
+		for _, symbol := range emojiSymbols(record.Title + " " + record.Body) {
+			document.AddField(bluge.NewKeywordField("emoji", symbol))
+		}
 		// Stored separately, and capped: a card has room for a few tags, and a
 		// note that writes thirty should not put all of them on one.
 		if display := displayTags(record); display != "" {
@@ -167,4 +174,50 @@ func displayTags(record sourceRecord) string {
 		}
 	}
 	return strings.Join(kept, "\t")
+}
+
+// emojiSymbols returns the distinct emoji in a string, in order of first
+// appearance.
+//
+// The standard analyser produces no term at all for an emoji — `😃` yields
+// nothing and `happy 😃 day` yields [happy day] — so an emoji is neither
+// indexed nor searchable through the text fields, and an emoji query has
+// nothing to match with. They are indexed as keywords instead, which is the
+// same shape `tag` uses.
+//
+// Rune by rune, so a joined sequence such as 👨‍👩‍👧 is found by any of its
+// parts. Zero-width joiners, variation selectors and skin-tone modifiers are
+// not symbols in their own right and are skipped, which is what makes 👍🏽 and
+// 👍 the same search.
+func emojiSymbols(text string) []string {
+	var out []string
+	seen := make(map[rune]bool)
+	for _, r := range text {
+		// Symbol-other, above the punctuation blocks: emoji live there, while
+		// © and ® sit below it and are ordinary characters in prose.
+		if r < 0x2000 || !unicode.Is(unicode.So, r) || seen[r] {
+			continue
+		}
+		seen[r] = true
+		out = append(out, string(r))
+	}
+	return out
+}
+
+// isEmojiTerm reports whether a query term is made only of emoji, which is when
+// it should be matched against the keyword field rather than the text fields.
+func isEmojiTerm(term string) bool {
+	found := false
+	for _, r := range term {
+		if r < 0x2000 || !unicode.Is(unicode.So, r) {
+			// Joiners and modifiers may appear between emoji without making the
+			// term something other than emoji.
+			if r == 0x200D || r == 0xFE0F || unicode.Is(unicode.Sk, r) {
+				continue
+			}
+			return false
+		}
+		found = true
+	}
+	return found
 }

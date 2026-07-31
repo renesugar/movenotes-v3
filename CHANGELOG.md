@@ -34,6 +34,7 @@ Changes in 3.36:
 - Added `expr` to `/api/search`: the query as a JSON expression tree, which is how `OR`, negation and grouping reach the server. The existing parameters are a flat set of ANDed clauses and cannot carry them; they still work for callers without a tree. Malformed trees are a 400 naming the problem, and both size and nesting depth are bounded.
 - Added `OR`, negation and grouping to the search grammar, following Twitter/X: `cat OR dog`, `housing -rental`, `(rent OR lease) tag:vanre`. A space is AND, and AND binds tighter than OR. `OR` is uppercase only, so a note that says "or" stays findable. Every one of these previously returned nothing, because the operator became one more word to require.
 - Answered them in full on Bluge, which receives the parsed expression as a tree. Pagefind cannot express them — its text search takes one term string with punctuation stripped — so those queries run there as though every clause were ANDed and the results view names the operators it dropped, the same contract `since:`/`until:` already used.
+- Made emoji searchable on the Bluge backend, which produced no term for one at all: `😃` matched nothing and an emoji in a note was not indexed, on an archive whose notes end `🔁 0 💙 0`. They are indexed as keywords now, from title and body, and an emoji-only term is matched against that field. Pagefind already found them. Costs 0.6% of the index.
 - Expanded the suite to 102 Python tests, plus Go tests over both server entry points.
 
 ---
