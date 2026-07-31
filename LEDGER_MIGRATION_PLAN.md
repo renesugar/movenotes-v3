@@ -1726,8 +1726,30 @@ Sub-steps, so the project stays working between them:
    Both servers, because the theme's is the reference implementation: 10 query
    shapes against a real index on the movenotes side, and parse/echo/build plus
    malformed-tree rejection on the theme side.
-3. Adapters: Bluge full, Pagefind filters-only with honest `unsupported`
-   reporting, Orama and FlexSearch as far as each goes.
+3. ✅ Adapters. Done in hugo-theme-ledger cc004e4, and `cat OR dog` now works.
+
+   `bluge.js` sends `expr` when a query uses an operator and the flat parameters
+   otherwise — flat by default keeps a shared URL legible and is what the
+   server's `offset`/`limit` contract is written against. A test pins that,
+   since sending the tree always would also work and would quietly turn every
+   URL into a blob of JSON.
+
+   `pagefind.js` reports `OR`, negation and grouping as unsupported. Its filters
+   do have compound `not`/`any`/`all`, but its text search takes one term string
+   with punctuation stripped, so a query mixing operators with free text cannot
+   be one call — and running several and merging client-side is what this
+   backend exists to avoid. Orama and FlexSearch report the same.
+
+   Verified in a browser on both backends. On a 400-note Bluge site the
+   arithmetic is self-consistent — `covid` 9, `vaccine` 2, `covid vaccine` 1,
+   `covid OR vaccine` 10, `covid -vaccine` 8 — and the server logs the query
+   back as `(covid OR vaccine) -pfizer`. On Pagefind the same queries say
+   *Ignored by this site's search backend: OR.* and *negation (-)*.
+
+**Step 47 is complete.** Answering the question that opened it: implementing
+this in Bluge and not in Pagefind was the right shape, and it is the same split
+`since:`/`until:` already had. The visitor is told, per query, which operators
+their site's backend could not honour.
 
 ### Step 48 — Emoji are not searchable
 `😃` → 0. The analyser produces **no terms at all** for an emoji: `😃` yields

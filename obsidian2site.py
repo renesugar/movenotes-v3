@@ -1997,6 +1997,9 @@ render one, and the search page when it is not. The search box accepts:
 | `tag:economics` | one tag; repeat it to require several |
 | `since:2026-07-01 until:2026-08-01` | July, by note date — `until:` is exclusive |
 | an empty box, or `category:"All notes"` | every note |
+| `cat OR dog` | either one — `OR` must be capitals |
+| `housing -rental` | with the first word, without the second |
+| `(rent OR lease) tag:vanre` | grouping, to say which goes with which |
 | `https://example.org/news/12345/a-headline/` | notes linking that URL |
 | `example.org news` | notes linking that host and path |
 
@@ -2056,8 +2059,10 @@ _SEARCH_CARD_BOTH = (
     "Pagefind search as the fallback."
 )
 _SYNTAX_NOTE_PAGEFIND = (
-    "Date bounds need the Bluge backend. On a statically hosted site the search "
-    "page says so rather than quietly ignoring them."
+    "Date bounds, `OR`, negation and grouping need the Bluge backend. On a "
+    "statically hosted site those queries run as though every word were "
+    "required, and the search page says which operators it dropped rather than "
+    "quietly answering a different question."
 )
 _SYNTAX_NOTE_BLUGE = "Every clause above is answered by the Bluge server."
 

@@ -215,11 +215,20 @@ configured:
 | `tag:economics` | one tag; repeat the clause to require several |
 | `since:2026-07-01 until:2026-08-01` | July, by note date — `until:` is exclusive |
 | *(empty)*, or `category:"All notes"` | every note |
+| `cat OR dog` | either — `OR` is uppercase only |
+| `housing -rental` | negation; needs a positive clause alongside |
+| `(rent OR lease) tag:vanre` | grouping |
 | `https://globalnews.ca/news/10063968/…` | notes linking that URL |
 | `globalnews.ca news` | notes linking that host and path |
 
 Clauses are ANDed, and anything that does not fit — `foo:bar`, a URL — is
-searched as text.
+searched as text. AND binds tighter than OR, so `a b OR c` is `(a AND b) OR c`;
+parentheses give the other reading.
+
+**`OR`, negation and grouping need the Bluge backend.** Pagefind's text search
+takes one term string and strips punctuation, so it cannot express them; those
+queries run there as though every clause were ANDed, and the results view says
+which operators it dropped. This is the same split as `since:`/`until:`.
 
 ### Searching for a link
 
