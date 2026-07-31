@@ -218,12 +218,18 @@ configured:
 | `cat OR dog` | either — `OR` is uppercase only |
 | `housing -rental` | negation; needs a positive clause alongside |
 | `(rent OR lease) tag:vanre` | grouping |
+| `🔁` | an emoji, alone or beside words |
 | `https://globalnews.ca/news/10063968/…` | notes linking that URL |
 | `globalnews.ca news` | notes linking that host and path |
 
 Clauses are ANDed, and anything that does not fit — `foo:bar`, a URL — is
 searched as text. AND binds tighter than OR, so `a b OR c` is `(a AND b) OR c`;
 parentheses give the other reading.
+
+**Emoji are searchable on both backends.** A Twitter/X note ends `🔁 0 💙 0`,
+and those are findable — Pagefind indexes them as it does any character, and
+Bluge indexes them as keywords, because its analyser produces no term for an
+emoji at all. Two emoji together mean both: `🔁 💙`.
 
 **`OR`, negation and grouping need the Bluge backend.** Pagefind's text search
 takes one term string and strips punctuation, so it cannot express them; those

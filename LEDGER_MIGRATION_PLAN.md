@@ -1751,7 +1751,7 @@ this in Bluge and not in Pagefind was the right shape, and it is the same split
 `since:`/`until:` already had. The visitor is told, per query, which operators
 their site's backend could not honour.
 
-### Step 48 — Emoji are not searchable
+### Step 48 — Emoji are not searchable  ✅
 `😃` → 0. The analyser produces **no terms at all** for an emoji: `😃` yields
 nothing and `happy 😃 day` yields `[happy] [day]`. So an emoji query has nothing
 to match with, and an emoji in a note is not indexed. Twitter's operator list
@@ -1766,6 +1766,38 @@ index cost before adopting.
 Also worth deciding here: `#ifnβ` and `ifnβ` are the same query today, because
 the tokeniser drops `#`. Twitter treats `#x` as an exact hashtag match. If
 step 46 lands option 2, `#x` becomes the natural spelling for `tag:x`.
+
+**Done, and it was a Bluge-only gap.** Pagefind already finds them — checked
+first, on the exampleSite note that ends `🔁 10 💙 5`: `🔁` → 1, `💙` → 1,
+`🐢` → 0. That reverses the usual direction of these findings and halved the
+work.
+
+On the Bluge side emoji are now indexed as keywords in their own field, the
+shape `tag` uses, from the title as well as the body — an imported note's own
+text is its title. A query term made only of emoji is matched against that
+field; `splitEmoji` separates them from the words in a free-text query, so a
+query with no emoji is untouched. Rune by rune, so 👍🏽 and 👍 are one search and
+any part of a joined sequence finds it.
+
+Verified on 400 real notes, whose emoji are `🔁` ×400, `💙` ×400 and `🙌` ×1:
+
+| query | total |
+|---|---|
+| `🔁` | 400 |
+| `🙌` | 1 |
+| `🐢` | 0 |
+| `🔁 💙` | 400 (both required) |
+| `🙌 Seizure` | 1 (emoji and word, from that note) |
+| `🐢 Seizure` | 0 |
+| `(🙌 OR 🐢)` as an expression | 1, echoed `🙌 OR 🐢` |
+
+**Cost: 0.6% of the index** — 1,147,978 → 1,154,729 bytes, measured by
+re-indexing the same corpus with emoji stripped. The vocabulary is tiny, which is
+why: three distinct symbols across 400 notes.
+
+The `#ifnβ` question above is left open. Step 46 landed option 2, so `#x` could
+now mean `tag:x`, but that is a grammar change rather than an indexing one and
+nothing in the reports asks for it.
 
 ---
 

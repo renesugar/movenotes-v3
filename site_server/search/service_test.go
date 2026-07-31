@@ -473,3 +473,121 @@ func TestExpressionIsEchoedInGrammar(t *testing.T) {
 		}
 	}
 }
+
+// TestEmojiAreSearchable covers step 48. The standard analyser produces no term
+// at all for an emoji, so `😃` matched nothing and an emoji in a note was not
+// indexed — on an archive whose notes end "🔁 0 💙 0". Pagefind already found
+// them; this closes the gap on the Bluge side.
+func TestEmojiAreSearchable(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "search-source.jsonl")
+	records := []string{
+		`{"id":0,"url":"/notes/a.html","title":"Delighted 😃","date":"2026-07-03T00:00:00Z","body":"a happy note 😃 with feeling","summary":"happy","category":"Notes","tags":[],"readingTime":1}`,
+		`{"id":1,"url":"/notes/b.html","title":"Cross 😡","date":"2026-07-02T00:00:00Z","body":"an angry note 😡","summary":"angry","category":"Notes","tags":[],"readingTime":1}`,
+		`{"id":2,"url":"/notes/c.html","title":"Both 😃😡","date":"2026-07-01T00:00:00Z","body":"mixed feelings 😃 😡","summary":"mixed","category":"Notes","tags":[],"readingTime":1}`,
+		`{"id":3,"url":"/notes/d.html","title":"Plain","date":"2026-06-30T00:00:00Z","body":"no feelings here","summary":"plain","category":"Notes","tags":[],"readingTime":1}`,
+	}
+	if err := os.WriteFile(source, []byte(strings.Join(records, "\n")+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	index := filepath.Join(root, "index")
+	if err := BuildIndex(source, index); err != nil {
+		t.Fatalf("BuildIndex: %v", err)
+	}
+	service := New(Config{SourcePath: source, IndexDir: index})
+	defer service.Close()
+
+	run := func(t *testing.T, values url.Values, want []string) {
+		t.Helper()
+		recorder := httptest.NewRecorder()
+		service.Search(recorder, httptest.NewRequest(
+			http.MethodGet, "/api/search?"+values.Encode(), nil))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("status = %d: %s", recorder.Code, recorder.Body.String())
+		}
+		var got struct {
+			Total   int `json:"total"`
+			Results []struct {
+				URL string `json:"url"`
+			} `json:"results"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		var urls []string
+		for _, r := range got.Results {
+			urls = append(urls, r.URL)
+		}
+		sort.Strings(urls)
+		sorted := append([]string(nil), want...)
+		sort.Strings(sorted)
+		if got.Total != len(sorted) || !reflect.DeepEqual(urls, sorted) {
+			t.Errorf("total = %d, results = %q; want %q", got.Total, urls, sorted)
+		}
+	}
+
+	t.Run("a single emoji", func(t *testing.T) {
+		run(t, url.Values{"q": {"😃"}}, []string{"/notes/a.html", "/notes/c.html"})
+	})
+	t.Run("a different emoji", func(t *testing.T) {
+		run(t, url.Values{"q": {"😡"}}, []string{"/notes/b.html", "/notes/c.html"})
+	})
+	t.Run("two emoji require both", func(t *testing.T) {
+		run(t, url.Values{"q": {"😃😡"}}, []string{"/notes/c.html"})
+	})
+	t.Run("emoji and a word together", func(t *testing.T) {
+		run(t, url.Values{"q": {"😃 happy"}}, []string{"/notes/a.html"})
+	})
+	t.Run("an absent emoji finds nothing", func(t *testing.T) {
+		run(t, url.Values{"q": {"🐢"}}, nil)
+	})
+	// Twitter's own example, `(😃 OR 😡) 😬`, without the last term.
+	t.Run("emoji in an expression", func(t *testing.T) {
+		run(t, url.Values{"expr": {`{"type":"or","nodes":[{"type":"term","value":"😃"},{"type":"term","value":"😡"}]}`}},
+			[]string{"/notes/a.html", "/notes/b.html", "/notes/c.html"})
+	})
+	t.Run("a negated emoji", func(t *testing.T) {
+		run(t, url.Values{"expr": {`{"type":"and","nodes":[{"type":"term","value":"😃"},{"type":"not","node":{"type":"term","value":"😡"}}]}`}},
+			[]string{"/notes/a.html"})
+	})
+	// Words still behave exactly as before when no emoji are involved.
+	t.Run("an ordinary query is unaffected", func(t *testing.T) {
+		run(t, url.Values{"q": {"feelings"}}, []string{"/notes/c.html", "/notes/d.html"})
+	})
+}
+
+func TestEmojiDetection(t *testing.T) {
+	for _, c := range []struct {
+		text string
+		want []string
+	}{
+		{"😃", []string{"😃"}},
+		{"happy 😃 day", []string{"😃"}},
+		{"🔁 0 💙 0", []string{"🔁", "💙"}},
+		{"😃 and 😃 again", []string{"😃"}}, // distinct, in order of appearance
+		{"no emoji here", nil},
+		{"café ifnβ", nil}, // letters, however unusual
+		{"© ® 1999", nil},  // below the emoji blocks
+	} {
+		if got := emojiSymbols(c.text); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("emojiSymbols(%q) = %q, want %q", c.text, got, c.want)
+		}
+	}
+
+	for _, c := range []struct {
+		term string
+		want bool
+	}{
+		{"😃", true},
+		{"😃😡", true},
+		{"👍🏽", true}, // a skin-tone modifier does not make it text
+		{"happy", false},
+		{"😃happy", false},
+		{"", false},
+		{"café", false},
+	} {
+		if got := isEmojiTerm(c.term); got != c.want {
+			t.Errorf("isEmojiTerm(%q) = %v, want %v", c.term, got, c.want)
+		}
+	}
+}

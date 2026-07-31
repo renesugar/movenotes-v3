@@ -2000,6 +2000,7 @@ render one, and the search page when it is not. The search box accepts:
 | `cat OR dog` | either one — `OR` must be capitals |
 | `housing -rental` | with the first word, without the second |
 | `(rent OR lease) tag:vanre` | grouping, to say which goes with which |
+| `🔁` | an emoji; two together mean both |
 | `https://example.org/news/12345/a-headline/` | notes linking that URL |
 | `example.org news` | notes linking that host and path |
 

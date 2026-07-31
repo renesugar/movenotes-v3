@@ -299,6 +299,9 @@ func buildExpr(node *exprNode) bluge.Query {
 		return nil
 
 	case "term":
+		if isEmojiTerm(node.Value) {
+			return emojiQuery(node.Value)
+		}
 		// The same "title, summary or body, title weighted highest" shape the
 		// flat path uses, one tree leaf at a time.
 		return bluge.NewBooleanQuery().SetMinShould(1).AddShould(
@@ -354,15 +357,23 @@ func buildFlatQuery(params searchParams) bluge.Query {
 		boolean.AddMust(bluge.NewTermQuery(strings.ToLower(tag)).SetField("tag"))
 		clauses++
 	}
-	if params.terms != "" {
+	// Emoji are keywords, not text: the analyser drops them from the text
+	// fields, so they are separated out before the rest is handed over as one
+	// string. A query with no emoji in it is unaffected.
+	words, symbols := splitEmoji(params.terms)
+	for _, symbol := range symbols {
+		boolean.AddMust(emojiQuery(symbol))
+		clauses++
+	}
+	if words != "" {
 		// Every term must appear, in one field or another.
 		any := bluge.NewBooleanQuery().SetMinShould(1)
 		any.AddShould(
-			bluge.NewMatchQuery(params.terms).SetField("title").
+			bluge.NewMatchQuery(words).SetField("title").
 				SetOperator(bluge.MatchQueryOperatorAnd).SetBoost(4),
-			bluge.NewMatchQuery(params.terms).SetField("summary").
+			bluge.NewMatchQuery(words).SetField("summary").
 				SetOperator(bluge.MatchQueryOperatorAnd).SetBoost(2),
-			bluge.NewMatchQuery(params.terms).SetField("body").
+			bluge.NewMatchQuery(words).SetField("body").
 				SetOperator(bluge.MatchQueryOperatorAnd),
 		)
 		boolean.AddMust(any)
@@ -392,6 +403,41 @@ func buildFlatQuery(params searchParams) bluge.Query {
 		return bluge.NewMatchAllQuery()
 	}
 	return boolean
+}
+
+// emojiQuery matches a term made of emoji against the keyword field, requiring
+// every symbol in it: `😃😡` means a note carrying both.
+func emojiQuery(term string) bluge.Query {
+	symbols := emojiSymbols(term)
+	if len(symbols) == 0 {
+		return nil
+	}
+	if len(symbols) == 1 {
+		return bluge.NewTermQuery(symbols[0]).SetField("emoji")
+	}
+	boolean := bluge.NewBooleanQuery()
+	for _, symbol := range symbols {
+		boolean.AddMust(bluge.NewTermQuery(symbol).SetField("emoji"))
+	}
+	return boolean
+}
+
+// splitEmoji divides a free-text string into the words the analyser can index
+// and the emoji-only terms it cannot.
+func splitEmoji(terms string) (words string, symbols []string) {
+	if terms == "" {
+		return "", nil
+	}
+	fields := strings.Fields(terms)
+	kept := fields[:0]
+	for _, field := range fields {
+		if isEmojiTerm(field) {
+			symbols = append(symbols, field)
+			continue
+		}
+		kept = append(kept, field)
+	}
+	return strings.Join(kept, " "), symbols
 }
 
 func toResult(match *search.DocumentMatch) (searchResult, error) {
