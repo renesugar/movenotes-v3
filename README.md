@@ -9,8 +9,9 @@
 * **Export:** SQLite → Joplin RAW Directory
 * **Export:** SQLite → Obsidian vault
 
-The Obsidian vault export can be published as a scalable Hugo/Relearn site
-with `obsidian2site.py`. For archives with over 100,000 notes, the generated Go
+The Obsidian vault export can be published as a scalable Hugo site with
+`obsidian2site.py`, using the
+[Ledger](https://github.com/renesugar/hugo-theme-ledger) theme. For archives with over 100,000 notes, the generated Go
 server keeps the Bluge search index on the server instead of downloading browser
 index chunks. Pagefind remains available as a fully static fallback:
 
@@ -38,7 +39,7 @@ id, plus a `resources/` directory holding attachment files.
 | `obsidian2sql.py` | Import an Obsidian vault into a SQLite database          |
 | `sql2joplin.py`   | Export a SQLite database to a Joplin RAW directory       |
 | `sql2obsidian.py` | Export a SQLite database to an Obsidian vault            |
-| `obsidian2site.py` | Convert an Obsidian vault to a Hugo/Relearn site with Bluge and Pagefind search |
+| `obsidian2site.py` | Convert an Obsidian vault to a Hugo/Ledger site with Bluge and Pagefind search |
 | `removedups.py`   | Remove duplicate notes from a database (useful after merging several sources) |
 | `cleanres.py`     | Remove unused files from a resources directory           |
 | `images2resources.py` | Convert embedded/remote Markdown images to local Joplin resources |
@@ -370,24 +371,24 @@ If notes are intentionally edited in Joplin, the exporter falls back to a
 normal generated Obsidian note rather than overwriting the edit with an older
 snapshot.
 
-# Publishing a large vault with Hugo, Relearn, and Bluge
+# Publishing a large vault with Hugo, Ledger, and Bluge
 
-`obsidian2site.py` creates a Hugo project with the Relearn theme and a fixed
-Getting Started, Search, and Browse Tags sidebar. Note titles are not enumerated
-in the sidebar, so a folder containing more than 100,000 notes remains usable.
+`obsidian2site.py` creates a Hugo project using the
+[Ledger](https://github.com/renesugar/hugo-theme-ledger) theme, which is built
+for archives of 100,000+ notes: no note is ever listed in the navigation, every
+surface that could grow with the archive is bounded, and search comes from a
+swappable backend.
 
 ```bash
 python3 -B obsidian2site.py \
   --input ~/twitter_vault \
   --output ~/twitter_site \
   --title "Twitter Archive" \
-  --relearn-theme ~/src/hugo-theme-relearn \
-  --search-backend bluge
+  --ledger-theme ~/projects/hugo-theme-ledger \
+  --search-backend bluge \
+  --build
 
-hugo --source ~/twitter_site
 cd ~/twitter_site/server
-go mod tidy
-go build -o movenotes-site-server .
 ./movenotes-site-server \
   -site ../public \
   -source search-source.jsonl \
@@ -395,42 +396,61 @@ go build -o movenotes-site-server .
   -listen 127.0.0.1:8080
 ```
 
-Open `http://127.0.0.1:8080/`. Bluge-only output contains no Relearn/Lunr or
-Pagefind browser search runtime; both the sidebar and full Search page call the
-server's `/api/health` and `/api/search` endpoints. The terminal logs those
-requests. The server builds its Bluge index on the first run and rebuilds it
-automatically when `search-source.jsonl` changes. Search
-supports ordinary keywords, quoted phrases, exact `tag:name` clauses, and
-`since:YYYY-MM-DD`/`until:YYYY-MM-DD` date bounds. `since:` is inclusive and
-`until:` is exclusive.
+Open `http://127.0.0.1:8080/`. A `bluge` build ships no browser search index at
+all; the search page calls the server's `/api/health` and `/api/search`, and the
+terminal logs every request with its query, total and duration. The server builds
+its Bluge index on first run and rebuilds when `search-source.jsonl` changes.
 
-Every generated note gets one deterministic lowercase URL. Folder and filename
-segments use Hugo-safe hyphens rather than source spaces, and the same URL is
-written to Hugo frontmatter, exact-tag metadata, Pagefind output, and Bluge
-records. This prevents search results from requesting source-vault paths such as
+Search accepts ordinary keywords, quoted phrases, `category:`, repeatable
+`tag:name`, and `since:`/`until:` date bounds (`since:` inclusive, `until:`
+exclusive). The grammar is parsed once in the browser, so every backend answers
+the same syntax — except that Pagefind has no date filter and says so rather than
+ignoring the clause. Results come back newest first for every query; an empty
+box means every note.
+
+**A note's links are searchable by their destination**, whether the URL is
+written out or hidden behind a label. A URL is split like a sentence — the host
+stays whole, the path becomes words — so the whole URL, a prefix of it, or its
+components in any order all find the notes that link it, and the subdomain is
+optional: `kqed.org` finds `www.kqed.org` and `blogs.kqed.org` alike.
+
+Three ways in: search, the sidebar's categories and tags, and **Browse Tags**.
+The two tag populations are stored differently, because they differ in size by
+orders of magnitude: the written tags become a bounded Hugo taxonomy with real
+archive pages, while every unique content word lives in a disk-backed posting
+index that Browse Tags reads. `tag:` searches the written ones, so it returns the
+same count as that tag's archive page; a generated word is found by searching for
+the word.
+
+Every generated note gets one deterministic lowercase URL, reused in Hugo
+frontmatter, exact-tag metadata, Pagefind output and Bluge records. This prevents
+results from requesting source-vault paths such as
 `/notes/Twitter/File%20Name.html` when Hugo emitted
 `/notes/twitter/file-name.html`.
 
-Bluge replaces Pagefind for server-side search; it does not ingest Pagefind's
-private browser index. `obsidian2site.py` writes a neutral JSONL document stream
-for Bluge before Hugo builds the HTML. Pagefind can still be built for static
-hosting or as an automatic fallback when the Go server is unavailable:
+Bluge does not ingest Pagefind's private browser index: `obsidian2site.py` writes
+a neutral JSONL document stream for it instead. Pagefind remains available for
+static hosting, or as an automatic fallback:
 
 ```bash
 npx -y pagefind --site ~/twitter_site/public
 python3 -m http.server 8080 --directory ~/twitter_site/public
 ```
 
-Use `--search-backend bluge`, `pagefind`, or `both` with `--build` to choose
-which search artifacts are built. For a large local archive, `bluge` is the
-recommended mode and the Hugo build is rejected if it still references Lunr,
-`searchindex.js`, or Pagefind scripts. The default remains `both` for users who
-also need static hosting.
+`--search-backend both` (the default) builds both indexes and lets the theme's
+`auto` adapter choose per page load — Bluge when the server answers, Pagefind
+when it does not — so one build works served locally and as static files. With
+`--build`, the generator then checks the built HTML and fails if the site does
+not configure the backend that was asked for.
 
 The converter also normalizes Hugo dates, copies attachments, repairs malformed
 external URL destinations while retaining their visible source text, links valid
 plain `@username` mentions to X, and writes a disk-backed exact tag index whose
 counts match its result lists.
+
+Deploying the result: [`DEPLOY_VERCEL.md`](DEPLOY_VERCEL.md) for server-side
+Bluge search, [`DEPLOY_GITHUB_PAGES.md`](DEPLOY_GITHUB_PAGES.md) for a static
+Pagefind site.
 
 See [`STATIC_SITE.md`](STATIC_SITE.md) for complete build, query, local serving,
 deployment-prefix, stop-word, embed, Pagefind fallback, and Quartz instructions.

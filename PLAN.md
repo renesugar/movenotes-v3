@@ -400,3 +400,21 @@ All steps (1–13) complete. Run `python3 -m unittest -v test_movenotes.py test_
   mode, documentation, checksum data, and structural/integration regressions.
 - Expanded the suite to 81 tests.
 
+### Step 20 and later — Ledger theme, Vercel, and static search
+
+Steps 20–36 replace the Relearn theme with `hugo-theme-ledger`, make
+`movenotes-site-server` deployable on Vercel as well as locally, and benchmark
+Orama and FlexSearch against Pagefind before deciding whether either becomes a
+static-hosting search option. They are planned in detail, with the
+architectural decisions and the per-step verification, in
+[`LEDGER_MIGRATION_PLAN.md`](LEDGER_MIGRATION_PLAN.md).
+
+Steps 20–35 are done (`obsidian2site.py` 3.36). The theme swap, the two-tier tag
+model, the one Bluge contract, the serverless split, and both deployment documents
+are in place. The Orama/FlexSearch benchmark ran and justified adding nothing:
+`--search-backend` still offers `both`, `bluge`, and `pagefind`. Step 36 is the
+real-archive test before release.
+
+Anything in steps 1–19 above that describes Relearn is history, not current
+behaviour. `STATIC_SITE.md` is the current description.
+
