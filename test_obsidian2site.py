@@ -365,6 +365,34 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertFalse((site / "layouts" / "partials" / "menu.html").exists())
             self.assertEqual(len(list((site / "content" / "notes").glob("*.md"))), 251)
 
+    def test_note_named_index_does_not_swallow_its_directory(self) -> None:
+        # Hugo treats a directory holding `index.md` as a leaf bundle: the
+        # directory becomes one page and every sibling note becomes a resource
+        # of it rather than a page, so the siblings 404 with nothing logged.
+        # A note titled "INDEX" slugs straight onto that name.
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-index-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            site = root / "site"
+            (vault / "Recipes").mkdir(parents=True)
+            (vault / "Recipes" / "INDEX.md").write_text(
+                "# INDEX\n\nA note whose title collides with Hugo's bundle name.\n",
+                encoding="utf-8",
+            )
+            for name in ("Soup", "Bread", "Cake"):
+                (vault / "Recipes" / f"{name}.md").write_text(
+                    f"# {name}\n\nUnique{name} body text.\n", encoding="utf-8"
+                )
+            run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+
+            notes = site / "content" / "notes" / "recipes"
+            written = sorted(path.name for path in notes.glob("*.md"))
+            self.assertNotIn("index.md", written)
+            self.assertNotIn("_index.md", written)
+            self.assertEqual(
+                written, ["bread.md", "cake.md", "index-note.md", "soup.md"]
+            )
+
     def test_taxonomy_tag_cap_promotes_the_most_frequent_tags(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-tag-cap-") as temporary:
             root = Path(temporary)

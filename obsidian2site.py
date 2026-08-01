@@ -386,6 +386,23 @@ def _slug_site_segment(value: str, *, maximum_bytes: int = 180) -> str:
     return _safe_segment(slug, maximum_bytes=maximum_bytes)
 
 
+# Hugo reads `index.md` as a leaf bundle and `_index.md` as a branch bundle.
+# Either one turns its directory into a single page and demotes every sibling
+# note to a page resource, so those notes stop being pages at all — the site
+# builds without a warning and every one of them 404s. A note titled "INDEX"
+# slugs to `index`, which is enough to do it: one such note removed 95,148
+# recipes from a generated site.
+HUGO_BUNDLE_STEMS = frozenset({"index", "_index"})
+
+
+def _slug_note_filename(stem: str) -> str:
+    """Slug a note's file name, keeping clear of Hugo's bundle names."""
+    slug = _slug_site_segment(stem)
+    if slug.casefold() in HUGO_BUNDLE_STEMS:
+        slug = f"{slug}-note"
+    return slug + ".md"
+
+
 def _build_path_maps(
     root: Path, markdown_paths: list[Path], asset_paths: list[Path]
 ) -> tuple[dict[str, PurePosixPath], dict[str, PurePosixPath]]:
@@ -425,7 +442,7 @@ def _build_path_maps(
             name[:name.rindex(".")]
             if "." in name[1:] and not name.endswith(".") else name
         )
-        filename = _slug_site_segment(stem) + ".md"
+        filename = _slug_note_filename(stem)
         output = _unique_output_path(
             ("notes",) + slugged + (filename,), used_notes,
             safe_prefix=_safe_directory(("notes",) + slugged),
