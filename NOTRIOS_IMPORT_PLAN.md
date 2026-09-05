@@ -175,19 +175,27 @@ integrity verification.
 
 ## Execution and agent handoff rules
 
-Slice 1a is complete; all other slices below are pending. **Luna** means an agent
-configured with
-`model = "gpt-5.6-luna"`, `model_reasoning_effort = "medium"`. **Main** means
-the main model. Luna handles bounded implementations with frozen inputs; Main
-owns format/privacy decisions, cross-format design, integration and final
-review. Escalate newly discovered design decisions to Main rather than guessing.
+Slice 1a is complete; all other slices below are pending. Worker names refer to
+the roles available in this session:
+
+| Owner | Agent configuration | Assignment rule |
+|---|---|---|
+| Luna | `agent_type="luna_worker"`; fixed `gpt-5.6-luna`, reasoning `medium` | Mechanical helpers, pure builders, straightforward table-driven tests and documentation against frozen inputs. |
+| Terra | `agent_type="terra_worker"`; fixed `gpt-5.6-terra`, reasoning `medium` | Bounded implementation and regression work needing cross-file reasoning, filesystem/subprocess handling or debugging against Main's approved contract. |
+| Main | Main model | Contract/privacy decisions, verifier semantics, transactional safety, cross-format design, integration acceptance and final review. |
+
+The Terra assignments use the available role's stated purpose, not measured
+performance on this repository. They do not change scope or acceptance gates.
+Main must freeze the relevant design before either worker starts; especially,
+Terra implements 3d and 5b only after the link/attachment decisions in 1c are
+concrete. Escalate newly discovered design decisions to Main rather than guessing.
 Implementation may delegate these slices; this plan review does not require
 parallel agents.
 
 Work on **one slice at a time**. Assign inputs, owned files, dependencies,
 excluded files and acceptance commands explicitly. Tell workers they are not
 alone in the codebase and must preserve others' edits. Main reviews every Luna
-result before the next dependent slice. Do not edit shared helpers/tests from
+or Terra result before the next dependent slice. Do not edit shared helpers/tests from
 multiple simultaneous tasks.
 
 Each slice ends with focused passing checks, a progress-log update identifying
@@ -223,7 +231,7 @@ neither alone protects against the producer and consumer sharing a bug.
 |---|---|---|---|
 | 2a / Main | Strict bounded JSON, manifest canonicalization, declaration and target gate in `notrios_archive.py`. | 1d | Independent digest vectors; duplicate/unknown fields, types, versions/schema/capabilities; full/subset/physical/packed refusal before object access. |
 | 2b / Main | Safe fanout reader, streamed hashes, index validation and temporary indexed spool. | 2a | Missing/corrupt/truncated chunks/objects, ordering/totals, traversal, symlinks and extras refuse without output mutation. |
-| 2c / Luna | Table-driven hostile mutations and byte-limit boundary tests using frozen APIs. | 2b | Each failure has a specific assertion; legacy zero blob counts and bounded optional capabilities accepted. |
+| 2c / Terra | Table-driven hostile mutations and byte-limit boundary tests using frozen APIs; diagnose failures against the frozen contract. | 2b | Each failure has a specific assertion; legacy zero blob counts and bounded optional capabilities accepted. |
 | 2d / Main | Typed records, reference joins, tree checks, MIME and publication invariants. | 2c | Correctly rehashed but semantically invalid archives refuse for the intended reason; real publication passes. |
 | 2e / Main | Differential audit against Notrios for shared format rules, plus consumer-specific refusals and point-of-use safety. | 2d | Duplicate identities, missing references, wrong revision owners, unused blobs and source mutation covered; memory bounded. |
 
@@ -236,8 +244,8 @@ even if some files resemble loose objects.
 |---|---|---|---|
 | 3a / Luna | Pure deterministic ID and complete row/property builders in the module assigned by 1c. | 2e | Frozen vectors, generic/Joplin aliases, timestamps, Unicode/empty titles; IDs stable across snapshots. |
 | 3b / Main | Staged database lifecycle, byte-bounded batches, collision checks and atomic destination publication. | 3a | Injected verification/insertion/finalization faults leave no completed partial output or overwritten destination. |
-| 3c / Luna | Notebook/note integration and text-only vault subprocess tests. | 3b | Counts/hierarchy/title/body/date assertions; invalid parent/revision/body refuses. |
-| 3d / Main | Included-note link translation and minimal exporter adaptation using final paths. | 3c | Links resolve with duplicate titles/renaming/fragments; withheld/external text correct; existing exporter tests pass. |
+| 3c / Terra | Notebook/note integration and text-only vault subprocess tests. | 3b | Counts/hierarchy/title/body/date assertions; invalid parent/revision/body refuses. |
+| 3d / Terra | Implement included-note link translation and minimal exporter adaptation using final paths, following Main's frozen 1c design. | 3c | Links resolve with duplicate titles/renaming/fragments; withheld/external text correct; existing exporter tests pass; Main reviews cross-format behavior. |
 
 This is a development milestone. Until Steps 4–6 complete, reject inputs needing
 unfinished features rather than silently omitting data.
@@ -254,9 +262,9 @@ unfinished features rather than silently omitting data.
 
 | Slice / owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| 5a / Luna | Resource metadata builder and streamed staged copy using approved APIs. | 4c | Exact hashes/sizes; safe names and extensionless resources; conflicting bytes refuse. |
-| 5b / Main | Translate retained resource links and implement reviewed relation-only attachment behavior. | 5a | Images/files resolve from nested notes; shared bytes with differing semantic MIME work; withheld resources absent. |
-| 5c / Luna | Attachment regressions with independent byte comparisons. | 5b | Duplicate filenames, Unicode/escaping, zero-byte and large streamed files; exact attachment bytes. |
+| 5a / Terra | Resource metadata builder and streamed staged copy using approved APIs and Main's staged-output design. | 4c | Exact hashes/sizes; safe names and extensionless resources; conflicting bytes refuse. |
+| 5b / Terra | Translate retained resource links and implement relation-only attachment behavior frozen by Main in 1c. | 5a | Images/files resolve from nested notes; shared bytes with differing semantic MIME work; withheld resources absent; Main reviews the mapping. |
+| 5c / Terra | Attachment regressions with independent byte comparisons. | 5b | Duplicate filenames, Unicode/escaping, zero-byte and large streamed files; exact attachment bytes. |
 | 5d / Main | Review reachability, rehash-at-use and interrupted-copy recovery. | 5c | No writes outside staging or overwrites; failure cannot expose partial completed output. |
 
 Do not run `cleanres.py` during import. Its Markdown-reference rule could remove
@@ -271,13 +279,13 @@ Target refusal is mandatory in 2a, not deferred to this step.
 | 6a / Luna | Versioned settings receipt and content-free import summary in staging. | 5d | Both digests correct; failed imports have no success receipt. |
 | 6b / Main | Finalize CLI, expected reviewed-digest comparison, identical completed rerun and conflicting-output refusal. | 6a | Digest mismatch/changed source refuse; same import is safe; no unsafe override. |
 | 6c / Main | Specify and implement explicit receipt propagation to vault/site outside notes/indexes. | 6b | Both digests traceable; no claim that settings propagate automatically; no source-path leakage. |
-| 6d / Luna | Help/errors/progress and CLI subprocess tests. | 6c | Consistent `--input`/`--output`, phase/count progress, nonzero errors and no success on partial output. |
+| 6d / Terra | Help/errors/progress and CLI subprocess tests against Main's finalized CLI contract. | 6c | Consistent `--input`/`--output`, phase/count progress, nonzero errors and no success on partial output. |
 
 ## Step 7 — End-to-end acceptance and documentation
 
 | Slice / owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| 7a / Luna | Small offline publication-fixture → SQLite → vault regression with independent expectations. | 6d | Notes/tags/links, exact attachments, absence of excluded sentinels and receipt assertions pass. |
+| 7a / Terra | Small offline publication-fixture → SQLite → vault regression with independent expectations. | 6d | Notes/tags/links, exact attachments, absence of excluded sentinels and receipt assertions pass. |
 | 7b / Main | Actual local Hugo/Ledger + Bluge build and bounded Pagefind fixture; test search/subpath URLs. | 7a | Canonical URLs, links, attachments, explicit tag counts and backend isolation correct; excluded sentinel absent from publishable files/index sources. |
 | 7c / Main | Large-corpus trials below; record time/RSS/disk/counts/hashes and failure recovery. | 7b | Importer bounds demonstrated; stage bottlenecks separated; no unmeasured whole-pipeline memory claim. |
 | 7d / Luna | README script list/usage and CHANGELOG from measured accepted commands. | 7c | Reproducible publication → import → vault → site recipe; loose/fresh-output limitations; no private content in public examples. |
@@ -344,3 +352,4 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 |---|---|---|
 | 2026-09-05 | Plan review | Corrected format/mapping decisions; seven steps split into owned slices with dependencies and acceptance gates. No importer implemented or corpus/site tests run. Next: 1a. |
 | 2026-09-05 | 1a complete | Added the pinned field/limit/publication checklist and `movenotes-publication-loose-v1` declaration. Recorded producer metadata retention, policy overrides, skipped-rewrite limitations and CLI/report requirements for 1b. Documentation/schema/limit/order checks only; no fixture generated. Next: ask to proceed to 1b. |
+| 2026-09-05 | Worker assignment review | Assigned 2c, 3c, 3d, 5a, 5b, 5c, 6d and 7a to Terra for bounded implementation/regression work. Luna retains mechanical slices; Main retains design, safety and acceptance decisions and reviews both worker roles. Slice order and per-item user confirmation remain unchanged. Next: ask to proceed to 1b. |
