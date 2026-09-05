@@ -1,0 +1,18 @@
+{
+  "input_path": "<work>/publication/manifest.json",
+  "format": "notrios-archive",
+  "version": 2,
+  "reader_profile": "previous-loose-v2",
+  "reader_schema_version": 27,
+  "required_capabilities": [
+    "identity.database-replica.v1",
+    "objects.index.v1",
+    "objects.sha256.v1",
+    "records.jsonl.v1",
+    "revisions.complete.v1"
+  ],
+  "decision": "accept",
+  "reason_code": "declaration_supported",
+  "reason": "archive-v2 declaration is supported; run full verification before consumption",
+  "full_verification_required": true
+}

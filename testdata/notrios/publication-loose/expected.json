@@ -1,0 +1,314 @@
+{
+  "fixture_version": 1,
+  "producer_commit": "bdecfeda00e582d5aa6170d15b37ba27c9656f1d",
+  "commit_sha256": "b998f2fc889fa382cab7a3332663da5b9852de50696e065032ee7c7e168eba26",
+  "selection_manifest_sha256": "54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0",
+  "snapshot_id": "snap_jwa2ax65dqlknybsgzmwieaxki",
+  "database_id": "db_74xji7czi6hikwfpysuyjkjaye",
+  "counts": {
+    "collections": 1,
+    "notebooks": 2,
+    "search_notebooks": 0,
+    "tags": 4,
+    "documents": 3,
+    "revisions": 3,
+    "document_tags": 6,
+    "resources": 3,
+    "document_resources": 4,
+    "links": 8,
+    "provenance": 0,
+    "source_bundles": 0
+  },
+  "totals": {
+    "objects": 7,
+    "bytes": 9506,
+    "record_chunks": 1,
+    "blobs": 6
+  },
+  "notes": {
+    "doc_child": {
+      "title": "Child 東京",
+      "body": "# Details\n\n子ノート café. [Back](document://default/documents/doc_public).\n![shared image](resource://default/resources/res_image)\n",
+      "body_sha256": "6cf17e4747e03b880aa61c49ea7d9ab75ba9b867333b89ec8b8fa7dfce293f62",
+      "tags": [
+        "published",
+        "東京"
+      ],
+      "notebook_path": "Public/研究",
+      "current_revision_id": "rev_uu7nz7m42dt3uahyihs5in464i",
+      "created_at": "2026-09-05T21:17:09Z",
+      "updated_at": "2026-09-05T21:17:09Z"
+    },
+    "doc_duplicate": {
+      "title": "Café & field notes",
+      "body": "A second note with the same title in the same notebook.\n",
+      "body_sha256": "851871f8b2645addf9e4d975eeb392cf0ac41e7e48b5c732f3bda488bacb28f1",
+      "tags": [
+        "published"
+      ],
+      "notebook_path": "Public",
+      "current_revision_id": "rev_vwy4mj5drv6lptt4wszltvdk7q",
+      "created_at": "2026-09-05T21:17:09Z",
+      "updated_at": "2026-09-05T21:17:09Z"
+    },
+    "doc_public": {
+      "title": "Café & field notes",
+      "body": "# Details\n\nPréface café ☕ before withheld note.\nA draft stays unpublished.\nAn unresolved reference becomes missing label.\n\nRead [child section](document://default/documents/doc_child#details) and [same title](document://default/documents/doc_duplicate).\nVisit [example](https://example.com/reading?q=caf%C3%A9&lang=en).\n![café chart](resource://default/resources/res_image)\nDownload [field notes](resource://default/resources/res_text).\nReturn to [this section](#details).\n\n```note-query\nquery: tag:private\nfields: title, snippet\nlimit: 5\n```\n",
+      "body_sha256": "100a0e77157941dee7aeb3842ac998c0ad2ae65e6ce0b624d2d60f9679c839d9",
+      "tags": [
+        "café",
+        "published",
+        "research notes"
+      ],
+      "notebook_path": "Public",
+      "current_revision_id": "rev_d6gfw3htabfwytqohs4rerz2ua",
+      "created_at": "2026-09-05T21:17:09Z",
+      "updated_at": "2026-09-05T21:17:09Z"
+    }
+  },
+  "resources": {
+    "res_image": {
+      "filename": "café chart.png",
+      "mime_type": "image/png",
+      "sha256": "2e9e614a233d1845c927cdda9175ec8bdf3929c242f4d2ad97a90547bf19974e",
+      "size_bytes": 70
+    },
+    "res_sidecar": {
+      "filename": "related.bin",
+      "mime_type": "application/octet-stream",
+      "sha256": "ec58248ea602494981cd7da71f098ded28534f5092a8cfc8578a3a3e8dc2f9fa",
+      "size_bytes": 38
+    },
+    "res_text": {
+      "filename": "field notes.txt",
+      "mime_type": "text/plain; charset=utf-8",
+      "sha256": "8e498cb63139819234ae04710f9c4945144124658c02ab923337c824c1bdcde8",
+      "size_bytes": 32
+    }
+  },
+  "notebooks": [
+    {
+      "id": "nb_edso7lei246zbsqqi32tw3bvtu",
+      "name": "Public",
+      "icon_emoji": "📚",
+      "builtin": false,
+      "position": 0,
+      "created_at": "2026-09-05T21:17:09Z",
+      "updated_at": "2026-09-05T21:17:09Z"
+    },
+    {
+      "id": "nb_cismtcflt2vdpxpyca7m633sn4",
+      "parent_id": "nb_edso7lei246zbsqqi32tw3bvtu",
+      "name": "研究",
+      "builtin": false,
+      "position": 0,
+      "created_at": "2026-09-05T21:17:09Z",
+      "updated_at": "2026-09-05T21:17:09Z"
+    }
+  ],
+  "document_resources": [
+    {
+      "document_id": "doc_child",
+      "resource_id": "res_image",
+      "relation_type": "attachment",
+      "ordinal": 0,
+      "anchor_json": {}
+    },
+    {
+      "document_id": "doc_public",
+      "resource_id": "res_image",
+      "relation_type": "attachment",
+      "ordinal": 0,
+      "anchor_json": {}
+    },
+    {
+      "document_id": "doc_public",
+      "resource_id": "res_sidecar",
+      "relation_type": "attachment",
+      "ordinal": 0,
+      "anchor_json": {}
+    },
+    {
+      "document_id": "doc_public",
+      "resource_id": "res_text",
+      "relation_type": "attachment",
+      "ordinal": 0,
+      "anchor_json": {}
+    }
+  ],
+  "retained_links": [
+    {
+      "id": "lnk_3",
+      "source_document_id": "doc_child",
+      "target_document_id": "doc_public",
+      "target_uri": "document://default/documents/doc_public",
+      "relation_type": "link",
+      "source_format": "markdown",
+      "raw_target": "document://default/documents/doc_public",
+      "display_text": "Back",
+      "source_start_byte": 31,
+      "source_end_byte": 78,
+      "source_line": 3,
+      "source_column": 12,
+      "resolution_status": "resolved"
+    },
+    {
+      "id": "lnk_4",
+      "source_document_id": "doc_child",
+      "target_resource_id": "res_image",
+      "target_uri": "resource://default/resources/res_image",
+      "relation_type": "embed",
+      "source_format": "markdown",
+      "raw_target": "resource://default/resources/res_image",
+      "display_text": "shared image",
+      "source_start_byte": 80,
+      "source_end_byte": 135,
+      "source_line": 4,
+      "source_column": 1,
+      "resolution_status": "resolved"
+    },
+    {
+      "id": "lnk_17",
+      "source_document_id": "doc_public",
+      "target_document_id": "doc_child",
+      "target_uri": "document://default/documents/doc_child",
+      "relation_type": "link",
+      "source_format": "markdown",
+      "raw_target": "document://default/documents/doc_child",
+      "display_text": "child section",
+      "anchor_type": "heading",
+      "anchor_value": "details",
+      "source_start_byte": 132,
+      "source_end_byte": 195,
+      "source_line": 7,
+      "source_column": 6,
+      "resolution_status": "resolved"
+    },
+    {
+      "id": "lnk_18",
+      "source_document_id": "doc_public",
+      "target_document_id": "doc_duplicate",
+      "target_uri": "document://default/documents/doc_duplicate",
+      "relation_type": "link",
+      "source_format": "markdown",
+      "raw_target": "document://default/documents/doc_duplicate",
+      "display_text": "same title",
+      "source_start_byte": 200,
+      "source_end_byte": 256,
+      "source_line": 7,
+      "source_column": 74,
+      "resolution_status": "resolved"
+    },
+    {
+      "id": "lnk_19",
+      "source_document_id": "doc_public",
+      "target_uri": "https://example.com/reading?q=caf%C3%A9&lang=en",
+      "relation_type": "link",
+      "source_format": "markdown",
+      "raw_target": "https://example.com/reading?q=caf%C3%A9&lang=en",
+      "display_text": "example",
+      "source_start_byte": 264,
+      "source_end_byte": 322,
+      "source_line": 8,
+      "source_column": 7,
+      "resolution_status": "external"
+    },
+    {
+      "id": "lnk_20",
+      "source_document_id": "doc_public",
+      "target_resource_id": "res_image",
+      "target_uri": "resource://default/resources/res_image",
+      "relation_type": "embed",
+      "source_format": "markdown",
+      "raw_target": "resource://default/resources/res_image",
+      "display_text": "café chart",
+      "source_start_byte": 324,
+      "source_end_byte": 378,
+      "source_line": 9,
+      "source_column": 1,
+      "resolution_status": "resolved"
+    },
+    {
+      "id": "lnk_21",
+      "source_document_id": "doc_public",
+      "target_resource_id": "res_text",
+      "target_uri": "resource://default/resources/res_text",
+      "relation_type": "link",
+      "source_format": "markdown",
+      "raw_target": "resource://default/resources/res_text",
+      "display_text": "field notes",
+      "source_start_byte": 388,
+      "source_end_byte": 440,
+      "source_line": 10,
+      "source_column": 10,
+      "resolution_status": "resolved"
+    },
+    {
+      "id": "lnk_22",
+      "source_document_id": "doc_public",
+      "target_document_id": "doc_public",
+      "target_uri": "document://default/documents/doc_public",
+      "relation_type": "link",
+      "source_format": "markdown",
+      "raw_target": "",
+      "display_text": "this section",
+      "anchor_type": "heading",
+      "anchor_value": "details",
+      "source_start_byte": 452,
+      "source_end_byte": 476,
+      "source_line": 11,
+      "source_column": 11,
+      "resolution_status": "resolved"
+    }
+  ],
+  "forbidden_in_archive": [
+    "doc_private",
+    "doc_draft",
+    "res_hidden",
+    "PRIVATE_TITLE_SENTINEL_1B",
+    "PRIVATE_BODY_SENTINEL_1B",
+    "DRAFT_TITLE_SENTINEL_1B",
+    "DRAFT_BODY_SENTINEL_1B",
+    "PRIVATE_RESOURCE_SENTINEL_1B",
+    "HISTORY_ONLY_SENTINEL_1B",
+    "No Such Fixture Note"
+  ],
+  "archive_files": {
+    "manifest.json": {
+      "sha256": "641340202a3abccab32b3ff351ac7ffa97b966f7e345330f66d3554fcd6af1e4",
+      "size_bytes": 1729
+    },
+    "objects/sha256/10/0a/100a0e77157941dee7aeb3842ac998c0ad2ae65e6ce0b624d2d60f9679c839d9": {
+      "sha256": "100a0e77157941dee7aeb3842ac998c0ad2ae65e6ce0b624d2d60f9679c839d9",
+      "size_bytes": 548
+    },
+    "objects/sha256/2e/9e/2e9e614a233d1845c927cdda9175ec8bdf3929c242f4d2ad97a90547bf19974e": {
+      "sha256": "2e9e614a233d1845c927cdda9175ec8bdf3929c242f4d2ad97a90547bf19974e",
+      "size_bytes": 70
+    },
+    "objects/sha256/4c/0c/4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3": {
+      "sha256": "4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3",
+      "size_bytes": 2120
+    },
+    "objects/sha256/6c/f1/6cf17e4747e03b880aa61c49ea7d9ab75ba9b867333b89ec8b8fa7dfce293f62": {
+      "sha256": "6cf17e4747e03b880aa61c49ea7d9ab75ba9b867333b89ec8b8fa7dfce293f62",
+      "size_bytes": 136
+    },
+    "objects/sha256/85/18/851871f8b2645addf9e4d975eeb392cf0ac41e7e48b5c732f3bda488bacb28f1": {
+      "sha256": "851871f8b2645addf9e4d975eeb392cf0ac41e7e48b5c732f3bda488bacb28f1",
+      "size_bytes": 56
+    },
+    "objects/sha256/8e/49/8e498cb63139819234ae04710f9c4945144124658c02ab923337c824c1bdcde8": {
+      "sha256": "8e498cb63139819234ae04710f9c4945144124658c02ab923337c824c1bdcde8",
+      "size_bytes": 32
+    },
+    "objects/sha256/9b/95/9b9596fb377ea503be2bf0ecdcd8e8d68b387afcc2fe3967b2761ad3f1c4984d": {
+      "sha256": "9b9596fb377ea503be2bf0ecdcd8e8d68b387afcc2fe3967b2761ad3f1c4984d",
+      "size_bytes": 8626
+    },
+    "objects/sha256/ec/58/ec58248ea602494981cd7da71f098ded28534f5092a8cfc8578a3a3e8dc2f9fa": {
+      "sha256": "ec58248ea602494981cd7da71f098ded28534f5092a8cfc8578a3a3e8dc2f9fa",
+      "size_bytes": 38
+    }
+  }
+}

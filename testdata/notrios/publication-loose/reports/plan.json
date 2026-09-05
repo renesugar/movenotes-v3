@@ -1,0 +1,237 @@
+{
+  "next_step": "after reviewing, publish with `--reviewed-plan 54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0`",
+  "plan": {
+    "version": 1,
+    "target": "publication_handoff",
+    "policy": {
+      "exclude_tags": [
+        "confidential",
+        "draft",
+        "private"
+      ],
+      "private_tags": [
+        "confidential",
+        "draft",
+        "private"
+      ],
+      "link_action": "plain_text",
+      "include_source_bundles": false,
+      "include_provenance": false,
+      "include_private_metadata": false,
+      "include_trashed": false,
+      "exclude_read_only_notebooks": true
+    },
+    "manifest_sha256": "54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0",
+    "counts": {
+      "selected_documents": 3,
+      "excluded_documents": 1,
+      "reachable_resources": 3,
+      "available_source_bundles": 0,
+      "included_source_bundles": 0,
+      "internal_links": 4,
+      "private_links": 2,
+      "broken_links": 1,
+      "external_links": 4,
+      "oversized_resources": 0
+    },
+    "documents": [
+      {
+        "id": "doc_child",
+        "uri": "document://default/documents/doc_child",
+        "collection_id": "default",
+        "notebook_id": "nb_cismtcflt2vdpxpyca7m633sn4",
+        "current_revision_id": "rev_uu7nz7m42dt3uahyihs5in464i",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      },
+      {
+        "id": "doc_duplicate",
+        "uri": "document://default/documents/doc_duplicate",
+        "collection_id": "default",
+        "notebook_id": "nb_edso7lei246zbsqqi32tw3bvtu",
+        "current_revision_id": "rev_vwy4mj5drv6lptt4wszltvdk7q",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      },
+      {
+        "id": "doc_public",
+        "uri": "document://default/documents/doc_public",
+        "collection_id": "default",
+        "notebook_id": "nb_edso7lei246zbsqqi32tw3bvtu",
+        "current_revision_id": "rev_d6gfw3htabfwytqohs4rerz2ua",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      }
+    ],
+    "resources": [
+      {
+        "id": "res_image",
+        "uri": "resource://default/resources/res_image",
+        "collection_id": "default",
+        "mime_type": "image/png",
+        "size_bytes": 70,
+        "sha256": "2e9e614a233d1845c927cdda9175ec8bdf3929c242f4d2ad97a90547bf19974e"
+      },
+      {
+        "id": "res_sidecar",
+        "uri": "resource://default/resources/res_sidecar",
+        "collection_id": "default",
+        "mime_type": "application/octet-stream",
+        "size_bytes": 38,
+        "sha256": "ec58248ea602494981cd7da71f098ded28534f5092a8cfc8578a3a3e8dc2f9fa"
+      },
+      {
+        "id": "res_text",
+        "uri": "resource://default/resources/res_text",
+        "collection_id": "default",
+        "mime_type": "text/plain; charset=utf-8",
+        "size_bytes": 32,
+        "sha256": "8e498cb63139819234ae04710f9c4945144124658c02ab923337c824c1bdcde8"
+      }
+    ],
+    "links": [
+      {
+        "source_document_id": "doc_child",
+        "target_document_id": "doc_public",
+        "link_sha256": "f4b404acadd0720e3bb636f0ad6ec8aa29acf06efa048989e82d9253810d6ce1",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_child",
+        "link_sha256": "9c18ddd37f147ae6c37f0ef98844b1fb6e01969d8b9af164c76ca1f928ed9c65",
+        "classification": "external",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_public",
+        "target_document_id": "doc_private",
+        "link_sha256": "1af205d61a9d527f07fca982c0d33f43df7d0a13b9c675ddb38f8625b3667b5c",
+        "classification": "private",
+        "resolution_status": "resolved",
+        "action": "plain_text"
+      },
+      {
+        "source_document_id": "doc_public",
+        "target_document_id": "doc_draft",
+        "link_sha256": "59e7073dc38c66a99851a75fdf20676b992951c7c796c23d0c44699cf754655e",
+        "classification": "private",
+        "resolution_status": "resolved",
+        "action": "plain_text"
+      },
+      {
+        "source_document_id": "doc_public",
+        "link_sha256": "3a816e266dd17c0c177d6a267e9748df63fdafa88158d258842c21e685d884c8",
+        "classification": "broken",
+        "resolution_status": "unresolved",
+        "action": "plain_text"
+      },
+      {
+        "source_document_id": "doc_public",
+        "target_document_id": "doc_child",
+        "link_sha256": "d8e3e4c09ae7916ccb6a9538c060805a0a160a3790f6511e6dd6def4fe7ec605",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_public",
+        "target_document_id": "doc_duplicate",
+        "link_sha256": "076a331bef4751ba2791637e20b1a915c964b58c08d4f010174a5757edf4f567",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_public",
+        "link_sha256": "c9eaaea2c755d86987e0ec8fbab6393907f2eab47f5d9b58f2d7c34d1725fe7a",
+        "classification": "external",
+        "resolution_status": "external",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_public",
+        "link_sha256": "0e336d98e95298d0842faf588373f85d9d4eced4fc4ba8548bb0a7240561521c",
+        "classification": "external",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_public",
+        "link_sha256": "0ca53efbceb498f6bee4cfa49e9494014abbb298f21227d64b2dfb4b7284ed5c",
+        "classification": "external",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_public",
+        "target_document_id": "doc_public",
+        "link_sha256": "029dd9cf14ffc30bfd5011a04e1b5ecfd1cf81ba476e43f687e6257880a59c2f",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      }
+    ],
+    "source_bundles": [],
+    "exclusions": [
+      {
+        "kind": "document",
+        "id": "doc_draft",
+        "reason": "excluded_tag:draft"
+      }
+    ],
+    "metadata_decisions": [
+      {
+        "field": "private_tags",
+        "action": "strip",
+        "reason": "target privacy policy",
+        "affected_items": 3
+      },
+      {
+        "field": "source.external_id",
+        "action": "strip",
+        "reason": "source provenance policy",
+        "affected_items": 0
+      },
+      {
+        "field": "source.source_url",
+        "action": "strip",
+        "reason": "source provenance policy",
+        "affected_items": 0
+      },
+      {
+        "field": "source.metadata_json",
+        "action": "strip",
+        "reason": "private source metadata policy",
+        "affected_items": 0
+      },
+      {
+        "field": "source_bundle.items",
+        "action": "exclude",
+        "reason": "exact source bundle policy",
+        "affected_items": 0
+      },
+      {
+        "field": "source_bundle.storage_path",
+        "action": "strip",
+        "reason": "local filesystem paths never cross planner APIs",
+        "affected_items": 0
+      }
+    ],
+    "warnings": [
+      "2 links target notes outside the selected public/subset manifest",
+      "1 selected-note links are unresolved, ambiguous, invalid, or target deleted"
+    ],
+    "truncated": false
+  },
+  "profile": "fixture",
+  "target": "publication_handoff"
+}

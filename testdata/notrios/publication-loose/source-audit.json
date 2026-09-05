@@ -1,0 +1,54 @@
+{
+  "documents": [
+    {
+      "id": "doc_child",
+      "notebook_id": "nb_cismtcflt2vdpxpyca7m633sn4",
+      "current_revision_id": "rev_uu7nz7m42dt3uahyihs5in464i",
+      "created_at": "2026-09-05 21:17:09",
+      "updated_at": "2026-09-05 21:17:09"
+    },
+    {
+      "id": "doc_draft",
+      "notebook_id": "nb_edso7lei246zbsqqi32tw3bvtu",
+      "current_revision_id": "rev_jpjq5ewc2k3itjjfzhi4r5bjam",
+      "created_at": "2026-09-05 21:17:09",
+      "updated_at": "2026-09-05 21:17:09"
+    },
+    {
+      "id": "doc_duplicate",
+      "notebook_id": "nb_edso7lei246zbsqqi32tw3bvtu",
+      "current_revision_id": "rev_vwy4mj5drv6lptt4wszltvdk7q",
+      "created_at": "2026-09-05 21:17:09",
+      "updated_at": "2026-09-05 21:17:09"
+    },
+    {
+      "id": "doc_private",
+      "notebook_id": "nb_veceopaadlihrbsqtkshse4gcm",
+      "current_revision_id": "rev_ecrdqr4gpnpwndbk5qbcywfzx4",
+      "created_at": "2026-09-05 21:17:09",
+      "updated_at": "2026-09-05 21:17:09"
+    },
+    {
+      "id": "doc_public",
+      "notebook_id": "nb_edso7lei246zbsqqi32tw3bvtu",
+      "current_revision_id": "rev_d6gfw3htabfwytqohs4rerz2ua",
+      "created_at": "2026-09-05 21:17:09",
+      "updated_at": "2026-09-05 21:17:09"
+    }
+  ],
+  "revision_counts": {
+    "doc_child": 1,
+    "doc_draft": 1,
+    "doc_duplicate": 1,
+    "doc_private": 1,
+    "doc_public": 2
+  },
+  "resource_ids": [
+    "res_hidden",
+    "res_image",
+    "res_sidecar",
+    "res_text"
+  ],
+  "historical_sentinel_revisions": 1,
+  "schema_version": 27
+}

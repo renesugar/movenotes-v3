@@ -367,3 +367,29 @@ complete by this contract review.
   the two digest meanings are fixed.
 - Documentation links and `git diff --check` checked before commit. No importer,
   producer fixture, full runtime suite or real corpus/site build was run in 1a.
+
+## Slice 1b observed publication
+
+The subsequent [synthetic publication fixture](testdata/notrios/README.md) was
+generated and verified with the clean pinned CLI. It is now the concrete input
+for 1c. Its README records the exact commands, digests and semantic assertions.
+This adds evidence without claiming that the planned Python verifier exists.
+
+Observed details for the mapping design:
+
+- A fragment is separate from `raw_target`. In this fixture, a self-anchor has
+  an empty raw target **and the source document's target ID**, with heading
+  metadata. The rule permitting ID-less self-anchors does not require them to
+  be ID-less. See `internal/markdownlinks/parser.go:decorateCandidate`.
+- Resource links are `resolved` with resource target IDs in the archive, even
+  when the planner calls them `external` classifications. Planner classification
+  counts must not be mistaken for archived resolution-status counts.
+- The producer normalizes SQLite UTC timestamp spelling to RFC3339 without
+  changing the instant. Included links retain correct UTF-8 byte offsets after
+  earlier spans are rewritten; fragment and self-link expectations are in the
+  fixture's `expected.json`.
+- The fixture has a shared image and a relation-only binary attachment; all
+  selected resource bytes survive exactly. The private resource and historical
+  revision are absent. Nonempty revision metadata, source bundles, provenance
+  and Trash were not seeded, so their stripping/exclusion is not proven by this
+  particular producer run.

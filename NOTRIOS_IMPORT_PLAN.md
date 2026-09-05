@@ -1,7 +1,7 @@
 # Plan: Import a Notrios publication handoff
 
-Status: slice **1a complete** on 2026-09-05; importer implementation has not started.
-Next item: **1b**, pending the user's instruction to proceed.
+Status: slices **1a and 1b complete** on 2026-09-05; importer implementation has not started.
+Next item: **1c**, pending the user's instruction to proceed.
 
 The frozen admission checklist is
 [NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
@@ -175,7 +175,7 @@ integrity verification.
 
 ## Execution and agent handoff rules
 
-Slice 1a is complete; all other slices below are pending. Worker names refer to
+Slices 1a and 1b are complete; all other slices below are pending. Worker names refer to
 the roles available in this session:
 
 | Owner | Agent configuration | Assignment rule |
@@ -218,7 +218,7 @@ boundaries and helper APIs in 1c before delegating implementation.
 | Slice / owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
 | 1a / Main — complete | Reviewed pinned schemas, verifier, producer and CLI; froze [consumer contract](NOTRIOS_IMPORT_CONTRACT.md). | None | All twelve payload field sets and twenty hard limits cross-checked; every refusal sourced or identified as consumer policy; loose-only admission and both digests confirmed. |
-| 1b / Main | Generate a synthetic library and real loose handoff with `publish plan`, then `publish run --reviewed-plan`; save sanitized fixture, pin, commands and digest expectations. | 1a | Production `verify archive-v2` accepts; fixture has nested notebooks, duplicate titles, Unicode, tags, image/file, included/withheld/external links. |
+| 1b / Main — complete | Generated [synthetic publication fixture and reproduction evidence](testdata/notrios/README.md) using the clean pinned CLI's real import/plan/publish commands. | 1a | Production compatibility and verification passed; 3 notes, 3 resources, nested notebooks, duplicate titles, Unicode tags, 8 retained links, 3 rewritten links and zero skipped rewrites. Exact digests/bytes and excluded sentinels checked. |
 | 1c / Main | Freeze APIs, ID vectors, row mapping, body/MIME limits, staged lifecycle, note-link and relation-only attachment design. | 1b | Concrete examples/tests; no unresolved prerequisite for Step 2. |
 | 1d / Luna | Fixture-copy helpers and baseline assertions in `test_notrios2sql.py`; regeneration instructions. | 1c | Fixture hashes/counts pass without Notrios installed; no private data or runtime dependency. |
 
@@ -353,3 +353,4 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-05 | Plan review | Corrected format/mapping decisions; seven steps split into owned slices with dependencies and acceptance gates. No importer implemented or corpus/site tests run. Next: 1a. |
 | 2026-09-05 | 1a complete | Added the pinned field/limit/publication checklist and `movenotes-publication-loose-v1` declaration. Recorded producer metadata retention, policy overrides, skipped-rewrite limitations and CLI/report requirements for 1b. Documentation/schema/limit/order checks only; no fixture generated. Next: ask to proceed to 1b. |
 | 2026-09-05 | Worker assignment review | Assigned 2c, 3c, 3d, 5a, 5b, 5c, 6d and 7a to Terra for bounded implementation/regression work. Luna retains mechanical slices; Main retains design, safety and acceptance decisions and reviews both worker roles. Slice order and per-item user confirmation remain unchanged. Next: ask to proceed to 1b. |
+| 2026-09-05 | 1b complete | Committed producer-generated loose publication, synthetic v1 inputs, generator and reports/expectations under `testdata/notrios/`. Verified exact selected content/resources, withheld/history sentinel absence and matching reviewed/commit digests. Recorded actual anchor representation, planner resource-link classification and timestamp normalization for 1c. No importer, mapping APIs or 1d test module implemented. Next: ask to proceed to 1c. |
