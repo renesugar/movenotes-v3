@@ -1,7 +1,12 @@
 # Plan: Import a Notrios publication handoff
 
-Status: reviewed and sliced on 2026-09-05; implementation has not started.
-Next item: **1a**. This revision changes the plan only.
+Status: slice **1a complete** on 2026-09-05; importer implementation has not started.
+Next item: **1b**, pending the user's instruction to proceed.
+
+The frozen admission checklist is
+[NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
+producer defaults from enforced consumer restrictions and records the pinned
+producer's metadata, link-rewrite and CLI limitations.
 
 ## Goal and scope
 
@@ -25,7 +30,7 @@ Do not change canonical site path rules or theme layouts for this adapter.
 ## Reviewed sources and corrections
 
 Notrios reference checkout: `~/projects/notrios`, commit
-`bdecfeda00e582d5aa6170d15b37ba27c9656f1d`. Recheck this pin in 1a.
+`bdecfeda00e582d5aa6170d15b37ba27c9656f1d`. Confirmed unchanged in 1a.
 
 - [Native format](../notrios/NATIVE_ARCHIVE_V2.md),
   [consumer contract](../notrios/contracts/archive-v2/README.md),
@@ -59,6 +64,8 @@ Corrections to the original plan:
 5. Publication tests preserve included document/resource URIs. Ignoring every
    `link` record would leave broken links. Translate included targets without
    reconsidering Notrios' privacy decisions or resurrecting withheld links.
+   Slice 1a also found that stale rewrites may be skipped while their records
+   are dropped; archive integrity cannot prove that all withheld links vanished.
 6. Existing independent archive goldens include non-publication state. They
    are verifier positives but importer refusal cases. Generate a separate real
    publication fixture; changing a full archive's target is not equivalent.
@@ -73,17 +80,20 @@ verified; report that the caller must produce a loose publication. Do not claim
 support for the entire Notrios `current-v2` reader profile while packs refuse.
 
 Unknown required capabilities refuse; bounded unknown optional capabilities may
-be ignored. Check the schema minimum against the pinned consumer support level;
-do not treat `maximum_schema_version` as a future-reader ceiling. Freeze exact
-admission rules in 1a, based on the registry and executable verifier.
+be ignored. Profile `movenotes-publication-loose-v1` has schema support level 27:
+require `12 <= minimum_schema_version <= 27` and
+`minimum_schema_version <= source_schema_version <= maximum_schema_version`.
+Do not treat `maximum_schema_version` as a future-reader ceiling. The contract
+freezes exact field, capability and semantic admission rules.
 
 Implement complete Python verification. The Notrios CLI is an independent test
 oracle, not a required installed runtime dependency. JSON Schema alone is not
 verification. Enforce strict JSON types, duplicate/unknown-field refusal,
 finite numeric values, byte/depth limits while reading, final LF, ordered unique
 index entries, exact fanout paths, regular files, no symlinks, no extra files or
-directories, all hashes, totals and typed counts. Registry limits are ceilings,
-not allocation instructions. Refuse oversized input before materializing it.
+unexpected directory shapes, all hashes, totals and typed counts. Empty valid
+fanout directories are allowed, matching the pinned verifier. Registry limits
+are ceilings, not allocation instructions. Refuse oversized input before materializing it.
 
 Match Go's `ComputeCommitSHA256` semantic encoding, including field order,
 defaults, omitted fields and escaping. Hashing original JSON bytes or using
@@ -98,11 +108,15 @@ Verify revision ownership, references, collection membership, notebook cycles
 and depth, semantic MIME/size consistency and unused blob descriptors. Shared
 bytes may have different semantic MIME uses; descriptor MIME is a storage hint.
 
-Also verify the publication projection: no deleted documents, extra historical
-revisions, provenance, source bundles or saved searches, and stripped revision
-metadata. Slice 1a freezes the precise producer rules for remaining collection,
-resource and retained-link fields. The target label alone is not evidence of
-sanitization. Do not invent a private-tag filter that changes the reviewed set.
+Also enforce the consumer publication projection: no deleted documents, extra
+historical revisions, provenance, source bundles or saved searches, and empty
+revision metadata/collection settings/link context. Producer opt-ins can include
+provenance or source bundles; these still refuse. Resource metadata, revision
+messages and relation anchor JSON are not automatically stripped by Notrios;
+validate them but do not blindly project them into public outputs. The contract
+defines the remaining field and retained-link restrictions. The target label
+alone is not evidence of sanitization. Do not invent a private-tag filter that
+changes the reviewed set.
 
 ## Output, identity and mapping decisions
 
@@ -161,7 +175,8 @@ integrity verification.
 
 ## Execution and agent handoff rules
 
-All slices below are pending. **Luna** means an agent configured with
+Slice 1a is complete; all other slices below are pending. **Luna** means an agent
+configured with
 `model = "gpt-5.6-luna"`, `model_reasoning_effort = "medium"`. **Main** means
 the main model. Luna handles bounded implementations with frozen inputs; Main
 owns format/privacy decisions, cross-format design, integration and final
@@ -182,6 +197,10 @@ supported CLI or mark code complete before its acceptance checks pass. Keep
 private data, generated libraries, SQLite databases and bulky evidence out of
 Git. Use sanitized fixtures and aggregate measurements in committed evidence.
 
+After completing and committing an item, ask the user whether to proceed to the
+next item and stop until they answer. This per-item pause was explicitly requested
+by the user on 2026-09-05 and also applies to delegated slices.
+
 Proposed files: `notrios_archive.py` for verification, `notrios2sql.py` for
 mapping/CLI, `test_notrios2sql.py`, and `testdata/notrios/`. Main freezes module
 boundaries and helper APIs in 1c before delegating implementation.
@@ -190,7 +209,7 @@ boundaries and helper APIs in 1c before delegating implementation.
 
 | Slice / owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| 1a / Main | Review pinned schemas, verifier, producer and CLI; write field/limit/publication checklist and supported reader declaration here or in a linked contract document. | None | Every record and refusal has a source reference; loose-only admission and both digests confirmed. |
+| 1a / Main — complete | Reviewed pinned schemas, verifier, producer and CLI; froze [consumer contract](NOTRIOS_IMPORT_CONTRACT.md). | None | All twelve payload field sets and twenty hard limits cross-checked; every refusal sourced or identified as consumer policy; loose-only admission and both digests confirmed. |
 | 1b / Main | Generate a synthetic library and real loose handoff with `publish plan`, then `publish run --reviewed-plan`; save sanitized fixture, pin, commands and digest expectations. | 1a | Production `verify archive-v2` accepts; fixture has nested notebooks, duplicate titles, Unicode, tags, image/file, included/withheld/external links. |
 | 1c / Main | Freeze APIs, ID vectors, row mapping, body/MIME limits, staged lifecycle, note-link and relation-only attachment design. | 1b | Concrete examples/tests; no unresolved prerequisite for Step 2. |
 | 1d / Luna | Fixture-copy helpers and baseline assertions in `test_notrios2sql.py`; regeneration instructions. | 1c | Fixture hashes/counts pass without Notrios installed; no private data or runtime dependency. |
@@ -324,3 +343,4 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | Date | Item | Result / next action |
 |---|---|---|
 | 2026-09-05 | Plan review | Corrected format/mapping decisions; seven steps split into owned slices with dependencies and acceptance gates. No importer implemented or corpus/site tests run. Next: 1a. |
+| 2026-09-05 | 1a complete | Added the pinned field/limit/publication checklist and `movenotes-publication-loose-v1` declaration. Recorded producer metadata retention, policy overrides, skipped-rewrite limitations and CLI/report requirements for 1b. Documentation/schema/limit/order checks only; no fixture generated. Next: ask to proceed to 1b. |
