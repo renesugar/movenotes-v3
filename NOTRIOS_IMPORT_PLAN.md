@@ -1,7 +1,7 @@
 # Plan: Import a Notrios publication handoff
 
-Status: slices **1a–1c complete** on 2026-09-06; importer implementation has not started.
-Next item: **1d**, pending the user's instruction to proceed.
+Status: slices **1a–1d complete** on 2026-09-06; importer implementation has not started.
+Next item: **2a**, pending the user's instruction to proceed.
 
 The frozen admission checklist is
 [NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
@@ -181,7 +181,7 @@ integrity verification.
 
 ## Execution and agent handoff rules
 
-Slices 1a–1c are complete; all other slices below are pending. Worker names refer to
+Slices 1a–1d are complete; all other slices below are pending. Worker names refer to
 the roles available in this session:
 
 | Owner | Agent configuration | Assignment rule |
@@ -226,7 +226,7 @@ boundaries and helper APIs in 1c before delegating implementation.
 | 1a / Main — complete | Reviewed pinned schemas, verifier, producer and CLI; froze [consumer contract](NOTRIOS_IMPORT_CONTRACT.md). | None | All twelve payload field sets and twenty hard limits cross-checked; every refusal sourced or identified as consumer policy; loose-only admission and both digests confirmed. |
 | 1b / Main — complete | Generated [synthetic publication fixture and reproduction evidence](testdata/notrios/README.md) using the clean pinned CLI's real import/plan/publish commands. | 1a | Production compatibility and verification passed; 3 notes, 3 resources, nested notebooks, duplicate titles, Unicode tags, 8 retained links, 3 rewritten links and zero skipped rewrites. Exact digests/bytes and excluded sentinels checked. |
 | 1c / Main — complete | Froze [APIs, row/property mapping, conversion limits, identity, staging and link/attachment design](NOTRIOS_IMPORT_DESIGN.md), with [machine-readable vectors](testdata/notrios/design-v1.json). | 1b | 13 identity vectors checked with independent framing and system SHA-256; all 8 real-fixture link spans and 3 complete projected bodies checked; concrete later acceptance cases assigned. |
-| 1d / Luna | Fixture-copy helpers and baseline assertions in `test_notrios2sql.py`; regeneration instructions. | 1c | Fixture hashes/counts pass without Notrios installed; no private data or runtime dependency. |
+| 1d / Luna — complete | Added [offline fixture-copy/inventory/record helpers and baseline assertions](test_notrios2sql.py), plus [baseline and regeneration instructions](testdata/notrios/README.md). | 1c | Nine standard-library-only baseline tests pass using committed synthetic data; no producer invocation or runtime importer dependency. |
 
 Use independently generated contract goldens as well as producer publications;
 neither alone protects against the producer and consumer sharing a bug.
@@ -361,3 +361,4 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-05 | Worker assignment review | Assigned 2c, 3c, 3d, 5a, 5b, 5c, 6d and 7a to Terra for bounded implementation/regression work. Luna retains mechanical slices; Main retains design, safety and acceptance decisions and reviews both worker roles. Slice order and per-item user confirmation remain unchanged. Next: ask to proceed to 1b. |
 | 2026-09-05 | 1b complete | Committed producer-generated loose publication, synthetic v1 inputs, generator and reports/expectations under `testdata/notrios/`. Verified exact selected content/resources, withheld/history sentinel absence and matching reviewed/commit digests. Recorded actual anchor representation, planner resource-link classification and timestamp normalization for 1c. No importer, mapping APIs or 1d test module implemented. Next: ask to proceed to 1c. |
 | 2026-09-06 | 1c complete | Froze module interfaces, length-framed IDs, complete row/property defaults, MIME/body limits, Linux no-replace staging/recovery/no-op, token-aware note/resource links and relation-only attachment suffix. Specified actual-path second-pass export and generated RAW title serialization after reviewing exporter behavior. Checked 13 ID vectors with independent framing/system SHA-256, 8 fixture spans, 3 full body projections, 3 explicit path examples, fixture inventory and documentation links/diff. No runtime importer/exporter changes or runtime suite executed. Next: ask to proceed to 1d. |
+| 2026-09-06 | 1d complete | Main implemented the bounded fixture-test slice locally: isolated archive-copy/inventory/record helpers, nine offline baseline tests and regeneration guidance. Focused tests passed; the repository-required four modules plus `test_notrios2sql.py` passed all 112 tests in 56.142s after permitting the existing tests' local HTTP sockets outside the sandbox. Documentation links/diff checked. Fixture bytes and runtime scripts unchanged; no Notrios invocation or importer implementation. Existing `.gitignore` edit excluded from the slice. Next: ask to proceed to 2a. |

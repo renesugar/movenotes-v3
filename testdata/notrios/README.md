@@ -107,8 +107,32 @@ exist. This is not an empty-selection privacy test.
   fields. It also does not exercise Trash, redaction policy, packed objects or
   hostile input. Those remain separate future cases.
 
-These observations refine implementation expectations; they do not implement
-the 1c mapping design or the 1d regression module.
+These observations inform the frozen 1c mapping design and the offline 1d
+baseline assertions. They do not establish runtime importer acceptance.
+
+## Offline baseline checks — slice 1d
+
+From the movenotes repository root, run:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.py
+```
+
+The nine baseline tests use only Python's standard library and committed
+synthetic data. They do not invoke Notrios, Go, a network service, the fixture
+generator or any future importer module. Each test copies only `archive/` into
+its own temporary directory, which is cleaned up even after a failed assertion.
+The suite checks exact file inventory/hashes, decoded counts, saved digest
+agreement, selected notes/tags/hierarchy, seed-derived rewritten bodies, resource
+bytes and associations, retained UTF-8 link spans, excluded sentinels, and design
+vector shape/fixture linkage. Mapper behavior and hostile-input verification
+remain assigned to later slices.
+
+[test_notrios2sql.py](../../test_notrios2sql.py) exposes `copy_publication` for a
+new caller-owned destination, `fixture_inventory` for exact small-file hashes,
+and `read_fixture_records` for reading the known fixture's records. Future
+mutation tests must change the copy, never the committed archive. These helpers
+are deliberately fixture-specific, not an alternate archive verifier.
 
 ## Reproduce a candidate
 
@@ -164,6 +188,15 @@ timestamps. Those affect both digests. Compare stable note/resource identities,
 expected bodies/tags/hierarchy and counts across candidates. The committed
 fixture's exact digests and file hashes remain fixed regression expectations.
 
+After reviewing a regenerated candidate, replace `publication-loose/` and its
+reports/expectations together; do not update hashes merely to silence a failure.
+The generator does not rewrite `design-v1.json`: deliberately refresh its
+fixture-linked database ID, digests, mapped IDs and projected bodies against the
+frozen 1c rules, retaining the independent generic ID vectors. Review those
+changes, run the offline command above, then commit the fixture and matching
+expectations together. Regeneration requires the producer tools; ordinary
+baseline testing does not.
+
 Reports preserve producer values except that absolute work-directory and CLI
 paths become `<work>` and `<notriosctl>`. Raw reports remain under the disposable
 work directory. No archive bytes are sanitized or modified after publication.
@@ -174,5 +207,6 @@ The committed archive passed production compatibility and verification, the
 generator's independent fixture assertions, and verification again from its
 final repository location. Input, generator and archive hashes are recorded in
 `generation.json`/`expected.json`. The Notrios checkout remained unchanged.
-Only fixture-generation checks were run; the importer does not exist yet and
-the existing application runtime was not changed. Next plan item: **1c**.
+Only fixture-generation checks were run in 1b; the importer did not exist and
+the existing application runtime was not changed. Slices 1c and 1d subsequently
+added the frozen design and offline baselines described above.
