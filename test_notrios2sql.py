@@ -601,7 +601,7 @@ class NotriosManifestTest(unittest.TestCase):
 
 
 class NotriosObjectSpoolTest(unittest.TestCase):
-    """2b byte/index gates only; payload schema and graph tests start in 2d."""
+    """Rehashed object, typed-record and graph mutations on owned fixture copies."""
 
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="movenotes-objects-test-")
@@ -668,6 +668,7 @@ class NotriosObjectSpoolTest(unittest.TestCase):
         self.assertEqual(caught.exception.code, code)
         if message:
             self.assertIn(message, str(caught.exception))
+        self.assertNotIn("PRIVATE-SENTINEL", str(caught.exception))
         self.assertEqual(list(self.work.iterdir()), [])
         if before is not None:
             self.assertEqual(fixture_inventory(self.archive), before)
@@ -1035,6 +1036,404 @@ class NotriosObjectSpoolTest(unittest.TestCase):
         self.manifest["totals"]["bytes"] += len(second)
         self.write_index([[shadow], self.entries])
         self.assert_refused("integrity", "distinct from index chunks")
+
+    def envelopes(self):
+        entry = next(e for e in self.entries if e["kind"] == "records")
+        return [json.loads(line) for line in (self.archive / entry["location"]["path"]).read_bytes().split(b"\n") if line]
+
+    def write_records(self, records):
+        counts = dict.fromkeys(RECORD_COUNTS.values(), 0)
+        for record in records:
+            counts[RECORD_COUNTS[record["type"]]] += 1
+        entry = next(e for e in self.entries if e["kind"] == "records")
+        entry["records"], entry["record_counts"] = len(records), counts
+        self.manifest["counts"] = counts.copy()
+        self.replace_record_bytes(b"".join(json.dumps(r, ensure_ascii=False).encode() + b"\n" for r in records))
+
+    def verify(self, **kwargs):
+        return archive_v2.verify_archive(self.archive, work_dir=self.work, **kwargs)
+
+    def assert_verification_refused(self, code, message, **kwargs):
+        with mock.patch.object(self, "stage", self.verify):
+            self.assert_refused(code, message, **kwargs)
+
+    def test_verified_fixture_api_and_immutable_payloads(self):
+        before = fixture_inventory(self.archive)
+        with self.verify() as verified:
+            self.assertEqual(dict(verified.counts), EXPECTED_COUNTS)
+            for kind, count_name in RECORD_COUNTS.items():
+                if not EXPECTED_COUNTS[count_name]:
+                    continue
+                records = list(verified.iter_records(kind))
+                self.assertEqual(len(records), EXPECTED_COUNTS[count_name])
+                # Independently frame the variable part of the frozen source key.
+                order = lambda r: b"".join(len(p.encode()).to_bytes(4, "big") + p.encode() for p in r.key)
+                self.assertEqual(records, sorted(records, key=order))
+                for record in records:
+                    self.assertEqual(verified.get_record(kind, record.key), record)
+            for doc in verified.iter_records("document"):
+                for kind in ("document_tag", "document_resource", "link"):
+                    field = "source_document_id" if kind == "link" else "document_id"
+                    expected = [r for r in verified.iter_records(kind) if r.payload[field] == doc.key[0]]
+                    self.assertEqual(list(verified.iter_relations(kind, doc.key[0])), expected)
+            revision = next(verified.iter_records("revision"))
+            with self.assertRaises(TypeError):
+                revision.payload["title"] = "changed"
+            with self.assertRaises(TypeError):
+                revision.payload["body"]["size_bytes"] = 0
+            with verified.open_blob(archive_v2.BlobRef(**revision.payload["body"])) as stream:
+                raw = stream.read()
+                self.assertEqual(hashlib.sha256(raw).hexdigest(), revision.payload["body"]["sha256"])
+            iterator = verified.iter_records("tag")
+            next(iterator)
+        self.assertEqual(list(self.work.iterdir()), [])
+        self.assertEqual(fixture_inventory(self.archive), before)
+        for action in (lambda: next(iterator), lambda: verified.get_record("tag", ("tag_missing",))):
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                action()
+            self.assertEqual(caught.exception.code, "io")
+
+    def test_payload_structured_shapes(self):
+        # Every admitted kind: missing required field, unknown field, null and
+        # wrong type. These records are rehashed through both index and manifest.
+        for kind in ("collection", "notebook", "tag", "document", "revision", "document_tag", "resource", "document_resource", "link"):
+            for damage in ("missing", "unknown", "null", "type"):
+                with self.subTest(kind=kind, damage=damage):
+                    self.fresh_archive()
+                    records = self.envelopes()
+                    p = next(r["payload"] for r in records if r["type"] == kind)
+                    required = "document_id" if kind in ("document_tag", "document_resource") else "id"
+                    if damage == "missing":
+                        del p[required]
+                    elif damage == "unknown":
+                        p["unknown"] = "PRIVATE-SENTINEL"
+                    else:
+                        p[required] = None if damage == "null" else 123
+                    self.write_records(records)
+                    self.assert_verification_refused("json", "missing or unknown" if damage in ("missing", "unknown") else "string field")
+        for kind, field, value, message in (
+            ("notebook", "builtin", 0, "boolean"), ("notebook", "position", True, "integer"),
+            ("notebook", "position", 1.0, "integer"), ("collection", "capabilities", {}, "array"),
+            ("collection", "settings_json", "{}", "requires an object"),
+            ("revision", "metadata_json", [], "requires an object"),
+            ("resource", "metadata_json", None, "requires an object"),
+            ("document_resource", "anchor_json", "{}", "requires an object"),
+            ("document_resource", "ordinal", 1.0, "integer"),
+            ("link", "source_start_byte", False, "integer")):
+            with self.subTest(kind=kind, field=field):
+                self.fresh_archive()
+                records = self.envelopes()
+                next(r["payload"] for r in records if r["type"] == kind)[field] = value
+                self.write_records(records)
+                self.assert_verification_refused("json", message)
+
+    def test_record_semantic_scalar_refusals(self):
+        cases = (("notebook", "parent_id", "", "format", "identity"),
+                 ("link", "target_document_id", "", "format", "identity"),
+                 ("tag", "name", " \t", "format", "nonblank"),
+                 ("tag", "name", "é" * 2049, "limit", "name bytes"),
+                 ("resource", "filename", "é" * 2049, "limit", "filename bytes"),
+                 ("document", "created_at", "2026-02-30T00:00:00Z", "format", "calendar"),
+                 ("resource", "unreferenced_at", "2026-01-01T00:00:00+01:00", "format", "RFC3339 UTC"),
+                 ("collection", "capabilities", ["b", "a"], "format", "sorted and unique"),
+                 ("collection", "capabilities", ["a", "a"], "format", "sorted and unique"),
+                 ("document_resource", "relation_type", " ", "format", "nonblank"),
+                 ("document_resource", "ordinal", -1, "format", "nonnegative"),
+                 ("link", "source_end_byte", 0, "format", "span is reversed"),
+                 ("link", "source_line", -1, "format", "nonnegative"))
+        for kind, field, value, code, message in cases:
+            with self.subTest(kind=kind, field=field, message=message):
+                self.fresh_archive()
+                records = self.envelopes()
+                next(r["payload"] for r in records if r["type"] == kind)[field] = value
+                self.write_records(records)
+                self.assert_verification_refused(code, message)
+
+    def test_duplicate_record_identities_refuse(self):
+        for kind in ("notebook", "tag", "document", "revision", "resource", "document_tag", "document_resource", "link"):
+            with self.subTest(kind=kind):
+                self.fresh_archive()
+                records = self.envelopes()
+                records.append(copy.deepcopy(next(r for r in records if r["type"] == kind)))
+                self.write_records(records)
+                self.assert_verification_refused("integrity", "duplicate record identity")
+        self.fresh_archive()
+        records = self.envelopes()
+        records.append(copy.deepcopy(next(r for r in records if r["type"] == "collection")))
+        self.manifest["snapshot"]["collection_ids"].append("other_collection")
+        self.manifest["snapshot"]["collection_ids"].sort()
+        self.write_records(records)
+        self.assert_verification_refused("integrity", "duplicate record identity")
+
+    def test_missing_record_references_refuse(self):
+        for kind, field in (("notebook", "parent_id"), ("document", "collection_id"),
+                            ("document", "notebook_id"), ("document", "current_revision_id"),
+                            ("revision", "document_id"), ("resource", "collection_id"),
+                            ("document_tag", "document_id"), ("document_tag", "tag_id"),
+                            ("document_resource", "document_id"), ("document_resource", "resource_id"),
+                            ("link", "source_document_id"), ("link", "target_document_id")):
+            with self.subTest(kind=kind, field=field):
+                self.fresh_archive()
+                records = self.envelopes()
+                p = next(r["payload"] for r in records if r["type"] == kind)
+                if kind == "link":
+                    p.pop("target_resource_id", None)
+                    p["resolution_status"] = "resolved"
+                p[field] = "missing_target"
+                self.write_records(records)
+                self.assert_verification_refused("graph", "reference has no target")
+
+    def test_notebook_cycles_depth_and_collection_scope(self):
+        records = self.envelopes()
+        notebooks = [r["payload"] for r in records if r["type"] == "notebook"]
+        notebooks[0]["parent_id"] = notebooks[1]["id"]
+        notebooks[1]["parent_id"] = notebooks[0]["id"]
+        self.write_records(records)
+        self.assert_verification_refused("graph", "parent cycle")
+        self.fresh_archive()
+        records = self.envelopes()
+        template = copy.deepcopy(next(r for r in records if r["type"] == "notebook"))
+        records = [r for r in records if r["type"] != "notebook"]
+        for depth in range(1, 34):
+            node = copy.deepcopy(template)
+            node["payload"].update(id=f"tree_{depth:02}")
+            node["payload"].pop("parent_id", None)
+            if depth > 1:
+                node["payload"]["parent_id"] = f"tree_{depth-1:02}"
+            records.append(node)
+        for r in records:
+            if r["type"] == "document":
+                r["payload"]["notebook_id"] = "tree_01"
+        self.write_records(records[:-1])
+        with self.verify():
+            pass
+        self.write_records(records)
+        self.assert_verification_refused("limit", "notebook depth")
+        self.fresh_archive()
+        self.manifest["snapshot"]["collection_ids"] = ["other_collection"]
+        self.write_manifest()
+        self.assert_verification_refused("graph", "snapshot scope")
+
+    def test_publication_metadata_history_and_reachability(self):
+        for kind, field, value, message in (
+            ("collection", "settings_json", {"private": "PRIVATE-SENTINEL"}, "settings must be empty"),
+            ("revision", "metadata_json", {"private": "PRIVATE-SENTINEL"}, "metadata must be empty"),
+            ("document", "deleted_at", "2026-01-01T00:00:00Z", "deleted documents"),
+            ("link", "context", "PRIVATE-SENTINEL", "context must be empty"),
+            ("link", "resolution_status", "withheld", "status is not publishable")):
+            with self.subTest(kind=kind, field=field):
+                self.fresh_archive()
+                records = self.envelopes()
+                next(r["payload"] for r in records if r["type"] == kind)[field] = value
+                self.write_records(records)
+                self.assert_verification_refused("publication", message)
+        self.fresh_archive()
+        records = self.envelopes()
+        revision = copy.deepcopy(next(r for r in records if r["type"] == "revision"))
+        revision["payload"]["id"] = "old_revision"
+        records.append(revision)
+        self.write_records(records)
+        self.assert_verification_refused("publication", "noncurrent revision history")
+        self.fresh_archive()
+        records = self.envelopes()
+        docs = [r["payload"] for r in records if r["type"] == "document"]
+        docs[0]["current_revision_id"] = docs[1]["current_revision_id"]
+        self.write_records(records)
+        self.assert_verification_refused("graph", "belongs to another document")
+        self.fresh_archive()
+        records = [r for r in self.envelopes() if r["type"] != "document_resource"]
+        self.write_records(records)
+        self.assert_verification_refused("publication", "not reachable")
+
+    def test_blob_reference_shape_mime_and_matching_bytes(self):
+        for field, value, code, message in (
+            ("sha256", "0" * 64, "integrity", "matching hash and size"),
+            ("size_bytes", 0, "integrity", "matching hash and size"),
+            ("size_bytes", True, "json", "integer"),
+            ("sha256", "A" * 64, "format", "reference hash"),
+            ("media_type", "Text/Markdown", "format", "must be canonical"),
+            ("media_type", "text/plain", "integrity", "MIME differs"),
+            ("extra", 1, "json", "missing or unknown")):
+            with self.subTest(field=field, value=value):
+                self.fresh_archive()
+                records = self.envelopes()
+                next(r["payload"] for r in records if r["type"] == "revision")["body"][field] = value
+                self.write_records(records)
+                self.assert_verification_refused(code, message)
+        self.fresh_archive()
+        records = self.envelopes()
+        revisions = [r["payload"] for r in records if r["type"] == "revision"]
+        revisions[0]["body"] = copy.deepcopy(revisions[1]["body"])
+        self.write_records(records)
+        self.assert_verification_refused("integrity", "unreferenced blob")
+
+    def test_valid_metadata_optional_fields_and_opaque_body_mime(self):
+        records = self.envelopes()
+        for r in records:
+            p = r["payload"]
+            if r["type"] == "resource":
+                p.update(metadata_json={"nested": [{"public": 1.5}]}, unreferenced_at="", unreferenced_reason="unused state")
+            elif r["type"] == "document":
+                p["deleted_at"] = ""
+            elif r["type"] == "revision":
+                p.update(message="retained but not projected", body_mime_type='TEXT/PLAIN; Charset="utf-8"')
+                p["body"]["media_type"] = "text/plain; charset=utf-8"
+            elif r["type"] == "notebook":
+                p["position"] = -1  # Signed positions have no nonnegative restriction.
+            if "created_at" in p:
+                p["created_at"] = "0000-02-29T23:59:59.123456789+00:00"
+        # Descriptor media types remain hints and may differ from semantic MIME.
+        for entry in self.entries:
+            if entry["kind"] == "blob":
+                entry["media_type"] = "application/octet-stream"
+        self.write_records(records)
+        with self.verify() as verified:
+            resource = next(verified.iter_records("resource"))
+            with self.assertRaises(TypeError):
+                resource.payload["metadata_json"]["nested"][0]["public"] = 0
+            self.assertEqual(next(verified.iter_records("revision")).payload["body"]["media_type"], "text/plain; charset=utf-8")
+
+    def test_link_publication_target_rules(self):
+        for damage, message in (("two_targets", "multiple internal targets"),
+                                ("external_internal", "HTTP(S)"), ("external_scheme", "HTTP(S)"),
+                                ("external_host", "HTTP(S)"), ("idless", "self-anchor")):
+            with self.subTest(damage=damage):
+                self.fresh_archive()
+                records = self.envelopes()
+                p = next(r["payload"] for r in records if r["type"] == "link")
+                p.pop("target_document_id", None)
+                p.pop("target_resource_id", None)
+                p.pop("target_uri", None)
+                p["resolution_status"] = "resolved"
+                if damage == "two_targets":
+                    p.update(target_document_id="doc_public", target_resource_id="res_image")
+                elif damage.startswith("external"):
+                    p["resolution_status"] = "external"
+                    p["raw_target"] = "https://example.com/"
+                    if damage == "external_internal":
+                        p["target_document_id"] = "doc_public"
+                    else:
+                        p["raw_target"] = "file:///private" if damage == "external_scheme" else "https:///missing"
+                else:
+                    p.update(raw_target="", anchor_type="", anchor_value="")
+                self.write_records(records)
+                self.assert_verification_refused("publication", message)
+        self.fresh_archive()
+        records = self.envelopes()
+        p = next(r["payload"] for r in records if r["type"] == "link")
+        for field in ("target_document_id", "target_resource_id"):
+            p.pop(field, None)
+        p.update(resolution_status="resolved", raw_target="", anchor_type="heading", anchor_value="details",
+                 target_uri=f"document://default/documents/{p['source_document_id']}")
+        self.write_records(records)
+        with self.verify():
+            pass
+
+    def test_blob_context_requires_authenticated_eof(self):
+        with self.verify() as verified:
+            ref = archive_v2.BlobRef(**next(verified.iter_records("revision")).payload["body"])
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                with verified.open_blob(ref) as stream:
+                    stream.read(1)
+            self.assertEqual(caught.exception.code, "integrity")
+            self.assertIn("verified EOF", str(caught.exception))
+            with verified.open_blob(ref) as stream:
+                output = bytearray()
+                buffer = bytearray(7)
+                while n := stream.readinto(buffer):
+                    output.extend(buffer[:n])
+            self.assertEqual(hashlib.sha256(output).hexdigest(), ref.sha256)
+            self.assertTrue(stream.closed)
+            path = verified._spool.directory / f"objects/sha256/{ref.sha256[:2]}/{ref.sha256[2:4]}/{ref.sha256}"
+            path.chmod(0o600)
+            path.write_bytes(b"x" * ref.size_bytes)
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                with verified.open_blob(ref) as stream:
+                    stream.read()
+            self.assertEqual(caught.exception.code, "integrity")
+            self.assertIn("bytes changed", str(caught.exception))
+
+    def test_revision_ids_are_unique_across_owners(self):
+        records = self.envelopes()
+        revisions = [r["payload"] for r in records if r["type"] == "revision"]
+        revisions[1]["id"] = revisions[0]["id"]
+        self.write_records(records)
+        self.assert_verification_refused("integrity", "duplicate record identity")
+
+    def test_relation_keys_preserve_unrestricted_strings_and_ordinals(self):
+        records = self.envelopes()
+        relation = next(r for r in records if r["type"] == "document_resource")
+        expected = []
+        for text, ordinal in (("a", 0), ("a\x1f0", 0), ("a\x00b", 0), ("a", 10), ("a", 2)):
+            item = copy.deepcopy(relation)
+            item["payload"].update(relation_type=text, ordinal=ordinal)
+            records.append(item)
+            expected.append((relation["payload"]["document_id"], relation["payload"]["resource_id"], text, str(ordinal)))
+        self.write_records(records)
+        with self.verify() as verified:
+            for key in expected:
+                self.assertEqual(verified.get_record("document_resource", key).key, key)
+            keys = [r.key for r in verified.iter_records("document_resource")]
+            encode = lambda key: b"".join(len(p.encode()).to_bytes(4, "big") + p.encode() for p in key)
+            self.assertEqual(keys, sorted(keys, key=encode))
+
+    def test_empty_referenced_blob_and_exact_name_filename_limits(self):
+        records = self.envelopes()
+        resource = next(r["payload"] for r in records if r["type"] == "resource")
+        old_hash = resource["blob"]["sha256"]
+        entry = next(e for e in self.entries if e["sha256"] == old_hash)
+        self.manifest["totals"]["bytes"] -= entry["size_bytes"]
+        (self.archive / entry["location"]["path"]).unlink()
+        digest, path = self.put_object(b"")
+        entry.update(sha256=digest, size_bytes=0, location={"layout": "fanout", "path": path})
+        resource["blob"].update(sha256=digest, size_bytes=0)
+        resource["filename"] = "é" * 2048
+        next(r["payload"] for r in records if r["type"] == "tag")["name"] = "é" * 2048
+        self.write_records(records)
+        with self.verify() as verified:
+            with verified.open_blob(archive_v2.BlobRef(**resource["blob"])) as stream:
+                self.assertEqual(stream.read(), b"")
+
+    def test_forbidden_payload_schemas_are_recognized_but_never_admitted(self):
+        # Nonzero counts refuse at manifest admission. Direct schema probes prove
+        # these envelope types cannot accidentally become silent no-op records.
+        timestamp = "2026-01-01T00:00:00Z"
+        payloads = {
+            "search_notebook": {"id": "search_test", "name": "Search", "query": "all", "builtin": False,
+                                "sort_anchor": "normal", "created_at": timestamp},
+            "provenance": {"document_id": "doc_public", "source_system": "test", "metadata_json": {},
+                           "created_at": timestamp, "updated_at": timestamp},
+            "source_bundle": {"source_system": "test", "source_key_sha256": "a" * 64, "collection_id": "default",
+                              "item_key_sha256": "b" * 64, "item_type": "note", "relative_path": "note.md",
+                              "content": {"sha256": "c" * 64, "size_bytes": 0, "media_type": "text/plain"},
+                              "property_order_json": [], "updated_at": timestamp},
+        }
+        for kind, payload in payloads.items():
+            with self.subTest(kind=kind):
+                with self.assertRaises(archive_v2.NotriosError) as caught:
+                    archive_v2._typed_record(kind, payload, archive_v2.DEFAULT_LIMITS)
+                self.assertEqual(caught.exception.code, "publication")
+                self.assertIn("forbidden", str(caught.exception))
+                malformed = dict(payload, unknown=True)
+                with self.assertRaises(archive_v2.NotriosError) as caught:
+                    archive_v2._typed_record(kind, malformed, archive_v2.DEFAULT_LIMITS)
+                self.assertEqual(caught.exception.code, "json")
+                self.fresh_archive()
+                records = self.envelopes() + [{"type": kind, "payload": payload}]
+                self.write_records(records)
+                self.assert_verification_refused("publication", "declares forbidden record types")
+
+    def test_semantic_mime_go_vectors(self):
+        vectors = load_json(FIXTURE_ROOT / "semantic-mime-vectors.json")
+        self.assertGreaterEqual(len(vectors), 50)
+        for case in vectors:
+            with self.subTest(mime=case["input"]):
+                if case["accepted"]:
+                    self.assertEqual(archive_v2._normalize_mime(case["input"]), case["normalized"])
+                else:
+                    with self.assertRaises(archive_v2.NotriosError) as caught:
+                        archive_v2._normalize_mime(case["input"])
+                    self.assertEqual(caught.exception.code, "format")
 
     def test_storage_mime_matches_go_syntax_vectors(self):
         vectors = load_json(FIXTURE_ROOT / "storage-mime-vectors.json")

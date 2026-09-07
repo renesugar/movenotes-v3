@@ -21,6 +21,7 @@ invented test data.
 | [design-v1.json](design-v1.json) | Slice 1c mapper framing/hash vectors, exact projected fixture bodies, resource extensions, timestamp and explicit final-path examples; specified in [the implementation design](../../NOTRIOS_IMPORT_DESIGN.md). These describe future code, not importer test results. |
 | [manifest-vectors.json](manifest-vectors.json) / [manifest_vectors.go](manifest_vectors.go) | Slice 2a semantic manifest bytes/digests and their independent Go standard-library oracle. Includes serializer-only cases that the loose-publication reader must refuse. |
 | [storage-mime-vectors.json](storage-mime-vectors.json) / [storage_mime_vectors.go](storage_mime_vectors.go) | Slice 2b Go-generated MIME syntax acceptance cases for noncanonical storage hints. These do not establish canonical record/reference MIME equality. |
+| [semantic-mime-vectors.json](semantic-mime-vectors.json) / [semantic_mime_vectors.go](semantic_mime_vectors.go) | Slice 2d normalization oracle: 56 Go 1.27.0 cases matching the pinned Notrios `normalizeMediaType` rule, including quoting, duplicate parameters, RFC2231 continuations, invalid percent sequences, raw decoded bytes and length bounds. Tests read the frozen output without Go. |
 
 Only `archive/` is the handoff. The surrounding reports and expectations are test
 evidence and include synthetic withheld IDs on purpose; they must never be
@@ -299,3 +300,7 @@ final repository location. Input, generator and archive hashes are recorded in
 Only fixture-generation checks were run in 1b; the importer did not exist and
 the existing application runtime was not changed. Slices 1c and 1d subsequently
 added the frozen design and offline baselines described above.
+
+## Reproduce the semantic MIME vectors
+
+Run `go run testdata/notrios/semantic_mime_vectors.go < testdata/notrios/semantic-mime-vectors.json` from the repository root with Go 1.27.0. Its output must match the committed JSON byte-for-byte. This development-only oracle follows the pinned producer’s parse/length/format sequence; it does not rewrite the publication fixture.

@@ -1,7 +1,7 @@
-"""Bounded manifest and object checks for the loose Notrios publication profile.
+"""Bounded archive verification for the loose Notrios publication profile.
 
-This is not yet a complete archive verifier. Admitting a manifest does not
-verify its index, records or blobs and must not enable conversion by itself.
+Only verify_archive admits complete archives. Conversion-specific body and
+link translation checks belong to the later importer, not manifest admission.
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ import calendar
 from contextlib import contextmanager
 from dataclasses import dataclass, fields
 import hashlib
+import io
 import json
 import math
 import os
@@ -21,6 +22,7 @@ import stat
 import tempfile
 from types import MappingProxyType
 from typing import BinaryIO
+from urllib.parse import urlsplit
 
 
 class NotriosError(ValueError):
@@ -207,7 +209,7 @@ def _shaped(value, schema):
     """Check exact field/type shape and return independent immutable containers."""
     if schema is str:
         if type(value) is not str:
-            _json_error("manifest string field has wrong type")
+            _json_error("structured string field has wrong type")
         try:
             value.encode("utf-8")
         except UnicodeEncodeError:
@@ -215,17 +217,25 @@ def _shaped(value, schema):
         return value
     if schema is int:
         if type(value) is not int or not -(1 << 63) <= value < (1 << 63):
-            _json_error("manifest integer field requires a signed 64-bit integer token")
+            _json_error("structured integer field requires a signed 64-bit integer token")
         return value
+    if schema is bool:
+        if type(value) is not bool:
+            _json_error("record boolean field has wrong type")
+        return value
+    if schema is dict:
+        if not isinstance(value, dict):
+            _json_error("record JSON field requires an object")
+        return _freeze_json(value)
     if isinstance(schema, list):
         if not isinstance(value, (list, tuple)):
-            _json_error("manifest array field has wrong type")
+            _json_error("structured array field has wrong type")
         return tuple(_shaped(item, schema[0]) for item in value)
     required, optional = schema if isinstance(schema, tuple) else (schema, {})
     if not isinstance(value, Mapping):
-        _json_error("manifest object field has wrong type")
+        _json_error("structured object field has wrong type")
     if not required.keys() <= value.keys() or value.keys() - (required.keys() | optional.keys()):
-        _json_error("manifest has missing or unknown fields")
+        _json_error("structured object has missing or unknown fields")
     return MappingProxyType({key: _shaped(value[key], kind)
                              for key, kind in (required | optional).items() if key in value})
 
@@ -477,13 +487,8 @@ _MIME_SPACE = "\t\n\v\f\r \u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005
 _MIME_SPECIAL = '()<>@,;:\\"/[]?='
 
 
-def _validate_storage_mime(value: str):
-    """Go ParseMediaType syntax checks; no semantic MIME normalization yet.
-
-    Storage hints need not be canonical. RFC2231 continuation decoding cannot
-    make Go parsing fail, so it is unnecessary for this syntax-only check.
-    Canonical record/reference MIME equality belongs to the typed-record phase.
-    """
+def _parse_storage_mime(value: str):
+    """Parse Go's MIME syntax; retain star parameters for normalization."""
     if not 0 < len(value.encode("utf-8")) <= 255:
         raise NotriosError("format", "invalid storage MIME length")
 
@@ -544,6 +549,78 @@ def _validate_storage_mime(value: str):
         if key in parameters and parameters[key] != parameter:
             invalid()
         parameters[key] = parameter
+    return base, parameters
+
+
+def _validate_storage_mime(value: str):
+    _parse_storage_mime(value)
+
+
+def _normalize_mime(value: str) -> str:
+    """Go ParseMediaType/FormatMediaType semantics, including raw RFC2231 bytes.
+
+    Percent decoding deliberately stays in bytes: Go strings may contain
+    non-UTF-8 bytes here and FormatMediaType percent-encodes them unchanged.
+    Frozen Go-generated vectors cover this boundary without a runtime Go dep.
+    """
+    base, parsed = _parse_storage_mime(value)
+    parameters = {key: val.encode("utf-8") for key, val in parsed.items() if "*" not in key}
+    continuations = {}
+    for key, val in parsed.items():
+        if "*" in key:
+            continuations.setdefault(key.split("*", 1)[0], {})[key] = val
+
+    def unescape(text):
+        if re.search(r"%(?![0-9a-fA-F]{2})", text):
+            return None
+        return re.sub(rb"%([0-9a-fA-F]{2})", lambda m: bytes([int(m[1], 16)]), text.encode("utf-8"))
+
+    def decode_extended(text):
+        parts = text.split("'", 2)
+        if len(parts) != 3 or parts[0].lower() not in ("utf-8", "us-ascii"):
+            return None
+        return unescape(parts[2])
+
+    for key, pieces in continuations.items():
+        if key + "*" in pieces:
+            decoded = decode_extended(pieces[key + "*"])
+            if decoded is not None:
+                parameters[key] = decoded
+            continue
+        result = bytearray()
+        number = 0
+        while True:
+            part = f"{key}*{number}"
+            if part in pieces:
+                result.extend(pieces[part].encode("utf-8"))
+            elif part + "*" in pieces:
+                decoded = (decode_extended if number == 0 else unescape)(pieces[part + "*"])
+                result.extend(decoded or b"")
+            else:
+                break
+            number += 1
+        if number:
+            parameters[key] = bytes(result)
+
+    def is_token(raw):
+        return bool(raw) and all(32 < b < 127 and chr(b) not in _MIME_SPECIAL for b in raw)
+
+    result = [base]
+    for key in sorted(parameters):
+        if not is_token(key.encode("utf-8")):
+            # Go FormatMediaType returns empty for e.g. an empty star base.
+            return ""
+        raw = parameters[key]
+        if any((b < 32 or b > 126) and b != 9 for b in raw):
+            encoded = "".join(f"%{b:02X}" if b <= 32 or b >= 127 or chr(b) in _MIME_SPECIAL + "*'%"
+                              else chr(b) for b in raw)
+            result.append(f"; {key}*=utf-8''{encoded}")
+        elif is_token(raw):
+            result.append(f"; {key}=" + raw.decode("ascii"))
+        else:
+            quoted = raw.decode("ascii").replace("\\", "\\\\").replace('"', '\\"')
+            result.append(f'; {key}="{quoted}"')
+    return "".join(result)
 
 
 def _index_entry(value, limits: ArchiveLimits):
@@ -828,3 +905,395 @@ def _stage_archive_objects(root: Path, *, work_dir: Path, limits: ArchiveLimits 
             finally:
                 if connection is not None:
                     connection.close()
+
+
+# Payload shapes are intentionally explicit. JSON-object fields are recursively
+# immutable, but their arbitrary keys are not mistaken for structured fields.
+_BLOB_REF = {"sha256": str, "size_bytes": int, "media_type": str}
+_PAYLOADS = {
+    "collection": ({"id": str, "name": str, "capabilities": [str], "settings_json": dict,
+                    "created_at": str}, {"description": str}),
+    "notebook": ({"id": str, "name": str, "builtin": bool, "position": int,
+                  "created_at": str, "updated_at": str}, {"parent_id": str, "icon_emoji": str}),
+    "search_notebook": ({"id": str, "name": str, "query": str, "builtin": bool,
+                         "sort_anchor": str, "created_at": str}, {"icon_emoji": str}),
+    "tag": {"id": str, "name": str, "created_at": str},
+    "document": ({"id": str, "collection_id": str, "notebook_id": str,
+                  "current_revision_id": str, "created_at": str, "updated_at": str}, {"deleted_at": str}),
+    "revision": ({"id": str, "document_id": str, "title": str, "body": _BLOB_REF,
+                  "body_mime_type": str, "metadata_json": dict, "created_at": str}, {"message": str}),
+    "document_tag": {"document_id": str, "tag_id": str},
+    "resource": ({"id": str, "collection_id": str, "blob": _BLOB_REF, "mime_type": str,
+                  "metadata_json": dict, "created_at": str},
+                 {"filename": str, "unreferenced_at": str, "unreferenced_reason": str}),
+    "document_resource": {"document_id": str, "resource_id": str, "relation_type": str,
+                          "ordinal": int, "anchor_json": dict},
+    "link": ({"id": str, "source_document_id": str, "relation_type": str, "source_format": str,
+              "raw_target": str, "source_start_byte": int, "source_end_byte": int,
+              "source_line": int, "source_column": int, "resolution_status": str},
+             dict.fromkeys(("target_document_id", "target_resource_id", "target_uri", "display_text",
+                            "anchor_type", "anchor_value", "context"), str)),
+    "provenance": ({"document_id": str, "source_system": str, "metadata_json": dict,
+                    "created_at": str, "updated_at": str},
+                   dict(dict.fromkeys(("external_id", "author", "author_id", "thread_id", "reply_to",
+                                       "source_url", "published_at"), str), published_ts=int)),
+    "source_bundle": ({"source_system": str, "source_key_sha256": str, "collection_id": str,
+                       "item_key_sha256": str, "item_type": str, "relative_path": str,
+                       "content": _BLOB_REF, "property_order_json": [str], "updated_at": str},
+                      {"external_id": str}),
+}
+_KEY_FIELDS = {kind: ("id",) for kind in ("collection", "notebook", "tag", "document", "revision", "resource", "link")}
+_KEY_FIELDS.update(document_tag=("document_id", "tag_id"),
+                   document_resource=("document_id", "resource_id", "relation_type", "ordinal"))
+_FORBIDDEN_RECORDS = ("search_notebook", "provenance", "source_bundle")
+
+
+def _freeze_json(value):
+    if isinstance(value, dict):
+        return MappingProxyType({key: _freeze_json(item) for key, item in value.items()})
+    if isinstance(value, list):
+        return tuple(_freeze_json(item) for item in value)
+    return value
+
+
+@dataclass(frozen=True)
+class BlobRef:
+    sha256: str
+    size_bytes: int
+    media_type: str
+
+
+@dataclass(frozen=True)
+class Record:
+    kind: str
+    key: tuple[str, ...]
+    payload: Mapping
+
+
+def _key_bytes(parts):
+    # The mapper/database/kind prefix and arity are fixed within each kind.
+    # Sorting these framed components therefore gives full source-key order.
+    return b"".join(len(raw).to_bytes(4, "big") + raw for raw in (part.encode("utf-8") for part in parts))
+
+
+def _record_timestamp(value):
+    if not _UTC.fullmatch(value):
+        raise NotriosError("format", "record timestamp must be RFC3339 UTC")
+    year, month, day = int(value[:4]), int(value[5:7]), int(value[8:10])
+    if not (1 <= month <= 12 and 1 <= day <= calendar.monthrange(year, month)[1]
+            and int(value[11:13]) <= 23 and int(value[14:16]) <= 59 and int(value[17:19]) <= 59):
+        raise NotriosError("format", "invalid record calendar timestamp")
+
+
+def _validate_blob_ref(payload, limits):
+    ref = _shaped(payload, _BLOB_REF)
+    if not _SHA256.fullmatch(ref["sha256"]):
+        raise NotriosError("format", "invalid blob reference hash")
+    _bounded(ref["size_bytes"], 0, limits.max_blob_bytes, "blob reference bytes")
+    if not ref["media_type"] or _normalize_mime(ref["media_type"]) != ref["media_type"]:
+        raise NotriosError("format", "blob reference MIME must be canonical")
+    return BlobRef(**ref)
+
+
+def _validate_link_publication(p):
+    targets = int("target_document_id" in p) + int("target_resource_id" in p)
+    if targets > 1:
+        raise NotriosError("publication", "link has multiple internal targets")
+    if p.get("context"):
+        raise NotriosError("publication", "link context must be empty")
+    status = p["resolution_status"]
+    if status not in ("resolved", "external"):
+        raise NotriosError("publication", "link status is not publishable")
+    if status == "external":
+        valid = True
+        for uri in (p["raw_target"],) + ((p["target_uri"],) if p.get("target_uri") else ()):
+            try:
+                parsed = urlsplit(uri)
+                valid = valid and (parsed.scheme.lower() in ("http", "https") and bool(parsed.hostname)
+                                   and parsed.username is None and "\\" not in uri
+                                   and not any(ord(c) <= 32 or ord(c) == 127 for c in uri))
+                parsed.port  # Reject malformed/out-of-range ports too.
+            except ValueError:
+                valid = False
+        if targets or not valid:
+            raise NotriosError("publication", "external link requires HTTP(S) and no internal target")
+    elif not targets:
+        if (p["raw_target"] or p.get("target_uri", "") not in ("", f"document://default/documents/{p['source_document_id']}")
+                or not p.get("anchor_type") or not p.get("anchor_value")):
+            raise NotriosError("publication", "resolved link without target must be a self-anchor")
+    # Body spans, parsed targets and URI/anchor agreement belong to validate_links
+    # in 3d. Generic verification does not decode opaque non-Markdown bodies.
+
+
+def _typed_record(kind, payload, limits):
+    p = _shaped(payload, _PAYLOADS[kind])
+    if kind in _FORBIDDEN_RECORDS:
+        raise NotriosError("publication", "record type is forbidden in a publication", record_type=kind)
+    for name, value in p.items():
+        if name == "id" or name.endswith("_id"):
+            if not _ID.fullmatch(value):
+                raise NotriosError("format", "invalid record identity", record_type=kind)
+        if name in ("created_at", "updated_at") or name in ("deleted_at", "unreferenced_at") and value:
+            _record_timestamp(value)
+    if "name" in p:
+        if not p["name"].strip(_MIME_SPACE):
+            raise NotriosError("format", "record name must be nonblank")
+        _bounded(len(p["name"].encode("utf-8")), 1, 4096, "record name bytes")
+    if kind == "collection":
+        if tuple(sorted(set(p["capabilities"]))) != p["capabilities"]:
+            raise NotriosError("format", "collection capabilities must be sorted and unique")
+        if p["settings_json"]:
+            raise NotriosError("publication", "collection settings must be empty")
+    elif kind == "document" and p.get("deleted_at"):
+        raise NotriosError("publication", "deleted documents are forbidden")
+    elif kind in ("revision", "resource"):
+        blob_name, mime_name = ("body", "body_mime_type") if kind == "revision" else ("blob", "mime_type")
+        ref = _validate_blob_ref(p[blob_name], limits)
+        if _normalize_mime(p[mime_name]) != ref.media_type:
+            raise NotriosError("integrity", "record MIME differs from blob reference")
+        if kind == "revision":
+            _bounded(len(p["title"].encode("utf-8")), 0, 1048576, "revision title bytes")
+            if p["metadata_json"]:
+                raise NotriosError("publication", "revision metadata must be empty")
+        else:
+            _bounded(len(p.get("filename", "").encode("utf-8")), 0, 4096, "resource filename bytes")
+    elif kind in ("document_resource", "link"):
+        nonblank = ("relation_type",) if kind == "document_resource" else ("relation_type", "source_format", "resolution_status")
+        if any(not p[name].strip(_MIME_SPACE) for name in nonblank):
+            raise NotriosError("format", "relation fields must be nonblank")
+        coordinates = ("ordinal",) if kind == "document_resource" else ("source_start_byte", "source_end_byte", "source_line", "source_column")
+        if any(p[name] < 0 for name in coordinates):
+            raise NotriosError("format", "relation coordinates must be nonnegative")
+        if kind == "link":
+            if p["source_end_byte"] < p["source_start_byte"]:
+                raise NotriosError("format", "link span is reversed")
+            _validate_link_publication(p)
+    return Record(kind, tuple(str(p[name]) for name in _KEY_FIELDS[kind]), p)
+
+
+def _stage_typed_records(spool, limits):
+    db = spool.connection
+    db.executescript("""
+        CREATE TABLE typed_records(kind TEXT NOT NULL, key BLOB NOT NULL, seq INTEGER UNIQUE NOT NULL,
+            id TEXT, document_id TEXT, parent_id TEXT, current_revision_id TEXT,
+            PRIMARY KEY(kind,key));
+        CREATE UNIQUE INDEX record_ids ON typed_records(kind,id) WHERE id IS NOT NULL;
+        CREATE INDEX records_by_document ON typed_records(kind,document_id,key);
+        CREATE INDEX notebook_parents ON typed_records(kind,parent_id);
+        CREATE TABLE record_refs(source_seq INTEGER NOT NULL, kind TEXT NOT NULL, id TEXT NOT NULL);
+        CREATE INDEX reference_targets ON record_refs(kind,id);
+        CREATE TABLE blob_refs(source_seq INTEGER NOT NULL,sha256 TEXT NOT NULL,size_bytes INTEGER NOT NULL);
+        CREATE INDEX blob_reference_targets ON blob_refs(sha256,size_bytes);
+    """)
+    records = _InsertBatch(db, "INSERT INTO typed_records VALUES (?,?,?,?,?,?,?)")
+    refs = _InsertBatch(db, "INSERT INTO record_refs VALUES (?,?,?)")
+    blobs = _InsertBatch(db, "INSERT INTO blob_refs VALUES (?,?,?)")
+    targets = {"collection_id": "collection", "notebook_id": "notebook", "parent_id": "notebook",
+               "document_id": "document", "source_document_id": "document", "target_document_id": "document",
+               "resource_id": "resource", "target_resource_id": "resource", "tag_id": "tag",
+               "current_revision_id": "revision"}
+    try:
+        for seq, kind, raw in db.execute("SELECT seq,record_type,raw FROM records ORDER BY seq"):
+            value = strict_json_loads(raw, max_bytes=limits.max_record_bytes, max_depth=limits.max_json_depth)
+            record = _typed_record(kind, value["payload"], limits)
+            p = record.payload
+            records.add((kind, _key_bytes(record.key), seq, p.get("id"),
+                         p.get("document_id", p.get("source_document_id")), p.get("parent_id"),
+                         p.get("current_revision_id")))
+            for name, target in targets.items():
+                if name in p:
+                    refs.add((seq, target, p[name]))
+            for name in ("body", "blob"):
+                if name in p:
+                    blobs.add((seq, p[name]["sha256"], p[name]["size_bytes"]))
+        records.flush()
+        refs.flush()
+        blobs.flush()
+    except sqlite3.IntegrityError:
+        raise NotriosError("integrity", "duplicate record identity") from None
+
+
+def _reconcile_records(spool, limits):
+    db = spool.connection
+    def refuse_if(sql, code, message, parameters=()):
+        if db.execute(sql, parameters).fetchone():
+            raise NotriosError(code, message)
+
+    refuse_if("SELECT 1 FROM record_refs r LEFT JOIN typed_records t ON t.kind=r.kind AND t.id=r.id "
+              "WHERE t.seq IS NULL LIMIT 1", "graph", "record reference has no target")
+    refuse_if("SELECT 1 FROM blob_refs r LEFT JOIN objects o ON o.sha256=r.sha256 "
+              "WHERE o.sha256 IS NULL OR o.kind!='blob' OR o.size_bytes!=r.size_bytes LIMIT 1",
+              "integrity", "blob reference has no matching hash and size")
+    refuse_if("SELECT 1 FROM objects o WHERE o.kind='blob' AND NOT EXISTS "
+              "(SELECT 1 FROM blob_refs r WHERE r.sha256=o.sha256 AND r.size_bytes=o.size_bytes) LIMIT 1",
+              "integrity", "unreferenced blob object")
+    refuse_if("SELECT 1 FROM typed_records d JOIN typed_records r ON r.kind='revision' AND r.id=d.current_revision_id "
+              "WHERE d.kind='document' AND r.document_id!=d.id LIMIT 1",
+              "graph", "current revision belongs to another document")
+    refuse_if("SELECT 1 FROM typed_records r JOIN typed_records d ON d.kind='document' AND d.id=r.document_id "
+              "WHERE r.kind='revision' AND r.id!=d.current_revision_id LIMIT 1",
+              "publication", "publication contains noncurrent revision history")
+    refuse_if("SELECT 1 FROM typed_records t WHERE t.kind='resource' AND NOT EXISTS "
+              "(SELECT 1 FROM record_refs r JOIN typed_records s ON s.seq=r.source_seq "
+              "WHERE r.kind='resource' AND r.id=t.id AND s.kind='document_resource') LIMIT 1",
+              "publication", "resource is not reachable from a document-resource relation")
+    collections = tuple(row[0] for row in db.execute("SELECT id FROM typed_records WHERE kind='collection' ORDER BY id"))
+    # Both sets are bounded at manifest admission before any object copying.
+    if collections != spool.manifest.snapshot["collection_ids"]:
+        raise NotriosError("graph", "collection records differ from snapshot scope")
+    # Bounded parent walks use disk lookups, not an archive-wide Python tree.
+    # Every root counts as one level; at most max_notebook_depth IDs are held.
+    for (start,) in db.execute("SELECT id FROM typed_records WHERE kind='notebook'"):
+        seen = set()
+        current = start
+        while current is not None:
+            if current in seen:
+                raise NotriosError("graph", "notebook parent cycle")
+            if len(seen) >= limits.max_notebook_depth:
+                raise NotriosError("limit", "notebook depth exceeds limit")
+            seen.add(current)
+            current = db.execute("SELECT parent_id FROM typed_records WHERE kind='notebook' AND id=?", (current,)).fetchone()[0]
+
+
+class _CheckedBlob(io.RawIOBase):
+    """Sequential consumer view; EOF is authenticated and partial use refuses."""
+    def __init__(self, owner, stream, ref):
+        super().__init__()
+        self._owner, self._stream, self._ref = owner, stream, ref
+        self._hash, self._size, self._eof = hashlib.sha256(), 0, False
+
+    def readable(self):
+        return True
+
+    def read(self, size=-1):
+        self._owner._require_open()
+        if self.closed:
+            raise NotriosError("io", "blob handle is closed")
+        if size == 0:
+            return b""
+        read_all = size is None or size < 0
+        # Bound even a growing private file by the declared bytes plus one
+        # sentinel. Callers stream large resources via readinto/read(chunk).
+        remaining = self._ref.size_bytes - self._size + 1
+        try:
+            raw = self._stream.read(remaining if read_all else min(size, remaining))
+        except OSError:
+            raise NotriosError("io", "verified blob read failed") from None
+        self._hash.update(raw)
+        self._size += len(raw)
+        if self._size > self._ref.size_bytes:
+            raise NotriosError("integrity", "verified blob size changed")
+        if not raw or read_all:
+            if self._size != self._ref.size_bytes or self._hash.hexdigest() != self._ref.sha256:
+                raise NotriosError("integrity", "verified blob bytes changed")
+            self._eof = True
+        return raw
+
+    def readinto(self, buffer):
+        raw = self.read(len(buffer))
+        buffer[:len(raw)] = raw
+        return len(raw)
+
+    def close(self):
+        self._stream.close()
+        super().close()
+
+
+class VerifiedArchive:
+    """Context-owned, fully reconciled records and checked private object copies."""
+    def __init__(self, spool, limits):
+        self._spool, self._limits, self._active = spool, limits, True
+        self.manifest, self.counts = spool.manifest, spool.manifest.counts
+
+    def _require_open(self):
+        if not self._active:
+            raise NotriosError("io", "verified archive context is closed")
+
+    def _decode_record(self, kind, raw):
+        self._require_open()
+        value = strict_json_loads(raw, max_bytes=self._limits.max_record_bytes, max_depth=self._limits.max_json_depth)
+        return _typed_record(kind, value["payload"], self._limits)
+
+    def _kind(self, kind):
+        self._require_open()
+        if kind not in _KEY_FIELDS:
+            raise NotriosError("format", "unsupported record lookup kind")
+
+    def iter_records(self, kind):
+        self._kind(kind)
+        cursor = self._spool.connection.execute(
+            "SELECT r.raw FROM typed_records t JOIN records r ON r.seq=t.seq WHERE t.kind=? ORDER BY t.key", (kind,))
+        try:
+            while True:
+                self._require_open()
+                row = cursor.fetchone()
+                if row is None:
+                    return
+                yield self._decode_record(kind, row[0])
+        finally:
+            if self._active:
+                cursor.close()
+
+    def get_record(self, kind, key):
+        self._kind(kind)
+        if type(key) is not tuple or len(key) != len(_KEY_FIELDS[kind]) or any(type(p) is not str for p in key):
+            raise NotriosError("format", "invalid record lookup key")
+        row = self._spool.connection.execute(
+            "SELECT r.raw FROM typed_records t JOIN records r ON r.seq=t.seq WHERE t.kind=? AND t.key=?",
+            (kind, _key_bytes(key))).fetchone()
+        if row is None:
+            raise NotriosError("graph", "record lookup has no target")
+        return self._decode_record(kind, row[0])
+
+    def iter_relations(self, kind, document_id):
+        self._kind(kind)
+        if kind not in ("document_tag", "document_resource", "link"):
+            raise NotriosError("format", "unsupported relation lookup kind")
+        cursor = self._spool.connection.execute(
+            "SELECT r.raw FROM typed_records t JOIN records r ON r.seq=t.seq "
+            "WHERE t.kind=? AND t.document_id=? ORDER BY t.key", (kind, document_id))
+        try:
+            while True:
+                self._require_open()
+                row = cursor.fetchone()
+                if row is None:
+                    return
+                yield self._decode_record(kind, row[0])
+        finally:
+            if self._active:
+                cursor.close()
+
+    @contextmanager
+    def open_blob(self, ref: BlobRef):
+        self._require_open()
+        ref = _validate_blob_ref({"sha256": ref.sha256, "size_bytes": ref.size_bytes,
+                                  "media_type": ref.media_type}, self._limits)
+        row = self._spool.connection.execute("SELECT path,size_bytes FROM objects WHERE sha256=? AND kind='blob'",
+                                             (ref.sha256,)).fetchone()
+        if row is None or row[1] != ref.size_bytes:
+            raise NotriosError("integrity", "blob lookup has no matching hash and size")
+        with _open_root_directory(self._spool.directory) as root_fd:
+            with _open_regular_file(root_fd, row[0]) as stream:
+                if os.fstat(stream.fileno()).st_size != ref.size_bytes:
+                    raise NotriosError("integrity", "verified blob size changed")
+                checked = _CheckedBlob(self, stream, ref)
+                try:
+                    yield checked
+                    self._require_open()
+                    if not checked._eof:
+                        raise NotriosError("integrity", "blob consumption did not reach verified EOF")
+                finally:
+                    checked.close()
+
+
+@contextmanager
+def verify_archive(root: Path, *, work_dir: Path, limits: ArchiveLimits = DEFAULT_LIMITS):
+    """Yield only after byte, typed-record, graph and publication gates pass."""
+    with _stage_archive_objects(root, work_dir=work_dir, limits=limits) as spool:
+        _stage_typed_records(spool, limits)
+        _reconcile_records(spool, limits)
+        archive = VerifiedArchive(spool, limits)
+        try:
+            yield archive
+        finally:
+            archive._active = False
