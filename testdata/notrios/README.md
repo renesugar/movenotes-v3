@@ -20,6 +20,7 @@ invented test data.
 | [reports/](publication-loose/reports/) | Import, profile-save, plan, publication, compatibility and verification JSON results. |
 | [design-v1.json](design-v1.json) | Slice 1c mapper framing/hash vectors, exact projected fixture bodies, resource extensions, timestamp and explicit final-path examples; specified in [the implementation design](../../NOTRIOS_IMPORT_DESIGN.md). These describe future code, not importer test results. |
 | [manifest-vectors.json](manifest-vectors.json) / [manifest_vectors.go](manifest_vectors.go) | Slice 2a semantic manifest bytes/digests and their independent Go standard-library oracle. Includes serializer-only cases that the loose-publication reader must refuse. |
+| [storage-mime-vectors.json](storage-mime-vectors.json) / [storage_mime_vectors.go](storage_mime_vectors.go) | Slice 2b Go-generated MIME syntax acceptance cases for noncanonical storage hints. These do not establish canonical record/reference MIME equality. |
 
 Only `archive/` is the handoff. The surrounding reports and expectations are test
 evidence and include synthetic withheld IDs on purpose; they must never be
@@ -172,6 +173,55 @@ cmp testdata/notrios/manifest-vectors.json /tmp/movenotes-manifest-vectors.candi
 Review a discrepancy against the pinned struct definitions and encoding behavior;
 do not regenerate expected digests from the Python implementation under test.
 Ordinary tests consume the committed vectors and do not need Go installed.
+
+## Object and index checkpoint — slice 2b
+
+`NotriosObjectSpoolTest` adds twelve tests to the same offline test command.
+They exercise an internal `_stage_archive_objects(root, work_dir=..., limits=...)`
+context, not a supported importer or complete verifier. The context yields only
+after all declared bytes, index structure, record envelope counts and exact source
+file inventory have passed. Typed payload fields, record identities, references,
+notebook trees, used blobs and publication semantics remain for 2d/2e.
+
+The yielded private `_ObjectSpool` has `directory`, `manifest` and `connection`.
+Its SQLite `objects` table holds index/records/blob descriptors; `records` holds
+one exact LF-terminated raw envelope per row, indexed by type and object/line;
+`source_files` holds the observed inventory for indexed joins. Checked source
+bytes are copied under their original fanout paths and made read-only inside a
+private temporary directory. The context closes SQLite and removes only that
+owned directory on success or exception. Neither its connection nor paths may
+outlive the context. There is deliberately no `VerifiedArchive` result yet.
+
+Source files open through held directory descriptors with symlink following
+disabled. Copy reads are capped at 1 MiB; JSONL reads are capped before decoding,
+including LF in the byte ceiling. SQLite insert buffers stop at 1000 rows or
+32 MiB of encoded values (one oversized, individually bounded row is inserted
+alone), with an 8 MiB SQLite page cache and disk-backed temporary tables.
+The tests lower those limits to exercise actual chunking and flushes. This is
+evidence of bounded operations, not a whole-pipeline RSS measurement.
+
+Tests also cover cross-chunk ordering with descending descriptor hashes,
+missing/corrupt/truncated index, record and blob files, rehashed malformed
+JSONL, record-count disagreement, invalid field types/paths/packing, symlinks,
+FIFOs, unexpected/extra files and cleanup after injected failure. Valid empty
+fanout directories and legacy all-zero blob `record_counts` remain positives.
+Broader hostile mutations and exact boundary cases remain the 2c assignment.
+
+The 22 MIME syntax cases were independently generated with Go 1.27.0 using
+`mime.ParseMediaType` plus the pinned producer's 255-byte/nonempty-base gate.
+They include duplicate equal/conflicting parameters, quoting and escapes,
+extended values, Unicode whitespace and noncanonical hints. Go accepts equal
+duplicate parameters and ignores undecodable extended values at the parsing
+stage; do not substitute a blanket duplicate-parameter refusal. Canonical MIME
+serialization and semantic reference equality are separate 2d work.
+
+To recompute a candidate without replacing the golden:
+
+```bash
+GOCACHE=/tmp/movenotes-notrios-vector-cache go run testdata/notrios/storage_mime_vectors.go \
+  < testdata/notrios/storage-mime-vectors.json > /tmp/movenotes-storage-mime.candidate.json
+cmp testdata/notrios/storage-mime-vectors.json /tmp/movenotes-storage-mime.candidate.json
+```
 
 ## Reproduce a candidate
 

@@ -1,4 +1,4 @@
-"""Bounded manifest admission for the loose Notrios publication profile.
+"""Bounded manifest and object checks for the loose Notrios publication profile.
 
 This is not yet a complete archive verifier. Admitting a manifest does not
 verify its index, records or blobs and must not enable conversion by itself.
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 import calendar
+from contextlib import contextmanager
 from dataclasses import dataclass, fields
 import hashlib
 import json
@@ -15,7 +16,9 @@ import math
 import os
 from pathlib import Path
 import re
+import sqlite3
 import stat
+import tempfile
 from types import MappingProxyType
 from typing import BinaryIO
 
@@ -154,9 +157,7 @@ def strict_json_loads(raw: bytes, *, max_bytes: int, max_depth: int):
     return value
 
 
-def read_bounded_json(stream: BinaryIO, *, max_bytes: int, max_depth: int,
-                      require_final_lf: bool = False):
-    """Read at most the ceiling plus one byte, including an optional final LF."""
+def _read_bounded_bytes(stream: BinaryIO, max_bytes: int) -> bytes:
     if type(max_bytes) is not int or max_bytes <= 0:
         raise NotriosError("limit", "invalid JSON byte limit")
     # A regular binary stream's read(n) may return fewer than n bytes.
@@ -171,9 +172,16 @@ def read_bounded_json(stream: BinaryIO, *, max_bytes: int, max_depth: int,
         chunks.extend(chunk)
     if len(chunks) > max_bytes:
         raise NotriosError("limit", "JSON byte limit exceeded")
-    if require_final_lf and not chunks.endswith(b"\n"):
+    return bytes(chunks)
+
+
+def read_bounded_json(stream: BinaryIO, *, max_bytes: int, max_depth: int,
+                      require_final_lf: bool = False):
+    """Read at most the ceiling plus one byte, including an optional final LF."""
+    raw = _read_bounded_bytes(stream, max_bytes)
+    if require_final_lf and not raw.endswith(b"\n"):
         raise NotriosError("json", "JSON requires a final LF")
-    return strict_json_loads(bytes(chunks), max_bytes=max_bytes, max_depth=max_depth)
+    return strict_json_loads(raw, max_bytes=max_bytes, max_depth=max_depth)
 
 
 # Insertion order here is the pinned Go struct order, not alphabetical order.
@@ -388,11 +396,11 @@ def _manifest_value(value) -> Manifest:
     return Manifest.from_dict(value)
 
 
-def read_manifest(root: Path, *, limits: ArchiveLimits = DEFAULT_LIMITS) -> Manifest:
-    """Admit only manifest.json; do not open or enumerate any archive objects."""
+@contextmanager
+def _open_root_directory(root: Path):
     if not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
         raise NotriosError("platform", "safe manifest opening requires no-follow directory handles")
-    directory_fd = file_fd = None
+    directory_fd = None
     try:
         # Walk using held descriptors so symlink parents cannot redirect reads.
         # Do not collapse '..' before walking: a preceding symlink component
@@ -404,21 +412,419 @@ def read_manifest(root: Path, *, limits: ArchiveLimits = DEFAULT_LIMITS) -> Mani
             next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory_fd)
             os.close(directory_fd)
             directory_fd = next_fd
-        file_fd = os.open("manifest.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory_fd)
+        yield directory_fd
+    except OSError:
+        raise NotriosError("io", "cannot read archive directory") from None
+    finally:
+        if directory_fd is not None:
+            os.close(directory_fd)
+
+
+@contextmanager
+def _open_regular_file(root_fd: int, relative: str):
+    parts = relative.split("/")
+    if "\\" in relative or any(part in ("", ".", "..") for part in parts):
+        raise NotriosError("path", "invalid archive-relative path")
+    directory_fd = os.dup(root_fd)
+    file_fd = None
+    try:
+        for part in parts[:-1]:
+            next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory_fd)
+            os.close(directory_fd)
+            directory_fd = next_fd
+        file_fd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory_fd)
         info = os.fstat(file_fd)
         if not stat.S_ISREG(info.st_mode):
-            raise NotriosError("path", "manifest must be a regular file")
-        _bounded(info.st_size, 1, limits.max_manifest_bytes, "manifest bytes")
+            raise NotriosError("path", "archive object must be a regular file")
         with os.fdopen(file_fd, "rb") as stream:
             file_fd = None
-            value = read_bounded_json(stream, max_bytes=limits.max_manifest_bytes, max_depth=limits.max_json_depth)
-        manifest = _manifest_value(value)
-        _admit_manifest(manifest, limits)
-        return manifest
+            yield stream
     except OSError:
-        raise NotriosError("io", "cannot open/read a regular publication manifest") from None
+        raise NotriosError("io", "cannot read regular archive object") from None
     finally:
         if file_fd is not None:
             os.close(file_fd)
-        if directory_fd is not None:
-            os.close(directory_fd)
+        os.close(directory_fd)
+
+
+def _read_manifest_at(root_fd: int, limits: ArchiveLimits) -> tuple[Manifest, bytes]:
+    with _open_regular_file(root_fd, "manifest.json") as stream:
+        _bounded(os.fstat(stream.fileno()).st_size, 1, limits.max_manifest_bytes, "manifest bytes")
+        raw = _read_bounded_bytes(stream, limits.max_manifest_bytes)
+    return parse_manifest(raw, limits=limits), raw
+
+
+def read_manifest(root: Path, *, limits: ArchiveLimits = DEFAULT_LIMITS) -> Manifest:
+    """Admit only manifest.json; do not open or enumerate any archive objects."""
+    with _open_root_directory(root) as root_fd:
+        manifest, _raw = _read_manifest_at(root_fd, limits)
+        return manifest
+
+
+RECORDS_MEDIA_TYPE = "application/vnd.notrios.archive-v2-records+jsonl"
+_COPY_BYTES = 1 << 20
+_BATCH_ROWS = 1000
+_BATCH_BYTES = 32 << 20
+_ENTRY = ({"sha256": str, "kind": str, "media_type": str, "size_bytes": int,
+           "location": _LOCATION}, {"records": int, "record_counts": _COUNTS})
+_RECORD_NAMES = dict(zip(
+    ("collection", "notebook", "search_notebook", "tag", "document", "revision",
+     "document_tag", "resource", "document_resource", "link", "provenance", "source_bundle"),
+    _COUNTS,
+))
+_HEX_PAIR = re.compile(r"[0-9a-f]{2}\Z")
+_MIME_SPACE = "\t\n\v\f\r \u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000"
+_MIME_SPECIAL = '()<>@,;:\\"/[]?='
+
+
+def _validate_storage_mime(value: str):
+    """Go ParseMediaType syntax checks; no semantic MIME normalization yet.
+
+    Storage hints need not be canonical. RFC2231 continuation decoding cannot
+    make Go parsing fail, so it is unnecessary for this syntax-only check.
+    Canonical record/reference MIME equality belongs to the typed-record phase.
+    """
+    if not 0 < len(value.encode("utf-8")) <= 255:
+        raise NotriosError("format", "invalid storage MIME length")
+
+    def token(text):
+        end = 0
+        while end < len(text) and 32 < ord(text[end]) < 127 and text[end] not in _MIME_SPECIAL:
+            end += 1
+        return text[:end], text[end:]
+
+    def invalid():
+        raise NotriosError("format", "invalid storage MIME syntax")
+
+    base, separator, tail = value.partition(";")
+    # Go lowercases by rune; U+0130's simple lowercase is ASCII i.
+    base = base.replace("\u0130", "i").lower().strip(_MIME_SPACE)
+    first, rest = token(base)
+    if not first:
+        invalid()
+    if rest:
+        if not rest.startswith("/"):
+            invalid()
+        subtype, rest = token(rest[1:])
+        if not subtype or rest:
+            invalid()
+    remaining = separator + tail
+    parameters = {}
+    while remaining:
+        remaining = remaining.lstrip(_MIME_SPACE)
+        if not remaining or remaining.strip(_MIME_SPACE) == ";":
+            break
+        if not remaining.startswith(";"):
+            invalid()
+        key, remaining = token(remaining[1:].lstrip(_MIME_SPACE))
+        key = key.lower()
+        remaining = remaining.lstrip(_MIME_SPACE)
+        if not key or not remaining.startswith("="):
+            invalid()
+        remaining = remaining[1:].lstrip(_MIME_SPACE)
+        if remaining.startswith('"'):
+            decoded = []
+            index = 1
+            while index < len(remaining) and remaining[index] != '"':
+                char = remaining[index]
+                if char in "\r\n":
+                    invalid()
+                if char == "\\" and index + 1 < len(remaining) and remaining[index + 1] in _MIME_SPECIAL:
+                    index += 1
+                    char = remaining[index]
+                decoded.append(char)
+                index += 1
+            if index == len(remaining):
+                invalid()
+            parameter, remaining = "".join(decoded), remaining[index + 1:]
+        else:
+            parameter, remaining = token(remaining)
+            if not parameter:
+                invalid()
+        if key in parameters and parameters[key] != parameter:
+            invalid()
+        parameters[key] = parameter
+
+
+def _index_entry(value, limits: ArchiveLimits):
+    entry = _shaped(value, _ENTRY)
+    digest, location = entry["sha256"], entry["location"]
+    if not _SHA256.fullmatch(digest):
+        raise NotriosError("format", "invalid indexed object hash")
+    if location["layout"] != "fanout" or set(location) & {"pack_sha256", "offset", "length"}:
+        raise NotriosError("capability", "packed locations are unsupported; produce a loose publication")
+    expected = f"objects/sha256/{digest[:2]}/{digest[2:4]}/{digest}"
+    if location.get("path") != expected:
+        raise NotriosError("path", "indexed object path does not match its hash")
+    _bounded(len(expected), 1, limits.max_path_bytes, "object path bytes")
+    _bounded(5, 1, limits.max_path_depth, "object path depth")
+    _bounded(entry["size_bytes"], 0, limits.max_blob_bytes, "object bytes")
+    counts = entry.get("record_counts", {})
+    for count in counts.values():
+        _bounded(count, 0, limits.max_records_per_object, "indexed record count")
+    if entry["kind"] == "records":
+        if entry["media_type"] != RECORDS_MEDIA_TYPE:
+            raise NotriosError("format", "unsupported records media type")
+        _bounded(entry["size_bytes"], 1, limits.max_record_object_bytes, "record object bytes")
+        _bounded(entry.get("records", 0), 1, limits.max_records_per_object, "records per object")
+        if "record_counts" not in entry or sum(counts.values()) != entry["records"]:
+            raise NotriosError("integrity", "indexed record counts do not agree")
+    elif entry["kind"] == "blob":
+        if entry.get("records", 0) != 0 or any(counts.values()):
+            raise NotriosError("integrity", "blob entry declares records")
+        _validate_storage_mime(entry["media_type"])
+    elif entry["kind"] == "pack":
+        raise NotriosError("capability", "packed objects are unsupported; produce a loose publication")
+    else:
+        raise NotriosError("format", "unknown indexed object kind")
+    return entry
+
+
+def _jsonl_values(path: Path, *, line_bytes: int, line_count: int, limits: ArchiveLimits):
+    """Read private checked copies, keeping one byte-bounded line at a time."""
+    with path.open("rb") as stream:
+        number = 0
+        while True:
+            raw = stream.readline(line_bytes + 1)
+            if not raw:
+                return
+            _bounded(len(raw), 1, line_bytes, "JSONL line bytes")
+            if not raw.endswith(b"\n"):
+                raise NotriosError("json", "JSONL requires a final LF")
+            if not raw.strip():
+                raise NotriosError("json", "blank JSONL line")
+            number += 1
+            _bounded(number, 1, line_count, "JSONL line count")
+            yield number, raw, strict_json_loads(raw, max_bytes=line_bytes, max_depth=limits.max_json_depth)
+
+
+class _InsertBatch:
+    """Bound SQLite insert buffers by row count AND encoded value bytes."""
+    def __init__(self, connection, sql):
+        self.connection, self.sql = connection, sql
+        self.rows = []
+        self.size = 0
+
+    def add(self, row):
+        size = sum(len(value.encode("utf-8")) if isinstance(value, str) else
+                   len(value) if isinstance(value, bytes) else 8 for value in row)
+        if self.rows and (len(self.rows) >= _BATCH_ROWS or self.size + size > _BATCH_BYTES):
+            self.flush()
+        self.rows.append(row)
+        self.size += size
+        if self.size >= _BATCH_BYTES:
+            self.flush()
+
+    def flush(self):
+        if self.rows:
+            self.connection.executemany(self.sql, self.rows)
+            self.connection.commit()
+            self.rows.clear()
+            self.size = 0
+
+
+@dataclass(frozen=True)
+class _ObjectSpool:
+    """Internal 2b checkpoint: checked bytes/envelopes, NOT checked semantics.
+
+    The connection and copies are owned by _stage_archive_objects. They may
+    not outlive its context. Only a later complete verifier can promote this
+    state to VerifiedArchive after typed-record/reference/publication checks.
+    """
+    directory: Path
+    manifest: Manifest
+    connection: sqlite3.Connection
+
+
+def _copy_checked_object(root_fd: int, destination: Path, entry):
+    relative = entry["location"]["path"]
+    target = destination / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    expected_size = entry["size_bytes"]
+    with _open_regular_file(root_fd, relative) as source:
+        if os.fstat(source.fileno()).st_size != expected_size:
+            raise NotriosError("integrity", "archive object size mismatch", object_sha256=entry["sha256"])
+        digest, total = hashlib.sha256(), 0
+        with target.open("xb") as output:
+            while True:
+                raw = source.read(min(_COPY_BYTES, expected_size + 1 - total))
+                if not raw:
+                    break
+                total += len(raw)
+                if total > expected_size:
+                    raise NotriosError("integrity", "archive object grew during read", object_sha256=entry["sha256"])
+                digest.update(raw)
+                output.write(raw)
+        if total != expected_size or digest.hexdigest() != entry["sha256"]:
+            raise NotriosError("integrity", "archive object checksum mismatch", object_sha256=entry["sha256"])
+    target.chmod(0o400)
+
+
+def _scan_source_inventory(root_fd: int, connection, manifest_bytes: int, expected_files: int):
+    batch = _InsertBatch(connection, "INSERT INTO source_files(path,size_bytes) VALUES (?,?)")
+    count = 0
+
+    def walk(directory_fd, parts):
+        nonlocal count
+        # scandir(fd) streams directory entries and does not follow links.
+        with os.scandir(directory_fd) as entries:
+            for entry in entries:
+                current = (*parts, entry.name)
+                relative = "/".join(current)
+                info = entry.stat(follow_symlinks=False)
+                mode = info.st_mode
+                if stat.S_ISDIR(mode):
+                    valid = (current == ("objects",) or current == ("objects", "sha256") or
+                             (len(current) in (3, 4) and current[:2] == ("objects", "sha256")
+                              and all(_HEX_PAIR.fullmatch(part) for part in current[2:])))
+                    if not valid:
+                        raise NotriosError("path", "unexpected archive directory shape")
+                    child_fd = os.open(entry.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory_fd)
+                    try:
+                        walk(child_fd, current)
+                    finally:
+                        os.close(child_fd)
+                else:
+                    if not stat.S_ISREG(mode):
+                        raise NotriosError("path", "archive contains a symlink or special file")
+                    if current != ("manifest.json",):
+                        if not (len(current) == 5 and current[:2] == ("objects", "sha256")
+                                and _SHA256.fullmatch(current[4]) and current[2] == current[4][:2]
+                                and current[3] == current[4][2:4]):
+                            raise NotriosError("path", "unexpected archive file path")
+                    count += 1
+                    if count > expected_files:
+                        raise NotriosError("integrity", "archive contains extra files")
+                    batch.add((relative, info.st_size))
+
+    walk(root_fd, ())
+    batch.flush()
+    if count != expected_files or connection.execute(
+        "SELECT size_bytes FROM source_files WHERE path='manifest.json'"
+    ).fetchone() != (manifest_bytes,):
+        raise NotriosError("integrity", "archive file inventory is incomplete or changed")
+    if connection.execute(
+        "SELECT 1 FROM source_files f LEFT JOIN objects o ON o.path=f.path "
+        "WHERE f.path!='manifest.json' AND (o.path IS NULL OR o.size_bytes!=f.size_bytes) LIMIT 1"
+    ).fetchone() or connection.execute(
+        "SELECT 1 FROM objects o LEFT JOIN source_files f ON f.path=o.path WHERE f.path IS NULL LIMIT 1"
+    ).fetchone():
+        raise NotriosError("integrity", "archive files differ from the declared inventory")
+
+
+def _stage_index(root_fd, spool, limits):
+    manifest, connection = spool.manifest, spool.connection
+    insert = _InsertBatch(connection, "INSERT INTO objects VALUES (?,?,?,?,?,?,?)")
+    index_hashes = {entry["sha256"] for entry in manifest.index}  # At most 1000.
+    for descriptor in manifest.index:
+        insert.add((descriptor["sha256"], "index", descriptor["media_type"], descriptor["size_bytes"],
+                    descriptor["location"]["path"], 0, "{}"))
+    insert.flush()
+    previous = ""
+    totals = {"objects": 0, "bytes": 0, "record_chunks": 0, "blobs": 0}
+    counts = dict.fromkeys(_COUNTS, 0)
+    for descriptor in manifest.index:
+        _copy_checked_object(root_fd, spool.directory, descriptor)
+        number = 0
+        for number, _raw, value in _jsonl_values(
+            spool.directory / descriptor["location"]["path"], line_bytes=limits.max_index_entry_bytes,
+            line_count=descriptor["entries"], limits=limits,
+        ):
+            entry = _index_entry(value, limits)
+            if entry["sha256"] <= previous or entry["sha256"] in index_hashes:
+                raise NotriosError("integrity", "index hashes must be globally ordered, unique and distinct from index chunks")
+            previous = entry["sha256"]
+            totals["objects"] += 1
+            totals["bytes"] += entry["size_bytes"]
+            totals["record_chunks" if entry["kind"] == "records" else "blobs"] += 1
+            for key in totals:
+                if totals[key] > manifest.totals[key]:
+                    raise NotriosError("integrity", "indexed totals exceed manifest declaration")
+            for key, count in entry.get("record_counts", {}).items():
+                counts[key] += count
+                if counts[key] > manifest.counts[key]:
+                    raise NotriosError("integrity", "indexed record counts exceed manifest declaration")
+            insert.add((entry["sha256"], entry["kind"], entry["media_type"], entry["size_bytes"],
+                        entry["location"]["path"], entry.get("records", 0),
+                        json.dumps(dict(entry.get("record_counts", {})), separators=(",", ":"))))
+        if number != descriptor["entries"]:
+            raise NotriosError("integrity", "index chunk entry count mismatch")
+    insert.flush()
+    if totals != {key: manifest.totals[key] for key in totals} or counts != dict(manifest.counts):
+        raise NotriosError("integrity", "indexed totals/counts differ from manifest")
+
+
+def _stage_data_objects(root_fd, spool, limits):
+    records = _InsertBatch(spool.connection,
+                           "INSERT INTO records(object_sha256,line_number,record_type,raw) VALUES (?,?,?,?)")
+    for digest, kind, size, path, expected_count, counts_json in spool.connection.execute(
+        "SELECT sha256,kind,size_bytes,path,records,counts_json FROM objects WHERE kind!='index' ORDER BY sha256"
+    ):
+        _copy_checked_object(root_fd, spool.directory, {
+            "sha256": digest, "size_bytes": size, "location": {"path": path},
+        })
+        if kind == "records":
+            counts = dict.fromkeys(_COUNTS, 0)
+            number = 0
+            for number, raw, value in _jsonl_values(
+                spool.directory / path, line_bytes=limits.max_record_bytes,
+                line_count=expected_count, limits=limits,
+            ):
+                if not isinstance(value, dict) or set(value) != {"type", "payload"}:
+                    raise NotriosError("json", "record envelope requires exactly type and payload")
+                if type(value["type"]) is not str or not isinstance(value["payload"], dict):
+                    raise NotriosError("json", "record envelope has invalid field types")
+                if value["type"] not in _RECORD_NAMES:
+                    raise NotriosError("format", "unknown archive record type")
+                counts[_RECORD_NAMES[value["type"]]] += 1
+                records.add((digest, number, value["type"], raw))
+            if number != expected_count or counts != json.loads(counts_json):
+                raise NotriosError("integrity", "decoded record counts differ from index")
+    records.flush()
+
+
+@contextmanager
+def _stage_archive_objects(root: Path, *, work_dir: Path, limits: ArchiveLimits = DEFAULT_LIMITS):
+    """Internal byte/index checkpoint; deliberately not verify_archive.
+
+    Strict record envelopes are spooled, but payload schemas, identities,
+    references, blob usage and publication semantics still require slice 2d.
+    No caller may treat this context as authorization to publish or convert.
+    """
+    with _open_root_directory(root) as root_fd:
+        manifest, raw = _read_manifest_at(root_fd, limits)
+        root_real, work_real = Path(os.path.realpath(root)), Path(os.path.realpath(work_dir))
+        if work_real == root_real or root_real in work_real.parents:
+            raise NotriosError("path", "verification work directory must be outside the archive")
+        # Refuse symlink work parents too; only newly owned temporary state is
+        # ever removed.
+        with _open_root_directory(work_dir):
+            pass
+        with tempfile.TemporaryDirectory(prefix=".notrios-objects-", dir=work_dir) as temporary:
+            directory = Path(temporary)
+            (directory / "manifest.json").write_bytes(raw)
+            (directory / "manifest.json").chmod(0o400)
+            connection = None
+            try:
+                connection = sqlite3.connect(directory / "spool.sqlite")
+                connection.execute("PRAGMA cache_size=-8192")
+                connection.execute("PRAGMA temp_store=FILE")
+                connection.execute("PRAGMA journal_mode=DELETE")
+                connection.executescript(
+                    "CREATE TABLE objects(sha256 TEXT PRIMARY KEY,kind TEXT NOT NULL,media_type TEXT NOT NULL,"
+                    "size_bytes INTEGER NOT NULL,path TEXT UNIQUE NOT NULL,records INTEGER NOT NULL,counts_json TEXT NOT NULL);"
+                    "CREATE TABLE records(seq INTEGER PRIMARY KEY,object_sha256 TEXT NOT NULL,line_number INTEGER NOT NULL,"
+                    "record_type TEXT NOT NULL,raw BLOB NOT NULL,UNIQUE(object_sha256,line_number));"
+                    "CREATE INDEX records_by_type ON records(record_type,seq);"
+                    "CREATE TABLE source_files(path TEXT PRIMARY KEY,size_bytes INTEGER NOT NULL);"
+                )
+                spool = _ObjectSpool(directory, manifest, connection)
+                _stage_index(root_fd, spool, limits)
+                _stage_data_objects(root_fd, spool, limits)
+                _scan_source_inventory(root_fd, connection, len(raw), manifest.totals["objects"] + len(manifest.index) + 1)
+                yield spool
+            except sqlite3.Error:
+                raise NotriosError("io", "temporary object spool database failed") from None
+            finally:
+                if connection is not None:
+                    connection.close()

@@ -187,7 +187,8 @@ plain text, binary or another charset implicitly. No query evaluation, network
 fetch, sanitizing HTML renderer or source-library lookup is part of conversion.
 
 Normalize MIME using the pinned Go `mime.ParseMediaType`/`FormatMediaType`
-semantics, including parameter parsing, duplicate rejection, quoting, sorted
+semantics, including parameter parsing, conflicting duplicate rejection
+(equal duplicate values are accepted), quoting, sorted
 parameter serialization and extended values; freeze differential vectors in
 2d rather than substituting permissive `email` parsing. Blob descriptor MIME
 remains only a hint; reference MIME must be canonical and match semantic MIME.

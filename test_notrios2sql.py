@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 import copy
+from contextlib import contextmanager
 from dataclasses import FrozenInstanceError, fields
 import hashlib
 import io
@@ -17,6 +18,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import sqlite3
 import tempfile
 import unittest
 from unittest import mock
@@ -573,7 +575,7 @@ class NotriosManifestTest(unittest.TestCase):
         path.write_bytes(raw)
         exact = archive_v2.ArchiveLimits(max_manifest_bytes=len(raw))
         archive_v2.read_manifest(self.root, limits=exact)
-        with mock.patch.object(archive_v2, "read_bounded_json", side_effect=AssertionError("oversized file read")):
+        with mock.patch.object(archive_v2, "_read_bounded_bytes", side_effect=AssertionError("oversized file read")):
             with self.assertRaises(archive_v2.NotriosError) as caught:
                 archive_v2.read_manifest(self.root, limits=archive_v2.ArchiveLimits(max_manifest_bytes=len(raw)-1))
             self.assertEqual(caught.exception.code, "limit")
@@ -596,6 +598,335 @@ class NotriosManifestTest(unittest.TestCase):
         with self.assertRaises(archive_v2.NotriosError) as caught:
             archive_v2.read_manifest(linked / "..")
         self.assertEqual(caught.exception.code, "io")
+
+
+class NotriosObjectSpoolTest(unittest.TestCase):
+    """2b byte/index gates only; payload schema and graph tests start in 2d."""
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="movenotes-objects-test-")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.work = self.root / "work"
+        self.work.mkdir()
+        self.case = 0
+        self.fresh_archive()
+
+    def fresh_archive(self):
+        self.case += 1
+        self.archive = copy_publication(self.root / f"archive-{self.case}")
+        self.manifest, self.entries, _records = read_fixture_records(self.archive)
+
+    def write_manifest(self):
+        self.manifest["commit_sha256"] = archive_v2.compute_commit_sha256(
+            archive_v2.Manifest.from_dict(self.manifest))
+        (self.archive / "manifest.json").write_text(json.dumps(self.manifest), encoding="utf-8")
+
+    def put_object(self, raw):
+        digest = hashlib.sha256(raw).hexdigest()
+        relative = f"objects/sha256/{digest[:2]}/{digest[2:4]}/{digest}"
+        target = self.archive / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(raw)
+        return digest, relative
+
+    def write_index(self, groups=None, *, raw=None):
+        # Rehash only caller-owned synthetic copies. Independent 2a Go vectors
+        # remain the oracle for the semantic digest helper used here.
+        for descriptor in self.manifest["index"]:
+            (self.archive / descriptor["location"]["path"]).unlink()
+        self.manifest["index"] = []
+        for group in groups if groups is not None else [self.entries]:
+            data = raw if raw is not None else b"".join(
+                json.dumps(entry, ensure_ascii=False, separators=(",", ":")).encode() + b"\n" for entry in group)
+            digest, relative = self.put_object(data)
+            self.manifest["index"].append({
+                "sha256": digest, "size_bytes": len(data), "entries": len(group),
+                "media_type": archive_v2.INDEX_MEDIA_TYPE, "location": {"layout": "fanout", "path": relative},
+            })
+        self.write_manifest()
+
+    def replace_record_bytes(self, raw):
+        entry = next(entry for entry in self.entries if entry["kind"] == "records")
+        old_size = entry["size_bytes"]
+        (self.archive / entry["location"]["path"]).unlink()
+        digest, relative = self.put_object(raw)
+        entry.update(sha256=digest, size_bytes=len(raw), location={"layout": "fanout", "path": relative})
+        self.manifest["totals"]["bytes"] += len(raw) - old_size
+        self.entries.sort(key=lambda entry: entry["sha256"])
+        self.write_index()
+
+    def stage(self, **kwargs):
+        return archive_v2._stage_archive_objects(self.archive, work_dir=self.work, **kwargs)
+
+    def assert_refused(self, code, message=None, **kwargs):
+        unusual = any(p.is_symlink() or not (p.is_dir() or p.is_file()) for p in self.archive.rglob("*"))
+        before = None if unusual else fixture_inventory(self.archive)
+        with self.assertRaises(archive_v2.NotriosError) as caught:
+            with self.stage(**kwargs):
+                self.fail("invalid object inventory yielded a checkpoint")
+        self.assertEqual(caught.exception.code, code)
+        if message:
+            self.assertIn(message, str(caught.exception))
+        self.assertEqual(list(self.work.iterdir()), [])
+        if before is not None:
+            self.assertEqual(fixture_inventory(self.archive), before)
+
+    def test_fixture_copies_spools_and_context_lifetime(self):
+        expected = load_json(PUBLICATION_ROOT / "expected.json")
+        with self.stage() as spool:
+            saved = spool.directory
+            self.assertEqual(spool.manifest.commit_sha256, expected["commit_sha256"])
+            self.assertEqual(spool.connection.execute("SELECT count(*) FROM objects").fetchone(), (8,))
+            self.assertEqual(spool.connection.execute("SELECT count(*) FROM records").fetchone(), (34,))
+            self.assertEqual(spool.connection.execute("SELECT count(*) FROM source_files").fetchone(), (9,))
+            self.assertEqual(spool.connection.execute("PRAGMA cache_size").fetchone(), (-8192,))
+            self.assertEqual(spool.connection.execute("PRAGMA temp_store").fetchone(), (1,))
+            for relative, data in expected["archive_files"].items():
+                copied = saved / relative
+                self.assertEqual(hashlib.sha256(copied.read_bytes()).hexdigest(), data["sha256"])
+                self.assertEqual(copied.stat().st_mode & 0o222, 0)
+            for digest, number, raw in spool.connection.execute(
+                "SELECT object_sha256,line_number,raw FROM records ORDER BY seq"
+            ):
+                object_path = saved / f"objects/sha256/{digest[:2]}/{digest[2:4]}/{digest}"
+                self.assertEqual(raw, object_path.read_bytes().split(b"\n")[number - 1] + b"\n")
+            # Retained copies have no dependency on subsequent source writes.
+            (self.archive / "manifest.json").write_bytes(b"changed")
+            self.assertEqual(hashlib.sha256((saved / "manifest.json").read_bytes()).hexdigest(),
+                             expected["archive_files"]["manifest.json"]["sha256"])
+        self.assertFalse(saved.exists())
+        self.assertEqual(list(self.work.iterdir()), [])
+        with self.assertRaises(sqlite3.ProgrammingError):
+            spool.connection.execute("SELECT 1")
+
+    def test_empty_fanout_directories_and_legacy_zero_blob_counts(self):
+        (self.archive / "objects" / "sha256" / "ff" / "ee").mkdir(parents=True, exist_ok=True)
+        for entry in self.entries:
+            if entry["kind"] == "blob":
+                entry["records"] = 0
+                entry["record_counts"] = dict.fromkeys(EXPECTED_COUNTS, 0)
+        self.write_index()
+        with self.stage() as spool:
+            self.assertEqual(spool.connection.execute("SELECT count(*) FROM objects WHERE kind='blob'").fetchone(), (6,))
+        self.assertEqual(list(self.work.iterdir()), [])
+
+    def test_multiple_index_chunks_use_entry_order(self):
+        groups = [self.entries[:3], self.entries[3:]]
+        self.write_index(groups)
+        # Deliberately put descriptor hashes out of lexical order while leaving
+        # their contained entry hashes globally sorted.
+        first, second = self.manifest["index"]
+        raw = (self.archive / first["location"]["path"]).read_bytes()
+        for padding in range(1000):
+            candidate = b" " * padding + raw
+            if hashlib.sha256(candidate).hexdigest() > second["sha256"]:
+                break
+        else:
+            self.fail("could not construct descending index descriptor hashes")
+        (self.archive / first["location"]["path"]).unlink()
+        digest, relative = self.put_object(candidate)
+        first.update(sha256=digest, size_bytes=len(candidate), location={"layout": "fanout", "path": relative})
+        self.write_manifest()
+        self.assertGreater(first["sha256"], second["sha256"])
+        with self.stage() as spool:
+            self.assertEqual(spool.connection.execute("SELECT count(*) FROM objects WHERE kind='index'").fetchone(), (2,))
+        # Same totals and entries, but a reversed cross-chunk boundary.
+        self.write_index([self.entries[:2] + [self.entries[3]], [self.entries[2]] + self.entries[4:]])
+        self.assert_refused("integrity", "globally ordered")
+
+    def test_missing_corrupt_and_truncated_objects_refuse(self):
+        for kind in ("index", "records", "blob"):
+            for damage in ("missing", "corrupt", "truncated"):
+                with self.subTest(kind=kind, damage=damage):
+                    self.fresh_archive()
+                    entry = self.manifest["index"][0] if kind == "index" else next(e for e in self.entries if e["kind"] == kind)
+                    path = self.archive / entry["location"]["path"]
+                    raw = path.read_bytes()
+                    if damage == "missing":
+                        path.unlink()
+                    elif damage == "corrupt":
+                        path.write_bytes(bytes([raw[0] ^ 1]) + raw[1:])
+                    else:
+                        path.write_bytes(raw[:-1])
+                    self.assert_refused("io" if damage == "missing" else "integrity")
+
+    def test_duplicate_order_counts_and_totals_refuse(self):
+        self.entries[1] = copy.deepcopy(self.entries[0])
+        self.write_index()
+        self.assert_refused("integrity", "globally ordered")
+        self.fresh_archive()
+        entry = next(e for e in self.entries if e["kind"] == "records")
+        entry["records"] += 1
+        self.write_index()
+        self.assert_refused("integrity", "record counts do not agree")
+        self.fresh_archive()
+        self.manifest["totals"]["bytes"] += 1
+        self.write_manifest()
+        self.assert_refused("integrity", "totals/counts differ")
+        self.fresh_archive()
+        self.manifest["counts"]["tags"] += 1
+        self.write_manifest()
+        self.assert_refused("integrity", "totals/counts differ")
+
+    def test_entry_unknown_fields_types_paths_and_pack_refuse(self):
+        cases = [("unknown", 1, "json"), ("size_bytes", True, "json"),
+                 ("records", None, "json"), ("record_counts", None, "json"),
+                 ("kind", "pack", "capability"), ("kind", "other", "format"),
+                 ("media_type", "text/plain; invalid", "format")]
+        for field, value, code in cases:
+            with self.subTest(field=field, value=value):
+                self.fresh_archive()
+                entry = next(e for e in self.entries if e["kind"] == "blob")
+                entry[field] = value
+                self.write_index()
+                self.assert_refused(code)
+        for location, code in (({"layout": "fanout", "path": "../outside"}, "path"),
+                               ({"layout": "fanout", "path": "objects\\sha256\\bad"}, "path"),
+                               ({"layout": "pack", "offset": 0, "length": 0}, "capability")):
+            self.fresh_archive()
+            self.entries[0]["location"] = location
+            self.write_index()
+            self.assert_refused(code)
+
+    def test_jsonl_line_termination_and_counts(self):
+        for damage, code in (("no_lf", "json"), ("blank", "json"), ("fewer", "integrity"),
+                             ("duplicate_key", "json")):
+            with self.subTest(damage=damage):
+                self.fresh_archive()
+                raw = (self.archive / self.manifest["index"][0]["location"]["path"]).read_bytes()
+                if damage == "no_lf":
+                    raw = raw[:-1]
+                elif damage == "blank":
+                    raw = b"\n" + raw
+                elif damage == "fewer":
+                    raw = raw.split(b"\n", 1)[1]
+                else:
+                    raw = raw.replace(b'{"sha256":', b'{"kind":"blob","sha256":', 1)
+                self.write_index(raw=raw)
+                self.assert_refused(code)
+        for damage, code in (("no_lf", "json"), ("blank", "json"), ("type", "format"),
+                             ("counts", "integrity"), ("field", "json")):
+            with self.subTest(records=damage):
+                self.fresh_archive()
+                entry = next(e for e in self.entries if e["kind"] == "records")
+                raw = (self.archive / entry["location"]["path"]).read_bytes()
+                if damage == "no_lf":
+                    raw = raw[:-1]
+                elif damage == "blank":
+                    raw = b"\n" + raw
+                else:
+                    lines = raw[:-1].split(b"\n")
+                    record = json.loads(lines[0])
+                    if damage == "type":
+                        record["type"] = "unknown"
+                    elif damage == "counts":
+                        record["type"] = "tag"
+                    else:
+                        record["extra"] = "not allowed"
+                    lines[0] = json.dumps(record).encode()
+                    raw = b"\n".join(lines) + b"\n"
+                self.replace_record_bytes(raw)
+                self.assert_refused(code)
+
+    def test_symlink_parent_and_unexpected_tree_entries_refuse(self):
+        target = self.archive / self.entries[0]["location"]["path"]
+        external = self.root / "external-object"
+        external.write_bytes(target.read_bytes())
+        target.unlink()
+        target.symlink_to(external)
+        self.assert_refused("io")
+        self.fresh_archive()
+        (self.archive / "objects").rename(self.root / "moved-objects")
+        (self.archive / "objects").symlink_to(self.root / "moved-objects", target_is_directory=True)
+        self.assert_refused("io")
+        for name, directory in (("extra.txt", False), ("other", True), ("objects/sha256/zz", True),
+                                ("objects/sha256/aa/bb/cc", True)):
+            self.fresh_archive()
+            target = self.archive / name
+            if directory:
+                target.mkdir(parents=True, exist_ok=True)
+            else:
+                target.write_text("extra", encoding="utf-8")
+            self.assert_refused("path")
+        self.fresh_archive()
+        self.put_object(b"an unlisted but correctly named object")
+        self.assert_refused("integrity")
+        self.fresh_archive()
+        target = self.archive / self.entries[0]["location"]["path"]
+        target.unlink()
+        os.mkfifo(target)
+        self.assert_refused("path")
+
+    def test_line_bounds_and_copy_chunk_size(self):
+        self.assert_refused("limit", "JSONL line bytes", limits=archive_v2.ArchiveLimits(max_index_entry_bytes=16))
+        self.assert_refused("limit", "JSONL line bytes", limits=archive_v2.ArchiveLimits(max_record_bytes=16))
+        original_open = archive_v2._open_regular_file
+        requests = []
+        @contextmanager
+        def tracked(root_fd, relative):
+            with original_open(root_fd, relative) as stream:
+                if relative == "manifest.json":
+                    yield stream
+                else:
+                    class Reader:
+                        def fileno(self):
+                            return stream.fileno()
+                        def read(self, size):
+                            requests.append(size)
+                            self_test.assertLessEqual(size, 7)
+                            return stream.read(size)
+                    yield Reader()
+        self_test = self
+        with mock.patch.object(archive_v2, "_COPY_BYTES", 7), mock.patch.object(archive_v2, "_open_regular_file", tracked):
+            with self.stage() as spool:
+                self.assertEqual(spool.connection.execute("SELECT count(*) FROM records").fetchone(), (34,))
+        self.assertGreater(len(requests), 100)
+
+    def test_failure_cleanup_and_archive_work_overlap(self):
+        original = fixture_inventory(self.archive)
+        with mock.patch.object(archive_v2, "_stage_data_objects", side_effect=OSError("injected disk failure")):
+            self.assert_refused("io")
+        self.assertEqual(fixture_inventory(self.archive), original)
+        with self.assertRaises(archive_v2.NotriosError) as caught:
+            with archive_v2._stage_archive_objects(self.archive, work_dir=self.archive):
+                self.fail("archive used as work directory")
+        self.assertEqual(caught.exception.code, "path")
+        self.assertEqual(fixture_inventory(self.archive), original)
+
+    def test_sqlite_insert_batches_remain_bounded(self):
+        observed = []
+        class TracedConnection(sqlite3.Connection):
+            def executemany(self, sql, rows):
+                rows = list(rows)
+                size = sum(len(value.encode()) if isinstance(value, str) else
+                           len(value) if isinstance(value, bytes) else 8 for row in rows for value in row)
+                observed.append((len(rows), size))
+                return super().executemany(sql, rows)
+        connect = sqlite3.connect
+        def traced_connect(*args, **kwargs):
+            return connect(*args, **kwargs, factory=TracedConnection)
+        with mock.patch.object(archive_v2, "_BATCH_ROWS", 2), mock.patch.object(archive_v2, "_BATCH_BYTES", 300), \
+                mock.patch.object(archive_v2.sqlite3, "connect", traced_connect):
+            with self.stage() as spool:
+                self.assertEqual(spool.connection.execute("SELECT count(*) FROM records").fetchone(), (34,))
+        self.assertGreater(len(observed), 10)
+        for count, size in observed:
+            self.assertLessEqual(count, 2)
+            self.assertTrue(size <= 300 or count == 1)
+        self.assertTrue(any(size > 300 and count == 1 for count, size in observed))
+
+    def test_storage_mime_matches_go_syntax_vectors(self):
+        vectors = load_json(FIXTURE_ROOT / "storage-mime-vectors.json")
+        self.assertEqual(len(vectors), 22)
+        for case in vectors:
+            with self.subTest(mime=case["input"]):
+                if case["accepted"]:
+                    archive_v2._validate_storage_mime(case["input"])
+                else:
+                    with self.assertRaises(archive_v2.NotriosError) as caught:
+                        archive_v2._validate_storage_mime(case["input"])
+                    self.assertEqual(caught.exception.code, "format")
 
 
 if __name__ == "__main__":
