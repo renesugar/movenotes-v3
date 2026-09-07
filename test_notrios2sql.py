@@ -916,6 +916,126 @@ class NotriosObjectSpoolTest(unittest.TestCase):
             self.assertTrue(size <= 300 or count == 1)
         self.assertTrue(any(size > 300 and count == 1 for count, size in observed))
 
+    def test_exact_jsonl_byte_limits_include_lf_and_crlf(self):
+        for kind, limit in (("index", 4096), ("records", 1048576)):
+            for ending in (b"\n", b"\r\n"):
+                for excess in (0, 1):
+                    with self.subTest(kind=kind, ending=ending, excess=excess):
+                        self.fresh_archive()
+                        entry = (self.manifest["index"][0] if kind == "index" else
+                                 next(e for e in self.entries if e["kind"] == "records"))
+                        raw = (self.archive / entry["location"]["path"]).read_bytes()
+                        first, rest = raw.split(b"\n", 1)
+                        first = first.rstrip(b"\r")
+                        raw = first + b" " * (limit + excess - len(first) - len(ending)) + ending + rest
+                        self.assertEqual(len(raw.split(b"\n", 1)[0]) + 1, limit + excess)
+                        if kind == "index":
+                            self.write_index(raw=raw)
+                        else:
+                            self.replace_record_bytes(raw)
+                        if excess:
+                            self.assert_refused("limit", "JSONL line bytes")
+                        else:
+                            with self.stage():
+                                pass
+                            self.assertEqual(list(self.work.iterdir()), [])
+
+    def test_index_integer_tokens_and_nested_count_shapes(self):
+        for value in (True, 1.0, 1e20, 2 ** 63, -(2 ** 63) - 1):
+            with self.subTest(integer=value):
+                self.fresh_archive()
+                self.entries[0]["size_bytes"] = value
+                self.write_index()
+                self.assert_refused("json", "integer")
+        for damage in ("missing", "unknown", "null", "boolean", "nonzero"):
+            with self.subTest(counts=damage):
+                self.fresh_archive()
+                entry = next(e for e in self.entries if e["kind"] == "blob")
+                counts = dict.fromkeys(self.manifest["counts"], 0)
+                if damage == "missing":
+                    del counts["tags"]
+                elif damage == "unknown":
+                    counts["future"] = 0
+                elif damage == "null":
+                    counts["tags"] = None
+                elif damage == "boolean":
+                    counts["tags"] = False
+                else:
+                    counts["tags"] = 1
+                entry["record_counts"] = counts
+                self.write_index()
+                code, message = (("integrity", "blob entry declares records") if damage == "nonzero" else
+                                 ("json", "missing or unknown fields") if damage in ("missing", "unknown") else
+                                 ("json", "integer"))
+                self.assert_refused(code, message)
+
+    def test_storage_mime_utf8_byte_boundary(self):
+        # A quoted parameter accepts Unicode; the storage bound counts UTF-8 bytes.
+        for size in (255, 256):
+            with self.subTest(size=size):
+                self.fresh_archive()
+                entry = next(e for e in self.entries if e["kind"] == "blob")
+                prefix = 'text/plain; note="é'
+                entry["media_type"] = prefix + "a" * (size - len(prefix.encode()) - 1) + '"'
+                self.assertEqual(len(entry["media_type"].encode()), size)
+                self.assertLess(len(entry["media_type"]), size)
+                self.write_index()
+                if size == 255:
+                    with self.stage():
+                        pass
+                else:
+                    self.assert_refused("format", "storage MIME length")
+
+    def test_optional_capability_count_and_name_boundaries(self):
+        for total in (64, 65):
+            with self.subTest(total=total):
+                self.fresh_archive()
+                compat = self.manifest["compatibility"]
+                compat["optional_capabilities"] = [f"future-{i:03}" for i in
+                                                   range(total - len(compat["required_capabilities"]))]
+                self.write_manifest()
+                if total == 64:
+                    with self.stage():
+                        pass
+                else:
+                    self.assert_refused("limit", "capability count")
+        for size in (128, 129):
+            with self.subTest(name_bytes=size):
+                self.fresh_archive()
+                self.manifest["compatibility"]["optional_capabilities"] = ["x" * size]
+                self.write_manifest()
+                if size == 128:
+                    with self.stage():
+                        pass
+                else:
+                    self.assert_refused("capability", "invalid capability name")
+
+    def test_rehashed_hostile_record_json(self):
+        cases = ((b'{"type":"tag","payload":{},"type":"tag"}\n', "duplicate"),
+                 (b'{"type":"tag","payload":{"x":NaN}}\n', "nonfinite"),
+                 (b'{"type":"tag","payload":{"x":"\xff"}}\n', "UTF-8"),
+                 (b'{"type":"tag","payload":{"x":' + b'[' * 32 + b'0' + b']' * 32 + b'}}\n', "depth"))
+        for first, message in cases:
+            with self.subTest(message=message):
+                self.fresh_archive()
+                entry = next(e for e in self.entries if e["kind"] == "records")
+                raw = (self.archive / entry["location"]["path"]).read_bytes()
+                self.replace_record_bytes(first + raw.split(b"\n", 1)[1])
+                self.assert_refused("limit" if message == "depth" else "json", "nesting limit" if message == "depth" else message)
+
+    def test_index_chunk_cannot_be_indexed_as_a_blob(self):
+        # The referenced chunk is a different chunk, avoiding impossible self-hashing.
+        second = b"".join(json.dumps(e, ensure_ascii=False, separators=(",", ":")).encode() + b"\n" for e in self.entries)
+        digest = hashlib.sha256(second).hexdigest()
+        shadow = {"sha256": digest, "size_bytes": len(second), "kind": "blob",
+                  "media_type": "application/octet-stream",
+                  "location": {"layout": "fanout", "path": f"objects/sha256/{digest[:2]}/{digest[2:4]}/{digest}"}}
+        self.manifest["totals"]["objects"] += 1
+        self.manifest["totals"]["blobs"] += 1
+        self.manifest["totals"]["bytes"] += len(second)
+        self.write_index([[shadow], self.entries])
+        self.assert_refused("integrity", "distinct from index chunks")
+
     def test_storage_mime_matches_go_syntax_vectors(self):
         vectors = load_json(FIXTURE_ROOT / "storage-mime-vectors.json")
         self.assertEqual(len(vectors), 22)
