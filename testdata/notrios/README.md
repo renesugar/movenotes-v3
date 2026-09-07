@@ -18,6 +18,7 @@ invented test data.
 | [source-audit.json](publication-loose/source-audit.json) | Read-only SQL evidence that all five source notes, four source resources and the old revision existed before publishing. |
 | [generation.json](publication-loose/generation.json) | CLI build metadata/hash, generator/input hashes and the actual command argument arrays with exit codes. |
 | [reports/](publication-loose/reports/) | Import, profile-save, plan, publication, compatibility and verification JSON results. |
+| [design-v1.json](design-v1.json) | Slice 1c mapper framing/hash vectors, exact projected fixture bodies, resource extensions, timestamp and explicit final-path examples; specified in [the implementation design](../../NOTRIOS_IMPORT_DESIGN.md). These describe future code, not importer test results. |
 
 Only `archive/` is the handoff. The surrounding reports and expectations are test
 evidence and include synthetic withheld IDs on purpose; they must never be
