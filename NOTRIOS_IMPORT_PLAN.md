@@ -1,9 +1,9 @@
 # Plan: Import a Notrios publication handoff
 
-Status: slices **1a–1d and 2a–2d complete** on 2026-09-07. Manifest admission,
+Status: slices **1a–1d and 2a–2e complete** on 2026-09-07. Manifest admission,
 object/index checks, typed records, graph/publication verification and the
-context-owned verifier API are implemented. The 2e audit and conversion remain pending.
-Next item: **2e**, pending the user's instruction to proceed.
+context-owned verifier API are implemented and audited. Conversion remains pending.
+Next item: **3a**, pending the user's instruction to proceed.
 
 The frozen admission checklist is
 [NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
@@ -183,7 +183,7 @@ integrity verification.
 
 ## Execution and agent handoff rules
 
-Slices 1a–1d and 2a–2d are complete; all other slices below are pending. Worker names refer to
+Slices 1a–1d and 2a–2e are complete; all other slices below are pending. Worker names refer to
 the roles available in this session:
 
 | Owner | Agent configuration | Assignment rule |
@@ -241,7 +241,7 @@ neither alone protects against the producer and consumer sharing a bug.
 | 2b / Main — complete | Added no-follow fanout reads, streamed checked copies, strict index/envelope checks and a temporary indexed SQLite spool behind `_stage_archive_objects`. | 2a | Missing/corrupt/truncated objects, invalid ordering/counts/paths, symlinks/special files and extras refuse with owned-state cleanup. Legacy zero blob counts/valid empty fanout directories pass; byte/row batch and copy limits tested. Record semantics remain for 2d. |
 | 2c / Main — complete | Added table-driven rehashed hostile inputs and exact byte-limit boundaries against the frozen APIs. Executed locally under the session delegation constraint. | 2b | Exact LF/CRLF index and record limits, UTF-8 MIME limits, capability bounds, integer/count shapes, malformed record JSON and index-chunk shadowing checked with specific refusals. Legacy zero blob counts remain accepted. |
 | 2d / Main — complete | Added typed immutable records, indexed reference/blob joins, bounded notebook walks, publication gates, Go-compatible MIME normalization and the context-owned verifier API. | 2c | The real publication passes. Rehashed schema/identity/reference/tree/history/reachability/MIME failures assert specific refusals; 56 Go MIME vectors are frozen. Blob reads require authenticated EOF. |
-| 2e / Main | Differential audit against Notrios for shared format rules, plus consumer-specific refusals and point-of-use safety. | 2d | Duplicate identities, missing references, wrong revision owners, unused blobs and source mutation covered; memory bounded. |
+| 2e / Main — complete | Completed the [pinned-verifier audit](NOTRIOS_VERIFIER_AUDIT.md), froze 47 differential cases and measured streaming behavior. Fixed failed-read state and file/directory handle lifetime. | 2d | Shared rules and deliberate consumer refusals agree with expectations. Source/private-copy mutations, authenticated EOF and OS descriptor cleanup tested; 8,004 tags and a 32 MiB blob verified with under 3 MiB of measured Python peak allocation. |
 
 No import path becomes available before 2e. A packed archive must keep refusing
 even if some files resemble loose objects.
@@ -368,3 +368,4 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-07 | 2b complete | Added held-directory/no-follow object reads, 1 MiB streamed checked copies, strict index and record-envelope/count checks, disk-backed exact inventory joins and an owned temporary SQLite spool. Batch row/byte limits, cleanup/lifetime, valid empty fanout directories, legacy zero blob counts, damaged/missing objects, cross-chunk order, malformed JSONL, bad paths, symlinks/FIFOs and extra files tested. All 34 focused tests and 137 full regression tests passed (55.635s, with existing local HTTP sockets permitted). Twenty-two independent Go storage-MIME syntax vectors reproduce exactly; clarified equal duplicate parameter acceptance. Documentation links/diff checked; original fixture unchanged. Payload semantics/reference checks and complete `VerifiedArchive` remain pending. Next: ask to proceed to 2c. |
 | 2026-09-07 | 2c complete | Added six test methods covering exact 4096-byte index and 1048576-byte record lines with LF/CRLF, UTF-8 MIME byte limits, optional capability bounds, hostile integer/count shapes, rehashed malformed record JSON and cross-chunk index shadowing. Each refusal asserts its code and reason; existing legacy zero blob count coverage passes. Corrected test expectations for name grammar and nesting errors, and balanced shadow-fixture totals so it reaches the intended gate. No implementation changes needed. All 40 focused tests passed within the full 143-test regression run (57.046s, existing local HTTP sockets permitted). Diff checked; original fixture unchanged. Next: ask to proceed to 2d. |
 | 2026-09-07 | 2d complete | Implemented immutable typed payloads and keys, indexed SQLite identity/reference/blob joins, bounded notebook parent walks, current-revision ownership/history checks, resource reachability and publication metadata/link gates. Added `verify_archive`, ordered record/relation lookups and private-copy blob reads with size/hash checks at authenticated EOF; partial consumption refuses. All 56 focused tests passed within the 159-test full regression run (69.902s, existing local HTTP sockets permitted). Added 56 independent Go 1.27.0 semantic MIME vectors and their reproducer; relevant producer verifier/format sources still match the pinned commit. Rehashed scalar/schema/graph/publication/MIME mutations, immutable API lifetime, empty blobs and exact text limits pass. Original fixture unchanged; no converter or CLI exposed. Diff/documentation checked. Next: ask to proceed to 2e, the differential and point-of-use safety audit. |
+| 2026-09-07 | 2e complete | Audited the exact pinned fixture CLI against 47 rehashed cases: six shared acceptances, 24 shared refusals and 17 specified consumer refusals all matched. Fixed two reproduced blob-lifetime defects: caught read failures could reuse verified EOF, and outstanding contexts retained file/directory descriptors after archive exit. Added source-relocation/private-copy corruption, repeated-read, injected I/O, OS-handle and 17 MiB streaming-body regressions. Final full suite: 166 tests passed (63 focused, 76.097s; existing local HTTP sockets permitted). Separate 504-tag/1 MiB and 8,004-tag/32 MiB memory samples peaked at 1,455,654 and 2,136,831 traced Python bytes; report distinguishes native/process RSS. Evidence source hashes, documentation links and diff checked; original fixture unchanged. The pinned archive-v2 source package remains unchanged in the neighboring checkout. No conversion/CLI exposed. Next: ask to proceed to 3a. |

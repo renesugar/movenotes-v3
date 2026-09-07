@@ -1423,6 +1423,254 @@ class NotriosObjectSpoolTest(unittest.TestCase):
                 self.write_records(records)
                 self.assert_verification_refused("publication", "declares forbidden record types")
 
+    def apply_audit_case(self, case):
+        """Bounded synthetic fixtures shared with the development-only Go audit."""
+        action = case["action"]
+        if action == "none":
+            return
+        if action == "blob_entry":
+            next(e for e in self.entries if e["kind"] == "blob")[case["field"]] = copy.deepcopy(case["value"])
+            self.write_index()
+            return
+        if action == "capability":
+            self.manifest["compatibility"]["optional_capabilities"] = ["future.optional.v1"]
+            self.write_manifest()
+            return
+        records = self.envelopes()
+        def first(kind):
+            return next(r["payload"] for r in records if r["type"] == kind)
+        if action in ("set", "delete"):
+            p = first(case["kind"])
+            if case["kind"] == "link" and case["field"] == "target_resource_id":
+                p.pop("target_document_id", None)
+                p["resolution_status"] = "resolved"
+            names = case["field"].split(".")
+            for field in names[:-1]:
+                p = p[field]
+            if action == "delete":
+                del p[names[-1]]
+            else:
+                p[names[-1]] = copy.deepcopy(case["value"])
+        elif action == "reverse":
+            records.reverse()
+        elif action == "duplicate":
+            records.append({"type": case["kind"], "payload": copy.deepcopy(first(case["kind"]))})
+        elif action == "wrong_owner":
+            docs = [r["payload"] for r in records if r["type"] == "document"]
+            docs[0]["current_revision_id"] = docs[1]["current_revision_id"]
+        elif action == "revision_collision":
+            revisions = [r["payload"] for r in records if r["type"] == "revision"]
+            revisions[1]["id"] = revisions[0]["id"]
+            next(r["payload"] for r in records if r["type"] == "document" and
+                 r["payload"]["id"] == revisions[1]["document_id"])["current_revision_id"] = revisions[0]["id"]
+        elif action == "history":
+            revision = copy.deepcopy(first("revision"))
+            revision["id"] = "old_revision"
+            records.append({"type": "revision", "payload": revision})
+        elif action == "drop_relations":
+            records = [r for r in records if r["type"] != "document_resource"]
+        elif action == "unused_blob":
+            revisions = [r["payload"] for r in records if r["type"] == "revision"]
+            revisions[0]["body"] = copy.deepcopy(revisions[1]["body"])
+        elif action == "cycle":
+            nodes = [r["payload"] for r in records if r["type"] == "notebook"]
+            nodes[0]["parent_id"], nodes[1]["parent_id"] = nodes[1]["id"], nodes[0]["id"]
+        elif action in ("external_file", "two_targets"):
+            p = first("link")
+            p.pop("target_document_id", None)
+            p.pop("target_resource_id", None)
+            p.pop("target_uri", None)
+            if action == "external_file":
+                p.update(resolution_status="external", raw_target="file:///withheld")
+            else:
+                p.update(resolution_status="resolved", target_document_id="doc_public", target_resource_id="res_image")
+        elif action == "forbidden":
+            timestamp = "2026-01-01T00:00:00Z"
+            payload = {
+                "search_notebook": {"id": "search_test", "name": "Search", "query": "all", "builtin": False,
+                                    "sort_anchor": "normal", "created_at": timestamp},
+                "provenance": {"document_id": "doc_public", "source_system": "test", "metadata_json": {},
+                               "created_at": timestamp, "updated_at": timestamp},
+                "source_bundle": {"source_system": "test", "source_key_sha256": "a" * 64,
+                                  "collection_id": first("collection")["id"], "item_key_sha256": "b" * 64,
+                                  "item_type": "note", "relative_path": "note.md", "content": dict(first("revision")["body"]),
+                                  "property_order_json": [], "updated_at": timestamp},
+            }[case["kind"]]
+            records.append({"type": case["kind"], "payload": payload})
+        else:
+            self.fail(f"unknown synthetic audit action: {action}")
+        self.write_records(records)
+
+    def test_frozen_differential_cases_without_go_dependency(self):
+        cases = load_json(FIXTURE_ROOT / "verifier-audit-cases.json")
+        report = load_json(FIXTURE_ROOT / "verifier-audit.json")
+        generation = load_json(PUBLICATION_ROOT / "generation.json")
+        for field in ("producer_commit", "cli_sha256"):
+            self.assertEqual(report[field], generation[field])
+        self.assertEqual(report["case_spec_sha256"], hashlib.sha256((FIXTURE_ROOT / "verifier-audit-cases.json").read_bytes()).hexdigest())
+        self.assertEqual([r["name"] for r in report["results"]], [c["name"] for c in cases])
+        for case, result in zip(cases, report["results"]):
+            self.assertTrue(result["matched"])
+            self.assertEqual(result["go_accepted"], case["expect_go"])
+            self.assertEqual(result["python_result"], case["expect_python"])
+        for case in cases:
+            with self.subTest(case=case["name"]):
+                self.fresh_archive()
+                self.apply_audit_case(case)
+                if case["expect_python"] == "accepted":
+                    with self.verify():
+                        pass
+                    self.assertEqual(list(self.work.iterdir()), [])
+                else:
+                    self.assert_verification_refused(case["expect_python"], case["message"])
+
+    def test_source_mutation_and_removal_after_verification_are_isolated(self):
+        with self.verify() as verified:
+            revision = next(verified.iter_records("revision"))
+            ref = archive_v2.BlobRef(**revision.payload["body"])
+            path = f"objects/sha256/{ref.sha256[:2]}/{ref.sha256[2:4]}/{ref.sha256}"
+            (self.archive / path).write_bytes(b"x" * ref.size_bytes)
+            self.archive.rename(self.root / "source-moved")
+            with verified.open_blob(ref) as stream:
+                self.assertEqual(hashlib.sha256(stream.read()).hexdigest(), ref.sha256)
+            self.assertEqual(verified.get_record("revision", revision.key), revision)
+        self.assertEqual(list(self.work.iterdir()), [])
+
+    def test_private_blob_mutations_refuse_at_consumption(self):
+        for damage, code in (("missing", "io"), ("truncate", "integrity"), ("append", "integrity"),
+                             ("corrupt", "integrity"), ("symlink", "io"), ("parent_symlink", "io"), ("fifo", "path")):
+            with self.subTest(damage=damage):
+                self.fresh_archive()
+                with self.verify() as verified:
+                    ref = archive_v2.BlobRef(**next(verified.iter_records("revision")).payload["body"])
+                    path = verified._spool.directory / f"objects/sha256/{ref.sha256[:2]}/{ref.sha256[2:4]}/{ref.sha256}"
+                    if damage == "parent_symlink":
+                        parent = path.parent
+                        renamed = parent.with_name(parent.name + "-moved")
+                        parent.rename(renamed)
+                        parent.symlink_to(renamed, target_is_directory=True)
+                    elif damage in ("missing", "symlink", "fifo"):
+                        path.unlink()
+                        if damage == "symlink":
+                            path.symlink_to(self.archive / path.relative_to(verified._spool.directory))
+                        elif damage == "fifo":
+                            os.mkfifo(path)
+                    else:
+                        path.chmod(0o600)
+                        original = path.read_bytes()
+                        path.write_bytes(original[:-1] if damage == "truncate" else
+                                         original + b"x" if damage == "append" else b"x" * len(original))
+                    with self.assertRaises(archive_v2.NotriosError) as caught:
+                        with verified.open_blob(ref) as stream:
+                            stream.read()
+                    self.assertEqual(caught.exception.code, code)
+                self.assertEqual(list(self.work.iterdir()), [])
+
+    def test_blob_read_fault_and_repeated_use_never_reuse_validation(self):
+        with self.verify() as verified:
+            ref = archive_v2.BlobRef(**next(verified.iter_records("revision")).payload["body"])
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                with verified.open_blob(ref) as stream:
+                    stream.read()
+                    with mock.patch.object(stream._stream, "read", side_effect=OSError("PRIVATE-SENTINEL")):
+                        with self.assertRaises(archive_v2.NotriosError) as read_error:
+                            stream.read(1)
+                        self.assertEqual(read_error.exception.code, "io")
+                        self.assertNotIn("PRIVATE-SENTINEL", str(read_error.exception))
+            self.assertEqual(caught.exception.code, "integrity")
+            self.assertIn("failed", str(caught.exception))
+            with verified.open_blob(ref) as stream:
+                self.assertEqual(len(stream.read()), ref.size_bytes)
+            path = verified._spool.directory / f"objects/sha256/{ref.sha256[:2]}/{ref.sha256[2:4]}/{ref.sha256}"
+            path.chmod(0o600)
+            path.write_bytes(b"x" * ref.size_bytes)
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                with verified.open_blob(ref) as stream:
+                    stream.read()
+            self.assertEqual(caught.exception.code, "integrity")
+            self.assertIn("bytes changed", str(caught.exception))
+
+    def test_large_body_is_verified_and_consumed_in_bounded_chunks(self):
+        # This exceeds the frozen 16 MiB conversion-body limit; generic archive
+        # verification still admits it. Conversion preflight belongs to 3b.
+        records = self.envelopes()
+        revision = next(r["payload"] for r in records if r["type"] == "revision")
+        entry = next(e for e in self.entries if e["sha256"] == revision["body"]["sha256"])
+        old_size = entry["size_bytes"]
+        (self.archive / entry["location"]["path"]).unlink()
+        large = b"x" * (17 * 1024 * 1024)
+        digest, relative = self.put_object(large)
+        entry.update(sha256=digest, size_bytes=len(large), location={"layout": "fanout", "path": relative})
+        revision["body"].update(sha256=digest, size_bytes=len(large))
+        self.manifest["totals"]["bytes"] += len(large) - old_size
+        self.write_records(records)
+        del large
+        original_open = archive_v2._open_regular_file
+        sizes = []
+        class TrackedReader:
+            def __init__(self, stream):
+                self.stream = stream
+            def read(self, size=-1):
+                sizes.append(size)
+                return self.stream.read(size)
+            def __getattr__(self, name):
+                return getattr(self.stream, name)
+        @contextmanager
+        def tracked_open(root_fd, path):
+            with original_open(root_fd, path) as stream:
+                yield TrackedReader(stream) if path == relative else stream
+        with mock.patch.object(archive_v2, "_open_regular_file", tracked_open):
+            with self.verify() as verified:
+                with verified.open_blob(archive_v2.BlobRef(**revision["body"])) as stream:
+                    consumed = 0
+                    buffer = bytearray(65536)
+                    while amount := stream.readinto(buffer):
+                        consumed += amount
+        self.assertEqual(consumed, 17 * 1024 * 1024)
+        self.assertTrue(sizes)
+        self.assertTrue(all(0 < size <= 1048576 for size in sizes), sizes)
+        self.assertEqual(list(self.work.iterdir()), [])
+
+    def test_blob_failed_read_cannot_be_caught_and_committed(self):
+        with self.verify() as verified:
+            ref = archive_v2.BlobRef(**next(verified.iter_records("revision")).payload["body"])
+            path = verified._spool.directory / f"objects/sha256/{ref.sha256[:2]}/{ref.sha256[2:4]}/{ref.sha256}"
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                with verified.open_blob(ref) as stream:
+                    stream.read()
+                    path.chmod(0o600)
+                    with path.open("ab") as changed:
+                        changed.write(b"x")
+                    with self.assertRaises(archive_v2.NotriosError):
+                        stream.read(1)
+            self.assertEqual(caught.exception.code, "integrity")
+            self.assertIn("failed", str(caught.exception))
+
+    def test_archive_exit_closes_outstanding_blob_handles(self):
+        with self.verify() as verified:
+            ref = archive_v2.BlobRef(**next(verified.iter_records("revision")).payload["body"])
+            private_root = str(verified._spool.directory)
+            context = verified.open_blob(ref)
+            stream = context.__enter__()
+            stream.read()
+        self.assertTrue(stream.closed)
+        if Path("/proc/self/fd").exists():
+            retained = []
+            for fd in Path("/proc/self/fd").iterdir():
+                try:
+                    target = os.readlink(fd)
+                except FileNotFoundError:
+                    continue
+                if target.startswith(private_root):
+                    retained.append(target)
+            self.assertEqual(retained, [], "archive-owned OS handles outlived the context")
+        with self.assertRaises(archive_v2.NotriosError) as caught:
+            stream.read(1)
+        self.assertEqual(caught.exception.code, "io")
+        with self.assertRaises(archive_v2.NotriosError):
+            context.__exit__(None, None, None)
+        self.assertEqual(list(self.work.iterdir()), [])
+
     def test_semantic_mime_go_vectors(self):
         vectors = load_json(FIXTURE_ROOT / "semantic-mime-vectors.json")
         self.assertGreaterEqual(len(vectors), 50)

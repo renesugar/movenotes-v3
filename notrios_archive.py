@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 import calendar
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, fields
 import hashlib
 import io
@@ -446,6 +446,10 @@ def _open_regular_file(root_fd: int, relative: str):
         info = os.fstat(file_fd)
         if not stat.S_ISREG(info.st_mode):
             raise NotriosError("path", "archive object must be a regular file")
+        # The opened regular-file descriptor now pins the object. Its parent
+        # descriptor need not remain alive during copying or blob consumption.
+        os.close(directory_fd)
+        directory_fd = None
         with os.fdopen(file_fd, "rb") as stream:
             file_fd = None
             yield stream
@@ -454,7 +458,8 @@ def _open_regular_file(root_fd: int, relative: str):
     finally:
         if file_fd is not None:
             os.close(file_fd)
-        os.close(directory_fd)
+        if directory_fd is not None:
+            os.close(directory_fd)
 
 
 def _read_manifest_at(root_fd: int, limits: ArchiveLimits) -> tuple[Manifest, bytes]:
@@ -1161,6 +1166,7 @@ class _CheckedBlob(io.RawIOBase):
         super().__init__()
         self._owner, self._stream, self._ref = owner, stream, ref
         self._hash, self._size, self._eof = hashlib.sha256(), 0, False
+        self._failed = False
 
     def readable(self):
         return True
@@ -1169,8 +1175,13 @@ class _CheckedBlob(io.RawIOBase):
         self._owner._require_open()
         if self.closed:
             raise NotriosError("io", "blob handle is closed")
+        if self._failed:
+            raise NotriosError("integrity", "blob consumption previously failed")
         if size == 0:
             return b""
+        # A caught read/check failure must never reuse an earlier verified EOF.
+        # Keep failure latched unless this entire read succeeds.
+        self._failed = True
         read_all = size is None or size < 0
         # Bound even a growing private file by the declared bytes plus one
         # sentinel. Callers stream large resources via readinto/read(chunk).
@@ -1187,6 +1198,7 @@ class _CheckedBlob(io.RawIOBase):
             if self._size != self._ref.size_bytes or self._hash.hexdigest() != self._ref.sha256:
                 raise NotriosError("integrity", "verified blob bytes changed")
             self._eof = True
+        self._failed = False
         return raw
 
     def readinto(self, buffer):
@@ -1195,14 +1207,18 @@ class _CheckedBlob(io.RawIOBase):
         return len(raw)
 
     def close(self):
-        self._stream.close()
-        super().close()
+        try:
+            self._stream.close()
+        finally:
+            self._owner._streams.discard(self)
+            super().close()
 
 
 class VerifiedArchive:
     """Context-owned, fully reconciled records and checked private object copies."""
     def __init__(self, spool, limits):
         self._spool, self._limits, self._active = spool, limits, True
+        self._streams = set()
         self.manifest, self.counts = spool.manifest, spool.manifest.counts
 
     def _require_open(self):
@@ -1272,18 +1288,25 @@ class VerifiedArchive:
                                              (ref.sha256,)).fetchone()
         if row is None or row[1] != ref.size_bytes:
             raise NotriosError("integrity", "blob lookup has no matching hash and size")
-        with _open_root_directory(self._spool.directory) as root_fd:
-            with _open_regular_file(root_fd, row[0]) as stream:
-                if os.fstat(stream.fileno()).st_size != ref.size_bytes:
-                    raise NotriosError("integrity", "verified blob size changed")
-                checked = _CheckedBlob(self, stream, ref)
-                try:
-                    yield checked
-                    self._require_open()
-                    if not checked._eof:
-                        raise NotriosError("integrity", "blob consumption did not reach verified EOF")
-                finally:
-                    checked.close()
+        with ExitStack() as opened:
+            with _open_root_directory(self._spool.directory) as root_fd:
+                stream = opened.enter_context(_open_regular_file(root_fd, row[0]))
+            # Directory handles are closed before yielding; only this registered
+            # file handle survives, and archive exit closes it even if the caller
+            # retains the blob context manager.
+            if os.fstat(stream.fileno()).st_size != ref.size_bytes:
+                raise NotriosError("integrity", "verified blob size changed")
+            checked = _CheckedBlob(self, stream, ref)
+            self._streams.add(checked)
+            try:
+                yield checked
+                self._require_open()
+                if checked._failed:
+                    raise NotriosError("integrity", "blob consumption failed")
+                if not checked._eof:
+                    raise NotriosError("integrity", "blob consumption did not reach verified EOF")
+            finally:
+                checked.close()
 
 
 @contextmanager
@@ -1297,3 +1320,11 @@ def verify_archive(root: Path, *, work_dir: Path, limits: ArchiveLimits = DEFAUL
             yield archive
         finally:
             archive._active = False
+            close_failed = False
+            while archive._streams:
+                try:
+                    archive._streams.pop().close()
+                except OSError:
+                    close_failed = True
+            if close_failed:
+                raise NotriosError("io", "verified blob close failed") from None

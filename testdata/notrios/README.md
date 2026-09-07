@@ -22,6 +22,7 @@ invented test data.
 | [manifest-vectors.json](manifest-vectors.json) / [manifest_vectors.go](manifest_vectors.go) | Slice 2a semantic manifest bytes/digests and their independent Go standard-library oracle. Includes serializer-only cases that the loose-publication reader must refuse. |
 | [storage-mime-vectors.json](storage-mime-vectors.json) / [storage_mime_vectors.go](storage_mime_vectors.go) | Slice 2b Go-generated MIME syntax acceptance cases for noncanonical storage hints. These do not establish canonical record/reference MIME equality. |
 | [semantic-mime-vectors.json](semantic-mime-vectors.json) / [semantic_mime_vectors.go](semantic_mime_vectors.go) | Slice 2d normalization oracle: 56 Go 1.27.0 cases matching the pinned Notrios `normalizeMediaType` rule, including quoting, duplicate parameters, RFC2231 continuations, invalid percent sequences, raw decoded bytes and length bounds. Tests read the frozen output without Go. |
+| [verifier-audit-cases.json](verifier-audit-cases.json), [verifier-audit.json](verifier-audit.json), [verifier-memory.json](verifier-memory.json) / [audit_verifier.py](audit_verifier.py) | Slice 2e: pinned-CLI differential results, boundedness observations and a development-only reproducer. See the [audit](../../NOTRIOS_VERIFIER_AUDIT.md) for the scope and two lifetime fixes. |
 
 Only `archive/` is the handoff. The surrounding reports and expectations are test
 evidence and include synthetic withheld IDs on purpose; they must never be

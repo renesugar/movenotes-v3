@@ -1,0 +1,432 @@
+[
+  {
+    "name": "real_publication",
+    "action": "none",
+    "expect_python": "accepted",
+    "expect_go": true,
+    "message": ""
+  },
+  {
+    "name": "reverse_dependency_order",
+    "action": "reverse",
+    "expect_python": "accepted",
+    "expect_go": true,
+    "message": ""
+  },
+  {
+    "name": "legacy_zero_blob_counts",
+    "action": "blob_entry",
+    "expect_python": "accepted",
+    "expect_go": true,
+    "message": "",
+    "field": "record_counts",
+    "value": {
+      "collections": 0,
+      "notebooks": 0,
+      "search_notebooks": 0,
+      "tags": 0,
+      "documents": 0,
+      "revisions": 0,
+      "document_tags": 0,
+      "resources": 0,
+      "document_resources": 0,
+      "links": 0,
+      "provenance": 0,
+      "source_bundles": 0
+    }
+  },
+  {
+    "name": "storage_mime_hint",
+    "action": "blob_entry",
+    "expect_python": "accepted",
+    "expect_go": true,
+    "message": "",
+    "field": "media_type",
+    "value": "Application/Octet-Stream"
+  },
+  {
+    "name": "optional_capability",
+    "action": "capability",
+    "expect_python": "accepted",
+    "expect_go": true,
+    "message": ""
+  },
+  {
+    "name": "resource_metadata",
+    "action": "set",
+    "expect_python": "accepted",
+    "expect_go": true,
+    "message": "",
+    "kind": "resource",
+    "field": "metadata_json",
+    "value": {
+      "private": "omitted by projection"
+    }
+  },
+  {
+    "name": "duplicate_notebook",
+    "action": "duplicate",
+    "expect_python": "integrity",
+    "expect_go": false,
+    "message": "duplicate record identity",
+    "kind": "notebook"
+  },
+  {
+    "name": "duplicate_tag",
+    "action": "duplicate",
+    "expect_python": "integrity",
+    "expect_go": false,
+    "message": "duplicate record identity",
+    "kind": "tag"
+  },
+  {
+    "name": "duplicate_document",
+    "action": "duplicate",
+    "expect_python": "integrity",
+    "expect_go": false,
+    "message": "duplicate record identity",
+    "kind": "document"
+  },
+  {
+    "name": "duplicate_revision",
+    "action": "duplicate",
+    "expect_python": "integrity",
+    "expect_go": false,
+    "message": "duplicate record identity",
+    "kind": "revision"
+  },
+  {
+    "name": "duplicate_resource",
+    "action": "duplicate",
+    "expect_python": "integrity",
+    "expect_go": false,
+    "message": "duplicate record identity",
+    "kind": "resource"
+  },
+  {
+    "name": "duplicate_document_tag",
+    "action": "duplicate",
+    "expect_python": "integrity",
+    "expect_go": false,
+    "message": "duplicate record identity",
+    "kind": "document_tag"
+  },
+  {
+    "name": "duplicate_document_resource",
+    "action": "duplicate",
+    "expect_python": "integrity",
+    "expect_go": false,
+    "message": "duplicate record identity",
+    "kind": "document_resource"
+  },
+  {
+    "name": "duplicate_link",
+    "action": "duplicate",
+    "expect_python": "integrity",
+    "expect_go": false,
+    "message": "duplicate record identity",
+    "kind": "link"
+  },
+  {
+    "name": "missing_document_collection_id",
+    "action": "set",
+    "expect_python": "graph",
+    "expect_go": false,
+    "message": "reference has no target",
+    "kind": "document",
+    "field": "collection_id",
+    "value": "missing_target"
+  },
+  {
+    "name": "missing_document_notebook_id",
+    "action": "set",
+    "expect_python": "graph",
+    "expect_go": false,
+    "message": "reference has no target",
+    "kind": "document",
+    "field": "notebook_id",
+    "value": "missing_target"
+  },
+  {
+    "name": "missing_document_current_revision_id",
+    "action": "set",
+    "expect_python": "graph",
+    "expect_go": false,
+    "message": "reference has no target",
+    "kind": "document",
+    "field": "current_revision_id",
+    "value": "missing_target"
+  },
+  {
+    "name": "missing_revision_document_id",
+    "action": "set",
+    "expect_python": "graph",
+    "expect_go": false,
+    "message": "reference has no target",
+    "kind": "revision",
+    "field": "document_id",
+    "value": "missing_target"
+  },
+  {
+    "name": "missing_document_tag_tag_id",
+    "action": "set",
+    "expect_python": "graph",
+    "expect_go": false,
+    "message": "reference has no target",
+    "kind": "document_tag",
+    "field": "tag_id",
+    "value": "missing_target"
+  },
+  {
+    "name": "missing_document_resource_resource_id",
+    "action": "set",
+    "expect_python": "graph",
+    "expect_go": false,
+    "message": "reference has no target",
+    "kind": "document_resource",
+    "field": "resource_id",
+    "value": "missing_target"
+  },
+  {
+    "name": "missing_link_target_resource_id",
+    "action": "set",
+    "expect_python": "graph",
+    "expect_go": false,
+    "message": "reference has no target",
+    "kind": "link",
+    "field": "target_resource_id",
+    "value": "missing_target"
+  },
+  {
+    "name": "missing_notebook_parent_id",
+    "action": "set",
+    "expect_python": "graph",
+    "expect_go": false,
+    "message": "reference has no target",
+    "kind": "notebook",
+    "field": "parent_id",
+    "value": "missing_target"
+  },
+  {
+    "name": "wrong_revision_owner",
+    "action": "wrong_owner",
+    "expect_python": "graph",
+    "expect_go": false,
+    "message": "belongs to another document"
+  },
+  {
+    "name": "revision_id_across_owners",
+    "action": "revision_collision",
+    "expect_python": "integrity",
+    "expect_go": true,
+    "message": "duplicate record identity"
+  },
+  {
+    "name": "noncurrent_history",
+    "action": "history",
+    "expect_python": "publication",
+    "expect_go": true,
+    "message": "noncurrent revision history"
+  },
+  {
+    "name": "unreachable_resource",
+    "action": "drop_relations",
+    "expect_python": "publication",
+    "expect_go": true,
+    "message": "not reachable"
+  },
+  {
+    "name": "unused_blob",
+    "action": "unused_blob",
+    "expect_python": "integrity",
+    "expect_go": false,
+    "message": "unreferenced blob"
+  },
+  {
+    "name": "notebook_cycle",
+    "action": "cycle",
+    "expect_python": "graph",
+    "expect_go": false,
+    "message": "parent cycle"
+  },
+  {
+    "name": "blob_size_mismatch",
+    "action": "set",
+    "expect_python": "integrity",
+    "expect_go": false,
+    "message": "matching hash and size",
+    "kind": "revision",
+    "field": "body.size_bytes",
+    "value": 0
+  },
+  {
+    "name": "noncanonical_reference_mime",
+    "action": "set",
+    "expect_python": "format",
+    "expect_go": false,
+    "message": "must be canonical",
+    "kind": "revision",
+    "field": "body.media_type",
+    "value": "Text/Markdown"
+  },
+  {
+    "name": "semantic_mime_mismatch",
+    "action": "set",
+    "expect_python": "integrity",
+    "expect_go": false,
+    "message": "MIME differs",
+    "kind": "revision",
+    "field": "body_mime_type",
+    "value": "text/plain"
+  },
+  {
+    "name": "revision_metadata",
+    "action": "set",
+    "expect_python": "publication",
+    "expect_go": true,
+    "message": "metadata must be empty",
+    "kind": "revision",
+    "field": "metadata_json",
+    "value": {
+      "private": "withheld"
+    }
+  },
+  {
+    "name": "collection_settings",
+    "action": "set",
+    "expect_python": "publication",
+    "expect_go": true,
+    "message": "settings must be empty",
+    "kind": "collection",
+    "field": "settings_json",
+    "value": {
+      "private": "withheld"
+    }
+  },
+  {
+    "name": "deleted_document",
+    "action": "set",
+    "expect_python": "publication",
+    "expect_go": true,
+    "message": "deleted documents",
+    "kind": "document",
+    "field": "deleted_at",
+    "value": "2026-01-01T00:00:00Z"
+  },
+  {
+    "name": "link_context",
+    "action": "set",
+    "expect_python": "publication",
+    "expect_go": true,
+    "message": "context must be empty",
+    "kind": "link",
+    "field": "context",
+    "value": "withheld"
+  },
+  {
+    "name": "link_status",
+    "action": "set",
+    "expect_python": "publication",
+    "expect_go": true,
+    "message": "status is not publishable",
+    "kind": "link",
+    "field": "resolution_status",
+    "value": "withheld"
+  },
+  {
+    "name": "external_file_uri",
+    "action": "external_file",
+    "expect_python": "publication",
+    "expect_go": true,
+    "message": "HTTP(S)"
+  },
+  {
+    "name": "multiple_link_targets",
+    "action": "two_targets",
+    "expect_python": "publication",
+    "expect_go": true,
+    "message": "multiple internal targets"
+  },
+  {
+    "name": "unknown_payload_field",
+    "action": "set",
+    "expect_python": "json",
+    "expect_go": false,
+    "message": "missing or unknown",
+    "kind": "tag",
+    "field": "unknown",
+    "value": true
+  },
+  {
+    "name": "boolean_position",
+    "action": "set",
+    "expect_python": "json",
+    "expect_go": false,
+    "message": "integer",
+    "kind": "notebook",
+    "field": "position",
+    "value": true
+  },
+  {
+    "name": "null_position",
+    "action": "set",
+    "expect_python": "json",
+    "expect_go": true,
+    "message": "integer",
+    "kind": "notebook",
+    "field": "position",
+    "value": null
+  },
+  {
+    "name": "missing_position",
+    "action": "delete",
+    "expect_python": "json",
+    "expect_go": true,
+    "message": "missing or unknown",
+    "kind": "notebook",
+    "field": "position"
+  },
+  {
+    "name": "empty_optional_parent",
+    "action": "set",
+    "expect_python": "format",
+    "expect_go": true,
+    "message": "identity",
+    "kind": "notebook",
+    "field": "parent_id",
+    "value": ""
+  },
+  {
+    "name": "null_blob_counts",
+    "action": "blob_entry",
+    "expect_python": "json",
+    "expect_go": true,
+    "message": "object field",
+    "field": "record_counts",
+    "value": null
+  },
+  {
+    "name": "forbidden_search_notebook",
+    "action": "forbidden",
+    "expect_python": "publication",
+    "expect_go": true,
+    "message": "declares forbidden record types",
+    "kind": "search_notebook"
+  },
+  {
+    "name": "forbidden_provenance",
+    "action": "forbidden",
+    "expect_python": "publication",
+    "expect_go": true,
+    "message": "declares forbidden record types",
+    "kind": "provenance"
+  },
+  {
+    "name": "forbidden_source_bundle",
+    "action": "forbidden",
+    "expect_python": "publication",
+    "expect_go": true,
+    "message": "declares forbidden record types",
+    "kind": "source_bundle"
+  }
+]
