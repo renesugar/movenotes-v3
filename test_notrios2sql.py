@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline Notrios fixture baselines; no importer implementation is required.
+"""Offline Notrios fixture baselines and manifest-admission tests.
 
 The helpers read only the small, trusted synthetic fixture. They are not the
 strict archive verifier and must not be used to admit untrusted publications.
@@ -9,12 +9,19 @@ Future mutation tests should copy the archive before changing any bytes.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+import copy
+from dataclasses import FrozenInstanceError, fields
 import hashlib
+import io
 import json
+import os
 from pathlib import Path
 import shutil
 import tempfile
 import unittest
+from unittest import mock
+
+import notrios_archive as archive_v2
 
 
 FIXTURE_ROOT = Path(__file__).resolve().parent / "testdata" / "notrios"
@@ -303,6 +310,292 @@ class NotriosPublicationFixtureTest(unittest.TestCase):
         for vector in design["timestamp_vectors"]:
             self.assertEqual(set(vector), {"source", "joplin", "internal"})
             self.assertTrue(all(isinstance(value, str) for value in vector.values()))
+
+
+class NotriosStrictJSONTest(unittest.TestCase):
+    def decode(self, raw, **overrides):
+        return archive_v2.strict_json_loads(raw, **({"max_bytes": 4096, "max_depth": 32} | overrides))
+
+    def assert_code(self, code, call):
+        with self.assertRaises(archive_v2.NotriosError) as caught:
+            call()
+        self.assertEqual(caught.exception.code, code)
+        return caught.exception
+
+    def test_strict_json_rejects_invalid_encoding_and_ambiguous_values(self):
+        cases = [b'{"a":1,"a":2}', b'{"a":{"b":1,"\\u0062":2}}',
+                 b'{"a":NaN}', b'Infinity', b'-Infinity', b'1e9999',
+                 b'{"a":"\xff"}', b'"\\ud800"', b'"\\udfff"', b'{"\\ud800":1}',
+                 b'{} {}', b'{} trailing', b'\xef\xbb\xbf{}', b'"raw\x01control"',
+                 b'9223372036854775808', b'-9223372036854775809', b'9' * 100,
+                 b'', b'{', b'{"a":01}', b'{"a":true,}']
+        for raw in cases:
+            with self.subTest(raw=raw):
+                self.assert_code("json", lambda: self.decode(raw))
+        self.assertEqual(self.decode(b'[-9223372036854775808,9223372036854775807]'),
+                         [-(1 << 63), (1 << 63) - 1])
+        self.assertEqual(self.decode(b'"\\ud83d\\ude00"'), "😀")
+        self.assertEqual(self.decode(b'{"value":1.5}'), {"value": 1.5})
+
+    def test_depth_and_byte_bounds_are_checked_before_json_materialization(self):
+        at_limit = b'[' * 32 + b'0' + b']' * 32
+        self.decode(at_limit)
+        with mock.patch.object(archive_v2.json, "loads", side_effect=AssertionError("decoder reached")):
+            self.assert_code("limit", lambda: self.decode(b'[' + at_limit + b']'))
+            self.assert_code("limit", lambda: self.decode(b'{} ', max_bytes=2))
+        self.assertEqual(self.decode(b'{}', max_bytes=2), {})
+        self.assertEqual(self.decode(b'{"text":"[ { \\" ["}', max_depth=1), {"text": '[ { " ['})
+        self.assert_code("limit", lambda: self.decode(b'{"child":{}}', max_depth=1))
+
+    def test_bounded_stream_and_final_lf(self):
+        stream = io.BytesIO(b'{}' + b' ' * 100)
+        self.assert_code("limit", lambda: archive_v2.read_bounded_json(stream, max_bytes=8, max_depth=32))
+        self.assertEqual(stream.tell(), 9)
+        class ShortReads(io.BytesIO):
+            def read(self, size=-1):
+                return super().read(min(size, 1))
+        self.assertEqual(archive_v2.read_bounded_json(ShortReads(b'{}\r\n'), max_bytes=4,
+                                                    max_depth=32, require_final_lf=True), {})
+        self.assert_code("json", lambda: archive_v2.read_bounded_json(io.BytesIO(b'{}'), max_bytes=2,
+                                                                      max_depth=32, require_final_lf=True))
+        self.assert_code("limit", lambda: archive_v2.read_bounded_json(io.BytesIO(b'{}\n'), max_bytes=2,
+                                                                       max_depth=32, require_final_lf=True))
+        broken = mock.Mock()
+        broken.read.side_effect = OSError("sensitive local input detail")
+        error = self.assert_code("io", lambda: archive_v2.read_bounded_json(broken, max_bytes=8, max_depth=32))
+        self.assertNotIn("sensitive", str(error))
+
+    def test_limits_only_allow_positive_integer_reductions(self):
+        defaults = archive_v2.DEFAULT_LIMITS
+        self.assertEqual(len(fields(defaults)), 20)
+        for field in fields(defaults):
+            with self.subTest(field=field.name):
+                self.assertEqual(getattr(archive_v2.ArchiveLimits(**{field.name: 1}), field.name), 1)
+                for value in (0, -1, True, 1.0, getattr(defaults, field.name) + 1):
+                    self.assert_code("limit", lambda: archive_v2.ArchiveLimits(**{field.name: value}))
+        with self.assertRaises(FrozenInstanceError):
+            defaults.max_records = 1
+
+
+class NotriosManifestTest(unittest.TestCase):
+    def setUp(self):
+        self.base = load_json(PUBLICATION_ARCHIVE / "manifest.json")
+        temporary = tempfile.TemporaryDirectory(prefix="movenotes-manifest-test-")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+
+    def parse(self, value, *, rehash=True, limits=archive_v2.DEFAULT_LIMITS):
+        value = copy.deepcopy(value)
+        if rehash:
+            value["commit_sha256"] = archive_v2.compute_commit_sha256(archive_v2.Manifest.from_dict(value))
+        (self.root / "manifest.json").write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+        # No objects directory exists. Both positive admission and specific
+        # refusal codes must be obtainable from the manifest alone.
+        return archive_v2.read_manifest(self.root, limits=limits)
+
+    def assert_refused(self, value, code, *, rehash=True, limits=archive_v2.DEFAULT_LIMITS):
+        with self.assertRaises(archive_v2.NotriosError) as caught:
+            self.parse(value, rehash=rehash, limits=limits)
+        self.assertEqual(caught.exception.code, code)
+
+    def test_publication_admission_without_objects_and_immutable_model(self):
+        manifest = self.parse(self.base, rehash=False)
+        self.assertEqual(manifest.commit_sha256, self.base["commit_sha256"])
+        self.assertEqual(manifest.snapshot["database_id"], self.base["snapshot"]["database_id"])
+        self.assertFalse((self.root / "objects").exists())
+        with self.assertRaises(TypeError):
+            manifest.snapshot["id"] = "changed"
+        with self.assertRaises(TypeError):
+            manifest.index[0]["location"]["path"] = "changed"
+        with self.assertRaises(FrozenInstanceError):
+            manifest.version = 1
+
+    def test_go_digest_vectors_and_alternate_input_serialization(self):
+        vectors = load_json(FIXTURE_ROOT / "manifest-vectors.json")
+        self.assertEqual(len(vectors), 6)
+        for vector in vectors:
+            with self.subTest(vector=vector["name"]):
+                original = copy.deepcopy(vector["manifest"])
+                model = archive_v2.Manifest.from_dict(original)
+                self.assertEqual(archive_v2.canonical_manifest_bytes(model), vector["canonical_utf8"].encode())
+                self.assertEqual(archive_v2.compute_commit_sha256(model), vector["sha256"])
+                self.assertEqual(original, vector["manifest"])
+                # Object order and whitespace are not part of semantic hashing.
+                reordered = json.loads(json.dumps(original, sort_keys=True, indent=4, ensure_ascii=True))
+                self.assertEqual(archive_v2.compute_commit_sha256(archive_v2.Manifest.from_dict(reordered)), vector["sha256"])
+        self.assertEqual(vectors[0]["sha256"], self.base["commit_sha256"])
+        self.assertEqual(vectors[0]["sha256"], vectors[1]["sha256"])
+        self.assertEqual(vectors[0]["sha256"], vectors[5]["sha256"])
+        altered = json.dumps(self.base, sort_keys=True, indent=3).encode() + b'\r\n'
+        self.assertEqual(archive_v2.parse_manifest(altered).commit_sha256, self.base["commit_sha256"])
+
+    def test_unknown_missing_null_and_wrong_types_at_each_structure(self):
+        paths = [(), ("snapshot",), ("compatibility",), ("index", 0),
+                 ("index", 0, "location"), ("totals",), ("counts",)]
+        for path in paths:
+            for mutation in ("unknown", "missing", "null"):
+                value = copy.deepcopy(self.base)
+                target = value
+                for part in path:
+                    target = target[part]
+                with self.subTest(path=path, mutation=mutation):
+                    if mutation == "unknown":
+                        target["sensitive_unknown_field"] = "DO_NOT_ECHO"
+                    elif mutation == "missing":
+                        target.pop(next(iter(target)))
+                    else:
+                        target[next(iter(target))] = None
+                    self.assert_refused(value, "json", rehash=False)
+        for key in ("required_capabilities", "optional_capabilities"):
+            for invalid in (None, {}, "objects.index.v1", [True]):
+                value = copy.deepcopy(self.base)
+                value["compatibility"][key] = invalid
+                self.assert_refused(value, "json", rehash=False)
+        for invalid in (True, 2.0, "2", None):
+            value = copy.deepcopy(self.base)
+            value["version"] = invalid
+            self.assert_refused(value, "json", rehash=False)
+        raw = json.dumps(self.base).encode().replace(b'"version": 2', b'"version": 2e0')
+        with self.assertRaises(archive_v2.NotriosError) as caught:
+            archive_v2.parse_manifest(raw)
+        self.assertEqual(caught.exception.code, "json")
+
+    def test_other_formats_targets_and_schema_bounds_refuse(self):
+        for target in ("full_archive", "subset_transfer", "unknown"):
+            value = copy.deepcopy(self.base)
+            value["snapshot"]["target"] = target
+            self.assert_refused(value, "publication")
+        for value in ({"format": "notrios-sqlite-image"}, {"format": "notrios-archive", "version": 1},
+                      {"format": "NCB1"}):
+            self.assert_refused(value, "format", rehash=False)
+        for fields_to_change in ({"minimum_reader_version": 1}, {"minimum_reader_version": 3},
+                                 {"minimum_schema_version": 11}, {"minimum_schema_version": 28},
+                                 {"source_schema_version": 11}, {"source_schema_version": 28},
+                                 {"maximum_schema_version": 26}):
+            value = copy.deepcopy(self.base)
+            value["compatibility"].update(fields_to_change)
+            self.assert_refused(value, "format")
+        value = copy.deepcopy(self.base)
+        value["compatibility"].update(source_schema_version=28, maximum_schema_version=99)
+        self.parse(value)  # A future source/maximum is not a future-reader ceiling.
+
+    def test_capability_and_pack_refusals(self):
+        for names in ([], list(reversed(archive_v2.REQUIRED_CAPABILITIES)),
+                      sorted([*archive_v2.REQUIRED_CAPABILITIES, "unknown.required.v1"]),
+                      sorted([*archive_v2.REQUIRED_CAPABILITIES, "objects.pack.v1"]),
+                      sorted([*archive_v2.REQUIRED_CAPABILITIES, archive_v2.REQUIRED_CAPABILITIES[0]])):
+            value = copy.deepcopy(self.base)
+            value["compatibility"]["required_capabilities"] = names
+            self.assert_refused(value, "capability")
+        for names in (["future.z", "future.a"], ["future.a", "future.a"], ["bad name"],
+                      ["x"], ["東京"], ["x" * 129], [archive_v2.REQUIRED_CAPABILITIES[0]]):
+            value = copy.deepcopy(self.base)
+            value["compatibility"]["optional_capabilities"] = names
+            self.assert_refused(value, "capability")
+        value = copy.deepcopy(self.base)
+        value["compatibility"]["optional_capabilities"] = ["future.preview.v1", "objects.pack.v1"]
+        self.parse(value)  # Optional names do not activate packed-object support.
+        for field, data in (("offset", 0), ("length", 0), ("pack_sha256", ""), ("layout", "pack")):
+            value = copy.deepcopy(self.base)
+            value["index"][0]["location"][field] = data
+            self.assert_refused(value, "capability")
+        value = copy.deepcopy(self.base)
+        value["totals"]["packs"] = 1
+        self.assert_refused(value, "capability")
+        value["totals"]["packs"] = 0
+        self.parse(value)
+
+    def test_identity_time_and_declaration_consistency(self):
+        cases = [(("snapshot", "id"), "Bad-ID", "format"),
+                 (("snapshot", "database_id"), "x" * 129, "format"),
+                 (("snapshot", "consistency"), "unknown", "format"),
+                 (("snapshot", "collection_ids"), ["default", "default"], "format"),
+                 (("snapshot", "collection_ids"), ["zz", "aa"], "format"),
+                 (("snapshot", "collection_ids"), [], "limit"),
+                 (("snapshot", "selection_manifest_sha256"), "G" * 64, "format"),
+                 (("counts", "collections"), 2, "integrity"),
+                 (("counts", "provenance"), 1, "publication"),
+                 (("counts", "source_bundles"), 1, "publication"),
+                 (("counts", "search_notebooks"), 1, "publication"),
+                 (("totals", "objects"), 8, "integrity"),
+                 (("totals", "blobs"), 7, "integrity"),
+                 (("totals", "record_chunks"), 0, "limit"),
+                 (("counts", "tags"), -1, "limit")]
+        for path, replacement, code in cases:
+            with self.subTest(path=path, replacement=replacement):
+                value = copy.deepcopy(self.base)
+                value[path[0]][path[1]] = replacement
+                self.assert_refused(value, code)
+        for timestamp in ("2026-02-30T00:00:00Z", "2026-09-05T21:17:09+01:00", "2026-09-05",
+                          "2026-09-05t21:17:09z", "2026-09-05T21:17:60Z", "2026-09-05T21:17:09.1234567890Z"):
+            value = copy.deepcopy(self.base)
+            value["snapshot"]["created_at"] = timestamp
+            self.assert_refused(value, "format")
+        for timestamp in ("2026-09-05T21:17:09.123456789Z", "2026-09-05T21:17:09+00:00",
+                          "2026-09-05T21:17:09-00:00", "0000-02-29T00:00:00Z"):
+            value = copy.deepcopy(self.base)
+            value["snapshot"]["created_at"] = timestamp
+            self.parse(value)
+
+    def test_index_descriptor_paths_shapes_and_limits(self):
+        for key, invalid, code in (("sha256", "A" * 64, "format"),
+                                   ("entries", 0, "limit"), ("entries", 10001, "limit"),
+                                   ("size_bytes", 0, "limit"), ("media_type", "text/plain", "format")):
+            value = copy.deepcopy(self.base)
+            value["index"][0][key] = invalid
+            self.assert_refused(value, code)
+        for path in ("../outside", "objects\\sha256\\file", "/absolute", "objects/sha256/aa/bb/wrong"):
+            value = copy.deepcopy(self.base)
+            value["index"][0]["location"]["path"] = path
+            self.assert_refused(value, "path")
+        value = copy.deepcopy(self.base)
+        value["index"] *= 2
+        self.assert_refused(value, "integrity")
+        value["index"] = []
+        self.assert_refused(value, "limit")
+        for name, lower in (("max_objects", 6), ("max_records", 33), ("max_notebooks", 1),
+                            ("max_total_bytes", 9505), ("max_index_entries_per_object", 6),
+                            ("max_index_object_bytes", 2119), ("max_path_bytes", 84),
+                            ("max_path_depth", 4), ("max_capabilities", 4), ("max_capability_name_bytes", 5)):
+            with self.subTest(limit=name):
+                self.assert_refused(self.base, "limit", limits=archive_v2.ArchiveLimits(**{name: lower}))
+
+    def test_checksum_mismatch_is_not_admitted(self):
+        value = copy.deepcopy(self.base)
+        value["snapshot"]["id"] = "snap_changed"
+        self.assert_refused(value, "integrity", rehash=False)
+        value["commit_sha256"] = "A" * 64
+        self.assert_refused(value, "format", rehash=False)
+
+    def test_manifest_filesystem_and_read_size_bounds(self):
+        raw = (PUBLICATION_ARCHIVE / "manifest.json").read_bytes()
+        path = self.root / "manifest.json"
+        path.write_bytes(raw)
+        exact = archive_v2.ArchiveLimits(max_manifest_bytes=len(raw))
+        archive_v2.read_manifest(self.root, limits=exact)
+        with mock.patch.object(archive_v2, "read_bounded_json", side_effect=AssertionError("oversized file read")):
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                archive_v2.read_manifest(self.root, limits=archive_v2.ArchiveLimits(max_manifest_bytes=len(raw)-1))
+            self.assertEqual(caught.exception.code, "limit")
+        path.unlink()
+        for make, code in ((lambda: path.symlink_to(PUBLICATION_ARCHIVE / "manifest.json"), "io"),
+                           (lambda: path.mkdir(), "path"), (lambda: os.mkfifo(path), "path")):
+            make()
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                archive_v2.read_manifest(self.root)
+            self.assertEqual(caught.exception.code, code)
+            if path.is_dir():
+                path.rmdir()
+            else:
+                path.unlink()
+        linked = self.root / "linked-root"
+        linked.symlink_to(PUBLICATION_ARCHIVE, target_is_directory=True)
+        with self.assertRaises(archive_v2.NotriosError) as caught:
+            archive_v2.read_manifest(linked)
+        self.assertEqual(caught.exception.code, "io")
+        with self.assertRaises(archive_v2.NotriosError) as caught:
+            archive_v2.read_manifest(linked / "..")
+        self.assertEqual(caught.exception.code, "io")
 
 
 if __name__ == "__main__":

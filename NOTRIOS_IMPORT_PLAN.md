@@ -1,7 +1,8 @@
 # Plan: Import a Notrios publication handoff
 
-Status: slices **1a–1d complete** on 2026-09-06; importer implementation has not started.
-Next item: **2a**, pending the user's instruction to proceed.
+Status: slices **1a–1d and 2a complete** on 2026-09-07. Manifest admission is
+implemented; full archive verification and conversion remain pending.
+Next item: **2b**, pending the user's instruction to proceed.
 
 The frozen admission checklist is
 [NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
@@ -181,7 +182,7 @@ integrity verification.
 
 ## Execution and agent handoff rules
 
-Slices 1a–1d are complete; all other slices below are pending. Worker names refer to
+Slices 1a–1d and 2a are complete; all other slices below are pending. Worker names refer to
 the roles available in this session:
 
 | Owner | Agent configuration | Assignment rule |
@@ -235,7 +236,7 @@ neither alone protects against the producer and consumer sharing a bug.
 
 | Slice / owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| 2a / Main | Strict bounded JSON, manifest canonicalization, declaration and target gate in `notrios_archive.py`. | 1d | Independent digest vectors; duplicate/unknown fields, types, versions/schema/capabilities; full/subset/physical/packed refusal before object access. |
+| 2a / Main — complete | Added strict bounded JSON, immutable manifest model, Go-compatible canonicalization and declaration/target gates in [notrios_archive.py](notrios_archive.py). | 1d | Six independently generated Go serialization vectors; strict JSON/limit/type/schema/capability/target tests; manifest-only admission and refusals without object access. Full archive verification is not implied. |
 | 2b / Main | Safe fanout reader, streamed hashes, index validation and temporary indexed spool. | 2a | Missing/corrupt/truncated chunks/objects, ordering/totals, traversal, symlinks and extras refuse without output mutation. |
 | 2c / Terra | Table-driven hostile mutations and byte-limit boundary tests using frozen APIs; diagnose failures against the frozen contract. | 2b | Each failure has a specific assertion; legacy zero blob counts and bounded optional capabilities accepted. |
 | 2d / Main | Typed records, reference joins, tree checks, MIME and publication invariants. | 2c | Correctly rehashed but semantically invalid archives refuse for the intended reason; real publication passes. |
@@ -362,3 +363,4 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-05 | 1b complete | Committed producer-generated loose publication, synthetic v1 inputs, generator and reports/expectations under `testdata/notrios/`. Verified exact selected content/resources, withheld/history sentinel absence and matching reviewed/commit digests. Recorded actual anchor representation, planner resource-link classification and timestamp normalization for 1c. No importer, mapping APIs or 1d test module implemented. Next: ask to proceed to 1c. |
 | 2026-09-06 | 1c complete | Froze module interfaces, length-framed IDs, complete row/property defaults, MIME/body limits, Linux no-replace staging/recovery/no-op, token-aware note/resource links and relation-only attachment suffix. Specified actual-path second-pass export and generated RAW title serialization after reviewing exporter behavior. Checked 13 ID vectors with independent framing/system SHA-256, 8 fixture spans, 3 full body projections, 3 explicit path examples, fixture inventory and documentation links/diff. No runtime importer/exporter changes or runtime suite executed. Next: ask to proceed to 1d. |
 | 2026-09-06 | 1d complete | Main implemented the bounded fixture-test slice locally: isolated archive-copy/inventory/record helpers, nine offline baseline tests and regeneration guidance. Focused tests passed; the repository-required four modules plus `test_notrios2sql.py` passed all 112 tests in 56.142s after permitting the existing tests' local HTTP sockets outside the sandbox. Documentation links/diff checked. Fixture bytes and runtime scripts unchanged; no Notrios invocation or importer implementation. Existing `.gitignore` edit excluded from the slice. Next: ask to proceed to 2a. |
+| 2026-09-07 | 2a complete | Implemented bounded strict JSON, all twenty frozen limits, immutable manifest shape, Go semantic serialization/checksum and publication/reader/schema/capability/loose-location gates. `read_manifest` opens only the manifest through no-follow directory handles; no index/record/blob verification or importer CLI is claimed. Six digest vectors generated independently with Go 1.27.0 from seven verbatim pinned structs; regeneration matches byte-for-byte and all limits match the registry. All 22 focused tests and 125 full regression tests passed (52.843s, with local HTTP sockets permitted). Documentation links/diff checked; original publication fixture unchanged. Next: ask to proceed to 2b. |

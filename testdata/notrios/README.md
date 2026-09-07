@@ -19,6 +19,7 @@ invented test data.
 | [generation.json](publication-loose/generation.json) | CLI build metadata/hash, generator/input hashes and the actual command argument arrays with exit codes. |
 | [reports/](publication-loose/reports/) | Import, profile-save, plan, publication, compatibility and verification JSON results. |
 | [design-v1.json](design-v1.json) | Slice 1c mapper framing/hash vectors, exact projected fixture bodies, resource extensions, timestamp and explicit final-path examples; specified in [the implementation design](../../NOTRIOS_IMPORT_DESIGN.md). These describe future code, not importer test results. |
+| [manifest-vectors.json](manifest-vectors.json) / [manifest_vectors.go](manifest_vectors.go) | Slice 2a semantic manifest bytes/digests and their independent Go standard-library oracle. Includes serializer-only cases that the loose-publication reader must refuse. |
 
 Only `archive/` is the handoff. The surrounding reports and expectations are test
 evidence and include synthetic withheld IDs on purpose; they must never be
@@ -115,7 +116,7 @@ baseline assertions. They do not establish runtime importer acceptance.
 From the movenotes repository root, run:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.py
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.NotriosPublicationFixtureTest
 ```
 
 The nine baseline tests use only Python's standard library and committed
@@ -133,6 +134,44 @@ new caller-owned destination, `fixture_inventory` for exact small-file hashes,
 and `read_fixture_records` for reading the known fixture's records. Future
 mutation tests must change the copy, never the committed archive. These helpers
 are deliberately fixture-specific, not an alternate archive verifier.
+
+## Manifest admission checks — slice 2a
+
+Run all current Notrios tests, including the nine fixture baselines:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.py
+```
+
+The 2a cases exercise `ArchiveLimits`, strict byte/depth-bounded JSON, exact
+manifest field/type checks, immutable `Manifest` values, Go semantic commit
+hashing, reader/schema/capability gates and publication/loose-layout admission.
+`read_manifest` opens only the manifest through no-follow directory handles;
+the positive and refusal tests work without an objects directory. A valid
+manifest is **not** a verified archive: index/record/blob checks start in 2b,
+and no importer CLI is enabled by 2a.
+
+The six committed digest vectors were produced with Go 1.27.0. Their oracle
+copies all seven struct definitions verbatim from the pinned producer's
+`internal/archivev2/format.go` and `index.go`, clears the commit field, then
+calls Go `json.Marshal` and SHA-256, as `ComputeCommitSHA256` does. It has no
+Notrios package dependency. Tests compare exact semantic bytes as well as
+digests, including Unicode/HTML/control escaping, absent versus zero optional
+fields, nonzero pack fields, optional capabilities and an ignored commit value.
+Unicode IDs and packed locations in the serializer-only vectors are not reader
+admission positives. Tests also vary input whitespace and object-key order.
+
+Recompute a candidate using only a Go toolchain, without replacing the golden:
+
+```bash
+GOCACHE=/tmp/movenotes-notrios-vector-cache go run testdata/notrios/manifest_vectors.go \
+  < testdata/notrios/manifest-vectors.json > /tmp/movenotes-manifest-vectors.candidate.json
+cmp testdata/notrios/manifest-vectors.json /tmp/movenotes-manifest-vectors.candidate.json
+```
+
+Review a discrepancy against the pinned struct definitions and encoding behavior;
+do not regenerate expected digests from the Python implementation under test.
+Ordinary tests consume the committed vectors and do not need Go installed.
 
 ## Reproduce a candidate
 
