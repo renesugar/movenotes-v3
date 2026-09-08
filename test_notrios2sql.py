@@ -2849,5 +2849,105 @@ class NotriosLinkIntegrationTest(unittest.TestCase):
             self.assertFalse((vault / ".movenotes" / "manifest.json").exists())
 
 
+class NotriosTagMappingIntegrationTest(unittest.TestCase):
+    import_notes = NotriosNoteIntegrationTest.import_notes
+    rows = NotriosNoteIntegrationTest.rows
+
+    def setUp(self):
+        NotriosNoteIntegrationTest.setUp(self)
+        # Keep the fixture's original four identities and six memberships, but
+        # use the already-owned text-only bodies until resource support lands.
+        _, _, original = read_fixture_records(PUBLICATION_ARCHIVE)
+        records = self.fixture.envelopes()
+        records.extend({"type": kind, "payload": dict(payload)}
+                       for kind in ("tag", "document_tag") for payload in original[kind])
+        self.fixture.write_records(records)
+
+    def loaded_tags(self):
+        from sql2obsidian import load_note_tags
+        connection = sqlite3.connect((self.destination / "notesdb.sqlite").as_uri() + "?mode=ro&immutable=1", uri=True)
+        connection.row_factory = sqlite3.Row
+        try:
+            return load_note_tags(connection.cursor())
+        finally:
+            connection.close()
+
+    def test_tags_and_memberships_map_to_correct_sorted_titles(self):
+        result = self.import_notes()
+        self.assertEqual((result.status, result.row_count, result.resource_count), ("created", 15, 0))
+        expected = {"doc_child": ["published", "東京"], "doc_duplicate": ["published"],
+                    "doc_public": ["café", "published", "research notes"]}
+        self.assertEqual(self.loaded_tags(), {self.ids["document"][key]: value for key, value in expected.items()})
+        rows = self.rows()
+        self.assertEqual([r["joplin_type_"] for r in rows], [2]*2 + [1]*3 + [5]*4 + [6]*6)
+        _, _, source = read_fixture_records(self.fixture.archive)
+        database_id = self.fixture.manifest["snapshot"]["database_id"]
+        tag_rows = [r for r in rows if r["joplin_type_"] == 5]
+        relation_rows = [r for r in rows if r["joplin_type_"] == 6]
+        tags = sorted(source["tag"], key=lambda p: mapping.source_key(database_id, "tag", (p["id"],)))
+        relations = sorted(source["document_tag"], key=lambda p: mapping.source_key(database_id, "document_tag", (p["document_id"], p["tag_id"])))
+        for row, tag in zip(tag_rows, tags):
+            ident = mapping.mapped_id(database_id, "tag", (tag["id"],))
+            self.assertEqual((row["joplin_id"], row["note_uuid"]), (ident, ident))
+            self.assertEqual((row["note_title"], row["note_data"]), (tag["name"], tag["name"]))
+            self.assertIsNone(row["joplin_parent_id"])
+            self.assertEqual(row["joplin_created_time"], "2026-09-05T21:17:09.000Z")
+            self.assertEqual(row["joplin_updated_time"], row["joplin_created_time"])
+        for row, relation in zip(relation_rows, relations):
+            key = (relation["document_id"], relation["tag_id"])
+            ident = mapping.mapped_id(database_id, "document_tag", key)
+            note = self.ids["document"][relation["document_id"]]
+            tag = mapping.mapped_id(database_id, "tag", (relation["tag_id"],))
+            self.assertEqual((row["joplin_id"], row["note_uuid"]), (ident, ident))
+            self.assertEqual((row["joplin_note_id"], row["note_note_uuid"]), (note, note))
+            self.assertEqual((row["joplin_tag_id"], row["note_tag_uuid"]), (tag, tag))
+            self.assertEqual((row["note_title"], row["note_data"]), ("", ""))
+            self.assertIsNone(row["joplin_parent_id"])
+            self.assertEqual(row["joplin_created_time"], "2019-01-02T03:04:05.123Z")
+            self.assertEqual(row["joplin_updated_time"], row["joplin_created_time"])
+        before = fixture_inventory(self.destination)
+        result = self.import_notes()
+        self.assertEqual((result.status, result.row_count), ("unchanged", 15))
+        self.assertEqual(fixture_inventory(self.destination), before)
+
+    def test_tag_rows_use_existing_bounded_batches(self):
+        batches = []
+        insert = notesdb.add_joplin_notes
+        def record_batch(connection, rows):
+            batches.append([row["joplin_type_"] for row in rows])
+            return insert(connection, rows)
+        with mock.patch.object(notesdb, "add_joplin_notes", record_batch):
+            self.import_notes(conversion_limits=ConversionLimits(batch_rows=2, batch_bytes=1))
+        self.assertEqual(batches, [[kind] for kind in [2]*2 + [1]*3 + [5]*4 + [6]*6])
+        self.assertEqual(sum(map(len, self.loaded_tags().values())), 6)
+
+    def test_unattached_tags_do_not_create_memberships(self):
+        records = [r for r in self.fixture.envelopes() if r["type"] != "document_tag"]
+        self.fixture.write_records(records)
+        self.assertEqual(self.import_notes().row_count, 9)
+        self.assertEqual(self.loaded_tags(), {})
+        self.assertEqual(Counter(r["joplin_type_"] for r in self.rows()), {1: 3, 2: 2, 5: 4})
+
+    def test_finalization_refuses_wrong_membership_targets_aliases_and_counts(self):
+        finalize = importer._finalize_database
+        changes = (
+            "joplin_tag_id='missing_tag',note_tag_uuid='missing_tag'",
+            "note_note_uuid='wrong_alias'",
+            "joplin_note_id=(SELECT joplin_id FROM notes WHERE joplin_type_=2 LIMIT 1),"
+            "note_note_uuid=(SELECT joplin_id FROM notes WHERE joplin_type_=2 LIMIT 1)",
+            "joplin_type_=5",
+        )
+        for change in changes:
+            def corrupt(connection, expected_counts):
+                connection.execute("UPDATE notes SET " + change + " WHERE note_id=(SELECT min(note_id) FROM notes WHERE joplin_type_=6)")
+                return finalize(connection, expected_counts)
+            with self.subTest(change=change), mock.patch.object(importer, "_finalize_database", corrupt):
+                with self.assertRaises(archive_v2.NotriosError) as caught:
+                    self.import_notes()
+                self.assertEqual(caught.exception.code, "integrity")
+            self.assertFalse(self.destination.exists())
+            self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
+
+
 if __name__ == "__main__":
     unittest.main()

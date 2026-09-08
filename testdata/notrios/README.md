@@ -163,7 +163,8 @@ blob references while varying the revision's MIME spelling.
 
 These are development tests of the library entry point, not a public importer
 CLI. Step 3d owns matching-title heading handling, generated RAW title preludes,
-RAW round trips and link adaptation; resource/tag integration follows later.
+RAW round trips and link adaptation. Tag mapping is covered by 4a below;
+resource integration and the broader tag round-trip matrix follow later.
 
 ## Link projection and exporter checks — slice 3d
 
@@ -187,10 +188,24 @@ synthetic title prelude, which reimport removes without stripping the real body.
 Joplin's import ordering can exchange duplicate-title suffixes, so round-trip
 checks validate each export's own path map rather than requiring stable suffixes.
 
-The original full fixture still requires tag/resource conversion and refuses at
+The original full fixture still requires resource conversion and refuses at
 this milestone. Resource links and relation-only attachment projection remain
 explicitly unsupported until Step 5; these tests do not certify every renderer's
 heading-slug behavior. No public importer CLI is exposed.
+
+## Tag mapping checks — slice 4a
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.NotriosTagMappingIntegrationTest
+```
+
+The owned text-only archive retains the original fixture's four tag identities
+and six memberships. The tests check `load_note_tags` against explicit expected
+lists for each note, complete mapped aliases, insertion order, tag-created dates
+and document-created membership dates. They also exercise tiny batch limits,
+unattached tags, unchanged reruns, and injected wrong aliases, membership targets
+and item-type counts that must refuse before publication. Resources still refuse;
+Step 4b adds the broader name/YAML/reimport and malformed-membership matrix.
 
 ## Manifest admission checks — slice 2a
 

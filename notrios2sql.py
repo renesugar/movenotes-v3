@@ -1,7 +1,7 @@
 """Internal publication importer; the public CLI is deferred to Step 6.
 
-This development slice accepts validated note/external/self links and refuses
-tags, resources and their relations until their conversion slices are implemented.
+This development slice accepts notes, tags and validated note/external/self
+links. Resources and their relations await the resource conversion slices.
 """
 from __future__ import annotations
 
@@ -170,8 +170,8 @@ def _project_note(archive, document, revision, limits, resolve):
 
 
 def _preflight(archive, limits):
-    if any(archive.counts[name] for name in ("tags", "document_tags", "resources", "document_resources")):
-        raise NotriosError("conversion", "archive requires unfinished tag or resource conversion")
+    if any(archive.counts[name] for name in ("resources", "document_resources")):
+        raise NotriosError("conversion", "archive requires unfinished resource conversion")
     def resolve(kind, source_id):
         archive.get_record(kind, (source_id,))
         return mapping.mapped_id(archive.manifest.snapshot["database_id"], kind, (source_id,))
@@ -222,18 +222,28 @@ def _lookup(connection, database_id, kind, key):
     return row[0]
 
 
-def _finalize_database(connection, expected_rows):
+def _finalize_database(connection, expected_counts):
     notesdb.ensure_indexes(connection)
     connection.execute("CREATE UNIQUE INDEX notrios_item_id ON notes(joplin_id)")
-    if connection.execute("SELECT count(*) FROM notes").fetchone()[0] != expected_rows:
-        raise NotriosError("integrity", "staged row count differs")
+    connection.execute("CREATE UNIQUE INDEX notrios_note_tag_pair ON notes(joplin_note_id,joplin_tag_id) WHERE joplin_type_=6")
+    actual_counts = dict(connection.execute("SELECT joplin_type_,count(*) FROM notes GROUP BY joplin_type_"))
+    if actual_counts != {kind: count for kind, count in expected_counts.items() if count}:
+        raise NotriosError("integrity", "staged item-type counts differ")
     if connection.execute("SELECT 1 FROM notes n LEFT JOIN notrios_ids i ON i.mapped_id=n.joplin_id "
                           "WHERE i.mapped_id IS NULL OR n.note_uuid IS NOT n.joplin_id "
-                          "OR n.note_parent_uuid IS NOT n.joplin_parent_id LIMIT 1").fetchone():
+                          "OR n.note_parent_uuid IS NOT n.joplin_parent_id "
+                          "OR n.note_note_uuid IS NOT n.joplin_note_id "
+                          "OR n.note_tag_uuid IS NOT n.joplin_tag_id LIMIT 1").fetchone():
         raise NotriosError("integrity", "staged identity or alias differs")
     if connection.execute("SELECT 1 FROM notes n LEFT JOIN notes p ON p.joplin_id=n.joplin_parent_id "
                           "WHERE n.joplin_parent_id<>'' AND (p.joplin_id IS NULL OR p.joplin_type_<>2) LIMIT 1").fetchone():
         raise NotriosError("integrity", "staged parent has no folder")
+    if connection.execute("SELECT 1 FROM notes r "
+                          "LEFT JOIN notes n ON n.joplin_id=r.joplin_note_id "
+                          "LEFT JOIN notes t ON t.joplin_id=r.joplin_tag_id "
+                          "WHERE r.joplin_type_=6 AND "
+                          "(n.joplin_type_ IS NOT 1 OR t.joplin_type_ IS NOT 5) LIMIT 1").fetchone():
+        raise NotriosError("integrity", "staged tag membership has no note or tag target")
     if connection.execute("PRAGMA integrity_check").fetchone() != ("ok",):
         raise NotriosError("integrity", "staged SQLite integrity check failed")
     connection.commit()
@@ -268,10 +278,21 @@ def _build_payload(archive, stage, receipt, limits):
             batch.add(mapping.build_note_row(document, revision, item_id=lookup("document", document.key[0]),
                       parent_id=lookup("notebook", document.payload["notebook_id"]),
                       body=_project_note(archive, document, revision, limits, lookup)))
+        for tag in archive.iter_records("tag"):
+            batch.add(mapping.build_tag_row(tag, item_id=lookup("tag", tag.key[0])))
+        for relation in archive.iter_records("document_tag"):
+            document_id, tag_id = relation.key
+            document = archive.get_record("document", (document_id,))
+            batch.add(mapping.build_note_tag_row(
+                item_id=_lookup(connection, database_id, "document_tag", relation.key),
+                note_id=lookup("document", document_id), tag_id=lookup("tag", tag_id),
+                timestamp=document.payload["created_at"],
+            ))
         batch.flush()
-        rows = archive.counts["notebooks"] + archive.counts["documents"]
-        _finalize_database(connection, rows)
-        return rows, 0
+        expected_counts = {2: archive.counts["notebooks"], 1: archive.counts["documents"],
+                           5: archive.counts["tags"], 6: archive.counts["document_tags"]}
+        _finalize_database(connection, expected_counts)
+        return sum(expected_counts.values()), 0
     finally:
         connection.close()
 
