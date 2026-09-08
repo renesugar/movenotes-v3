@@ -3093,3 +3093,41 @@ class NotriosTagRoundTripTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CollectionCapabilitiesOptionalTest(unittest.TestCase):
+    """`capabilities` is accepted and never required on a collection record.
+
+    Notrios wrote the same five words -- documents, search, resources, links,
+    graph -- on every collection, so the array said nothing about the collection
+    it was attached to, and v0.8 H16 stopped writing it. This verifier had it in
+    the required half of the payload, so it would have refused every archive
+    written after that change. The order mattered: this had to accept the
+    absence before Notrios stopped writing it.
+    """
+
+    def _collection(self, **overrides):
+        payload = {
+            "id": "col_kkkkkkkkkkkkkkkkkkkkkkkkkk",
+            "name": "Joplin export, January 2026",
+            "settings_json": {},
+            "created_at": "2026-01-01T00:00:00Z",
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_record_without_capabilities_is_accepted(self):
+        archive_v2._typed_record("collection", self._collection(), archive_v2.DEFAULT_LIMITS)
+
+    def test_record_with_capabilities_is_still_accepted(self):
+        archive_v2._typed_record(
+            "collection",
+            self._collection(capabilities=("documents", "graph", "links", "resources", "search")),
+            archive_v2.DEFAULT_LIMITS)
+
+    def test_unsorted_capabilities_are_still_refused_when_present(self):
+        with self.assertRaises(archive_v2.NotriosError):
+            archive_v2._typed_record(
+                "collection",
+                self._collection(capabilities=("search", "documents")),
+                archive_v2.DEFAULT_LIMITS)

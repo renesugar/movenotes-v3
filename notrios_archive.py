@@ -916,8 +916,13 @@ def _stage_archive_objects(root: Path, *, work_dir: Path, limits: ArchiveLimits 
 # immutable, but their arbitrary keys are not mistaken for structured fields.
 _BLOB_REF = {"sha256": str, "size_bytes": int, "media_type": str}
 _PAYLOADS = {
-    "collection": ({"id": str, "name": str, "capabilities": [str], "settings_json": dict,
-                    "created_at": str}, {"description": str}),
+    # `capabilities` moved from required to optional in Notrios v0.8 H16. It was
+    # a constant -- the same five words on every collection -- so it said nothing
+    # about the collection it was attached to, and Notrios stopped writing it.
+    # Accepted when present so archives written before that change still verify;
+    # not required, so archives written after it do too.
+    "collection": ({"id": str, "name": str, "settings_json": dict,
+                    "created_at": str}, {"description": str, "capabilities": [str]}),
     "notebook": ({"id": str, "name": str, "builtin": bool, "position": int,
                   "created_at": str, "updated_at": str}, {"parent_id": str, "icon_emoji": str}),
     "search_notebook": ({"id": str, "name": str, "query": str, "builtin": bool,
@@ -1045,7 +1050,7 @@ def _typed_record(kind, payload, limits):
             raise NotriosError("format", "record name must be nonblank")
         _bounded(len(p["name"].encode("utf-8")), 1, 4096, "record name bytes")
     if kind == "collection":
-        if tuple(sorted(set(p["capabilities"]))) != p["capabilities"]:
+        if "capabilities" in p and tuple(sorted(set(p["capabilities"]))) != p["capabilities"]:
             raise NotriosError("format", "collection capabilities must be sorted and unique")
         if p["settings_json"]:
             raise NotriosError("publication", "collection settings must be empty")

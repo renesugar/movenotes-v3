@@ -65,7 +65,7 @@ revisions.complete.v1
 
 Capability names use `^[a-z0-9][a-z0-9_.:-]{1,127}$`; required plus optional
 have at most 64 entries, each at most 128 bytes. These are archive capabilities;
-collection capabilities are a separate string array, not this reader whitelist.
+collection capabilities are a separate string array, not this reader whitelist. That array is optional: Notrios wrote the same five words on every collection and stopped writing it in v0.8 H16, so it is accepted when present and never required.
 Sources: registry, `format.go`, `compatibility.go`.
 
 Refuse before object access: absent/incomplete or malformed manifest; wrong
@@ -224,7 +224,7 @@ is the complete field inventory. No payload type is silently ignored.
 
 | Type | Required fields | Optional fields |
 |---|---|---|
-| `collection` | `id`, `name`, `capabilities`, `settings_json`, `created_at` | `description` |
+| `collection` | `id`, `name`, `settings_json`, `created_at` | `description`, `capabilities` |
 | `notebook` | `id`, `name`, `builtin`, `position`, `created_at`, `updated_at` | `parent_id`, `icon_emoji` |
 | `search_notebook` | `id`, `name`, `query`, `builtin`, `sort_anchor`, `created_at` | `icon_emoji` |
 | `tag` | `id`, `name`, `created_at` | None |
