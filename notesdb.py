@@ -32,6 +32,8 @@ import json
 import sqlite3
 import sys
 
+import common
+
 DATABASE_FILENAME = "notesdb.sqlite"
 
 # Schema v3 adds lossless source storage.  ``note_source_raw`` contains the
@@ -585,6 +587,10 @@ def serialize_joplin_item(
     if body is None:
         body = row["note_data"] if "note_data" in keys else ""
     body = body or ""
+    if ("note_original_format" in keys and row["note_original_format"] == "notrios"
+            and row["joplin_type_"] == 1):
+        title = common.remove_line_breakers(row["note_title"] or "") or "Untitled"
+        body = title + newline + newline + body
     properties = joplin_property_pairs(row)
     property_text = newline.join(f"{key}: {value}" for key, value in properties)
     if body:

@@ -54,6 +54,7 @@ import common
 import constants
 import notesdb
 import obsidianmeta
+import notrios_links
 
 __program_name__ = "sql2obsidian"
 __author__ = "Rene Sugar"
@@ -925,9 +926,14 @@ def main(argv: list[str]) -> int:
             print(f"processing '{note_dir / filename}'")
 
         original_body = row["note_data"] or ""
-        referenced_resource_ids.update(common.get_resource_ids(original_body))
-        body = strip_leading_title(original_body, row["note_title"] or "")
-        body = rewrite_resource_links(body, note_dir, attachments)
+        if notrios_links.is_generated_note(row):
+            # Mapped note targets need the actual returned paths from all first
+            # writes. Do not strip a heading or run the global resource regex.
+            body = notrios_links.projected_note_body(row)
+        else:
+            referenced_resource_ids.update(common.get_resource_ids(original_body))
+            body = strip_leading_title(original_body, row["note_title"] or "")
+            body = rewrite_resource_links(body, note_dir, attachments)
         if args.simplify_urls:
             body = common.simplify_url_links(body)
 
@@ -950,6 +956,46 @@ def main(argv: list[str]) -> int:
         ):
             print(f"exported {note_count:,} Obsidian note(s)")
 
+    omitted_note_links = 0
+    def lookup_item_type(item_id):
+        result = sqlconn.execute("SELECT joplin_type_ FROM notes WHERE joplin_id=?", (item_id,)).fetchone()
+        return result[0] if result is not None else None
+
+    def lookup_note_path(item_id):
+        nonlocal omitted_note_links
+        path = obsidian_paths.get(item_id)
+        if path is None:
+            if selected is None:
+                raise notrios_links.NotriosError("conversion", "unfiltered export has no path for mapped note")
+            omitted_note_links += 1
+        return path
+
+    # Rebuild from the database after filename collisions and first-write length
+    # fallbacks are resolved. Final bytes and hashes must precede the bundle.
+    for row in sqlconn.execute(
+        "SELECT * FROM notes WHERE joplin_type_=1 AND joplin_source='movenotes-notrios' "
+        "AND joplin_source_application='movenotes-notrios2sql' ORDER BY note_internal_date"
+    ):
+        item_id = row["joplin_id"]
+        if item_id not in obsidian_paths:
+            continue
+        snapshot = obsidianmeta.row_note_snapshot(row)
+        if snapshot is not None and obsidianmeta.text_sha256(row["note_data"] or "") == snapshot[2]:
+            continue
+        note_path = PurePosixPath(obsidian_paths[item_id])
+        body = notrios_links.rewrite_projected_links(
+            notrios_links.projected_note_body(row), note_id=item_id, note_path=note_path,
+            lookup_item_type=lookup_item_type, lookup_note_path=lookup_note_path, attachments=attachments,
+        )
+        if args.simplify_urls:
+            body = common.simplify_url_links(body)
+        content = body if body.endswith("\n") or not body else body + "\n"
+        if args.frontmatter:
+            content = build_frontmatter(row, note_tags.get(item_id, [])) + content
+        raw = content.encode("utf-8")
+        (vault_path / note_path).write_bytes(raw)
+        obsidian_hashes[item_id] = hashlib.sha256(raw).hexdigest()
+
     preserved_items = preserved_resources = 0
     if args.preserve_joplin:
         preserved_items, preserved_resources = write_preservation_bundle(
@@ -968,6 +1014,8 @@ def main(argv: list[str]) -> int:
         )
 
     summary = f"exported {note_count} note(s)"
+    if omitted_note_links:
+        summary += f"; omitted {omitted_note_links} link(s) to unselected notes"
     if restored_native_directories:
         summary += (
             f"; restored {restored_native_directories} native Obsidian "

@@ -165,6 +165,33 @@ These are development tests of the library entry point, not a public importer
 CLI. Step 3d owns matching-title heading handling, generated RAW title preludes,
 RAW round trips and link adaptation; resource/tag integration follows later.
 
+## Link projection and exporter checks — slice 3d
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.NotriosLinkProjectionTest test_notrios2sql.NotriosLinkIntegrationTest
+```
+
+The projection tests use independently constructed byte spans and full expected
+bodies. They cover UTF-8 offsets, ordered replacements, code protection, escaped
+punctuation, record/URI/fragment agreement, missing and overlapping records,
+unrecorded HTTP(S) links, unsupported syntax, and per-note count/byte ceilings.
+Link records inside protected code refuse even when their byte spans are exact.
+
+Integration cases derive owned note-link archives from the synthetic fixture.
+They exercise the actual vault and Joplin exporters, matching-title headings,
+Unicode/duplicate filenames, selected notebooks and escaped omitted-link labels.
+An injected first-write `ENAMETOOLONG` verifies that links use the returned
+fallback path; an injected final-write error verifies that no completed bundle
+is written. Bundle hashes cover finalized Markdown. Generated RAW carries one
+synthetic title prelude, which reimport removes without stripping the real body.
+Joplin's import ordering can exchange duplicate-title suffixes, so round-trip
+checks validate each export's own path map rather than requiring stable suffixes.
+
+The original full fixture still requires tag/resource conversion and refuses at
+this milestone. Resource links and relation-only attachment projection remain
+explicitly unsupported until Step 5; these tests do not certify every renderer's
+heading-slug behavior. No public importer CLI is exposed.
+
 ## Manifest admission checks — slice 2a
 
 Run all current Notrios tests, including the nine fixture baselines:

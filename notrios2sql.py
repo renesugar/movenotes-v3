@@ -1,7 +1,7 @@
 """Internal publication importer; the public CLI is deferred to Step 6.
 
-This development slice accepts only text without link syntax and refuses tags,
-resources and relations until their conversion slices are implemented.
+This development slice accepts validated note/external/self links and refuses
+tags, resources and their relations until their conversion slices are implemented.
 """
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ import notrios_archive as archive_api
 from notrios_archive import ArchiveLimits, DEFAULT_LIMITS, NotriosError, BlobRef
 import notrios_mapping as mapping
 from notrios_links import ConversionLimits, DEFAULT_CONVERSION_LIMITS
+from notrios_links import validate_links, project_body
 
 
 RECEIPT_KEY = "movenotes.notrios.import.v1"
@@ -159,19 +160,24 @@ def _body(archive, revision, limits):
         raise NotriosError("conversion", "current body is not UTF-8") from None
     if text.startswith("\ufeff") or any(ord(c) < 32 and c not in "\t\r\n" for c in text):
         raise NotriosError("conversion", "current body contains unsupported control characters")
-    # Conservative development gate until the complete Markdown lexer lands in
-    # 3d. Even unrecorded/internal syntax must not silently become broken links.
-    if re.search(r"[\[\]<>]|document:|resource:|:/", text, re.IGNORECASE):
-        raise NotriosError("conversion", "link syntax requires unfinished link conversion")
     return text
 
 
+def _project_note(archive, document, revision, limits, resolve):
+    body = _body(archive, revision, limits).encode("utf-8")
+    plan = validate_links(body, archive.iter_relations("link", document.key[0]), resolve=resolve, limits=limits)
+    return project_body(body, plan)
+
+
 def _preflight(archive, limits):
-    if any(archive.counts[name] for name in ("tags", "document_tags", "resources", "document_resources", "links")):
-        raise NotriosError("conversion", "archive requires unfinished tag, resource or link conversion")
+    if any(archive.counts[name] for name in ("tags", "document_tags", "resources", "document_resources")):
+        raise NotriosError("conversion", "archive requires unfinished tag or resource conversion")
+    def resolve(kind, source_id):
+        archive.get_record(kind, (source_id,))
+        return mapping.mapped_id(archive.manifest.snapshot["database_id"], kind, (source_id,))
     for document in archive.iter_records("document"):
         revision = archive.get_record("revision", (document.payload["current_revision_id"],))
-        _body(archive, revision, limits)
+        _project_note(archive, document, revision, limits, resolve)
 
 
 class _RowBatch:
@@ -260,7 +266,8 @@ def _build_payload(archive, stage, receipt, limits):
         for document in archive.iter_records("document"):
             revision = archive.get_record("revision", (document.payload["current_revision_id"],))
             batch.add(mapping.build_note_row(document, revision, item_id=lookup("document", document.key[0]),
-                      parent_id=lookup("notebook", document.payload["notebook_id"]), body=_body(archive, revision, limits)))
+                      parent_id=lookup("notebook", document.payload["notebook_id"]),
+                      body=_project_note(archive, document, revision, limits, lookup)))
         batch.flush()
         rows = archive.counts["notebooks"] + archive.counts["documents"]
         _finalize_database(connection, rows)

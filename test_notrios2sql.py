@@ -28,6 +28,7 @@ from unittest import mock
 import notrios_archive as archive_v2
 import notrios_mapping as mapping
 import notrios2sql as importer
+import notrios_links as links
 from notrios_links import ConversionLimits
 import notesdb
 
@@ -2276,6 +2277,7 @@ class NotriosNoteIntegrationTest(unittest.TestCase):
                                 env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
                                 capture_output=True, text=True, timeout=60)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.export_output = result.stdout
         return vault
 
     def vault_notes(self, vault):
@@ -2473,6 +2475,378 @@ class NotriosNoteIntegrationTest(unittest.TestCase):
         self.assertEqual(self.vault_notes(vault), {})
         manifest = load_json(vault / ".movenotes" / "manifest.json")
         self.assertEqual([item["type"] for item in manifest["items"]], [2, 2])
+
+
+def retained_link(body, token, *, ident="lnk_example", source="doc_public"):
+    """Independent small-fixture span/metadata builder, not a Markdown parser."""
+    start = body.index(token)
+    bang = token.startswith(b"!")
+    label, destination = token[2 if bang else 1:-1].split(b"](", 1)
+    base, separator, fragment = destination.partition(b"#")
+    p = dict(id=ident, source_document_id=source, relation_type="embed" if bang else "link",
+             source_format="markdown", raw_target=base.decode(), display_text=label.decode(),
+             source_start_byte=start, source_end_byte=start+len(token), source_line=999, source_column=999,
+             resolution_status="external" if base.lower().startswith((b"https://", b"http://")) else "resolved")
+    if base.startswith(b"document://"):
+        p.update(target_document_id=base.rsplit(b"/", 1)[1].decode(), target_uri=base.decode())
+    elif base:
+        p["target_uri"] = base.decode()
+    if separator:
+        p.update(anchor_type="heading", anchor_value=fragment.decode())
+    return archive_v2.Record("link", (ident,), p)
+
+
+class NotriosLinkProjectionTest(unittest.TestCase):
+    def project(self, body, records=(), **kwargs):
+        plan = links.validate_links(body, records, resolve=lambda kind, value: "a" * 32, **kwargs)
+        return links.project_body(body, plan)
+
+    def test_utf8_spans_multiple_replacements_and_unchanged_external_self(self):
+        first = b"[Child](document://default/documents/doc_child#Section%20one)"
+        second = b"[Again](document://default/documents/doc_child)"
+        external = b"[Web](https://example.test/path?q=1#part)"
+        self_link = b"[Here](#local)"
+        body = "Préface 日本語\r\n".encode() + first + b"  \r\n" + external + b"\n" + self_link + b"\n" + second + b"  "
+        records = [retained_link(body, token, ident=f"lnk_{number}") for number, token in enumerate((first, second, external, self_link))]
+        expected = body.replace(b"document://default/documents/doc_child", b":/" + b"a" * 32)
+        self.assertEqual(self.project(body, reversed(records)).encode(), expected)
+        self.assertEqual(self.project(b"[Web](https://example.test/x#part)").encode(), b"[Web](https://example.test/x#part)")
+
+    def test_lexical_protection_keeps_code_and_escaped_punctuation_exact(self):
+        hidden = b"[Hidden](document://default/documents/doc_child)"
+        token = b"[Active](document://default/documents/doc_child)"
+        for protected in (b"```query\n"+hidden+b"\n```\n", b"  ~~~~\n"+hidden+b"\n  ~~~~~ \t\n",
+                          b"    "+hidden+b"\n", b"\t"+hidden+b"\n", b"`"+hidden+b"`\n",
+                          b"``one ` "+hidden+b"``\n"):
+            body = protected + b"\\[ordinary\\] " + token
+            with self.subTest(protected=protected):
+                result = self.project(body, [retained_link(body, token)])
+                self.assertEqual(result.encode(), protected + b"\\[ordinary\\] [Active](:/" + b"a"*32+b")")
+                with self.assertRaises(archive_v2.NotriosError):
+                    self.project(body, [retained_link(body, hidden), retained_link(body, token, ident="lnk_active")])
+        unclosed = b"```\n" + hidden
+        self.assertEqual(self.project(unclosed).encode(), unclosed)
+        unmatched = b"` unmatched " + token
+        self.assertEqual(len(list(links.scan_markdown(unmatched))), 1)
+        with self.assertRaises(archive_v2.NotriosError):
+            self.project(b"> ```\n> " + token + b"\n> ```", [retained_link(b"> ```\n> " + token + b"\n> ```", token)])
+
+    def test_span_and_record_agreement_refusals(self):
+        token = b"[Child](document://default/documents/doc_child#part)"
+        body = "日\n".encode() + token
+        good = retained_link(body, token)
+        mutations = ({"source_start_byte": 1}, {"source_end_byte": 1}, {"source_start_byte": 0},
+                     {"source_end_byte": len(body)+1}, {"source_end_byte": len(body)-1},
+                     {"source_format": "html"}, {"relation_type": "embed"}, {"display_text": "wrong"},
+                     {"raw_target": "document://default/documents/wrong"}, {"target_document_id": "wrong"},
+                     {"target_resource_id": "resource_wrong"}, {"target_uri": "https://example.test"},
+                     {"resolution_status": "external"}, {"anchor_type": "block"}, {"anchor_value": "wrong"})
+        for change in mutations:
+            with self.subTest(change=change), self.assertRaises(archive_v2.NotriosError):
+                self.project(body, [archive_v2.Record("link", good.key, {**good.payload, **change})])
+        for records in ([], [good, good]):
+            with self.assertRaises(archive_v2.NotriosError):
+                self.project(body, records)
+        plain = b"[Child](document://default/documents/doc_child)"
+        p = retained_link(plain, plain)
+        with self.assertRaises(archive_v2.NotriosError):
+            self.project(plain, [archive_v2.Record("link", p.key, {**p.payload, "anchor_type": "heading"})])
+
+    def test_unsupported_active_syntax_and_uri_variants_refuse(self):
+        destinations = (b"relative.md", b"file:///private", b"javascript:alert", b"notrios://doc_child",
+                        b"Document://default/documents/doc_child", b"document://elsewhere/documents/doc_child",
+                        b"document://default:80/documents/doc_child", b"document://user@default/documents/doc_child",
+                        b"document://default/documents/../doc_child", b"document://default/documents/%64oc_child",
+                        b"document://default/documents/doc_child?q=1", b"#^block", b"#", b"#two#parts", b"#bad%XZ",
+                        b"https://user:password@example.test", b"https:///missing", b"https://example.test:99999")
+        for destination in destinations:
+            body = b"[label](" + destination + b")"
+            with self.subTest(destination=destination), self.assertRaises(archive_v2.NotriosError):
+                self.project(body, [retained_link(body, body)])
+        for body in (b"[[Local]]", b"![[Local]]", b"[ref]: ./local.md", b"[ref]", b"[text][ref]",
+                     b'[label](https://example.test "title")', b"[nested [label]](https://example.test)",
+                     b"[escaped\\!](https://example.test)", b"[label](<https://example.test>)",
+                     b"<a href='document://default/documents/doc_child'>", b"DOCUMENT://default/documents/doc_child",
+                     b"bare :/"+b"a"*32, b"![embed](document://default/documents/doc_child)"):
+            with self.subTest(body=body), self.assertRaises(archive_v2.NotriosError):
+                self.project(body)
+
+    def test_self_and_external_record_agreement(self):
+        for body in (b"[self](#part)", b"[web](https://example.test/#part)"):
+            record = retained_link(body, body)
+            for change in ({"target_document_id": "other"}, {"target_resource_id": "res_other"},
+                           {"target_uri": "document://default/documents/other"}):
+                with self.subTest(body=body, change=change), self.assertRaises(archive_v2.NotriosError):
+                    self.project(body, [archive_v2.Record("link", record.key, {**record.payload, **change})])
+        body = b"[self](#part)"
+        record = retained_link(body, body)
+        self.assertEqual(self.project(body, [archive_v2.Record("link", record.key,
+                         {**record.payload, "target_document_id": "doc_public"})]).encode(), body)
+
+    def test_link_fragment_and_projected_byte_bounds(self):
+        token = b"[x](document://default/documents/dd)"
+        record = retained_link(token, token)
+        with self.assertRaises(archive_v2.NotriosError):
+            self.project(token, [record], limits=ConversionLimits(max_projected_body_bytes=len(token)))
+        for body, records in ((b"[x](https://example.test) [y](https://example.test)", []), (token, [record, record])):
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                self.project(body, records, limits=ConversionLimits(max_links_per_note=1))
+            self.assertEqual(caught.exception.code, "limit")
+        body = b"[self](#long)"
+        with self.assertRaises(archive_v2.NotriosError):
+            self.project(body, [retained_link(body, body)], limits=ConversionLimits(max_fragment_bytes=3))
+
+    def test_explicit_final_paths_and_filtered_labels(self):
+        from pathlib import PurePosixPath
+        target = "a" * 32
+        body = "[A &amp; &#91;B&#93;](:/" + target + "#part%20one)\n`[code](:/" + target + ")`"
+        def rewrite(path, kind=1):
+            return links.rewrite_projected_links(body, note_id="b"*32, note_path=PurePosixPath("Deep/Source.md"),
+                       lookup_item_type=lambda ident: kind, lookup_note_path=lambda ident: path, attachments=None)
+        self.assertEqual(rewrite("Other/Café renamed 2.md"),
+                         "[A &amp; &#91;B&#93;](../Other/Caf%C3%A9%20renamed%202.md#part%20one)\n`[code](:/"+target+")`")
+        self.assertEqual(rewrite(None), "A \\& \\[B\\]\n`[code](:/" + target + ")`")
+        for kind in (None, 2, 4):
+            with self.assertRaises(archive_v2.NotriosError):
+                rewrite(None, kind)
+
+
+class NotriosLinkIntegrationTest(unittest.TestCase):
+    setUp = NotriosNoteIntegrationTest.setUp
+    import_notes = NotriosNoteIntegrationTest.import_notes
+    rows = NotriosNoteIntegrationTest.rows
+    export = NotriosNoteIntegrationTest.export
+    vault_notes = NotriosNoteIntegrationTest.vault_notes
+
+    def linked_archive(self):
+        self.tokens = {
+            "doc_public": [b"[Child](document://default/documents/doc_child#details)",
+                           b"[Duplicate](document://default/documents/doc_duplicate)", b"[Here](#local)",
+                           b"[Web](https://example.test/x?q=one#part)"],
+            "doc_child": [b"[Back &amp; Home](document://default/documents/doc_public)"],
+            "doc_duplicate": [],
+        }
+        self.bodies = {
+            "doc_public": "# Café & field notes\n\nPréface 日本語.\n".encode() + b"\n".join(self.tokens["doc_public"])
+                          + b"\n\n## local\n\n```query\n[Hidden](document://default/documents/doc_child)\n```\nWithheld item removed.\n",
+            "doc_child": "# Child 東京\n\n".encode() + self.tokens["doc_child"][0] + b"\n\n## details\nTarget.\n",
+            "doc_duplicate": b"# local\n\nDuplicate-title target.\n",
+        }
+        make_text_publication(self.fixture, self.bodies)
+        records = self.fixture.envelopes()
+        for source, tokens in self.tokens.items():
+            for index, token in enumerate(tokens):
+                record = retained_link(self.bodies[source], token, ident=f"lnk_{source}_{index}", source=source)
+                records.append({"type": "link", "payload": dict(record.payload)})
+        self.fixture.write_records(records)
+
+    def projected(self, source):
+        expected = self.bodies[source]
+        for token in self.tokens[source]:
+            replacement = token
+            for key, ident in self.ids["document"].items():
+                replacement = replacement.replace(f"document://default/documents/{key}".encode(), f":/{ident}".encode())
+            expected = expected.replace(token, replacement)
+        return expected
+
+    def test_linked_import_and_final_vault_paths_preserve_heads_code_and_hashes(self):
+        self.linked_archive()
+        self.import_notes()
+        for row in self.rows():
+            if row["joplin_type_"] == 1:
+                source = next(k for k, v in self.ids["document"].items() if v == row["joplin_id"])
+                self.assertEqual(row["note_data"].encode(), self.projected(source))
+        vault = self.export()
+        notes = self.vault_notes(vault)
+        public = notes[self.ids["document"]["doc_public"]][2]
+        expected = self.bodies["doc_public"].decode().replace(self.tokens["doc_public"][0].decode(),
+                      "[Child](%E7%A0%94%E7%A9%B6/Child%20%E6%9D%B1%E4%BA%AC.md#details)")
+        expected = expected.replace(self.tokens["doc_public"][1].decode(), "[Duplicate](Caf%C3%A9%20%26%20field%20notes%202.md)")
+        self.assertEqual(public, expected)
+        self.assertEqual(notes[self.ids["document"]["doc_child"]][2],
+                         self.bodies["doc_child"].decode().replace(self.tokens["doc_child"][0].decode(),
+                         "[Back &amp; Home](../Caf%C3%A9%20%26%20field%20notes.md)"))
+        manifest = load_json(vault / ".movenotes" / "manifest.json")
+        for item in manifest["items"]:
+            if item["type"] == 1:
+                self.assertEqual(hashlib.sha256((vault / item["obsidian_path"]).read_bytes()).hexdigest(), item["obsidian_sha256"])
+
+    def test_filtered_links_become_escaped_labels_with_numeric_summary(self):
+        self.linked_archive()
+        self.import_notes()
+        vault = self.export("filtered", "--notebooks", "研究")
+        notes = self.vault_notes(vault)
+        self.assertEqual(set(notes), {self.ids["document"]["doc_child"]})
+        body = notes[self.ids["document"]["doc_child"]][2]
+        self.assertEqual(body, self.bodies["doc_child"].decode().replace(self.tokens["doc_child"][0].decode(), "Back \\& Home"))
+        self.assertIn("omitted 1 link(s) to unselected notes", self.export_output)
+        self.assertNotIn("Café", body)
+
+    def test_rehashed_stale_missing_and_protected_records_refuse_without_output(self):
+        for case in ("stale", "missing", "code", "wrong_target"):
+            self.linked_archive()
+            records = self.fixture.envelopes()
+            first = next(r for r in records if r["type"] == "link")
+            if case == "stale":
+                first["payload"]["source_start_byte"] += 1
+            elif case == "missing":
+                records.remove(first)
+            elif case == "wrong_target":
+                first["payload"]["target_document_id"] = "doc_duplicate"
+            else:
+                token = b"[Hidden](document://default/documents/doc_child)"
+                record = retained_link(self.bodies["doc_public"], token, ident="lnk_code")
+                records.append({"type": "link", "payload": dict(record.payload)})
+            self.fixture.write_records(records)
+            with self.subTest(case=case), self.assertRaises(archive_v2.NotriosError) as caught:
+                self.import_notes()
+            self.assertEqual(caught.exception.code, "conversion")
+            self.assertFalse(self.destination.exists())
+            self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
+
+    def test_real_first_write_length_fallback_is_used_for_links(self):
+        import errno
+        import sql2obsidian
+        self.linked_archive()
+        self.import_notes()
+        vault = self.root / "fallback"
+        vault.mkdir()
+        original = Path.write_bytes
+        failed = []
+        def write(path, raw):
+            if path.name == "Child 東京.md" and not failed:
+                failed.append(path)
+                raise OSError(errno.ENAMETOOLONG, "injected component length")
+            return original(path, raw)
+        with mock.patch.object(Path, "write_bytes", write):
+            result = sql2obsidian.main(["--input", str(self.destination), "--output", str(vault),
+                                       "--no-simplify-urls", "--progress-every", "0"])
+        self.assertEqual(result, 0)
+        self.assertEqual(len(failed), 1)
+        notes = self.vault_notes(vault)
+        actual_path = notes[self.ids["document"]["doc_child"]][0]
+        self.assertNotEqual(actual_path, "Public/研究/Child 東京.md")
+        from urllib.parse import quote
+        target = quote(actual_path.removeprefix("Public/"), safe="/")
+        self.assertIn(f"[Child]({target}#details)", notes[self.ids["document"]["doc_public"]][2])
+
+    def test_final_write_failure_has_no_completed_bundle(self):
+        import sql2obsidian
+        self.linked_archive()
+        self.import_notes()
+        vault = self.root / "failed-final"
+        vault.mkdir()
+        write = Path.write_bytes
+        counts = Counter()
+        def fail_final(path, raw):
+            counts[path] += 1
+            if path.suffix == ".md" and counts[path] == 2:
+                raise OSError("injected final write failure")
+            return write(path, raw)
+        with mock.patch.object(Path, "write_bytes", fail_final), self.assertRaises(OSError):
+            sql2obsidian.main(["--input", str(self.destination), "--output", str(vault), "--progress-every", "0"])
+        self.assertFalse((vault / ".movenotes" / "manifest.json").exists())
+
+    def test_generated_raw_and_reimport_remove_only_one_synthetic_title(self):
+        self.linked_archive()
+        self.import_notes()
+        first_vault = self.export()
+        before = self.vault_notes(first_vault)
+        rows = {row["joplin_id"]: row for row in self.rows()}
+        manifest = load_json(first_vault / ".movenotes" / "manifest.json")
+        for item in manifest["items"]:
+            raw = (first_vault / ".movenotes" / item["raw_path"]).read_bytes()
+            if item["type"] == 1:
+                row = rows[item["id"]]
+                self.assertTrue(raw.startswith((row["note_title"] + "\n\n" + row["note_data"]).encode()))
+        restored = self.root / "restored"
+        restored.mkdir()
+        run = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "joplin2sql.py"),
+                              "--input", str(first_vault / ".movenotes" / "joplin-raw"),
+                              "--output", str(restored), "--progress-every", "0"],
+                             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, capture_output=True, text=True, timeout=60)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.destination = restored
+        restored_rows = self.rows()
+        for row in restored_rows:
+            self.assertEqual(row["note_title"], rows[row["joplin_id"]]["note_title"])
+            if row["joplin_type_"] == 1:
+                self.assertTrue(links.is_generated_note(row))
+                self.assertEqual(links.projected_note_body(row), rows[row["joplin_id"]]["note_data"])
+        after = self.vault_notes(self.export("restored-vault"))
+        self.assertEqual(set(before), set(after))
+        # Joplin imports RAW in filename order, so equal-date duplicate titles
+        # can exchange suffixes. Each export must use its own final paths.
+        import posixpath
+        from urllib.parse import quote
+        for source, source_id in self.ids["document"].items():
+            expected = self.bodies[source].decode()
+            for token in self.tokens[source]:
+                if b"document://" not in token:
+                    continue
+                record = retained_link(self.bodies[source], token, source=source)
+                target_id = self.ids["document"][record.payload["target_document_id"]]
+                relative = posixpath.relpath(after[target_id][0], posixpath.dirname(after[source_id][0]))
+                expected = expected.replace(token.decode(), token.decode().replace(record.payload["raw_target"], quote(relative, safe="/")))
+            self.assertEqual(after[source_id][2], expected)
+
+    def test_empty_and_multiline_titles_get_a_single_raw_prelude(self):
+        self.import_notes()
+        row = next(r for r in self.rows() if r["joplin_type_"] == 1)
+        for title, expected in (("", "Untitled"), ("one\ntwo\rthree", "one two three")):
+            generated = {**row, "note_title": title, "note_data": "\n# Real heading\n\n"}
+            raw = notesdb.serialize_joplin_item(generated)
+            self.assertTrue(raw.startswith((expected + "\n\n\n# Real heading\n\n").encode()))
+            from joplin2sql import parse_joplin_note
+            path = self.root / "generated.md"
+            path.write_bytes(raw)
+            parsed = parse_joplin_note(path)
+            self.assertEqual(parsed["note_title"], expected)
+            self.assertEqual(links.projected_note_body(parsed), generated["note_data"])
+            # The actual parser is exercised through the subprocess above;
+            # source format guards below ensure other producers never prefix.
+            for origin in ("joplin", "obsidian"):
+                other = {**generated, "note_original_format": origin}
+                self.assertTrue(notesdb.serialize_joplin_item(other).startswith(b"\n# Real heading\n\n"))
+
+    def test_direct_joplin_export_and_container_title_guards(self):
+        self.linked_archive()
+        self.import_notes()
+        output = self.root / "direct-raw"
+        output.mkdir()
+        result = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "sql2joplin.py"),
+                                 "--input", str(self.destination), "--output", str(output), "--progress-every", "0"],
+                                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        from joplin2sql import parse_joplin_note
+        for row in self.rows():
+            parsed = parse_joplin_note(output / (row["joplin_id"] + ".md"))
+            self.assertEqual(parsed["note_title"], row["note_title"])
+            if row["joplin_type_"] == 1:
+                self.assertEqual(links.projected_note_body(parsed), row["note_data"])
+            else:
+                self.assertEqual(parsed["note_data"].rstrip("\n"), row["note_data"])
+        fixture = NotriosMappingTest()
+        fixture.setUp()
+        tag = next(r for r in fixture.fixture_rows() if r["joplin_type_"] == 5)
+        path = output / "generated-tag.md"
+        path.write_bytes(notesdb.serialize_joplin_item(tag))
+        parsed = parse_joplin_note(path)
+        self.assertEqual(parsed["note_title"], tag["note_title"])
+        self.assertEqual(parsed["note_data"].rstrip("\n"), tag["note_data"])
+
+    def test_missing_mapped_note_refuses_even_in_filtered_export(self):
+        import sql2obsidian
+        self.linked_archive()
+        self.import_notes()
+        with sqlite3.connect(self.destination / "notesdb.sqlite") as connection:
+            connection.execute("DELETE FROM notes WHERE joplin_id=?", (self.ids["document"]["doc_public"],))
+        for name, extra in (("missing-all", []), ("missing-filtered", ["--notebooks", "研究"])):
+            vault = self.root / name
+            vault.mkdir()
+            with self.subTest(name=name), self.assertRaises(archive_v2.NotriosError):
+                sql2obsidian.main(["--input", str(self.destination), "--output", str(vault), "--progress-every", "0", *extra])
+            self.assertFalse((vault / ".movenotes" / "manifest.json").exists())
 
 
 if __name__ == "__main__":
