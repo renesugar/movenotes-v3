@@ -25,6 +25,8 @@ from unittest import mock
 
 import notrios_archive as archive_v2
 import notrios_mapping as mapping
+import notrios2sql as importer
+from notrios_links import ConversionLimits
 import notesdb
 
 
@@ -1929,6 +1931,287 @@ class NotriosMappingTest(unittest.TestCase):
         rev = self.record("revision", document_id="other_document")
         with self.assertRaises(archive_v2.NotriosError):
             mapping.build_note_row(doc, rev, item_id="a" * 32, parent_id="b" * 32, body="")
+
+
+class NotriosPublicationLifecycleTest(unittest.TestCase):
+    def setUp(self):
+        self.fixture = NotriosObjectSpoolTest()
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.root = self.fixture.root
+        self.destination = self.root / "published"
+        self.make_text_archive()
+
+    def make_text_archive(self, body=None):
+        f = self.fixture
+        records = [r for r in f.envelopes() if r["type"] in ("collection", "notebook", "document", "revision")]
+        for entry in f.entries:
+            if entry["kind"] == "blob":
+                (f.archive / entry["location"]["path"]).unlink()
+        f.entries = [e for e in f.entries if e["kind"] == "records"]
+        for number, record in enumerate(r for r in records if r["type"] == "revision"):
+            raw = body if body is not None else f"# Retained heading {number}\n\nPlain Unicode café 日本語.\n".encode()
+            digest, relative = f.put_object(raw)
+            record["payload"]["body"] = dict(sha256=digest, size_bytes=len(raw), media_type="text/markdown")
+            if not any(e["sha256"] == digest for e in f.entries):
+                f.entries.append(dict(sha256=digest, kind="blob", size_bytes=len(raw), media_type="text/markdown",
+                                      location=dict(layout="fanout", path=relative)))
+        f.manifest["totals"].update(objects=len(f.entries), blobs=len(f.entries)-1,
+                                      bytes=sum(e["size_bytes"] for e in f.entries))
+        f.write_records(records)
+
+    def run_import(self, **kwargs):
+        return importer.import_publication(self.fixture.archive, self.destination, **kwargs)
+
+    def assert_clean(self):
+        self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
+
+    def test_create_and_verified_unchanged_preserve_source_and_payload(self):
+        before = fixture_inventory(self.fixture.archive)
+        result = self.run_import()
+        self.assertEqual((result.status, result.row_count, result.resource_count), ("created", 5, 0))
+        payload = fixture_inventory(self.destination)
+        self.assertEqual(set(payload), {"notesdb.sqlite", importer.INVENTORY, importer.COMPLETE})
+        self.assertTrue((self.destination / "resources").is_dir())
+        marker = load_json(self.destination / importer.COMPLETE)
+        self.assertEqual(set(marker["receipt"]), {"version", "contract", "contract_schema_version", "reader_profile", "mapper",
+                         "commit_sha256", "selection_manifest_sha256", "snapshot_id", "database_id", "target"})
+        with sqlite3.connect(self.destination / "notesdb.sqlite") as connection:
+            self.assertEqual(connection.execute("PRAGMA journal_mode").fetchone()[0], "delete")
+            self.assertEqual(connection.execute("SELECT count(*) FROM notrios_ids").fetchone()[0], 9)
+            self.assertEqual(connection.execute("SELECT count(*) FROM notrios_document_resources").fetchone()[0], 0)
+        result = self.run_import(expected_selection_sha256=result.selection_manifest_sha256)
+        self.assertEqual(result.status, "unchanged")
+        self.assertEqual(fixture_inventory(self.destination), payload)
+        self.assertEqual(fixture_inventory(self.fixture.archive), before)
+        self.assert_clean()
+
+    def test_faults_never_publish_partial_output(self):
+        for target in ("_preflight", "_build_payload", "_finalize_database", "_complete", "_rename_noreplace"):
+            with self.subTest(target=target), mock.patch.object(importer, target, side_effect=OSError("injected failure")):
+                with self.assertRaises(archive_v2.NotriosError):
+                    self.run_import()
+            self.assertFalse(self.destination.exists())
+            self.assert_clean()
+        with mock.patch.object(notesdb, "add_joplin_notes", side_effect=sqlite3.OperationalError("insertion failed")):
+            with self.assertRaises(archive_v2.NotriosError):
+                self.run_import()
+        self.assertFalse(self.destination.exists())
+        self.assert_clean()
+
+    def test_fsync_faults_before_and_after_rename(self):
+        real_sync = os.fsync
+        for phase in ("payload", "inventory", "marker", "parent"):
+            def fail(fd):
+                path = os.readlink(f"/proc/self/fd/{fd}")
+                suffix = {"payload": "notesdb.sqlite", "inventory": importer.INVENTORY, "marker": importer.COMPLETE}[phase] if phase != "parent" else None
+                if (suffix and path.endswith(suffix)) or (phase == "parent" and path == str(self.root)):
+                    raise OSError("injected fsync failure")
+                return real_sync(fd)
+            with self.subTest(phase=phase), mock.patch.object(importer.os, "fsync", fail):
+                with self.assertRaises(archive_v2.NotriosError) as caught:
+                    self.run_import()
+            self.assertEqual(self.destination.exists(), phase == "parent")
+            if phase == "parent":
+                self.assertIn("durability", str(caught.exception))
+                self.assertEqual(self.run_import().status, "unchanged")
+            self.assert_clean()
+
+    def test_collision_refuses_distinct_full_keys(self):
+        with mock.patch.object(mapping, "mapped_id", return_value="a" * 32):
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                self.run_import()
+        self.assertEqual(caught.exception.code, "collision")
+        self.assertFalse(self.destination.exists())
+        self.assert_clean()
+
+    def test_interrupted_resource_write_and_bounded_hashing(self):
+        build = importer._build_payload
+        def interrupted(*args):
+            build(*args)
+            with (args[1] / "resources" / ("a" * 32 + ".bin")).open("wb") as stream:
+                stream.write(b"partial copy")
+                raise OSError("resource copy interrupted")
+        with mock.patch.object(importer, "_build_payload", interrupted):
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                self.run_import()
+        self.assertIn("resource copy interrupted", str(caught.exception))
+        self.assertFalse(self.destination.exists())
+        self.assert_clean()
+        self.run_import(conversion_limits=ConversionLimits(copy_chunk_bytes=7, batch_rows=1, batch_bytes=1))
+        reads = []
+        opening = archive_v2._open_regular_file
+        class Reader:
+            def __init__(self, stream):
+                self.stream = stream
+            def read(self, size=-1):
+                reads.append(size)
+                return self.stream.read(size)
+            def __getattr__(self, name):
+                return getattr(self.stream, name)
+        @contextmanager
+        def tracked(fd, name):
+            with opening(fd, name) as stream:
+                yield Reader(stream) if name == "notesdb.sqlite" else stream
+        with mock.patch.object(archive_v2, "_open_regular_file", tracked):
+            self.assertEqual(self.run_import(conversion_limits=ConversionLimits(copy_chunk_bytes=7)).status, "unchanged")
+        self.assertTrue(reads)
+        self.assertEqual(set(reads), {7})
+
+    def test_unrelated_output_and_empty_directory_race_are_untouched(self):
+        self.destination.mkdir()
+        with self.assertRaises(archive_v2.NotriosError):
+            self.run_import()
+        self.assertEqual(list(self.destination.iterdir()), [])
+        self.destination.rmdir()
+        rename = importer._rename_noreplace
+        def race(parent, source, destination):
+            self.destination.mkdir()
+            return rename(parent, source, destination)
+        with mock.patch.object(importer, "_rename_noreplace", race):
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                self.run_import()
+        self.assertEqual(caught.exception.code, "destination")
+        self.assertEqual(list(self.destination.iterdir()), [])
+        self.assert_clean()
+
+    def test_second_writer_and_stale_lock_are_never_stolen(self):
+        original = importer._preflight
+        def second_writer(archive, limits):
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                self.run_import()
+            self.assertIn("lock exists", str(caught.exception))
+            original(archive, limits)
+        with mock.patch.object(importer, "_preflight", second_writer):
+            self.run_import()
+        lock = self.root / (".movenotes-notrios-lock-" + hashlib.sha256(self.destination.name.encode()).hexdigest())
+        lock.mkdir()
+        (lock / importer.OWNER).write_text('{"pid":99999999,"token":"stale"}')
+        before = fixture_inventory(lock)
+        with self.assertRaises(archive_v2.NotriosError):
+            self.run_import()
+        self.assertEqual(fixture_inventory(lock), before)
+
+    def test_edited_completed_outputs_refuse_without_writes(self):
+        for change in ("database", "receipt", "extra", "symlink", "resource", "inventory", "marker"):
+            self.destination = self.root / change
+            # Synthetic resource exercises lifecycle inventory; actual archive
+            # resource projection remains explicitly refused until Step 5.
+            build = importer._build_payload
+            def with_resource(*args):
+                result = build(*args)
+                (args[1] / "resources" / ("a" * 32 + ".bin")).write_bytes(b"payload")
+                return result
+            with mock.patch.object(importer, "_build_payload", with_resource):
+                self.run_import()
+            if change == "database":
+                with (self.destination / "notesdb.sqlite").open("ab") as stream:
+                    stream.write(b"changed")
+            elif change == "receipt":
+                with sqlite3.connect(self.destination / "notesdb.sqlite") as database:
+                    database.execute("UPDATE settings SET value='{}' WHERE name=?", (importer.RECEIPT_KEY,))
+                # Re-seal so the independent SQLite receipt comparison is tested.
+                (self.destination / importer.COMPLETE).unlink()
+                (self.destination / importer.INVENTORY).unlink()
+                with archive_v2._open_root_directory(self.destination) as fd:
+                    importer._complete(fd, self.fixture.work, importer._receipt(archive_v2.Manifest.from_dict(self.fixture.manifest)), ConversionLimits())
+            elif change == "extra":
+                (self.destination / "notesdb.sqlite-wal").write_bytes(b"")
+            elif change == "symlink":
+                (self.destination / "resources" / ("a" * 32 + ".bin")).unlink()
+                (self.destination / "resources" / ("a" * 32 + ".bin")).symlink_to(self.fixture.archive / "manifest.json")
+            elif change == "resource":
+                (self.destination / "resources" / ("a" * 32 + ".bin")).write_bytes(b"changed")
+            else:
+                (self.destination / (importer.INVENTORY if change == "inventory" else importer.COMPLETE)).write_bytes(b"{}\n")
+            before = fixture_inventory(self.destination) if change != "symlink" else None
+            with self.subTest(change=change), self.assertRaises(archive_v2.NotriosError):
+                self.run_import()
+            if before is not None:
+                self.assertEqual(fixture_inventory(self.destination), before)
+            self.assert_clean()
+
+    def test_selection_and_source_are_checked_on_rerun(self):
+        self.run_import()
+        before = fixture_inventory(self.destination)
+        for value in ("bad", "A" * 64, "0" * 64, False):
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                self.run_import(expected_selection_sha256=value)
+            self.assertEqual(caught.exception.code, "selection")
+        (self.fixture.archive / "manifest.json").write_bytes(b"{}")
+        with self.assertRaises(archive_v2.NotriosError):
+            self.run_import()
+        self.assertEqual(fixture_inventory(self.destination), before)
+        self.assert_clean()
+
+    def test_conversion_bounds_and_unfinished_features_refuse(self):
+        for field in fields(ConversionLimits):
+            for value in (0, False, field.default + 1):
+                with self.assertRaises(archive_v2.NotriosError):
+                    ConversionLimits(**{field.name: value})
+        with self.assertRaises(archive_v2.NotriosError) as caught:
+            self.run_import(conversion_limits=ConversionLimits(max_body_bytes=1))
+        self.assertEqual(caught.exception.code, "limit")
+        for body in (b"[unrecorded](document://id)", b"\xef\xbb\xbftext", b"\x00", b"\xff"):
+            self.make_text_archive(body)
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                self.run_import()
+            self.assertEqual(caught.exception.code, "conversion")
+        with self.assertRaises(archive_v2.NotriosError):
+            importer.import_publication(PUBLICATION_ARCHIVE, self.destination)
+        self.assertFalse(self.destination.exists())
+        self.assert_clean()
+
+    def test_batch_limits_flush_before_oversized_single_row(self):
+        batches = []
+        with mock.patch.object(notesdb, "add_joplin_notes", side_effect=lambda c, rows: batches.append(list(rows))):
+            batch = importer._RowBatch(None, ConversionLimits(batch_rows=2, batch_bytes=6))
+            for value in ("é", "é", "é", "123456789", "x", "x"):
+                batch.add({"body": value})
+            batch.flush()
+        self.assertEqual([len(rows) for rows in batches], [2, 1, 1, 2])
+        self.assertEqual(batches[2], [{"body": "123456789"}])
+
+    def test_owned_cleanup_does_not_hide_original_or_remove_changed_token(self):
+        def fault(*args):
+            stage = next(self.root.glob(".movenotes-notrios-stage-*"))
+            (stage / importer.OWNER).write_text('{"token":"someone-else"}')
+            raise OSError("original insertion error")
+        with mock.patch.object(importer, "_build_payload", fault):
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                self.run_import()
+        self.assertIn("original insertion error", str(caught.exception))
+        self.assertIn("cleanup", " ".join(caught.exception.__notes__))
+        self.assertEqual(len(list(self.root.glob(".movenotes-notrios-stage-*"))), 1)
+        self.assertFalse(self.destination.exists())
+
+    def test_overlap_and_symlink_paths_refuse_before_staging(self):
+        for destination in (self.fixture.archive / "inside", self.root):
+            with self.assertRaises(archive_v2.NotriosError):
+                importer.import_publication(self.fixture.archive, destination)
+        link = self.root / "linked"
+        link.symlink_to(self.root, target_is_directory=True)
+        with self.assertRaises(archive_v2.NotriosError):
+            importer.import_publication(self.fixture.archive, link / "output")
+        self.assert_clean()
+
+    def test_unsupported_rename_has_no_fallback(self):
+        with mock.patch.object(importer.ctypes, "CDLL", side_effect=AttributeError):
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                self.run_import()
+        self.assertEqual(caught.exception.code, "platform")
+        self.assertFalse(self.destination.exists())
+        self.assert_clean()
+        fake = mock.Mock(return_value=-1)
+        with mock.patch.object(importer.ctypes, "CDLL", return_value=mock.Mock(renameat2=fake)), \
+                mock.patch.object(importer.ctypes, "get_errno", return_value=importer.errno.EOPNOTSUPP):
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                self.run_import()
+        self.assertEqual(caught.exception.code, "platform")
+        self.assertEqual(fake.call_args.args[-1], 1)
+        self.assertEqual(fake.restype, importer.ctypes.c_int)
+        self.assertFalse(self.destination.exists())
+        self.assert_clean()
 
 
 if __name__ == "__main__":
