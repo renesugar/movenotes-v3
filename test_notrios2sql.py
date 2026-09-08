@@ -24,6 +24,8 @@ import unittest
 from unittest import mock
 
 import notrios_archive as archive_v2
+import notrios_mapping as mapping
+import notesdb
 
 
 FIXTURE_ROOT = Path(__file__).resolve().parent / "testdata" / "notrios"
@@ -1694,6 +1696,239 @@ class NotriosObjectSpoolTest(unittest.TestCase):
                     with self.assertRaises(archive_v2.NotriosError) as caught:
                         archive_v2._validate_storage_mime(case["input"])
                     self.assertEqual(caught.exception.code, "format")
+
+
+class NotriosMappingTest(unittest.TestCase):
+    def setUp(self):
+        self.vectors = load_json(FIXTURE_ROOT / "design-v1.json")
+        self.manifest, _, self.records = read_fixture_records(PUBLICATION_ARCHIVE)
+        self.database_id = self.vectors["fixture_database_id"]
+
+    def record(self, kind, index=0, **updates):
+        payload = copy.deepcopy(self.records[kind][index])
+        payload.update(updates)
+        return archive_v2.Record(kind, (payload["id"],), payload)
+
+    def ident(self, kind, *parts):
+        return mapping.mapped_id(self.database_id, kind, tuple(parts))
+
+    def fixture_rows(self):
+        rows = []
+        for p in self.records["notebook"]:
+            record = archive_v2.Record("notebook", (p["id"],), p)
+            parent = self.ident("notebook", p["parent_id"]) if p.get("parent_id") else ""
+            rows.append(mapping.build_notebook_row(record, item_id=self.ident("notebook", p["id"]), parent_id=parent))
+        for p in self.records["document"]:
+            r = next(r for r in self.records["revision"] if r["id"] == p["current_revision_id"])
+            rows.append(mapping.build_note_row(archive_v2.Record("document", (p["id"],), p),
+                        archive_v2.Record("revision", (r["id"],), r), item_id=self.ident("document", p["id"]),
+                        parent_id=self.ident("notebook", p["notebook_id"]),
+                        body=self.vectors["fixture_projected_notes"][p["id"]]["body"]))
+        for p in self.records["tag"]:
+            rows.append(mapping.build_tag_row(archive_v2.Record("tag", (p["id"],), p), item_id=self.ident("tag", p["id"])))
+        for p in self.records["document_tag"]:
+            doc = next(d for d in self.records["document"] if d["id"] == p["document_id"])
+            rows.append(mapping.build_note_tag_row(item_id=self.ident("document_tag", p["document_id"], p["tag_id"]),
+                        note_id=self.ident("document", p["document_id"]), tag_id=self.ident("tag", p["tag_id"]),
+                        timestamp=doc["created_at"]))
+        for p in self.records["resource"]:
+            mime = p["blob"]["media_type"]
+            rows.append(mapping.build_resource_row(archive_v2.Record("resource", (p["id"],), p),
+                        item_id=self.ident("resource", p["id"]), mime=mime, extension=mapping.resource_extension(mime)))
+        return rows
+
+    def test_all_frozen_identity_and_fixture_vectors(self):
+        for vector in self.vectors["id_vectors"]:
+            with self.subTest(vector=vector["mapped_id"]):
+                args = vector["database_id"], vector["kind"], tuple(vector["parts"])
+                key = mapping.source_key(*args)
+                self.assertEqual(key.hex(), vector["source_key_hex"])
+                self.assertEqual(hashlib.sha256(key).hexdigest(), vector["sha256"])
+                self.assertEqual(mapping.mapped_id(*args), vector["mapped_id"])
+        for kind, ids in self.vectors["fixture_ids"].items():
+            for source, expected in ids.items():
+                self.assertEqual(self.ident(kind, source), expected)
+
+    def test_invalid_keys_refuse_before_hashing(self):
+        for args in (("db", "unknown", ("item",)), ("db", "tag", ()), ("db", "tag", ["item"]),
+                     (None, "tag", ("item",)), ("db", "tag", (True,)), ("db", "tag", ("\ud800",)),
+                     ("db", "document_tag", ("a", "b", "c"))):
+            with self.subTest(args=args), mock.patch.object(mapping.hashlib, "sha256") as digest:
+                with self.assertRaises(archive_v2.NotriosError) as caught:
+                    mapping.mapped_id(*args)
+                self.assertEqual(caught.exception.code, "conversion")
+                digest.assert_not_called()
+        for ordinal in ("-1", "+1", "01", "1.0", "1e0", "", str(1 << 63)):
+            with self.subTest(ordinal=ordinal):
+                with self.assertRaises(archive_v2.NotriosError):
+                    mapping.source_key("db", "document_resource", ("doc", "res", "attachment", ordinal))
+        with mock.patch.object(mapping, "_MAX_COMPONENT_BYTES", 32):
+            mapping.source_key("db", "tag", ("é" * 16,))
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                mapping.source_key("db", "tag", ("é" * 17,))
+            self.assertIn("oversized", str(caught.exception))
+
+    def test_identity_ignores_mutable_fields_and_retains_full_collision_key(self):
+        record = self.record("document")
+        original = self.ident("document", record.payload["id"])
+        changed = dict(record.payload, current_revision_id="revision_new", notebook_id="notebook_new",
+                       collection_id="collection_new", updated_at="2030-01-01T00:00:00Z", title="New title",
+                       snapshot_id="snapshot_new", source_replica_id="replica_new", output_path="other.md")
+        self.assertEqual(original, self.ident("document", changed["id"]))
+        self.assertNotEqual(original, mapping.mapped_id("db_other", "document", record.key))
+        with mock.patch.object(mapping.hashlib, "sha256") as digest:
+            digest.return_value.hexdigest.return_value = "0" * 64
+            first = mapping.mapped_id("db", "document", ("first",))
+            second = mapping.mapped_id("db", "document", ("second",))
+        self.assertEqual(first, second)
+        self.assertNotEqual(mapping.source_key("db", "document", ("first",)),
+                            mapping.source_key("db", "document", ("second",)))
+        # 3b must register these full keys and refuse this injected collision.
+
+    def test_timestamp_flooring_and_sqlite_datetime(self):
+        for vector in self.vectors["timestamp_vectors"]:
+            self.assertEqual(mapping.joplin_timestamp(vector["source"]), vector["joplin"])
+        for source, expected in (("0000-02-29T00:00:00Z", "0000-02-29T00:00:00.000Z"),
+                                 ("0001-01-01T00:00:00Z", "0001-01-01T00:00:00.000Z"),
+                                 ("9999-12-31T23:59:59.999999999-00:00", "9999-12-31T23:59:59.999Z"),
+                                 ("2000-02-29T00:00:00.000999999+00:00", "2000-02-29T00:00:00.000Z"),
+                                 ("2026-01-01T00:00:00.1Z", "2026-01-01T00:00:00.100Z")):
+            self.assertEqual(mapping.joplin_timestamp(source), expected)
+        for source in ("1900-02-29T00:00:00Z", "2026-01-01T00:00:00+01:00", "bad", None):
+            with self.subTest(source=source):
+                with self.assertRaises(archive_v2.NotriosError) as caught:
+                    mapping.joplin_timestamp(source)
+                self.assertEqual(caught.exception.code, "conversion")
+        with sqlite3.connect(":memory:", detect_types=sqlite3.PARSE_DECLTYPES) as db:
+            db.row_factory = sqlite3.Row
+            with mock.patch("sys.stdout", new=io.StringIO()):
+                notesdb.create_database(db)
+            rows = self.fixture_rows()
+            rows.append(mapping.build_tag_row(self.record("tag", created_at="0000-02-29T00:00:00Z"), item_id="d" * 32))
+            notesdb.add_joplin_notes(db, rows)
+            saved = db.execute("SELECT * FROM notes ORDER BY note_id").fetchall()
+            self.assertEqual(len(saved), len(rows))
+            for row, source in zip(saved, rows):
+                # This schema uses DATETIME, not the stdlib TIMESTAMP converter.
+                self.assertEqual(row["note_internal_date"], source["note_internal_date"])
+                self.assertEqual(notesdb.joplin_property_pairs(row), mapping.generated_properties(source))
+                self.assertEqual(notesdb.serialize_joplin_item(row), notesdb.serialize_joplin_item(source))
+
+    def test_complete_columns_aliases_property_order_and_privacy(self):
+        common_keys = "created_time updated_time user_created_time user_updated_time encryption_cipher_text encryption_applied".split()
+        specific = {
+            1: "is_conflict latitude longitude altitude author source_url is_todo todo_due todo_completed source source_application application_data order markup_language is_shared".split(),
+            2: ["is_shared", "application_data"],
+            4: "mime filename file_extension size is_shared application_data".split(),
+            5: [], 6: ["note_id", "tag_id"],
+        }
+        generic = {"note_type", "note_uuid", "note_parent_uuid", "note_note_uuid", "note_tag_uuid",
+                   "note_original_format", "note_internal_date", "note_hash", "note_title", "note_data",
+                   "note_data_format", "note_source_properties"}
+        for row in self.fixture_rows():
+            with self.subTest(id=row["note_uuid"]):
+                kind = row["joplin_type_"]
+                props = mapping.generated_properties(row)
+                keys = ["id"] + (["parent_id"] if kind in (1, 2) else []) + common_keys + specific[kind] + ["user_data", "type_"]
+                self.assertEqual([k for k, v in props], keys)
+                self.assertTrue(all(type(k) is str and type(v) is str for k, v in props))
+                self.assertEqual(row["note_source_properties"], json.dumps(props, ensure_ascii=False, separators=(",", ":")))
+                self.assertEqual(set(row), set(notesdb.NOTE_COLUMNS) | set(notesdb.JOPLIN_COLUMNS))
+                self.assertNotIn("note_id", row)
+                for column in set(row) - generic - {"joplin_" + k for k in keys}:
+                    self.assertIsNone(row[column], column)
+                for name in ("id", "parent_id", "note_id", "tag_id"):
+                    alias = {"id": "note_uuid", "parent_id": "note_parent_uuid", "note_id": "note_note_uuid", "tag_id": "note_tag_uuid"}[name]
+                    self.assertEqual(row[alias], row["joplin_" + name])
+                self.assertEqual(row["note_type"], {1: "note", 2: "folder", 4: "resource", 5: "tag", 6: ""}[kind])
+                self.assertEqual(row["note_original_format"], "notrios")
+                self.assertEqual(row["note_data_format"], "text/markdown")
+                self.assertEqual(row["note_hash"], hashlib.sha512(row["note_data"].encode()).hexdigest())
+                for key, value in props:
+                    column = "joplin_" + key
+                    column_type = notesdb.JOPLIN_COLUMNS[column]
+                    expected = int(value) if column_type == "INTEGER" else float(value) if column_type in ("FLOAT", "REAL") else value
+                    self.assertEqual(row[column], expected)
+                    self.assertIs(type(row[column]), type(expected))
+                self.assertEqual(dict(props)["encryption_applied"], "0")
+                self.assertEqual(dict(props)["user_data"], "")
+                if kind == 1:
+                    self.assertEqual(dict(props)["latitude"], "0.00000000")
+                    self.assertEqual(dict(props)["altitude"], "0.0000")
+                    self.assertEqual(row["joplin_source_application"], "movenotes-notrios2sql")
+
+    def test_empty_unicode_titles_and_document_times_are_preserved(self):
+        document = self.record("document", created_at="2026-01-01T01:02:03.123999999Z", updated_at="2026-02-01T02:03:04Z")
+        source = next(r for r in self.records["revision"] if r["id"] == document.payload["current_revision_id"])
+        for title in ("", "Café 東京", "  Original title  "):
+            revision = archive_v2.Record("revision", (source["id"],), dict(source, title=title, created_at="2025-01-01T00:00:00Z", message="PRIVATE-SENTINEL"))
+            row = mapping.build_note_row(document, revision, item_id="a" * 32, parent_id="b" * 32, body="body\r\n  \n")
+            self.assertEqual(row["note_title"], title)
+            self.assertEqual(row["note_data"], "body\r\n  \n")
+            self.assertEqual(row["joplin_created_time"], "2026-01-01T01:02:03.123Z")
+            self.assertEqual(row["joplin_updated_time"], "2026-02-01T02:03:04.000Z")
+            self.assertEqual(row["note_internal_date"], "2026-01-01 01:02:03.123")
+            self.assertNotIn("PRIVATE-SENTINEL", json.dumps(row))
+
+    def test_resource_display_names_storage_extensions_and_metadata(self):
+        for resource_id, extension in self.vectors["resource_extensions"].items():
+            resource = next(r for r in self.records["resource"] if r["id"] == resource_id)
+            self.assertEqual(mapping.resource_extension(resource["blob"]["media_type"]), extension)
+        for name, expected in (("C:\\private\\café.exe", "café.exe"), ("/private/東京.png", "東京.png"),
+                               ("/private/ \x00café\x7f.txt ", "café.txt"), ("..", "attachment.png"),
+                               ("", "attachment.png"), ("a/.", "attachment.png"), ("a/", "attachment.png")):
+            record = self.record("resource", filename=name, metadata_json={"private": "PRIVATE-SENTINEL"},
+                                 unreferenced_reason="PRIVATE-SENTINEL")
+            p = dict(record.payload, blob=dict(record.payload["blob"], media_type="image/png"))
+            row = mapping.build_resource_row(archive_v2.Record("resource", record.key, p), item_id="c" * 32, mime="image/png", extension="png")
+            self.assertEqual((row["note_title"], row["note_data"], row["joplin_filename"]), (expected,) * 3)
+            self.assertEqual(row["joplin_file_extension"], "png")
+            self.assertEqual(row["joplin_size"], p["blob"]["size_bytes"])
+            self.assertNotIn("PRIVATE-SENTINEL", json.dumps(row))
+        self.assertEqual(mapping.resource_extension("text/plain; charset=utf-8"), "txt")
+        self.assertEqual(mapping.resource_extension("application/x-unknown"), "bin")
+
+    def test_container_and_membership_projection_defaults(self):
+        notebook = self.record("notebook", name="  研究  ", created_at="2026-01-01T00:00:00Z",
+                               updated_at="2026-02-01T00:00:00Z", position=123, builtin=True, icon_emoji="PRIVATE-SENTINEL")
+        folder = mapping.build_notebook_row(notebook, item_id="a" * 32, parent_id="")
+        self.assertEqual(folder["note_title"], "  研究  ")
+        self.assertEqual(folder["note_data"], "  研究  ")
+        self.assertEqual((folder["note_parent_uuid"], folder["joplin_parent_id"]), ("", ""))
+        self.assertEqual(folder["joplin_created_time"], "2026-01-01T00:00:00.000Z")
+        self.assertEqual(folder["joplin_updated_time"], "2026-02-01T00:00:00.000Z")
+        self.assertIsNone(folder["joplin_order"])
+        self.assertIsNone(folder["joplin_icon"])
+        self.assertNotIn("PRIVATE-SENTINEL", json.dumps(folder))
+        tag = mapping.build_tag_row(self.record("tag", name="café", created_at="2026-03-01T00:00:00Z"), item_id="b" * 32)
+        self.assertEqual((tag["note_title"], tag["note_data"]), ("café", "café"))
+        self.assertIsNone(tag["note_parent_uuid"])
+        self.assertEqual(tag["joplin_updated_time"], "2026-03-01T00:00:00.000Z")
+        membership = mapping.build_note_tag_row(item_id="c" * 32, note_id="d" * 32, tag_id="b" * 32,
+                                                timestamp="2026-04-01T00:00:00Z")
+        self.assertEqual((membership["note_title"], membership["note_data"], membership["note_type"]), ("", "", ""))
+        self.assertEqual(membership["note_note_uuid"], "d" * 32)
+        self.assertEqual(membership["note_tag_uuid"], "b" * 32)
+        self.assertEqual(membership["joplin_updated_time"], "2026-04-01T00:00:00.000Z")
+        expected_extensions = "image/png:png image/jpeg:jpg image/gif:gif image/webp:webp image/svg+xml:svg image/avif:avif image/bmp:bmp image/tiff:tif image/x-icon:ico text/plain:txt text/markdown:md text/csv:csv application/pdf:pdf application/json:json application/zip:zip audio/mpeg:mp3 audio/ogg:ogg audio/wav:wav video/mp4:mp4 video/webm:webm"
+        for entry in expected_extensions.split():
+            mime, expected = entry.split(":")
+            self.assertEqual(mapping.resource_extension(mime), expected)
+
+    def test_wrong_builder_inputs_refuse(self):
+        for ident in (None, "bad", "A" * 32):
+            with self.assertRaises(archive_v2.NotriosError):
+                mapping.build_tag_row(self.record("tag"), item_id=ident)
+        with self.assertRaises(archive_v2.NotriosError):
+            mapping.build_notebook_row(self.record("notebook"), item_id="a" * 32, parent_id=None)
+        with self.assertRaises(archive_v2.NotriosError):
+            mapping.build_tag_row(self.record("notebook"), item_id="a" * 32)
+        with self.assertRaises(archive_v2.NotriosError):
+            mapping.build_resource_row(self.record("resource"), item_id="a" * 32, mime="image/png", extension="exe")
+        doc = self.record("document")
+        rev = self.record("revision", document_id="other_document")
+        with self.assertRaises(archive_v2.NotriosError):
+            mapping.build_note_row(doc, rev, item_id="a" * 32, parent_id="b" * 32, body="")
 
 
 if __name__ == "__main__":

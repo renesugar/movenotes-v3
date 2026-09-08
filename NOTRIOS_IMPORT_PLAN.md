@@ -1,9 +1,10 @@
 # Plan: Import a Notrios publication handoff
 
-Status: slices **1a–1d and 2a–2e complete** on 2026-09-07. Manifest admission,
+Status: slices **1a–1d, 2a–2e and 3a complete** on 2026-09-07. Manifest admission,
 object/index checks, typed records, graph/publication verification and the
-context-owned verifier API are implemented and audited. Conversion remains pending.
-Next item: **3a**, pending the user's instruction to proceed.
+context-owned verifier API are implemented and audited. Pure ID and row/property
+builders are implemented; database conversion and link translation remain pending.
+Next item: **3b**, pending the user's instruction to proceed.
 
 The frozen admission checklist is
 [NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
@@ -183,7 +184,7 @@ integrity verification.
 
 ## Execution and agent handoff rules
 
-Slices 1a–1d and 2a–2e are complete; all other slices below are pending. Worker names refer to
+Slices 1a–1d, 2a–2e and 3a are complete; all other slices below are pending. Worker names refer to
 the roles available in this session:
 
 | Owner | Agent configuration | Assignment rule |
@@ -250,7 +251,7 @@ even if some files resemble loose objects.
 
 | Slice / owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| 3a / Luna | Pure deterministic ID and complete row/property builders in the module assigned by 1c. | 2e | Frozen vectors, generic/Joplin aliases, timestamps, Unicode/empty titles; IDs stable across snapshots. |
+| 3a / Main — complete | Implemented pure deterministic keys/IDs, all five complete row builders, ordered generated properties and the frozen resource suffix map in `notrios_mapping.py`. Executed locally under the session delegation constraint. | 2e | Frozen key/ID vectors, aliases/NULL defaults, numeric property types, empty/Unicode titles, timestamp flooring and notesdb round trips pass. Equal injected IDs retain distinct full keys for 3b collision refusal. |
 | 3b / Main | Staged database lifecycle, byte-bounded batches, collision checks and atomic destination publication. | 3a | Injected verification/insertion/finalization faults leave no completed partial output or overwritten destination. |
 | 3c / Terra | Notebook/note integration and text-only vault subprocess tests. | 3b | Counts/hierarchy/title/body/date assertions; invalid parent/revision/body refuses. |
 | 3d / Terra | Implement included-note link translation and minimal exporter adaptation using final paths, following Main's frozen 1c design. | 3c | Links resolve with duplicate titles/renaming/fragments; withheld/external text correct; existing exporter tests pass; Main reviews cross-format behavior. |
@@ -369,3 +370,4 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-07 | 2c complete | Added six test methods covering exact 4096-byte index and 1048576-byte record lines with LF/CRLF, UTF-8 MIME byte limits, optional capability bounds, hostile integer/count shapes, rehashed malformed record JSON and cross-chunk index shadowing. Each refusal asserts its code and reason; existing legacy zero blob count coverage passes. Corrected test expectations for name grammar and nesting errors, and balanced shadow-fixture totals so it reaches the intended gate. No implementation changes needed. All 40 focused tests passed within the full 143-test regression run (57.046s, existing local HTTP sockets permitted). Diff checked; original fixture unchanged. Next: ask to proceed to 2d. |
 | 2026-09-07 | 2d complete | Implemented immutable typed payloads and keys, indexed SQLite identity/reference/blob joins, bounded notebook parent walks, current-revision ownership/history checks, resource reachability and publication metadata/link gates. Added `verify_archive`, ordered record/relation lookups and private-copy blob reads with size/hash checks at authenticated EOF; partial consumption refuses. All 56 focused tests passed within the 159-test full regression run (69.902s, existing local HTTP sockets permitted). Added 56 independent Go 1.27.0 semantic MIME vectors and their reproducer; relevant producer verifier/format sources still match the pinned commit. Rehashed scalar/schema/graph/publication/MIME mutations, immutable API lifetime, empty blobs and exact text limits pass. Original fixture unchanged; no converter or CLI exposed. Diff/documentation checked. Next: ask to proceed to 2e, the differential and point-of-use safety audit. |
 | 2026-09-07 | 2e complete | Audited the exact pinned fixture CLI against 47 rehashed cases: six shared acceptances, 24 shared refusals and 17 specified consumer refusals all matched. Fixed two reproduced blob-lifetime defects: caught read failures could reuse verified EOF, and outstanding contexts retained file/directory descriptors after archive exit. Added source-relocation/private-copy corruption, repeated-read, injected I/O, OS-handle and 17 MiB streaming-body regressions. Final full suite: 166 tests passed (63 focused, 76.097s; existing local HTTP sockets permitted). Separate 504-tag/1 MiB and 8,004-tag/32 MiB memory samples peaked at 1,455,654 and 2,136,831 traced Python bytes; report distinguishes native/process RSS. Evidence source hashes, documentation links and diff checked; original fixture unchanged. The pinned archive-v2 source package remains unchanged in the neighboring checkout. No conversion/CLI exposed. Next: ask to proceed to 3a. |
+| 2026-09-07 | 3a complete | Added pure framed source keys and SHA-256-derived IDs, millisecond UTC formatting, all five complete row builders, exact ordered generated properties and the fixed resource extension/display-name mapping. Nine mapping tests cover frozen vectors, key rejection before hashing, injected equal IDs with distinct full keys, all columns/aliases/numeric types, privacy omissions, empty/Unicode titles, document-owned timestamps, year 0000 and SQLite/property round trips. Corrected two test assumptions: extension vectors use resource IDs, and the current DATETIME column is returned as text rather than a Python datetime object. All 175 regression tests passed (72 focused, 76.209s; existing local HTTP sockets permitted). No archive/fixture changes, database lifecycle or CLI added. Main executed locally under the session delegation constraint. Next: ask to proceed to 3b. |
