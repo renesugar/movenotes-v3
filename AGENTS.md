@@ -93,6 +93,45 @@ Read these files first:
   posting index under `static/movenotes/`.
 - Keep Python scripts standard-library-only. The generated optional site server is a separate Go module using Bluge.
 
+## Keeping the search index current
+
+The workspace search index lives in `.zvec-grep/`. It is generated local state,
+not repository content. Keep `.zvec-grep/` in `.gitignore`, never force-add it,
+and check `git ls-files .zvec-grep` before committing; it must return no paths.
+
+Index discovery respects ignore rules by default, along with the stored file
+selection and supported-file limits. Keep private notes, exports, databases and
+generated output ignored where appropriate; merely leaving them uncommitted
+does not exclude them from indexing. Preserve the existing selection and
+embedding settings during routine refreshes.
+
+After source or documentation changes, a branch switch, rebase, or substantial
+generated-file changes, refresh the existing index from the repository root:
+
+```bash
+zg index
+zg status --check-ready
+```
+
+`zg index` updates an existing index incrementally using its stored settings.
+Routine incremental refreshes are part of keeping this workspace current.
+`zg status` reports coverage, pending work and failures; `--check-ready` also
+returns a nonzero exit status when the index is not ready. Do not assume a
+background daemon has caught up after an inactive session.
+
+For an individual query that must await refresh, use
+`zg query "your question" --refresh wait`. For ordinary MCP searches, inspect
+the returned `freshness` and `background_refresh` fields instead of adding a
+status preflight to every search. Use sufficient current-index results while
+a background refresh runs, as directed by the retrieval rules.
+
+Creating a missing index, rebuilding with `--rebuild`, dropping with `--drop`,
+or changing the embedding model or stored selection requires explicit user
+authorization. Do not use those operations to handle an ordinary stale index.
+See the [zg CLI guide](https://github.com/zvec-ai/zvec-grep/blob/main/docs/02-cli.md)
+and [index maintenance guide](https://github.com/zvec-ai/zvec-grep/blob/main/docs/04-pipeline.md);
+check `zg help index` for the installed version's options.
+
 ## Tests
 
 Run:
