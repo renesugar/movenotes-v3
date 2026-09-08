@@ -138,6 +138,33 @@ and `read_fixture_records` for reading the known fixture's records. Future
 mutation tests must change the copy, never the committed archive. These helpers
 are deliberately fixture-specific, not an alternate archive verifier.
 
+## Text-only integration checks — slice 3c
+
+Run the staged notebook/note and vault-export integration cases:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.NotriosNoteIntegrationTest
+```
+
+`make_text_publication` derives a relation-free archive in an owned temporary
+copy, replaces body objects, and recomputes object/index/manifest declarations.
+It never edits the committed publication. The tests compare imported document
+IDs to the frozen vectors and check notebook hierarchy, current revision titles,
+document-owned dates, body bytes, insertion order and generic aliases. The real
+`sql2obsidian.py` subprocess covers duplicate/empty titles, Unicode paths, selected
+notebooks, notebook-only exports, YAML dates and final preservation-bundle hashes.
+Database checks retain CRLF, trailing whitespace and missing final LF; vault
+checks account for the existing exporter's final-LF convention.
+
+Rehashed invalid graphs, unsupported MIME, malformed UTF-8, forbidden controls
+and an invalid last note must refuse before payload insertion. Body size ceilings
+must refuse before opening a body stream. Semantic MIME cases retain canonical
+blob references while varying the revision's MIME spelling.
+
+These are development tests of the library entry point, not a public importer
+CLI. Step 3d owns matching-title heading handling, generated RAW title preludes,
+RAW round trips and link adaptation; resource/tag integration follows later.
+
 ## Manifest admission checks — slice 2a
 
 Run all current Notrios tests, including the nine fixture baselines:

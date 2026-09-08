@@ -19,6 +19,8 @@ import os
 from pathlib import Path
 import shutil
 import sqlite3
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -1933,6 +1935,33 @@ class NotriosMappingTest(unittest.TestCase):
             mapping.build_note_row(doc, rev, item_id="a" * 32, parent_id="b" * 32, body="")
 
 
+def make_text_publication(fixture, bodies=None):
+    """Replace only an owned synthetic archive with a relation-free text case.
+
+    bodies is one byte string for all notes, or a document-ID-to-bytes mapping.
+    The original committed publication and its frozen vectors are never edited.
+    """
+    f = fixture
+    records = [r for r in f.envelopes() if r["type"] in ("collection", "notebook", "document", "revision")]
+    for entry in f.entries:
+        if entry["kind"] == "blob":
+            (f.archive / entry["location"]["path"]).unlink()
+    f.entries = [e for e in f.entries if e["kind"] == "records"]
+    for number, record in enumerate(r for r in records if r["type"] == "revision"):
+        raw = bodies[record["payload"]["document_id"]] if isinstance(bodies, dict) else bodies
+        if raw is None:
+            raw = f"# Retained heading {number}\n\nPlain Unicode café 日本語.\n".encode()
+        digest, relative = f.put_object(raw)
+        record["payload"]["body"] = dict(sha256=digest, size_bytes=len(raw), media_type="text/markdown")
+        record["payload"]["body_mime_type"] = "text/markdown"
+        if not any(e["sha256"] == digest for e in f.entries):
+            f.entries.append(dict(sha256=digest, kind="blob", size_bytes=len(raw), media_type="text/markdown",
+                                  location=dict(layout="fanout", path=relative)))
+    f.manifest["totals"].update(objects=len(f.entries), blobs=len(f.entries)-1,
+                                  bytes=sum(e["size_bytes"] for e in f.entries))
+    f.write_records(records)
+
+
 class NotriosPublicationLifecycleTest(unittest.TestCase):
     def setUp(self):
         self.fixture = NotriosObjectSpoolTest()
@@ -1943,22 +1972,7 @@ class NotriosPublicationLifecycleTest(unittest.TestCase):
         self.make_text_archive()
 
     def make_text_archive(self, body=None):
-        f = self.fixture
-        records = [r for r in f.envelopes() if r["type"] in ("collection", "notebook", "document", "revision")]
-        for entry in f.entries:
-            if entry["kind"] == "blob":
-                (f.archive / entry["location"]["path"]).unlink()
-        f.entries = [e for e in f.entries if e["kind"] == "records"]
-        for number, record in enumerate(r for r in records if r["type"] == "revision"):
-            raw = body if body is not None else f"# Retained heading {number}\n\nPlain Unicode café 日本語.\n".encode()
-            digest, relative = f.put_object(raw)
-            record["payload"]["body"] = dict(sha256=digest, size_bytes=len(raw), media_type="text/markdown")
-            if not any(e["sha256"] == digest for e in f.entries):
-                f.entries.append(dict(sha256=digest, kind="blob", size_bytes=len(raw), media_type="text/markdown",
-                                      location=dict(layout="fanout", path=relative)))
-        f.manifest["totals"].update(objects=len(f.entries), blobs=len(f.entries)-1,
-                                      bytes=sum(e["size_bytes"] for e in f.entries))
-        f.write_records(records)
+        make_text_publication(self.fixture, body)
 
     def run_import(self, **kwargs):
         return importer.import_publication(self.fixture.archive, self.destination, **kwargs)
@@ -2212,6 +2226,253 @@ class NotriosPublicationLifecycleTest(unittest.TestCase):
         self.assertEqual(fake.restype, importer.ctypes.c_int)
         self.assertFalse(self.destination.exists())
         self.assert_clean()
+
+
+class NotriosNoteIntegrationTest(unittest.TestCase):
+    """Text-only archive → staged notesdb → real vault exporter integration.
+
+    Link translation, matching-title heading handling and generated RAW title
+    preludes are the explicitly separate 3d adapter slice.
+    """
+    def setUp(self):
+        self.fixture = NotriosObjectSpoolTest()
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.root = self.fixture.root
+        self.destination = self.root / "publication"
+        self.ids = load_json(FIXTURE_ROOT / "design-v1.json")["fixture_ids"]
+        self.bodies = {
+            "doc_child": "First paragraph 東京.\r\n\r\nIndented\ttext.  \r\n".encode(),
+            "doc_duplicate": "# An independent heading\n\nDecomposed cafe\u0301.  \n".encode(),
+            "doc_public": b"A body without a final newline.  ",
+        }
+        make_text_publication(self.fixture, self.bodies)
+        records = self.fixture.envelopes()
+        for record in records:
+            p = record["payload"]
+            if record["type"] in ("notebook", "document"):
+                p.update(created_at="2019-01-02T03:04:05.123999999Z", updated_at="2020-02-03T04:05:06.987654321+00:00")
+            elif record["type"] == "revision":
+                p["created_at"] = "2030-06-07T08:09:10Z"
+        self.fixture.write_records(records)
+
+    def import_notes(self, **kwargs):
+        return importer.import_publication(self.fixture.archive, self.destination, **kwargs)
+
+    def rows(self):
+        connection = sqlite3.connect((self.destination / "notesdb.sqlite").as_uri() + "?mode=ro&immutable=1", uri=True)
+        connection.row_factory = sqlite3.Row
+        try:
+            return [dict(row) for row in connection.execute("SELECT * FROM notes ORDER BY note_id")]
+        finally:
+            connection.close()
+
+    def export(self, name="vault", *args):
+        vault = self.root / name
+        vault.mkdir()
+        result = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "sql2obsidian.py"),
+                                 "--input", str(self.destination), "--output", str(vault),
+                                 "--no-simplify-urls", "--progress-every", "0", *args],
+                                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return vault
+
+    def vault_notes(self, vault):
+        # The existing standard-library parser reads the generated YAML scalars;
+        # bytes are decoded explicitly to retain CRLF in the body under test.
+        from obsidian2sql import split_frontmatter, parse_frontmatter
+        found = {}
+        for path in vault.rglob("*.md"):
+            if ".movenotes" in path.relative_to(vault).parts:
+                continue
+            frontmatter, body = split_frontmatter(path.read_bytes().decode("utf-8"))
+            metadata = parse_frontmatter(frontmatter)
+            found[metadata["joplin-id"]] = (path.relative_to(vault).as_posix(), metadata, body)
+        return found
+
+    def test_database_counts_hierarchy_current_title_body_and_document_dates(self):
+        result = self.import_notes()
+        self.assertEqual((result.row_count, result.resource_count), (5, 0))
+        rows = self.rows()
+        self.assertEqual([r["joplin_type_"] for r in rows], [2, 2, 1, 1, 1])
+        _, _, source = read_fixture_records(self.fixture.archive)
+        by_id = {r["joplin_id"]: r for r in rows}
+        database_id = self.fixture.manifest["snapshot"]["database_id"]
+        for notebook in source["notebook"]:
+            ident = mapping.mapped_id(database_id, "notebook", (notebook["id"],))
+            parent = mapping.mapped_id(database_id, "notebook", (notebook["parent_id"],)) if notebook.get("parent_id") else ""
+            row = by_id[ident]
+            self.assertEqual((row["note_title"], row["note_data"]), (notebook["name"], notebook["name"]))
+            self.assertEqual((row["joplin_parent_id"], row["note_parent_uuid"]), (parent, parent))
+        for document in source["document"]:
+            ident = self.ids["document"][document["id"]]
+            row = by_id[ident]
+            revision = next(r for r in source["revision"] if r["id"] == document["current_revision_id"])
+            expected_body = self.bodies[document["id"]]
+            self.assertEqual(row["note_title"], revision["title"])
+            self.assertEqual(row["note_data"].encode("utf-8"), expected_body)
+            self.assertEqual(row["note_hash"], hashlib.sha512(expected_body).hexdigest())
+            parent = mapping.mapped_id(database_id, "notebook", (document["notebook_id"],))
+            self.assertEqual((row["joplin_parent_id"], row["note_parent_uuid"]), (parent, parent))
+        for row in rows:
+            self.assertEqual(row["note_uuid"], row["joplin_id"])
+            self.assertEqual(row["note_original_format"], "notrios")
+            self.assertEqual(row["note_internal_date"], "2019-01-02 03:04:05.123")
+            for field in ("joplin_created_time", "joplin_user_created_time"):
+                self.assertEqual(row[field], "2019-01-02T03:04:05.123Z")
+            for field in ("joplin_updated_time", "joplin_user_updated_time"):
+                self.assertEqual(row[field], "2020-02-03T04:05:06.987Z")
+            for field in ("note_source_raw", "note_source_body", "note_source_filename", "note_source_sha256", "note_obsidian_raw"):
+                self.assertIsNone(row[field])
+        self.assertEqual([r["joplin_id"] for r in rows if r["joplin_type_"] == 1],
+                         [self.ids["document"][key] for key in ("doc_child", "doc_public", "doc_duplicate")])
+
+    def test_vault_subprocess_duplicate_titles_hierarchy_body_dates_and_bundle_hashes(self):
+        self.import_notes()
+        vault = self.export()
+        exported = self.vault_notes(vault)
+        self.assertEqual(set(exported), set(self.ids["document"].values()))
+        expected_paths = {"doc_child": "Public/研究/Child 東京.md", "doc_public": "Public/Café & field notes.md",
+                          "doc_duplicate": "Public/Café & field notes 2.md"}
+        for key, ident in self.ids["document"].items():
+            path, metadata, body = exported[ident]
+            self.assertEqual(path, expected_paths[key])
+            self.assertEqual(metadata["movenotes-original-format"], "notrios")
+            self.assertEqual(metadata["created"], "2019-01-02T03:04:05.123Z")
+            self.assertEqual(metadata["updated"], "2020-02-03T04:05:06.987Z")
+            self.assertEqual(metadata["title"], "Child 東京" if key == "doc_child" else "Café & field notes")
+            expected = self.bodies[key]
+            if expected and not expected.endswith(b"\n"):
+                expected += b"\n"  # Existing exporter final-LF convention.
+            self.assertEqual(body.encode("utf-8"), expected)
+        manifest = load_json(vault / ".movenotes" / "manifest.json")
+        self.assertEqual((manifest["scope"], len(manifest["items"]), manifest["resource_files"]), ("full", 5, 0))
+        for item in manifest["items"]:
+            raw = (vault / ".movenotes" / item["raw_path"]).read_bytes()
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), item["sha256"])
+            self.assertFalse(item["exact_source_bytes"])
+            if item["type"] == 1:
+                final = (vault / item["obsidian_path"]).read_bytes()
+                self.assertEqual(hashlib.sha256(final).hexdigest(), item["obsidian_sha256"])
+        self.assertFalse((vault / importer.COMPLETE).exists())
+        self.assertFalse((vault / importer.INVENTORY).exists())
+
+    def test_selected_notebook_subprocess_omits_other_notes(self):
+        self.import_notes()
+        vault = self.export("selected", "--notebooks", "研究")
+        notes = self.vault_notes(vault)
+        child_id = self.ids["document"]["doc_child"]
+        self.assertEqual(set(notes), {child_id})
+        self.assertEqual(notes[child_id][0], "研究/Child 東京.md")
+        manifest = load_json(vault / ".movenotes" / "manifest.json")
+        self.assertEqual(manifest["scope"], "selected-notebooks")
+        self.assertEqual({item["id"] for item in manifest["items"] if item["type"] == 1}, {child_id})
+        self.assertFalse(any("Café" in p.name for p in vault.rglob("*.md")))
+
+    def test_empty_title_and_empty_body_remain_distinct_from_filename_fallback(self):
+        self.bodies["doc_child"] = b""
+        make_text_publication(self.fixture, self.bodies)
+        records = self.fixture.envelopes()
+        next(r["payload"] for r in records if r["type"] == "revision" and r["payload"]["document_id"] == "doc_child")["title"] = ""
+        self.fixture.write_records(records)
+        self.import_notes()
+        row = next(r for r in self.rows() if r["joplin_id"] == self.ids["document"]["doc_child"])
+        self.assertEqual((row["note_title"], row["note_data"]), ("", ""))
+        notes = self.vault_notes(self.export())
+        path, metadata, body = notes[row["joplin_id"]]
+        self.assertEqual(path, "Public/研究/Untitled.md")
+        self.assertEqual(body, "")
+        self.assertNotIn("title", metadata)
+
+    def test_invalid_graph_refuses_before_any_payload_or_existing_output_check(self):
+        for case in ("missing_parent", "cycle", "missing_notebook", "missing_revision", "wrong_revision_owner"):
+            self.fixture.fresh_archive()
+            make_text_publication(self.fixture)
+            records = self.fixture.envelopes()
+            notebooks = [r["payload"] for r in records if r["type"] == "notebook"]
+            documents = [r["payload"] for r in records if r["type"] == "document"]
+            if case == "missing_parent":
+                notebooks[0]["parent_id"] = "missing_notebook"
+            elif case == "cycle":
+                notebooks[0]["parent_id"] = notebooks[1]["id"]
+                notebooks[1]["parent_id"] = notebooks[0]["id"]
+            elif case == "missing_notebook":
+                documents[0]["notebook_id"] = "missing_notebook"
+            elif case == "missing_revision":
+                documents[0]["current_revision_id"] = "missing_revision"
+            else:
+                documents[0]["current_revision_id"] = documents[1]["current_revision_id"]
+            self.fixture.write_records(records)
+            with self.subTest(case=case), mock.patch.object(importer, "_build_payload") as build, \
+                    mock.patch.object(importer, "_check_existing") as existing:
+                with self.assertRaises(archive_v2.NotriosError) as caught:
+                    self.import_notes()
+                self.assertEqual(caught.exception.code, "graph")
+                build.assert_not_called()
+                existing.assert_not_called()
+            self.assertFalse(self.destination.exists())
+            self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
+
+    def set_body_mime(self, mime):
+        records = self.fixture.envelopes()
+        for record in records:
+            if record["type"] == "revision":
+                record["payload"]["body"]["media_type"] = archive_v2._normalize_mime(mime)
+                record["payload"]["body_mime_type"] = mime
+        self.fixture.write_records(records)
+
+    def test_semantic_utf8_markdown_mime_is_admitted(self):
+        for index, mime in enumerate(("text/markdown", 'Text/Markdown; Charset="UTF-8"',
+                                     "text/markdown; charset*=us-ascii''utf-8")):
+            self.destination = self.root / f"mime-{index}"
+            self.set_body_mime(mime)
+            with self.subTest(mime=mime):
+                self.import_notes()
+                for row in self.rows():
+                    if row["joplin_type_"] == 1:
+                        self.assertIn(row["note_data"].encode(), self.bodies.values())
+
+    def test_unsupported_mime_and_invalid_utf8_controls_refuse_before_insertion(self):
+        for mime in ("text/plain", "text/html", "application/octet-stream", "text/markdown; charset=iso-8859-1",
+                     "text/markdown; format=flowed"):
+            self.set_body_mime(mime)
+            with self.subTest(mime=mime), mock.patch.object(importer, "_build_payload") as build:
+                with self.assertRaises(archive_v2.NotriosError) as caught:
+                    self.import_notes()
+                self.assertEqual(caught.exception.code, "conversion")
+                build.assert_not_called()
+        for body in (b"\xff", b"\xef\xbb\xbftext", b"text\x00", b"text\x0b", b"text\x1f",
+                     {**self.bodies, "doc_duplicate": b"late invalid body\x00"}):
+            make_text_publication(self.fixture, body)
+            with self.subTest(body=body), mock.patch.object(importer, "_build_payload") as build:
+                with self.assertRaises(archive_v2.NotriosError) as caught:
+                    self.import_notes()
+                self.assertEqual(caught.exception.code, "conversion")
+                build.assert_not_called()
+        self.assertFalse(self.destination.exists())
+        self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
+
+    def test_body_size_bound_is_checked_before_blob_allocation(self):
+        for field in ("max_body_bytes", "max_projected_body_bytes"):
+            with self.subTest(field=field), mock.patch.object(archive_v2.VerifiedArchive, "open_blob") as opening:
+                with self.assertRaises(archive_v2.NotriosError) as caught:
+                    self.import_notes(conversion_limits=ConversionLimits(**{field: 1}))
+                self.assertEqual(caught.exception.code, "limit")
+                opening.assert_not_called()
+        self.assertFalse(self.destination.exists())
+
+    def test_notebook_only_publication_exports_without_synthetic_notes(self):
+        records = [r for r in self.fixture.envelopes() if r["type"] in ("collection", "notebook")]
+        self.fixture.write_records(records)
+        make_text_publication(self.fixture)
+        result = self.import_notes()
+        self.assertEqual((result.row_count, result.resource_count), (2, 0))
+        self.assertEqual([r["joplin_type_"] for r in self.rows()], [2, 2])
+        vault = self.export()
+        self.assertEqual(self.vault_notes(vault), {})
+        manifest = load_json(vault / ".movenotes" / "manifest.json")
+        self.assertEqual([item["type"] for item in manifest["items"]], [2, 2])
 
 
 if __name__ == "__main__":
