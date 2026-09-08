@@ -2949,5 +2949,147 @@ class NotriosTagMappingIntegrationTest(unittest.TestCase):
             self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
 
 
+class NotriosTagRoundTripTest(unittest.TestCase):
+    import_notes = NotriosNoteIntegrationTest.import_notes
+    rows = NotriosNoteIntegrationTest.rows
+    export = NotriosNoteIntegrationTest.export
+    vault_notes = NotriosNoteIntegrationTest.vault_notes
+    loaded_tags = NotriosTagMappingIntegrationTest.loaded_tags
+
+    def setUp(self):
+        NotriosTagMappingIntegrationTest.setUp(self)
+        self.names = ["café", "cafe\u0301", "東京 研究", "research notes",
+                      'quoted "double" and \'single\'', r"path\branch: [draft] #2026",
+                      "true", "same title", "same title", "inside\ttab"]
+        self.memberships = {"doc_public": list(range(len(self.names))), "doc_child": [2, 3, 7], "doc_duplicate": [8]}
+        records = self.fixture.envelopes()
+        prototype = next(r["payload"] for r in records if r["type"] == "tag")
+        records = [r for r in records if r["type"] not in ("tag", "document_tag")]
+        records.extend({"type": "tag", "payload": {**prototype, "id": f"tag_case_{index:02}", "name": name}}
+                       for index, name in enumerate(self.names))
+        records.extend({"type": "document_tag", "payload": {"document_id": document, "tag_id": f"tag_case_{index:02}"}}
+                       for document, indexes in self.memberships.items() for index in indexes)
+        self.fixture.write_records(records)
+        self.expected = {self.ids["document"][document]: sorted(self.names[i] for i in indexes)
+                         for document, indexes in self.memberships.items()}
+
+    def reimport_vault(self, vault, name):
+        destination = self.root / name
+        destination.mkdir()
+        result = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "obsidian2sql.py"),
+                                 "--input", str(vault), "--output", str(destination), "--progress-every", "0"],
+                                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.destination = destination
+
+    def assert_vault_tag_text(self, vault):
+        from obsidian2sql import split_frontmatter
+        notes = self.vault_notes(vault)
+        self.assertEqual(set(notes), set(self.expected))
+        for item_id, (path, metadata, _) in notes.items():
+            self.assertEqual(metadata["tags"], self.expected[item_id])
+            frontmatter, _ = split_frontmatter((vault / path).read_bytes().decode("utf-8"))
+            # Exported JSON string scalars are a YAML-compatible spelling. Read
+            # these independently of the importer's frontmatter parser too.
+            scalars = [line[4:] for line in frontmatter.split("\n") if line.startswith("  - ")]
+            self.assertTrue(all(value.startswith('"') for value in scalars))
+            self.assertEqual([json.loads(value) for value in scalars], self.expected[item_id])
+
+    def tag_identity_rows(self):
+        return {row["joplin_id"]: (row["joplin_type_"], row["note_title"] if row["joplin_type_"] == 5 else "",
+                                  row["joplin_note_id"], row["joplin_tag_id"])
+                for row in self.rows() if row["joplin_type_"] in (5, 6)}
+
+    def test_bundle_round_trip_retains_names_identities_and_membership_multiplicity(self):
+        self.assertEqual(self.import_notes().row_count, 29)
+        self.assertEqual(self.loaded_tags(), self.expected)
+        identities = self.tag_identity_rows()
+        duplicate_ids = {item_id for item_id, row in identities.items() if row[:2] == (5, "same title")}
+        self.assertEqual(len(duplicate_ids), 2)
+        public_id = self.ids["document"]["doc_public"]
+        self.assertEqual({row[3] for row in identities.values() if row[0] == 6 and row[2] == public_id} & duplicate_ids,
+                         duplicate_ids)
+        self.assertEqual(self.loaded_tags()[public_id].count("same title"), 2)
+        vault = self.export("tag-vault")
+        self.assert_vault_tag_text(vault)
+        self.reimport_vault(vault, "restored-tags")
+        self.assertEqual(self.loaded_tags(), self.expected)
+        self.assertEqual(self.tag_identity_rows(), identities)
+        self.assert_vault_tag_text(self.export("restored-tag-vault"))
+
+    def test_native_yaml_import_retains_text_and_exact_vault_bytes(self):
+        self.import_notes()
+        vault = self.export("native-tags", "--no-preserve-joplin")
+        self.assert_vault_tag_text(vault)
+        before = {path: (vault / path).read_bytes() for path, _, _ in self.vault_notes(vault).values()}
+        self.reimport_vault(vault, "native-restored")
+        # Native Obsidian identities are keyed by tag name. The default bundle
+        # test above, not this name-based path, proves distinct source identities.
+        self.assertEqual({key: set(values) for key, values in self.loaded_tags().items()},
+                         {key: set(values) for key, values in self.expected.items()})
+        restored = self.export("native-reexport", "--no-preserve-joplin")
+        after = {path: (restored / path).read_bytes() for path, _, _ in self.vault_notes(restored).values()}
+        self.assertEqual(after, before)
+        self.assert_vault_tag_text(restored)
+
+    def test_selected_notebook_keeps_only_its_tag_memberships_through_bundle(self):
+        self.import_notes()
+        vault = self.export("selected-tags", "--notebooks", "研究")
+        child_id = self.ids["document"]["doc_child"]
+        expected = {child_id: self.expected[child_id]}
+        self.assertEqual({key: metadata["tags"] for key, (_, metadata, _) in self.vault_notes(vault).items()}, expected)
+        self.reimport_vault(vault, "selected-restored")
+        self.assertEqual(self.loaded_tags(), expected)
+        rows = self.rows()
+        self.assertEqual(sum(row["joplin_type_"] == 6 for row in rows), 3)
+        self.assertEqual(sorted(row["note_title"] for row in rows if row["joplin_type_"] == 5), expected[child_id])
+
+    def test_rehashed_malformed_and_duplicate_memberships_refuse_in_verification(self):
+        baseline = self.fixture.envelopes()
+        cases = {"duplicate_pair": "integrity", "duplicate_tag_id": "integrity",
+                 "missing_document": "json", "missing_tag": "json", "unknown_field": "json",
+                 "null_document": "json", "numeric_tag": "json", "invalid_document": "format",
+                 "invalid_tag": "format", "unknown_document": "graph", "unknown_tag": "graph"}
+        for case, code in cases.items():
+            records = copy.deepcopy(baseline)
+            relation = next(r for r in records if r["type"] == "document_tag")
+            p = relation["payload"]
+            if case == "duplicate_pair":
+                records.append(copy.deepcopy(relation))
+            elif case == "duplicate_tag_id":
+                tag = copy.deepcopy(next(r for r in records if r["type"] == "tag"))
+                tag["payload"]["name"] = "Different bytes under the same identity"
+                records.append(tag)
+            elif case == "missing_document":
+                del p["document_id"]
+            elif case == "missing_tag":
+                del p["tag_id"]
+            elif case == "unknown_field":
+                p["id"] = "unexpected_relation_id"
+            elif case == "null_document":
+                p["document_id"] = None
+            elif case == "numeric_tag":
+                p["tag_id"] = 42
+            elif case == "invalid_document":
+                p["document_id"] = "bad/document"
+            elif case == "invalid_tag":
+                p["tag_id"] = ""
+            elif case == "unknown_document":
+                p["document_id"] = "missing_document"
+            else:
+                p["tag_id"] = "missing_tag"
+            self.fixture.write_records(records)
+            with self.subTest(case=case), mock.patch.object(importer, "_preflight") as preflight, \
+                    mock.patch.object(importer, "_build_payload") as build:
+                with self.assertRaises(archive_v2.NotriosError) as caught:
+                    self.import_notes()
+                self.assertEqual(caught.exception.code, code)
+                preflight.assert_not_called()
+                build.assert_not_called()
+            self.assertFalse(self.destination.exists())
+            self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
+
+
 if __name__ == "__main__":
     unittest.main()

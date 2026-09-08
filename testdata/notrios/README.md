@@ -163,8 +163,8 @@ blob references while varying the revision's MIME spelling.
 
 These are development tests of the library entry point, not a public importer
 CLI. Step 3d owns matching-title heading handling, generated RAW title preludes,
-RAW round trips and link adaptation. Tag mapping is covered by 4a below;
-resource integration and the broader tag round-trip matrix follow later.
+RAW round trips and link adaptation. Tag mapping and round trips are covered by
+4a/4b below; resource integration follows later.
 
 ## Link projection and exporter checks — slice 3d
 
@@ -205,7 +205,27 @@ lists for each note, complete mapped aliases, insertion order, tag-created dates
 and document-created membership dates. They also exercise tiny batch limits,
 unattached tags, unchanged reruns, and injected wrong aliases, membership targets
 and item-type counts that must refuse before publication. Resources still refuse;
-Step 4b adds the broader name/YAML/reimport and malformed-membership matrix.
+Step 4b below covers the broader name/YAML/reimport and malformed-membership matrix.
+
+## Tag-name and YAML round trips — slice 4b
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.NotriosTagRoundTripTest
+```
+
+The owned test archive has ten tag identities and fourteen memberships, including
+two distinct IDs named `same title` on one note. Names exercise composed and
+decomposed Unicode, Japanese, spaces, tabs, quotes, backslashes, punctuation and
+the string `true`. Tests independently decode the exported quoted YAML scalars
+and run the real `obsidian2sql.py` and `sql2obsidian.py` subprocesses.
+
+The default preservation bundle must retain tag identities and membership
+multiplicity through reimport and re-export. Native import without a bundle uses
+the existing name-based tag identities; its checks cover the tag text and exact
+vault bytes, not retention of distinct Notrios IDs. A selected-notebook round trip
+must contain only its tags and memberships. Eleven rehashed mutations cover
+duplicate pairs/IDs, missing or extra fields, wrong types, malformed IDs and
+missing targets; all must refuse during archive verification before conversion.
 
 ## Manifest admission checks — slice 2a
 
