@@ -394,3 +394,10 @@ added the frozen design and offline baselines described above.
 ## Reproduce the semantic MIME vectors
 
 Run `go run testdata/notrios/semantic_mime_vectors.go < testdata/notrios/semantic-mime-vectors.json` from the repository root with Go 1.27.0. Its output must match the committed JSON byte-for-byte. This development-only oracle follows the pinned producer’s parse/length/format sequence; it does not rewrite the publication fixture.
+
+## Schema-28 compatibility — S28b
+
+The separately pinned [schema-28 evidence](schema28/README.md) adds real
+resource-bearing and resource-free publications, a 56-case differential audit,
+and offline conversion/no-op/vault regressions. The original schema-27 archive,
+expected values and audit results above remain historical evidence.

@@ -12,7 +12,8 @@ schema support **28**, against producer pin
 `7662fdd5b55d6f34f14874f70ba6db9f9e7676ac`. Its private FTS lookup changes no
 portable projection or identity rule. Reader profile, mapper, receipt version,
 contract schema version and notesdb schema stay unchanged. Existing vectors and
-fixtures retain their original provenance; current-producer evidence is S28b.
+fixtures retain their original provenance; S28b adds separate
+[current-producer evidence](testdata/notrios/schema28/README.md).
 
 ## Modules and handoffs
 

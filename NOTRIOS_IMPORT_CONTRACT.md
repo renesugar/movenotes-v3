@@ -20,7 +20,8 @@ no portable record state; archive version 2, contract schema version 1 and
 minimum schema 12 remain unchanged. Collection capabilities are now omitted by
 the producer and optional for the consumer (already implemented in `cc4ec25`).
 The original pin still identifies existing fixture/vector/audit provenance.
-New-producer fixture and differential verification evidence belongs to S28b.
+S28b [producer fixtures and differential evidence](testdata/notrios/schema28/README.md)
+verify the updated producer and retained schema-27 compatibility.
 
 | Reference | Rules used here |
 |---|---|

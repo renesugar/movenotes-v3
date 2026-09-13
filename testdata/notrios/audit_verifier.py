@@ -85,6 +85,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--notriosctl', type=Path)
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--fixture', type=Path, default=FIXTURE_ROOT / 'publication-loose',
+                        help='fixture directory containing archive/ and generation.json')
+    parser.add_argument('--cases', type=Path, default=FIXTURE_ROOT / 'verifier-audit-cases.json')
     parser.add_argument('--memory-worker', nargs=2, type=int, metavar=('TAGS', 'BLOB_BYTES'))
     args = parser.parse_args()
     if args.memory_worker:
@@ -93,14 +96,15 @@ def main():
     if not args.notriosctl or not args.output:
         parser.error('--notriosctl and --output are required')
     binary = args.notriosctl.resolve()
-    generation = load_json(FIXTURE_ROOT / 'publication-loose/generation.json')
+    generation = load_json(args.fixture / 'generation.json')
     digest = file_hash(binary)
     if digest != generation['cli_sha256']:
         parser.error('CLI must be the exact pinned synthetic-fixture producer binary')
-    specs = FIXTURE_ROOT / 'verifier-audit-cases.json'
+    specs = args.cases
     results = []
     for spec in load_json(specs):
         case = NotriosObjectSpoolTest()
+        case.fixture_source = args.fixture / 'archive'
         case.setUp()
         try:
             case.apply_audit_case(spec)
@@ -126,6 +130,8 @@ def main():
         finally:
             case.doCleanups()
     report = {'producer_commit': generation['producer_commit'], 'cli_sha256': digest,
+              'fixture_commit_sha256': load_json(args.fixture / 'archive/manifest.json')['commit_sha256'],
+              'runner_sha256': file_hash(Path(__file__)),
               'case_spec_sha256': file_hash(specs),
               'verifier_source_sha256': file_hash(ROOT / 'notrios_archive.py'), 'results': results}
     args.output.write_text(json.dumps(report, indent=2) + '\n')

@@ -626,6 +626,8 @@ class NotriosManifestTest(unittest.TestCase):
 class NotriosObjectSpoolTest(unittest.TestCase):
     """Rehashed object, typed-record and graph mutations on owned fixture copies."""
 
+    fixture_source = PUBLICATION_ARCHIVE
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="movenotes-objects-test-")
         self.addCleanup(temporary.cleanup)
@@ -637,7 +639,7 @@ class NotriosObjectSpoolTest(unittest.TestCase):
 
     def fresh_archive(self):
         self.case += 1
-        self.archive = copy_publication(self.root / f"archive-{self.case}")
+        self.archive = Path(shutil.copytree(self.fixture_source, self.root / f"archive-{self.case}", symlinks=True))
         self.manifest, self.entries, _records = read_fixture_records(self.archive)
 
     def write_manifest(self):
@@ -1450,6 +1452,10 @@ class NotriosObjectSpoolTest(unittest.TestCase):
         """Bounded synthetic fixtures shared with the development-only Go audit."""
         action = case["action"]
         if action == "none":
+            return
+        if action == "schema_bounds":
+            self.manifest["compatibility"].update(case["value"])
+            self.write_manifest()
             return
         if action == "blob_entry":
             next(e for e in self.entries if e["kind"] == "blob")[case["field"]] = copy.deepcopy(case["value"])
@@ -3109,6 +3115,121 @@ class NotriosTagRoundTripTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NotriosSchema28Test(unittest.TestCase):
+    """Real schema-28 publications, with no producer dependency at test time."""
+
+    rows = NotriosNoteIntegrationTest.rows
+    export = NotriosNoteIntegrationTest.export
+    vault_notes = NotriosNoteIntegrationTest.vault_notes
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="movenotes-schema28-")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.destination = self.root / "publication"
+        self.fixtures = FIXTURE_ROOT / "schema28"
+
+    def test_producer_fixtures_and_original_are_fully_verified(self):
+        for fixture, schema in ((PUBLICATION_ROOT, 27),
+                                (self.fixtures / "publication-loose", 28),
+                                (self.fixtures / "publication-text", 28)):
+            with self.subTest(fixture=fixture.name, schema=schema):
+                expected = load_json(fixture / "expected.json")
+                before = fixture_inventory(fixture / "archive")
+                self.assertEqual(before, expected["archive_files"])
+                with archive_v2.verify_archive(fixture / "archive", work_dir=self.root) as verified:
+                    self.assertEqual(verified.manifest.compatibility["source_schema_version"], schema)
+                    self.assertEqual(dict(verified.counts), expected["counts"])
+                    self.assertEqual(verified.manifest.commit_sha256, expected["commit_sha256"])
+                    collections = list(verified.iter_records("collection"))
+                    self.assertEqual(len(collections), 1)
+                    self.assertEqual("capabilities" in collections[0].payload, schema == 27)
+                self.assertEqual(fixture_inventory(fixture / "archive"), before)
+                self.assertEqual(list(self.root.iterdir()), [])
+                for name in ("verify", "publish-run"):
+                    report = load_json(fixture / "reports" / (name + ".json"))
+                    if name == "publish-run":
+                        report = report["report"]
+                    self.assertEqual(report["commit_sha256"], expected["commit_sha256"])
+                self.assertEqual(load_json(fixture / "reports/compatibility.json")["decision"], "accept")
+
+    def test_real_text_publication_conversion_noop_and_vault_links(self):
+        import posixpath
+        from urllib.parse import quote
+        fixture = self.fixtures / "publication-text"
+        source = fixture / "archive"
+        expected = load_json(fixture / "expected.json")
+        result = importer.import_publication(source, self.destination,
+                    expected_selection_sha256=expected["selection_manifest_sha256"])
+        self.assertEqual((result.status, result.row_count, result.resource_count), ("created", 15, 0))
+        before = fixture_inventory(self.destination)
+        self.assertEqual(importer.import_publication(source, self.destination).status, "unchanged")
+        self.assertEqual(fixture_inventory(self.destination), before)
+        ids = {source_id: mapping.mapped_id(expected["database_id"], "document", (source_id,))
+               for source_id in ("doc_public", "doc_child", "doc_duplicate")}
+        rows = {r["joplin_id"]: r for r in self.rows() if r["joplin_type_"] == 1}
+        self.assertEqual(set(rows), set(ids.values()))
+        bodies = {ident: (FIXTURE_ROOT / "seed-text-v1/notes" / (ident + ".md")).read_text().split("\n---\n\n", 1)[1]
+                  for ident in ids}
+        for ident, body in bodies.items():
+            projected = body
+            for target, item_id in ids.items():
+                projected = projected.replace("document://default/documents/" + target, ":/" + item_id)
+            self.assertEqual(rows[ids[ident]]["note_data"], projected)
+        vault = self.export()
+        notes = self.vault_notes(vault)
+        self.assertEqual(set(notes), set(ids.values()))
+        tags = {"doc_public": ["café", "published", "research notes"],
+                "doc_child": ["published", "東京"], "doc_duplicate": ["published"]}
+        for ident, body in bodies.items():
+            path, metadata, actual = notes[ids[ident]]
+            self.assertEqual(metadata["tags"], tags[ident])
+            self.assertTrue(path.startswith("Public/研究/" if ident == "doc_child" else "Public/"))
+            for target in ids:
+                relative = posixpath.relpath(notes[ids[target]][0], posixpath.dirname(path))
+                body = body.replace("document://default/documents/" + target, quote(relative, safe="/"))
+            self.assertEqual(actual, body)
+        self.assertNotEqual(notes[ids["doc_public"]][0], notes[ids["doc_duplicate"]][0])
+        for item in load_json(vault / ".movenotes/manifest.json")["items"]:
+            if item["type"] == 1:
+                self.assertEqual(hashlib.sha256((vault / item["obsidian_path"]).read_bytes()).hexdigest(), item["obsidian_sha256"])
+
+    def test_real_resource_publication_still_refuses_conversion(self):
+        with self.assertRaises(archive_v2.NotriosError) as caught:
+            importer.import_publication(self.fixtures / "publication-loose/archive", self.destination)
+        self.assertEqual(caught.exception.code, "conversion")
+        self.assertIn("resource", str(caught.exception))
+        self.assertFalse(self.destination.exists())
+
+    def test_current_producer_differential_cases(self):
+        specs = load_json(FIXTURE_ROOT / "schema28-audit-cases.json")
+        report = load_json(self.fixtures / "verifier-audit.json")
+        fixture = self.fixtures / "publication-loose"
+        generation = load_json(fixture / "generation.json")
+        for field in ("producer_commit", "cli_sha256"):
+            self.assertEqual(report[field], generation[field])
+        self.assertEqual(report["fixture_commit_sha256"], load_json(fixture / "expected.json")["commit_sha256"])
+        self.assertEqual(report["case_spec_sha256"], hashlib.sha256((FIXTURE_ROOT / "schema28-audit-cases.json").read_bytes()).hexdigest())
+        self.assertEqual([r["name"] for r in report["results"]], [s["name"] for s in specs])
+        case = NotriosObjectSpoolTest()
+        case.fixture_source = fixture / "archive"
+        case.setUp()
+        self.addCleanup(case.doCleanups)
+        for spec, result in zip(specs, report["results"]):
+            with self.subTest(case=spec["name"]):
+                self.assertTrue(result["matched"])
+                self.assertEqual(result["go_accepted"], spec["expect_go"])
+                self.assertEqual(result["python_result"], spec["expect_python"])
+                case.fresh_archive()
+                case.apply_audit_case(spec)
+                if spec["expect_python"] == "accepted":
+                    with case.verify():
+                        pass
+                else:
+                    case.assert_verification_refused(spec["expect_python"], spec["message"])
+                self.assertEqual(list(case.work.iterdir()), [])
 
 
 class CollectionCapabilitiesOptionalTest(unittest.TestCase):
