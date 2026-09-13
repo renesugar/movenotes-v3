@@ -484,9 +484,25 @@ class NotriosManifestTest(unittest.TestCase):
             value = copy.deepcopy(self.base)
             value["compatibility"].update(fields_to_change)
             self.assert_refused(value, "format")
-        value = copy.deepcopy(self.base)
-        value["compatibility"].update(source_schema_version=28, maximum_schema_version=99)
-        self.parse(value)  # A future source/maximum is not a future-reader ceiling.
+
+    def test_schema_28_and_future_source_bounds(self):
+        # Minimum is the reader requirement; source/maximum are not ceilings.
+        for minimum, source, maximum in ((12, 27, 27), (12, 28, 28),
+                                          (28, 28, 28), (28, 29, 99)):
+            with self.subTest(minimum=minimum, source=source, maximum=maximum):
+                value = copy.deepcopy(self.base)
+                value["compatibility"].update(minimum_schema_version=minimum,
+                                              source_schema_version=source,
+                                              maximum_schema_version=maximum)
+                self.parse(value)
+        for minimum, source, maximum in ((29, 29, 29), (11, 28, 28),
+                                          (28, 27, 28), (28, 28, 27)):
+            with self.subTest(minimum=minimum, source=source, maximum=maximum):
+                value = copy.deepcopy(self.base)
+                value["compatibility"].update(minimum_schema_version=minimum,
+                                              source_schema_version=source,
+                                              maximum_schema_version=maximum)
+                self.assert_refused(value, "format")
 
     def test_capability_and_pack_refusals(self):
         for names in ([], list(reversed(archive_v2.REQUIRED_CAPABILITIES)),

@@ -7,11 +7,20 @@ movenotes already supports archive-v2.
 
 ## Reference pin and authority
 
-Reviewed Notrios commit: `bdecfeda00e582d5aa6170d15b37ba27c9656f1d`.
+Original reviewed Notrios commit: `bdecfeda00e582d5aa6170d15b37ba27c9656f1d`.
 The local checkout at `~/projects/notrios` matched this commit and had
-no working-tree changes at review. Its registry and store both report schema 27.
+no working-tree changes at review. Its registry and store both reported schema 27.
 The links below refer to that adjacent checkout; inspect the pinned revision if
 it later advances. No changes to Notrios are part of this slice.
+
+S28a update (2026-09-13): current reference pin is
+`7662fdd5b55d6f34f14874f70ba6db9f9e7676ac`, with registry/store schema 28.
+The reader support level below is now 28. The private FTS rowid migration adds
+no portable record state; archive version 2, contract schema version 1 and
+minimum schema 12 remain unchanged. Collection capabilities are now omitted by
+the producer and optional for the consumer (already implemented in `cc4ec25`).
+The original pin still identifies existing fixture/vector/audit provenance.
+New-producer fixture and differential verification evidence belongs to S28b.
 
 | Reference | Rules used here |
 |---|---|
@@ -47,8 +56,8 @@ Frozen consumer profile name: `movenotes-publication-loose-v1`.
 | External contract | `notrios-archive-v2`, contract schema version 1. |
 | Container | Directory with `manifest.json`; `format="notrios-archive"`, integer `version=2`. |
 | Target | Exactly `snapshot.target="publication_handoff"`. No override. |
-| Reader | `minimum_reader_version=2`; consumer schema support level **27**. |
-| Schema bounds | `12 <= minimum_schema_version <= 27` and `minimum_schema_version <= source_schema_version <= maximum_schema_version`. Do not require source or maximum to be at most 27; new fields/capabilities must still pass all other gates. |
+| Reader | `minimum_reader_version=2`; consumer schema support level **28**. |
+| Schema bounds | `12 <= minimum_schema_version <= 28` and `minimum_schema_version <= source_schema_version <= maximum_schema_version`. Do not require source or maximum to be at most 28; new fields/capabilities must still pass all other gates. |
 | Layout | `fanout` only for every index descriptor and indexed object; kinds `records` and `blob` only. `totals.packs` must be absent or zero. |
 | Required capabilities | Exactly the five base capabilities listed below, sorted, unique and all present. Any additional required capability refuses. |
 | Optional capabilities | Sorted unique list, disjoint from required; unknown names may be ignored within the declared limits and grammar. Optional declarations cannot enable packed objects or unknown record fields/types. |
@@ -254,7 +263,7 @@ generic archive-v2, and must be tested with otherwise correctly rehashed input.
 
 | Type | Base integrity checks and consumer publication decision | Producer evidence |
 |---|---|---|
-| `collection` | Unique ID; valid name/time, sorted unique string capabilities; declared set equals snapshot scope. **Require `settings_json={}`**; admit description/capabilities for validation but do not project them to public metadata. | `writeHeaderRecords` always emits empty settings and retains description/capabilities. |
+| `collection` | Unique ID; valid name/time, sorted unique string capabilities when present; declared set equals snapshot scope. **Require `settings_json={}`**; admit description/capabilities for validation but do not project them to public metadata. | `writeHeaderRecords` emits empty settings and retains description. The current producer omits capabilities; older archives may carry them. |
 | `notebook` | Unique ID, existing parent if present, no cycle/depth overflow, name/times valid. Preserve tree; no invented per-collection parent relationship. | `writeHeaderRecords` includes used notebooks and ancestors. |
 | `search_notebook` | **Refuse every record** and nonzero manifest count. Recognize its schema; do not silently drop it. | `writeHeaderRecords` emits these only for full archives. |
 | `tag` | Unique ID, nonblank name/time valid. Do not silently drop or rename memberships based on a private-tag word list. | `writeHeaderRecords`, `writeDocuments`. |

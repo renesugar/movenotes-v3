@@ -306,7 +306,7 @@ def _admit_manifest(manifest: Manifest, limits: ArchiveLimits):
         raise NotriosError("publication", "only publication_handoff is supported")
     if compat["minimum_reader_version"] != 2:
         raise NotriosError("format", "unsupported minimum reader version")
-    if not (12 <= compat["minimum_schema_version"] <= 27 and
+    if not (12 <= compat["minimum_schema_version"] <= 28 and
             compat["minimum_schema_version"] <= compat["source_schema_version"] <= compat["maximum_schema_version"]):
         raise NotriosError("format", "unsupported schema bounds")
     required, optional = compat["required_capabilities"], compat["optional_capabilities"]

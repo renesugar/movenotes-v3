@@ -7,6 +7,13 @@ rules and freezes the interfaces needed by the
 [remaining slices](NOTRIOS_IMPORT_PLAN.md). The real
 [publication fixture](testdata/notrios/README.md) is the positive input.
 
+S28a amendment (2026-09-13): the admission contract now declares database
+schema support **28**, against producer pin
+`7662fdd5b55d6f34f14874f70ba6db9f9e7676ac`. Its private FTS lookup changes no
+portable projection or identity rule. Reader profile, mapper, receipt version,
+contract schema version and notesdb schema stay unchanged. Existing vectors and
+fixtures retain their original provenance; current-producer evidence is S28b.
+
 ## Modules and handoffs
 
 Use Python's standard library only. Public helpers raise `NotriosError`, never

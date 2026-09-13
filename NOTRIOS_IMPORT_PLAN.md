@@ -4,8 +4,9 @@ Status: slices **1a–1d, 2a–2e, 3a–3d and 4a–4b complete**. The subsequen
 collection-capabilities compatibility fix is committed as `cc4ec25`. Notes,
 links and tags are implemented internally; resources and the public CLI remain
 pending. Plan revised on **2026-09-13** for Notrios database schema **28**.
-Next item: **S28a**, then **S28b**, before resuming **4c**. These prerequisites
-are planned, not implemented; the importer currently advertises schema support 27.
+S28a is implemented; the importer now declares schema support **28**.
+Next item: **S28b**, before resuming **4c**. New-producer fixture and differential
+verification evidence remains pending.
 
 The frozen admission checklist is
 [NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
@@ -93,9 +94,8 @@ verified; report that the caller must produce a loose publication. Do not claim
 support for the entire Notrios `current-v2` reader profile while packs refuse.
 
 Unknown required capabilities refuse; bounded unknown optional capabilities may
-be ignored. Until S28a is complete, profile `movenotes-publication-loose-v1`
-has schema support level 27:
-require `12 <= minimum_schema_version <= 27` and
+be ignored. Profile `movenotes-publication-loose-v1` now has schema support level 28:
+require `12 <= minimum_schema_version <= 28` and
 `minimum_schema_version <= source_schema_version <= maximum_schema_version`.
 Do not treat `maximum_schema_version` as a future-reader ceiling. The contract
 freezes exact field, capability and semantic admission rules.
@@ -280,8 +280,8 @@ synthetic staged file, not enabled archive-resource conversion. No CLI is expose
 
 ## Schema-28 prerequisites — before continuing Step 4
 
-**State: planned.** Update the consumer's supported database schema level from
-27 to 28 and establish current-producer evidence before 4c. This does not migrate
+**State: S28a implemented; S28b pending.** The consumer's supported database
+schema level is now 28. Establish current-producer evidence before 4c. This does not migrate
 a Notrios database or change the notesdb schema.
 
 Evidence from the local producer comparison, original pin through the new pin:
@@ -320,7 +320,7 @@ commands, not a manifest-only version edit.
 
 | Slice / owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| S28a / Main | Update the schema support bound in `notrios_archive.py` to 28, the contract/design's current support declarations and relevant tests. Reconcile collection-field prose and record the new reference pin without rewriting historical provenance. | 4b and `cc4ec25` | Accept minimum 28 with valid source/maximum bounds; reject minimum 29, minimum below 12 and inverted bounds. Accept normal schema-28/minimum-12 manifests and future source/maximum values when their minimum is supported and all other gates pass. Keep unknown capability/field, pack and physical refusals, and optional/legacy collection-array validation. Original fixtures and identity vectors pass unchanged. |
+| S28a / Main — complete | Update the schema support bound in `notrios_archive.py` to 28, the contract/design's current support declarations and relevant tests. Reconcile collection-field prose and record the new reference pin without rewriting historical provenance. | 4b and `cc4ec25` | Accept minimum 28 with valid source/maximum bounds; reject minimum 29, minimum below 12 and inverted bounds. Accept normal schema-28/minimum-12 manifests and future source/maximum values when their minimum is supported and all other gates pass. Keep unknown capability/field, pack and physical refusals, and optional/legacy collection-array validation. Original fixtures and identity vectors pass unchanged. |
 | S28b / Main | Add a separately pinned synthetic schema-28 publication fixture and reproducible compatibility/verifier evidence using the updated producer. Extend the differential audit and converter/no-op regression evidence as needed; update fixture documentation and this plan. | S28a | Current producer compatibility and full verification pass; Python fully verifies the new archive with omitted collection capabilities and still verifies the original schema-27 archive. A resource-free real publication converts through notes/tags/links and the vault pipeline; identical reruns remain no-ops. Resource-bearing fixtures verify but conversion continues to refuse until Step 5. Run focused boundary/collection tests, the differential audit against the new pin, and all five Python regression modules with both bytecode-suppression flags. Record exact commands, producer hash, digests and results. |
 
 Each prerequisite is a separate reviewable commit under the existing per-slice
@@ -446,3 +446,4 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-08 | 4a complete | Added TAG and NOTE_TAG insertion after notes in binary source-key order, using frozen row builders, indexed full-key ID lookups and document-created membership timestamps. Removed the tag admission gate while preserving resource refusal. Finalization now checks per-type counts, note/tag aliases, membership target types and uniqueness before publication. Four integration tests pass (1.022s): the original four tags and six memberships load as explicit sorted per-note title lists; mapped IDs, aliases, dates, order, tiny batches, unattached tags and identical reruns are checked; injected wrong targets, aliases and counts leave no published output. All 218 regression tests passed (91.317s, existing local HTTP sockets permitted). Main executed locally under the session delegation constraint. Original fixture and existing exporters unchanged; broader tag-name/YAML/reimport cases remain in 4b, and resources/public CLI remain deferred. Next: ask to proceed to 4b. |
 | 2026-09-08 | 4b complete | Added four round-trip/mutation tests over an owned ten-tag/fourteen-membership archive, including distinct IDs with the same name on one note. Independent YAML scalar checks and real vault import/export subprocesses cover composed/decomposed Unicode, Japanese, spaces, tabs, quotes, backslashes, punctuation and literal true. The default bundle preserves identities and membership multiplicity; native name-based import preserves tag text and exact vault bytes; selected-notebook bundles retain only their memberships. Eleven rehashed duplicate/shape/type/ID/reference mutations refuse during verification before conversion. Corrected test expectations to the verifier’s existing JSON-shape error family; no runtime changes were needed. Four focused tests passed (5.255s), and all 222 regression tests passed (96.398s, existing local HTTP sockets permitted). Main executed locally under the session delegation constraint. Original fixture unchanged. Next: ask to proceed to 4c. |
 | 2026-09-13 | Schema-28 plan amendment | Compared original producer pin with clean `7662fdd5b55d6f34f14874f70ba6db9f9e7676ac`; identified the private FTS rowid migration, registry support-level bump and already-integrated optional collection capabilities change (`cc4ec25`). Added S28a/S28b before 4c, preserving historical fixtures and receipt/identity semantics. Documentation-only change; implementation and producer execution remain pending. Next: ask to proceed to S28a. |
+| 2026-09-13 | S28a complete | Raised the reader minimum-schema support bound to 28 and updated contract/design declarations against producer pin `7662fdd5b55d6f34f14874f70ba6db9f9e7676ac`. Added valid schema-28 and future-source admission cases, plus independent minimum-29 and inverted-bound refusals. Reconciled collection-capabilities prose while retaining the existing optional/legacy validation. All 13 focused tests passed (0.407s). Ran all five regression modules with `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v`; the sandbox run completed 218 methods in 102.750s with only localhost socket-denial errors, then both affected HTTP classes passed all 12 methods in 6.073s with sockets permitted. Across the two runs, all 226 distinct methods passed (suite enumeration confirmed). Logs: `/tmp/movenotes-s28a-focused.log`, `/tmp/movenotes-s28a-tests.log`, `/tmp/movenotes-s28a-http-tests.log`. Existing fixture/vector/audit files unchanged; no receipt, mapper or notesdb schema change. Diff and changed-document links checked. New-producer fixture generation and differential execution remain S28b. Next: ask to proceed to S28b. |
