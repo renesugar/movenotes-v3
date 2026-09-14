@@ -7,8 +7,9 @@ pending. Plan revised on **2026-09-13** for Notrios database schema **28**.
 Schema-28 prerequisites **S28a and S28b are complete**. The importer declares
 schema support **28**, with separately pinned producer fixtures and differential
 evidence. The [vault/site tag review](NOTRIOS_TAG_REVIEW.md) is complete.
-Resource storage slice **5a** is implemented; resource admission still waits
-for link/attachment projection in **5b**, the next item pending the user's instruction.
+Resource storage slice **5a** is complete. Slice **5b** has uncommitted parent
+work and is paused, incomplete, pending the coding-agent assignment check below.
+The completed baseline is `cef03a7`; the working tree is not a validated release.
 
 The frozen admission checklist is
 [NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
@@ -189,24 +190,79 @@ source filesystem paths or arbitrary private metadata. An optional expected
 reviewed digest compares against the selection digest, independently of archive
 integrity verification.
 
+## Coding-agent assignments and session confirmation
+
+This plan's assignments are scoped to **codex**. `Main` means the parent,
+`Luna` means `codex:luna_worker`, and `Terra` means `codex:terra_worker`.
+The slice tables name **planned** owners; the execution ledger below records
+who actually did the work. Do not replace a planned worker with Main when the
+parent implements a slice. Historical planned owners are restored from
+`e3af032`; scope, dependencies, acceptance criteria and slice order are unchanged.
+
+At the beginning of each implementation session, follow
+[Mandatory planned delegation](AGENTS.md#mandatory-planned-delegation): show the
+user the current coding agent and the plan's model/effort assignments, identify
+runtime availability or fixed-effort mismatches, and state the known billing
+route or `not exposed`. Ask whether these assignments are current for this
+session or need updating first. Wait for explicit confirmation before
+implementation or spawning workers. Requested plan/provenance edits and
+read-only inspection can proceed during this check.
+
+Confirmation applies only to the stated session, coding agent, model/worker
+configuration and billing route. Reconfirm when any of those changes; compaction
+alone does not require repeating it. A model name available in Codex may be
+absent in Claude/OpenCode or available there only through higher-cost API
+billing. Never silently transfer assignments, assume subscription coverage, or
+use another provider, model, effort or parent fallback.
+
+The following table is generated from
+[NOTRIOS_IMPORT_EXECUTION.json](NOTRIOS_IMPORT_EXECUTION.json). These are proposed
+current Codex assignments awaiting confirmation. Historical Luna assignments
+retain their originally planned `medium` effort in the per-slice records;
+future Luna work proposes the available role's fixed `max` effort.
+
+<!-- NOTRIOS-ASSIGNMENTS:START -->
+Session confirmation: **pending**.
+
+User requested assignment review before further implementation; no approval of the revised assignments recorded.
+
+| Coding agent | Execution owner | Configured model | Reasoning effort | Availability | Billing route |
+|---|---|---|---|---|---|
+| codex | parent | not exposed | not exposed | Current parent runtime reports GPT-6 family only | not exposed |
+| codex | luna_worker | gpt-5.6-luna | max | Available fixed role; proposed update from historical plan medium | not exposed |
+| codex | terra_worker | gpt-5.6-terra | medium | Available fixed role | not exposed |
+
+Runtime-reported parent family: **GPT-6**. Product/client version: not exposed; model provider: not exposed.
+
+- Worker model/effort values are runtime configuration, not proof of child execution.
+- Historical parent aliases/efforts were not recorded per slice; do not infer gpt-6-astra from the user's Astra label.
+- Historical Luna plan effort medium conflicts with current fixed max; proposed max for future Luna assignments awaits confirmation.
+<!-- NOTRIOS-ASSIGNMENTS:END -->
+
+Next implementation slice: **resume 5b**, assigned to
+**codex:terra_worker / gpt-5.6-terra / medium**, with parent review and final
+validation. It already has uncommitted parent implementation, not delegated
+worker output. It is paused and incomplete: the latest focused resource run has
+one failure and one error. After confirmation, the assigned worker must inspect
+and take over the existing changes, resolve outstanding validation and report
+its own contribution. Preserve the earlier parent contribution; do not attribute
+it to that worker. No new worker is being spawned during this documentation review.
+
 ## Execution and agent handoff rules
 
-Slices 1a–1d, 2a–2e and 3a are complete; all other slices below are pending. Worker names refer to
-the roles available in this session:
+Named worker assignments are mandatory once session assignments and the slice
+are approved. Before implementing an assigned slice, Main must spawn that
+worker through the coding agent's native collaboration mechanism. Main may
+decompose, clarify, review, integrate, validate and update the plan; it must not
+silently implement assigned worker work. If delegation is unavailable or fails,
+stop that slice, report the failure and request an explicit reassignment.
+Record the decision before resuming. A historical session restriction explains
+an execution deviation only where evidence records it; it is not retroactive
+reassignment approval.
 
-| Owner | Agent configuration | Assignment rule |
-|---|---|---|
-| Luna | `agent_type="luna_worker"`; fixed `gpt-5.6-luna`, reasoning `medium` | Mechanical helpers, pure builders, straightforward table-driven tests and documentation against frozen inputs. |
-| Terra | `agent_type="terra_worker"`; fixed `gpt-5.6-terra`, reasoning `medium` | Bounded implementation and regression work needing cross-file reasoning, filesystem/subprocess handling or debugging against Main's approved contract. |
-| Main | Main model | Contract/privacy decisions, verifier semantics, transactional safety, cross-format design, integration acceptance and final review. |
-
-The Terra assignments use the available role's stated purpose, not measured
-performance on this repository. They do not change scope or acceptance gates.
-Main must freeze the relevant design before either worker starts; especially,
-Terra implements 3d and 5b only after the link/attachment decisions in 1c are
-concrete. Escalate newly discovered design decisions to Main rather than guessing.
-Implementation may delegate these slices; this plan review does not require
-parallel agents.
+Main freezes the design before worker implementation. In particular, 3d and
+5b follow the link/attachment decisions in 1c. Workers escalate newly discovered
+design decisions to Main. This rule changes delegation and attribution only.
 
 Work on **one slice at a time**. Assign inputs, owned files, dependencies,
 excluded files and acceptance commands explicitly. Tell workers they are not
@@ -229,9 +285,43 @@ Proposed files: `notrios_archive.py` for verification, `notrios2sql.py` for
 mapping/CLI, `test_notrios2sql.py`, and `testdata/notrios/`. Main freezes module
 boundaries and helper APIs in 1c before delegating implementation.
 
+## Structured execution provenance
+
+[NOTRIOS_IMPORT_EXECUTION.json](NOTRIOS_IMPORT_EXECUTION.json) is authoritative
+for planned assignments, session confirmation and actual execution records.
+[render_notrios_execution.py](render_notrios_execution.py) renders the assignment
+table and per-slice execution appendix, and checks coverage and planned-owner
+agreement with the task tables:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B render_notrios_execution.py
+PYTHONDONTWRITEBYTECODE=1 python3 -B render_notrios_execution.py --check
+```
+
+Update the structured data first, then regenerate the plan. Actual worker/model
+and effort require execution evidence; role configuration alone does not prove
+which model ran. Record child thread IDs from spawn results. Completed
+parent-only work uses `none` for worker fields. Missing historical parent model
+or effort is `unknown — not recorded`; unstarted actual fields are `pending`.
+The historical parent-only attribution is supported by the conversation's
+explicit no-worker report and available progress entries, not inferred from
+worker labels or Git authors. No child use or precise historical backend model
+is invented. Per-slice commit references and original progress reports retain
+the detailed implementation and validation evidence.
+
+Before completing a delegated slice, record planned worker, actual worker,
+child thread, actual worker model/effort, worker contribution, parent identity
+and effort, parent contribution, validation owner/results, and any delegation
+failure or reassignment. For unavailable runtime metadata, record `not exposed`
+and ask the user for client status/configuration or billing confirmation if
+needed; user-supplied configuration remains labeled as such. This runtime
+exposes exact configured Luna/Terra role models and efforts, but only a GPT-6
+family label for the parent; exact parent alias, effort, client version,
+provider field and billing route are not exposed.
+
 ## Step 1 — Freeze contract and fixtures
 
-| Slice / owner | Work and owned output | Depends on | Acceptance |
+| Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
 | 1a / Main — complete | Reviewed pinned schemas, verifier, producer and CLI; froze [consumer contract](NOTRIOS_IMPORT_CONTRACT.md). | None | All twelve payload field sets and twenty hard limits cross-checked; every refusal sourced or identified as consumer policy; loose-only admission and both digests confirmed. |
 | 1b / Main — complete | Generated [synthetic publication fixture and reproduction evidence](testdata/notrios/README.md) using the clean pinned CLI's real import/plan/publish commands. | 1a | Production compatibility and verification passed; 3 notes, 3 resources, nested notebooks, duplicate titles, Unicode tags, 8 retained links, 3 rewritten links and zero skipped rewrites. Exact digests/bytes and excluded sentinels checked. |
@@ -243,11 +333,11 @@ neither alone protects against the producer and consumer sharing a bug.
 
 ## Step 2 — Verify before conversion
 
-| Slice / owner | Work and owned output | Depends on | Acceptance |
+| Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
 | 2a / Main — complete | Added strict bounded JSON, immutable manifest model, Go-compatible canonicalization and declaration/target gates in [notrios_archive.py](notrios_archive.py). | 1d | Six independently generated Go serialization vectors; strict JSON/limit/type/schema/capability/target tests; manifest-only admission and refusals without object access. Full archive verification is not implied. |
 | 2b / Main — complete | Added no-follow fanout reads, streamed checked copies, strict index/envelope checks and a temporary indexed SQLite spool behind `_stage_archive_objects`. | 2a | Missing/corrupt/truncated objects, invalid ordering/counts/paths, symlinks/special files and extras refuse with owned-state cleanup. Legacy zero blob counts/valid empty fanout directories pass; byte/row batch and copy limits tested. Record semantics remain for 2d. |
-| 2c / Main — complete | Added table-driven rehashed hostile inputs and exact byte-limit boundaries against the frozen APIs. Executed locally under the session delegation constraint. | 2b | Exact LF/CRLF index and record limits, UTF-8 MIME limits, capability bounds, integer/count shapes, malformed record JSON and index-chunk shadowing checked with specific refusals. Legacy zero blob counts remain accepted. |
+| 2c / Terra — complete | Added table-driven rehashed hostile inputs and exact byte-limit boundaries against the frozen APIs. Executed locally under the session delegation constraint. | 2b | Exact LF/CRLF index and record limits, UTF-8 MIME limits, capability bounds, integer/count shapes, malformed record JSON and index-chunk shadowing checked with specific refusals. Legacy zero blob counts remain accepted. |
 | 2d / Main — complete | Added typed immutable records, indexed reference/blob joins, bounded notebook walks, publication gates, Go-compatible MIME normalization and the context-owned verifier API. | 2c | The real publication passes. Rehashed schema/identity/reference/tree/history/reachability/MIME failures assert specific refusals; 56 Go MIME vectors are frozen. Blob reads require authenticated EOF. |
 | 2e / Main — complete | Completed the [pinned-verifier audit](NOTRIOS_VERIFIER_AUDIT.md), froze 47 differential cases and measured streaming behavior. Fixed failed-read state and file/directory handle lifetime. | 2d | Shared rules and deliberate consumer refusals agree with expectations. Source/private-copy mutations, authenticated EOF and OS descriptor cleanup tested; 8,004 tags and a 32 MiB blob verified with under 3 MiB of measured Python peak allocation. |
 
@@ -256,12 +346,12 @@ even if some files resemble loose objects.
 
 ## Step 3 — Notebooks and current notes
 
-| Slice / owner | Work and owned output | Depends on | Acceptance |
+| Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| 3a / Main — complete | Implemented pure deterministic keys/IDs, all five complete row builders, ordered generated properties and the frozen resource suffix map in `notrios_mapping.py`. Executed locally under the session delegation constraint. | 2e | Frozen key/ID vectors, aliases/NULL defaults, numeric property types, empty/Unicode titles, timestamp flooring and notesdb round trips pass. Equal injected IDs retain distinct full keys for 3b collision refusal. |
+| 3a / Luna — complete | Implemented pure deterministic keys/IDs, all five complete row builders, ordered generated properties and the frozen resource suffix map in `notrios_mapping.py`. Executed locally under the session delegation constraint. | 2e | Frozen key/ID vectors, aliases/NULL defaults, numeric property types, empty/Unicode titles, timestamp flooring and notesdb round trips pass. Equal injected IDs retain distinct full keys for 3b collision refusal. |
 | 3b / Main — complete | Added the internal staged importer, frozen conversion bounds, SQLite identity registry and byte-bounded row batches, completion inventory/receipt, verified reruns and Linux no-replace publication. Executed locally under the session delegation constraint. | 3a | Verification/insertion/copy/inventory/rename/fsync faults, competing writers, stale locks, ownership changes and altered completed outputs refuse without overwriting the destination. |
-| 3c / Main — complete | Validated the existing staged notebook/current-note writer with nine integration tests and real text-only vault export subprocesses. Executed locally under the session delegation constraint. | 3b | Exact counts, hierarchy, aliases, title/body/date projection, duplicate/empty titles, selected notebooks, empty bodies, notebook-only publications and bundle hashes pass; invalid parent/revision/body refuses before insertion. |
-| 3d / Main — complete | Implemented the bounded protected-token scanner, exact retained-link reconciliation, note/self/external projection and final-path exporter pass, plus generated RAW title handling. Executed locally under the session delegation constraint. | 3c | Duplicate titles, filtered links, fragments, injected first-write length fallback, finalized bundle hashes and generated RAW reimport pass; stale/missing/protected links and unsupported syntax refuse. |
+| 3c / Terra — complete | Validated the existing staged notebook/current-note writer with nine integration tests and real text-only vault export subprocesses. Executed locally under the session delegation constraint. | 3b | Exact counts, hierarchy, aliases, title/body/date projection, duplicate/empty titles, selected notebooks, empty bodies, notebook-only publications and bundle hashes pass; invalid parent/revision/body refuses before insertion. |
+| 3d / Terra — complete | Implemented the bounded protected-token scanner, exact retained-link reconciliation, note/self/external projection and final-path exporter pass, plus generated RAW title handling. Executed locally under the session delegation constraint. | 3c | Duplicate titles, filtered links, fragments, injected first-write length fallback, finalized bundle hashes and generated RAW reimport pass; stale/missing/protected links and unsupported syntax refuse. |
 
 This is a development milestone. Until Steps 4–6 complete, reject inputs needing
 unfinished features rather than silently omitting data.
@@ -320,7 +410,7 @@ Do not copy FTS tables or open/migrate a user's source database. Use sanitized,
 isolated test data only. New producer fixtures must use real publication
 commands, not a manifest-only version edit.
 
-| Slice / owner | Work and owned output | Depends on | Acceptance |
+| Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
 | S28a / Main — complete | Update the schema support bound in `notrios_archive.py` to 28, the contract/design's current support declarations and relevant tests. Reconcile collection-field prose and record the new reference pin without rewriting historical provenance. | 4b and `cc4ec25` | Accept minimum 28 with valid source/maximum bounds; reject minimum 29, minimum below 12 and inverted bounds. Accept normal schema-28/minimum-12 manifests and future source/maximum values when their minimum is supported and all other gates pass. Keep unknown capability/field, pack and physical refusals, and optional/legacy collection-array validation. Original fixtures and identity vectors pass unchanged. |
 | S28b / Main — complete | Add a separately pinned synthetic schema-28 publication fixture and reproducible compatibility/verifier evidence using the updated producer. Extend the differential audit and converter/no-op regression evidence as needed; update fixture documentation and this plan. | S28a | Current producer compatibility and full verification pass; Python fully verifies the new archive with omitted collection capabilities and still verifies the original schema-27 archive. A resource-free real publication converts through notes/tags/links and the vault pipeline; identical reruns remain no-ops. Resource-bearing fixtures verify but conversion continues to refuse until Step 5. Run focused boundary/collection tests, the differential audit against the new pin, and all five Python regression modules with both bytecode-suppression flags. Record exact commands, producer hash, digests and results. |
@@ -332,10 +422,10 @@ before admitting it. Resume 4c only after both prerequisites pass.
 
 ## Step 4 — Tags
 
-| Slice / owner | Work and owned output | Depends on | Acceptance |
+| Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| 4a / Main — complete | Added streamed TAG/NOTE_TAG insertion using the frozen builders and indexed ID lookups, with type-count, alias and membership-target checks before publication. Executed locally under the session delegation constraint. | 3d | `load_note_tags` returns the fixture's four sorted tag titles across the correct six memberships; bounded batches, unattached tags, unchanged reruns and injected finalization failures pass. |
-| 4b / Main — complete | Added Unicode, whitespace, quoting, duplicate-name and multiple-membership round trips through the actual vault importer/exporter, plus eleven rehashed invalid-relation cases. Executed locally under the session delegation constraint. | 4a | YAML tag text survives reimport; the default bundle preserves distinct source tag IDs and duplicate-name memberships; malformed/duplicate identities refuse during verification. |
+| 4a / Luna — complete | Added streamed TAG/NOTE_TAG insertion using the frozen builders and indexed ID lookups, with type-count, alias and membership-target checks before publication. Executed locally under the session delegation constraint. | 3d | `load_note_tags` returns the fixture's four sorted tag titles across the correct six memberships; bounded batches, unattached tags, unchanged reruns and injected finalization failures pass. |
+| 4b / Luna — complete | Added Unicode, whitespace, quoting, duplicate-name and multiple-membership round trips through the actual vault importer/exporter, plus eleven rehashed invalid-relation cases. Executed locally under the session delegation constraint. | 4a | YAML tag text survives reimport; the default bundle preserves distinct source tag IDs and duplicate-name memberships; malformed/duplicate identities refuse during verification. |
 | 4c / Main — complete | Reviewed [vault/site tag semantics](NOTRIOS_TAG_REVIEW.md), added real-publication integration coverage and corrected the superseded M2 search description. | 4b, S28b | Written tags survive vault export; default and capped site generation keep generated words out of taxonomy/search-source tags while retaining their postings. The explicit-tag cap exception is documented. No runtime changes needed. |
 
 ## Step 5 — Resources and attachments
@@ -358,9 +448,9 @@ to exercise lower-level construction and failure cleanup; they do not claim a
 successful resource publication or vault round trip. Slice 5b owns removal of
 the gate together with complete association and link projection.
 
-| Slice / owner | Work and owned output | Depends on | Acceptance |
+| Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| 5a / Main — complete | Connected the frozen resource row builder to bounded authenticated copies, exclusive mapped-ID filenames and staged item counts. Corrected the reserved relation table column to `relation_id`. Executed locally under the session delegation constraint. | 4c | Exact hashes/sizes and metadata, tiny read/batch bounds, safe display names, extensionless names, empty bytes, distinct IDs sharing bytes, collisions and read/write/fsync cleanup pass. Resource admission remains gated until 5b projects links/attachments. |
+| 5a / Terra — complete | Connected the frozen resource row builder to bounded authenticated copies, exclusive mapped-ID filenames and staged item counts. Corrected the reserved relation table column to `relation_id`. Executed locally under the session delegation constraint. | 4c | Exact hashes/sizes and metadata, tiny read/batch bounds, safe display names, extensionless names, empty bytes, distinct IDs sharing bytes, collisions and read/write/fsync cleanup pass. Resource admission remains gated until 5b projects links/attachments. |
 | 5b / Terra | Translate retained resource links and implement relation-only attachment behavior frozen by Main in 1c. | 5a | Images/files resolve from nested notes; shared bytes with differing semantic MIME work; withheld resources absent; Main reviews the mapping. |
 | 5c / Terra | Attachment regressions with independent byte comparisons. | 5b | Duplicate filenames, Unicode/escaping, zero-byte and large streamed files; exact attachment bytes. |
 | 5d / Main | Review reachability, rehash-at-use and interrupted-copy recovery. | 5c | No writes outside staging or overwrites; failure cannot expose partial completed output. |
@@ -372,7 +462,7 @@ a relation-only attachment; the adapter must resolve that representation.
 
 Target refusal is mandatory in 2a, not deferred to this step.
 
-| Slice / owner | Work and owned output | Depends on | Acceptance |
+| Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
 | 6a / Luna | Versioned settings receipt and content-free import summary in staging. | 5d | Both digests correct; failed imports have no success receipt. |
 | 6b / Main | Finalize CLI, expected reviewed-digest comparison, identical completed rerun and conflicting-output refusal. | 6a | Digest mismatch/changed source refuse; same import is safe; no unsafe override. |
@@ -381,7 +471,7 @@ Target refusal is mandatory in 2a, not deferred to this step.
 
 ## Step 7 — End-to-end acceptance and documentation
 
-| Slice / owner | Work and owned output | Depends on | Acceptance |
+| Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
 | 7a / Terra | Small offline publication-fixture → SQLite → vault regression with independent expectations. | 6d | Notes/tags/links, exact attachments, absence of excluded sentinels and receipt assertions pass. |
 | 7b / Main | Actual local Hugo/Ledger + Bluge build and bounded Pagefind fixture; test search/subpath URLs. | 7a | Canonical URLs, links, attachments, explicit tag counts and backend isolation correct; excluded sentinel absent from publishable files/index sources. |
@@ -470,3 +560,829 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-13 | S28b complete | Built the clean pinned producer with Go 1.27.0 and generated two real schema-28 publications via `generate_schema28.py`: the existing resource seed/update and a separate resource-free seed. Saved unchanged archives, exact inventories/digests, sanitized command/report metadata and read-only schema evidence under `testdata/notrios/schema28/`. The current producer and Python verify both new handoffs and the original schema-27 archive. Extended the development audit runner with explicit fixture/case selection and retained binary-hash checks; 56 cases matched (9 shared acceptances, 30 shared refusals, 17 specified consumer-only refusals). Four new offline tests cover immutable fixtures, current audit replay, 15-row conversion/no-op and actual vault tags/links/bundle hashes, plus continued resource conversion refusal. All 17 focused tests passed (6.644s), and all 230 regression tests passed (101.920s, localhost sockets permitted; both bytecode-suppression flags). Commands, pins, digests and limits are in the schema-28 README; logs are `/tmp/movenotes-s28b-audit.log`, `/tmp/movenotes-s28b-focused.log` and `/tmp/movenotes-s28b-tests.log`. Original fixtures/vectors/audit results unchanged; no importer runtime or producer edits. Next: ask to proceed to 4c. |
 | 2026-09-14 | 4c complete | Reviewed TAG/NOTE_TAG to YAML-list to site explicit/generated-tag flow; documented site casefold/deduplication and the taxonomy-cap exception in `NOTRIOS_TAG_REVIEW.md`. Added a real schema-28 publication → vault → site test for default and cap-one settings: written tags match search-source tags, only published survives the cap, and generated préface stays out of taxonomy/search-source tags while its posting identifies the correct document. Corrected the early Ledger M2 table to reflect completed Step 46. Initial focused attempt mistakenly included section index files in note assertions; narrowing to note pages fixed the test without runtime changes. Four focused tests passed (3.991s); all 231 tests across the five regression modules passed (104.534s, localhost sockets permitted), with `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v`. Logs: `/tmp/movenotes-4c-focused.log`, `/tmp/movenotes-4c-tests.log`. Documentation links and diff checked; fixtures and runtime files unchanged. Generated-input review only; no new Hugo/Pagefind/browser/live-Bluge validation claimed. Next: ask to proceed to 5a. |
 | 2026-09-14 | 5a complete | Connected frozen RESOURCE row mapping to staged authenticated blob copies with bounded reads, exclusive mapped-ID/MIME-suffix files, explicit size/SHA-256 checks and file fsync. Resource rows join existing bounded batches and per-type finalization counts; corrected the reserved association column to `relation_id`. Four storage tests pass (0.714s): exact three-resource files/metadata and seven-byte reads, tiny batches, safe/extensionless names, distinct IDs sharing bytes, empty blobs, existing-file and bad hash/size refusal, plus real stage cleanup after second-resource read/short-write/fsync faults. Tests bypass unfinished note projection only to isolate storage; production preflight still refuses resources until 5b handles associations and link projection. All 235 five-module regression tests passed (103.850s, localhost sockets permitted), using both bytecode-suppression flags. Logs: `/tmp/movenotes-5a-focused.log`, `/tmp/movenotes-5a-tests.log`. Diff/documentation links checked; source fixtures unchanged. Main executed locally under the session delegation constraint. Next: ask to proceed to 5b. |
+
+## Attribution amendment — 2026-09-14
+
+At the user's request, added coding-agent-specific session confirmation and
+mandatory delegation rules, restored historical planned owners, and recorded
+planned versus actual execution for all 31 slices. The parent performed this
+documentation/provenance update; no worker was spawned. Product role: Codex;
+runtime-reported family: GPT-6; exact parent alias/effort, client version,
+provider field and billing route: not exposed. The implementation scopes,
+dependencies, acceptance criteria and ordering were compared with the prior
+plan and are unchanged. Generated attribution/coverage checks and diff checks
+pass. No implementation tests were rerun for this documentation update.
+The four uncommitted 5b implementation files remain paused for assigned-worker
+takeover after confirmation; the recorded focused failures are unresolved.
+
+## Per-slice execution provenance
+
+Generated from the structured ledger; expand a slice to inspect its attribution.
+
+<!-- NOTRIOS-EXECUTION:START -->
+<details><summary>1a — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Reviewed pinned schemas, verifier, producer and CLI; froze [consumer contract](NOTRIOS_IMPORT_CONTRACT.md). |
+| Validation | Parent checked contract fields, limits, links and reference pin; documentation only. |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | 9e936b7:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | 9e936b7 |
+
+</details>
+
+<details><summary>1b — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Generated [synthetic publication fixture and reproduction evidence](testdata/notrios/README.md) using the clean pinned CLI's real import/plan/publish commands. |
+| Validation | Parent generated the real fixture and checked producer compatibility, full verification and independent byte/selection expectations. |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | b0e9ac9:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | b0e9ac9 |
+
+</details>
+
+<details><summary>1c — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Froze [APIs, row/property mapping, conversion limits, identity, staging and link/attachment design](NOTRIOS_IMPORT_DESIGN.md), with [machine-readable vectors](testdata/notrios/design-v1.json). |
+| Validation | Parent checked 13 identity vectors, eight link spans and three projected bodies; no runtime suite. |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | 9110d74:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | 9110d74 |
+
+</details>
+
+<details><summary>1d — complete; planned luna_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | luna_worker |
+| Planned configured model | gpt-5.6-luna |
+| Planned reasoning effort | medium |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Implemented directly despite planned worker assignment. Added [offline fixture-copy/inventory/record helpers and baseline assertions](test_notrios2sql.py), plus [baseline and regeneration instructions](testdata/notrios/README.md). |
+| Validation | Parent ran nine focused tests and all 112 regressions (56.142s). |
+| Delegation failure or reassignment | Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded. |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | b22d2e6:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | b22d2e6 |
+
+</details>
+
+<details><summary>2a — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Added strict bounded JSON, immutable manifest model, Go-compatible canonicalization and declaration/target gates in [notrios_archive.py](notrios_archive.py). |
+| Validation | Parent ran 22 focused tests and all 125 regressions (52.843s). |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | 62fc682:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | 62fc682 |
+
+</details>
+
+<details><summary>2b — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Added no-follow fanout reads, streamed checked copies, strict index/envelope checks and a temporary indexed SQLite spool behind `_stage_archive_objects`. |
+| Validation | Parent ran 34 focused tests and all 137 regressions (55.635s). |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | 7c965f9:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | 7c965f9 |
+
+</details>
+
+<details><summary>2c — complete; planned terra_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | terra_worker |
+| Planned configured model | gpt-5.6-terra |
+| Planned reasoning effort | medium |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Implemented directly despite planned worker assignment. Added table-driven rehashed hostile inputs and exact byte-limit boundaries against the frozen APIs. Executed locally under the session delegation constraint. |
+| Validation | Parent ran 40 focused tests within all 143 regressions (57.046s). |
+| Delegation failure or reassignment | Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded. |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | 6f4b026:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | 6f4b026 |
+
+</details>
+
+<details><summary>2d — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Added typed immutable records, indexed reference/blob joins, bounded notebook walks, publication gates, Go-compatible MIME normalization and the context-owned verifier API. |
+| Validation | Parent ran 56 focused tests within all 159 regressions (69.902s). |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | 7cd6c2a:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | 7cd6c2a |
+
+</details>
+
+<details><summary>2e — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Completed the [pinned-verifier audit](NOTRIOS_VERIFIER_AUDIT.md), froze 47 differential cases and measured streaming behavior. Fixed failed-read state and file/directory handle lifetime. |
+| Validation | Parent ran 47 differential cases, memory/lifetime checks and all 166 regressions (76.097s). |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | 9fb8e99:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | 9fb8e99 |
+
+</details>
+
+<details><summary>3a — complete; planned luna_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | luna_worker |
+| Planned configured model | gpt-5.6-luna |
+| Planned reasoning effort | medium |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Implemented directly despite planned worker assignment. Implemented pure deterministic keys/IDs, all five complete row builders, ordered generated properties and the frozen resource suffix map in `notrios_mapping.py`. Executed locally under the session delegation constraint. |
+| Validation | Parent ran nine mapping tests within all 175 regressions (76.209s). |
+| Delegation failure or reassignment | Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded. |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | 86e3a1e:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | 86e3a1e |
+
+</details>
+
+<details><summary>3b — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Added the internal staged importer, frozen conversion bounds, SQLite identity registry and byte-bounded row batches, completion inventory/receipt, verified reruns and Linux no-replace publication. Executed locally under the session delegation constraint. |
+| Validation | Parent ran lifecycle tests within all 189 regressions (86.318s). |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | e331238:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | e331238 |
+
+</details>
+
+<details><summary>3c — complete; planned terra_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | terra_worker |
+| Planned configured model | gpt-5.6-terra |
+| Planned reasoning effort | medium |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Implemented directly despite planned worker assignment. Validated the existing staged notebook/current-note writer with nine integration tests and real text-only vault export subprocesses. Executed locally under the session delegation constraint. |
+| Validation | Parent ran nine focused tests and all 198 regressions (100.849s). |
+| Delegation failure or reassignment | Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded. |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | 5c84068:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | 5c84068 |
+
+</details>
+
+<details><summary>3d — complete; planned terra_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | terra_worker |
+| Planned configured model | gpt-5.6-terra |
+| Planned reasoning effort | medium |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Implemented directly despite planned worker assignment. Implemented the bounded protected-token scanner, exact retained-link reconciliation, note/self/external projection and final-path exporter pass, plus generated RAW title handling. Executed locally under the session delegation constraint. |
+| Validation | Parent ran 16 focused tests and all 214 regressions (93.100s). |
+| Delegation failure or reassignment | Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded. |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | 5acbf58:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | 5acbf58 |
+
+</details>
+
+<details><summary>S28a — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Update the schema support bound in `notrios_archive.py` to 28, the contract/design's current support declarations and relevant tests. Reconcile collection-field prose and record the new reference pin without rewriting historical provenance. |
+| Validation | Parent ran 13 focused tests; all 226 distinct regressions passed across sandbox and HTTP reruns. |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | 93755ac:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | f07192c:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | f07192c |
+
+</details>
+
+<details><summary>S28b — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Add a separately pinned synthetic schema-28 publication fixture and reproducible compatibility/verifier evidence using the updated producer. Extend the differential audit and converter/no-op regression evidence as needed; update fixture documentation and this plan. |
+| Validation | Parent ran 56 differential cases, 17 focused tests and all 230 regressions (101.920s). |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | 93755ac:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | 10024cc:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | 10024cc |
+
+</details>
+
+<details><summary>4a — complete; planned luna_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | luna_worker |
+| Planned configured model | gpt-5.6-luna |
+| Planned reasoning effort | medium |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Implemented directly despite planned worker assignment. Added streamed TAG/NOTE_TAG insertion using the frozen builders and indexed ID lookups, with type-count, alias and membership-target checks before publication. Executed locally under the session delegation constraint. |
+| Validation | Parent ran four focused tests and all 218 regressions (91.317s). |
+| Delegation failure or reassignment | Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded. |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | b987ed5:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | b987ed5 |
+
+</details>
+
+<details><summary>4b — complete; planned luna_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | luna_worker |
+| Planned configured model | gpt-5.6-luna |
+| Planned reasoning effort | medium |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Implemented directly despite planned worker assignment. Added Unicode, whitespace, quoting, duplicate-name and multiple-membership round trips through the actual vault importer/exporter, plus eleven rehashed invalid-relation cases. Executed locally under the session delegation constraint. |
+| Validation | Parent ran four focused tests and all 222 regressions (96.398s). |
+| Delegation failure or reassignment | Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded. |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | 6dc7ba2:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | 6dc7ba2 |
+
+</details>
+
+<details><summary>4c — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Reviewed [vault/site tag semantics](NOTRIOS_TAG_REVIEW.md), added real-publication integration coverage and corrected the superseded M2 search description. |
+| Validation | Parent ran four focused tests and all 231 regressions (104.534s). |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | 280a6f8:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | 280a6f8 |
+
+</details>
+
+<details><summary>5a — complete; planned terra_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | terra_worker |
+| Planned configured model | gpt-5.6-terra |
+| Planned reasoning effort | medium |
+| Assignment confirmation | historical assignment; not retroactive approval |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | unknown — not recorded |
+| Parent underlying model family | unknown — not recorded |
+| Parent reasoning effort | unknown — not recorded |
+| Parent contribution | Implemented directly despite planned worker assignment. Connected the frozen resource row builder to bounded authenticated copies, exclusive mapped-ID filenames and staged item counts. Corrected the reserved relation table column to `relation_id`. Executed locally under the session delegation constraint. |
+| Validation | Parent ran four storage tests and all 235 regressions (103.850s). |
+| Delegation failure or reassignment | Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded. |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | cef03a7:NOTRIOS_IMPORT_PLAN.md progress log; Conversation execution record: parent-only implementation; no worker threads recorded. |
+| Commit | cef03a7 |
+
+</details>
+
+<details><summary>5b — paused — incomplete; planned terra_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | terra_worker |
+| Planned configured model | gpt-5.6-terra |
+| Planned reasoning effort | medium |
+| Assignment confirmation | pending session confirmation |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Codex; exact model not exposed |
+| Parent underlying model family | GPT-6 (runtime-reported during implementation) |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Direct, uncommitted implementation in notrios2sql.py, notrios_links.py, sql2obsidian.py and test_notrios2sql.py; no worker spawned. Paused for delegation/attribution review. |
+| Validation | Parent ran /tmp/movenotes-5b-resources.log: nine focused tests, one failure and one error (4.486s). Restored vault attachments missing; missing-file test failed at output-directory setup. No passing final gate. |
+| Delegation failure or reassignment | Planned terra_worker was not spawned. Existing parent work must be reviewed by the assigned worker after session confirmation; no retroactive worker attribution. |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | Uncommitted working tree at attribution review; /tmp/movenotes-5b-resources.log |
+| Commit | none — uncommitted |
+
+</details>
+
+<details><summary>5c — pending; planned terra_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | terra_worker |
+| Planned configured model | gpt-5.6-terra |
+| Planned reasoning effort | medium |
+| Assignment confirmation | pending session confirmation |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | pending |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>5d — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | pending session confirmation |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | pending |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>6a — pending; planned luna_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | luna_worker |
+| Planned configured model | gpt-5.6-luna |
+| Planned reasoning effort | max |
+| Assignment confirmation | pending session confirmation |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | pending |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>6b — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | pending session confirmation |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | pending |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>6c — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | pending session confirmation |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | pending |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>6d — pending; planned terra_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | terra_worker |
+| Planned configured model | gpt-5.6-terra |
+| Planned reasoning effort | medium |
+| Assignment confirmation | pending session confirmation |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | pending |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>7a — pending; planned terra_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | terra_worker |
+| Planned configured model | gpt-5.6-terra |
+| Planned reasoning effort | medium |
+| Assignment confirmation | pending session confirmation |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | pending |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>7b — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | pending session confirmation |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | pending |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>7c — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | pending session confirmation |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | pending |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>7d — pending; planned luna_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | luna_worker |
+| Planned configured model | gpt-5.6-luna |
+| Planned reasoning effort | max |
+| Assignment confirmation | pending session confirmation |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | pending |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>7e — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | pending session confirmation |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | pending |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+<!-- NOTRIOS-EXECUTION:END -->

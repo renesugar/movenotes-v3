@@ -156,3 +156,142 @@ inherit it.
 Some environments intermittently stall when all subprocess-heavy notebook
 filtering tests share one process; running test classes independently is an
 accepted diagnostic, but every class and method must pass before release.
+
+## Mandatory planned delegation
+
+### Coding-agent-specific assignments and session confirmation
+
+Every current and future implementation plan MUST include a **Coding-agent
+assignments and session confirmation** section and a structured execution
+provenance ledger. Assignments are scoped to a coding agent such as `codex`,
+`claude`, or `opencode`; worker names and model aliases are not portable across
+those products. Record the coding agent, planned parent/worker, configured model,
+reasoning effort, known availability constraints and billing route for each
+assignment. Record unavailable metadata as `not exposed`, never infer it.
+
+At the beginning of every implementation session, before changing implementation
+files or spawning workers, the parent MUST:
+
+1. Read the plan's assignments and compare them with this runtime's available
+   worker roles, models and fixed/configurable effort levels.
+2. Tell the user which coding agent is active, show the plan's parent/worker
+   model and effort assignments, identify differences or unavailable roles, and
+   distinguish configured values from runtime-reported metadata.
+3. State the known subscription/API billing route, or say it is not exposed.
+   A similarly named model in another coding agent may be unavailable or incur
+   substantially different API costs; availability does not authorize that cost.
+4. Ask whether those assignments and effort levels are current for this coding
+   agent and session, or whether the plan must be updated first. Wait for an
+   explicit answer before implementation or delegation. Record the answer and
+   its scope; do not repeat this check within an unchanged, confirmed session.
+
+A new session, coding-agent change, model/worker configuration change or billing
+route change invalidates that confirmation. Conversation compaction alone does
+not. A prior instruction to proceed with a slice does not confirm newly surfaced
+assignment, effort or billing differences. Read-only inspection and requested
+plan/AGENTS.md/provenance edits may proceed while confirmation is pending.
+Do not silently substitute another worker, model, effort, API provider or parent
+implementation. Propose the revised assignment, update the plan on approval,
+and retain the previous assignment in its history.
+
+The plan's section must contain the assignment table, pending/confirmed session
+status and confirmation evidence, mismatch/billing notes, next-slice assignment,
+and the location and regeneration/check commands for its provenance ledger.
+
+Worker assignments in an approved implementation plan are binding execution
+instructions, not suggestions.
+
+If a plan assigns a slice or task to a named subagent such as `luna_worker`
+or `terra_worker`, that assignment counts as an explicit instruction to use
+subagent delegation.
+
+Before performing implementation work for that slice, the parent agent MUST
+spawn the assigned worker using the native collaboration tools.
+
+The parent agent MUST NOT silently perform implementation assigned to a worker.
+
+If the assigned worker cannot be spawned, is unavailable, or fails:
+- stop implementation of that slice;
+- report the delegation failure;
+- update the plan with the failure or reassignment;
+- do not fall back to parent-agent implementation unless explicitly instructed.
+
+The parent agent may:
+- decompose and clarify the task;
+- provide context and acceptance criteria;
+- review worker output;
+- integrate results;
+- perform final validation;
+- update the plan.
+
+Before marking a delegated slice complete, record:
+- planned worker;
+- actual worker;
+- child thread ID;
+- actual model;
+- reasoning effort;
+- work performed by the worker;
+- work performed by the parent;
+- validation performed;
+- any delegation failure or reassignment.
+
+When reporting session metadata for a slice, state:
+
+- Product role (eg. Codex, Claude, Opencode, etc.)
+- Underlying model family: the model family identified by the runtime, if available (eg. GPT-5)
+- Model provider: only when the runtime identifies it (eg. openai)
+- Product/client version: report only when explicitly exposed (eg. OpenAI Codex (v0.154.0))
+- Configured model alias: report only when explicitly exposed (eg. gpt-5.6-luna)
+- Configured model reasoning effort: report only when explicitly exposed (eg. medium)
+- Never guess unavailable values; say “not exposed” instead. (eg. the runtime may only provide `underlying_model_family` for the session model but have more detailed information for configured agent workers (eg. configured_model, configured_reasoning_effort))
+
+Use structured data for the information for each plan slice and generate the corresponding text in the plan from that structured data:
+
+Record planned and actual execution separately for **every** slice, including
+parent-owned slices. Preserve historical planned workers even when the parent
+implemented the work. Required attribution fields are: Planned worker, Actual
+worker, Child thread, Actual model, Reasoning effort, Worker contribution,
+Parent, Parent reasoning effort, Parent contribution, Validation, and any
+delegation failure or reassignment. Include coding-agent identity, status,
+planned configured model/effort and evidence references in the structured data.
+An actual model field requires execution evidence; a configured worker model is
+not proof of the model that executed a child thread.
+
+For confirmed parent-only execution, use `none` for worker execution fields.
+For historical facts without evidence, use `unknown — not recorded` for each
+affected field. For unstarted work, use `pending` and fill actual fields before
+completion. A partially implemented slice records known contributions and failed
+or incomplete validation without being marked complete. Never reconstruct child
+use from a plan assignment or a commit's author name. Record explicit user
+reassignments and distinguish them from historical deviations with no recorded
+approval. The structured ledger is authoritative; regenerate its plan text and
+check for drift before committing attribution updates or completing a slice.
+
+Example:
+```json
+  {
+    "id": "example-slice",
+    "coding_agent": "codex",
+    "planned_worker": "terra_worker",
+    "configured_model": "gpt-5.6-terra",
+    "configured_reasoning_effort": "medium",
+    "delegation_required": true,
+    "status": "pending",
+    "actual_worker": "pending",
+    "child_thread": "pending",
+    "actual_model": "pending",
+    "reasoning_effort": "pending",
+    "worker_contribution": "pending",
+    "parent": "pending",
+    "parent_reasoning_effort": "pending",
+    "parent_contribution": "pending",
+    "validation": "pending",
+    "delegation_failure_or_reassignment": "none recorded"
+  }
+```
+
+The properties in the structured data will vary (eg. planned slice versus a completed slice).
+
+Messages that you send to other agents and your final answer may be read
+by a human, so ensure they are legible. Always put proper spaces between
+words and/or numbers.
