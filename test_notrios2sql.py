@@ -3232,6 +3232,167 @@ class NotriosSchema28Test(unittest.TestCase):
                 self.assertEqual(list(case.work.iterdir()), [])
 
 
+class NotriosResourceStorageTest(unittest.TestCase):
+    """Storage-only slice: link projection/admission stay gated until 5b."""
+
+    def setUp(self):
+        self.fixture = NotriosObjectSpoolTest()
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.root = self.fixture.root
+
+    @staticmethod
+    def unprojected_body(archive, document, revision, limits, resolve):
+        # Exercise staging independently of the explicitly unfinished 5b path.
+        return importer._body(archive, revision, limits)
+
+    def build(self, verified, stage):
+        stage.mkdir()
+        with mock.patch.object(importer, "_project_note", self.unprojected_body):
+            return importer._build_payload(verified, stage, importer._receipt(verified.manifest),
+                                           ConversionLimits(copy_chunk_bytes=7, batch_rows=1, batch_bytes=1))
+
+    def test_real_resources_have_exact_bytes_rows_and_bounded_reads(self):
+        with self.fixture.verify() as verified:
+            stage = self.root / "payload"
+            reads = []
+            opening = verified.open_blob
+
+            @contextmanager
+            def tracked(ref):
+                with opening(ref) as source:
+                    class Reader:
+                        def read(self, size=-1):
+                            reads.append(size)
+                            return source.read(size)
+                    yield Reader()
+
+            with mock.patch.object(verified, "open_blob", tracked):
+                self.assertEqual(self.build(verified, stage), (18, 3))
+            self.assertTrue(reads)
+            self.assertEqual(set(reads), {7})
+            with sqlite3.connect(stage / "notesdb.sqlite") as conn:
+                conn.row_factory = sqlite3.Row
+                rows = {r["joplin_id"]: dict(r) for r in conn.execute("SELECT * FROM notes WHERE joplin_type_=4")}
+                self.assertIn("relation_id", [r[1] for r in conn.execute("PRAGMA table_info(notrios_document_resources)")])
+                self.assertEqual(conn.execute("SELECT count(*) FROM notrios_document_resources").fetchone()[0], 0)
+            expected_files = set()
+            for record in verified.iter_records("resource"):
+                ref = archive_v2.BlobRef(**record.payload["blob"])
+                ident = mapping.mapped_id(verified.manifest.snapshot["database_id"], "resource", record.key)
+                suffix = mapping.resource_extension(ref.media_type)
+                filename = ident + "." + suffix
+                expected_files.add(filename)
+                raw = (stage / "resources" / filename).read_bytes()
+                self.assertEqual((len(raw), hashlib.sha256(raw).hexdigest()), (ref.size_bytes, ref.sha256))
+                wanted = mapping.build_resource_row(record, item_id=ident, mime=ref.media_type, extension=suffix)
+                for key, value in wanted.items():
+                    self.assertEqual(rows[ident][key], value, key)
+            self.assertEqual({p.name for p in (stage / "resources").iterdir()}, expected_files)
+
+    def test_safe_display_names_extensionless_and_shared_blob_identities(self):
+        records = self.fixture.envelopes()
+        resources = [r["payload"] for r in records if r["type"] == "resource"]
+        for resource, name in zip(resources, ("README", "../../folder\\安全.txt", "..")):
+            resource["filename"] = name
+        duplicate = copy.deepcopy(resources[0])
+        duplicate["id"] = "res_shared_bytes"
+        records.append({"type": "resource", "payload": duplicate})
+        relation = copy.deepcopy(next(r["payload"] for r in records if r["type"] == "document_resource"))
+        relation["resource_id"] = duplicate["id"]
+        records.append({"type": "document_resource", "payload": relation})
+        self.fixture.write_records(records)
+        with self.fixture.verify() as verified:
+            stage = self.root / "payload"
+            self.assertEqual(self.build(verified, stage), (19, 4))
+            with sqlite3.connect(stage / "notesdb.sqlite") as conn:
+                names = [r[0] for r in conn.execute("SELECT joplin_filename FROM notes WHERE joplin_type_=4")]
+            self.assertEqual(names.count("README"), 2)
+            self.assertIn("安全.txt", names)
+            self.assertTrue(any(n.startswith("attachment.") for n in names))
+            files = list((stage / "resources").iterdir())
+            self.assertEqual(len(files), 4)
+            self.assertTrue(all(importer._RESOURCE.fullmatch(p.name) for p in files))
+            self.assertEqual(sum(hashlib.sha256(p.read_bytes()).hexdigest() == duplicate["blob"]["sha256"] for p in files), 2)
+
+    def test_copy_rejects_existing_files_and_bad_stream_hash_or_size(self):
+        directory = self.root / "resources"
+        directory.mkdir()
+        fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+        self.addCleanup(os.close, fd)
+        limits = ConversionLimits(copy_chunk_bytes=2)
+        ref = archive_v2.BlobRef(hashlib.sha256(b"good").hexdigest(), 4, "application/octet-stream")
+        target = directory / ("a" * 32 + ".bin")
+        target.write_bytes(b"existing different bytes")
+        archive = mock.Mock()
+        with self.assertRaises(archive_v2.NotriosError) as caught:
+            importer._copy_resource(archive, ref, fd, target.name, limits)
+        self.assertEqual(caught.exception.code, "collision")
+        self.assertEqual(target.read_bytes(), b"existing different bytes")
+        archive.open_blob.assert_not_called()
+        for index, raw in enumerate((b"bad!", b"go", b"good-more")):
+            with self.subTest(raw=raw):
+                archive.open_blob.return_value = io.BytesIO(raw)
+                with self.assertRaises(archive_v2.NotriosError) as caught:
+                    importer._copy_resource(archive, ref, fd, f"{index:032x}.bin", limits)
+                self.assertEqual(caught.exception.code, "integrity")
+        empty = archive_v2.BlobRef(hashlib.sha256(b"").hexdigest(), 0, "application/octet-stream")
+        archive.open_blob.return_value = io.BytesIO(b"")
+        importer._copy_resource(archive, empty, fd, "b" * 32 + ".bin", limits)
+        self.assertEqual((directory / ("b" * 32 + ".bin")).read_bytes(), b"")
+
+    def test_resource_copy_faults_leave_no_completed_import(self):
+        destination = self.root / "publication"
+        copying = importer._copy_resource
+        for failure in ("read", "write", "fsync"):
+            calls = []
+            def fail(archive, ref, fd, name, limits):
+                calls.append(name)
+                if len(calls) != 2:
+                    return copying(archive, ref, fd, name, limits)
+                if failure == "fsync":
+                    with mock.patch.object(importer.os, "fsync", side_effect=OSError("resource fsync failed")):
+                        return copying(archive, ref, fd, name, limits)
+                if failure == "write":
+                    opening = os.fdopen
+                    def short_writer(file_fd, mode, *args, **kwargs):
+                        stream = opening(file_fd, mode, *args, **kwargs)
+                        if mode != "wb":
+                            return stream
+                        class Writer:
+                            def __enter__(self):
+                                return self
+                            def __exit__(self, *exc):
+                                stream.close()
+                            def write(self, chunk):
+                                return stream.write(chunk[:1])
+                        return Writer()
+                    with mock.patch.object(importer.os, "fdopen", short_writer):
+                        return copying(archive, ref, fd, name, limits)
+                @contextmanager
+                def broken(_ref):
+                    class Reader:
+                        first = True
+                        def read(self, size):
+                            if self.first:
+                                self.first = False
+                                return b"x"
+                            raise OSError("resource read interrupted")
+                    yield Reader()
+                with mock.patch.object(archive, "open_blob", broken):
+                    return copying(archive, ref, fd, name, limits)
+            with self.subTest(failure=failure), \
+                    mock.patch.object(importer, "_preflight"), \
+                    mock.patch.object(importer, "_project_note", self.unprojected_body), \
+                    mock.patch.object(importer, "_copy_resource", fail):
+                with self.assertRaises(archive_v2.NotriosError) as caught:
+                    importer.import_publication(self.fixture.archive, destination)
+                self.assertEqual(caught.exception.code, "io")
+                self.assertEqual(len(calls), 2)
+                self.assertFalse(destination.exists())
+                self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
+
+
 class NotriosSiteTagTest(unittest.TestCase):
     setUp = NotriosSchema28Test.setUp
     export = NotriosNoteIntegrationTest.export

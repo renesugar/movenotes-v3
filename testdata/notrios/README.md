@@ -409,3 +409,21 @@ publication through vault export and site generation. `NotriosSiteTagTest`
 checks default and capped taxonomy against search-source tags and the posting
 index. Generated words remain outside both tag fields; capped written tags
 remain searchable through Bluge and Browse Tags.
+
+## Resource storage checks — slice 5a
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.NotriosResourceStorageTest
+```
+
+These four tests exercise the real verifier and staged resource storage. They
+check exact hashes/sizes/metadata, seven-byte reads and one-row/one-byte batch
+budgets, Unicode/path-like and extensionless display names, separate IDs with
+shared bytes, empty blobs and collision/hash/size refusal. Read, short-write and
+fsync failures during the second resource leave no completed output or owned
+stage behind. All mutations use disposable copies; original fixtures are intact.
+
+The tests isolate storage from unfinished resource link projection. Production
+admission still refuses resource-bearing archives; 5b must populate relations,
+translate inline resource links and append relation-only attachments before
+that gate is removed. No resource-capable public CLI is exposed by 5a.

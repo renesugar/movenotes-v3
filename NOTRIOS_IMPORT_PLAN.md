@@ -7,7 +7,8 @@ pending. Plan revised on **2026-09-13** for Notrios database schema **28**.
 Schema-28 prerequisites **S28a and S28b are complete**. The importer declares
 schema support **28**, with separately pinned producer fixtures and differential
 evidence. The [vault/site tag review](NOTRIOS_TAG_REVIEW.md) is complete.
-Next item: **5a**, pending the user's instruction to proceed.
+Resource storage slice **5a** is implemented; resource admission still waits
+for link/attachment projection in **5b**, the next item pending the user's instruction.
 
 The frozen admission checklist is
 [NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
@@ -339,9 +340,27 @@ before admitting it. Resume 4c only after both prerequisites pass.
 
 ## Step 5 — Resources and attachments
 
+Slice 5a implements storage inside `_build_payload`: verified resource records
+become RESOURCE rows after note-tag memberships, and `_copy_resource` writes
+opaque bytes via `VerifiedArchive.open_blob` with bounded reads, explicit
+size/SHA-256 checks, exclusive creation and file fsync. Storage paths use mapped
+IDs and frozen MIME extensions, never source filenames. A repeated source
+resource is copied once; different IDs sharing bytes remain separate resources.
+The owned stage and completion inventory retain the existing cleanup/publication
+contract. `notrios_document_resources` now uses the frozen `relation_id` spelling;
+it remains empty until 5b populates and projects associations. Existing completed
+outputs are not rewritten or migrated.
+
+The admission gate remains in `_preflight`: resources cannot yet be imported
+through `import_publication`, because their inline and relation-only links are
+unfinished. Storage tests deliberately bypass only that gate and note projection
+to exercise lower-level construction and failure cleanup; they do not claim a
+successful resource publication or vault round trip. Slice 5b owns removal of
+the gate together with complete association and link projection.
+
 | Slice / owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| 5a / Terra | Resource metadata builder and streamed staged copy using approved APIs and Main's staged-output design. | 4c | Exact hashes/sizes; safe names and extensionless resources; conflicting bytes refuse. |
+| 5a / Main — complete | Connected the frozen resource row builder to bounded authenticated copies, exclusive mapped-ID filenames and staged item counts. Corrected the reserved relation table column to `relation_id`. Executed locally under the session delegation constraint. | 4c | Exact hashes/sizes and metadata, tiny read/batch bounds, safe display names, extensionless names, empty bytes, distinct IDs sharing bytes, collisions and read/write/fsync cleanup pass. Resource admission remains gated until 5b projects links/attachments. |
 | 5b / Terra | Translate retained resource links and implement relation-only attachment behavior frozen by Main in 1c. | 5a | Images/files resolve from nested notes; shared bytes with differing semantic MIME work; withheld resources absent; Main reviews the mapping. |
 | 5c / Terra | Attachment regressions with independent byte comparisons. | 5b | Duplicate filenames, Unicode/escaping, zero-byte and large streamed files; exact attachment bytes. |
 | 5d / Main | Review reachability, rehash-at-use and interrupted-copy recovery. | 5c | No writes outside staging or overwrites; failure cannot expose partial completed output. |
@@ -450,3 +469,4 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-13 | S28a complete | Raised the reader minimum-schema support bound to 28 and updated contract/design declarations against producer pin `7662fdd5b55d6f34f14874f70ba6db9f9e7676ac`. Added valid schema-28 and future-source admission cases, plus independent minimum-29 and inverted-bound refusals. Reconciled collection-capabilities prose while retaining the existing optional/legacy validation. All 13 focused tests passed (0.407s). Ran all five regression modules with `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v`; the sandbox run completed 218 methods in 102.750s with only localhost socket-denial errors, then both affected HTTP classes passed all 12 methods in 6.073s with sockets permitted. Across the two runs, all 226 distinct methods passed (suite enumeration confirmed). Logs: `/tmp/movenotes-s28a-focused.log`, `/tmp/movenotes-s28a-tests.log`, `/tmp/movenotes-s28a-http-tests.log`. Existing fixture/vector/audit files unchanged; no receipt, mapper or notesdb schema change. Diff and changed-document links checked. New-producer fixture generation and differential execution remain S28b. Next: ask to proceed to S28b. |
 | 2026-09-13 | S28b complete | Built the clean pinned producer with Go 1.27.0 and generated two real schema-28 publications via `generate_schema28.py`: the existing resource seed/update and a separate resource-free seed. Saved unchanged archives, exact inventories/digests, sanitized command/report metadata and read-only schema evidence under `testdata/notrios/schema28/`. The current producer and Python verify both new handoffs and the original schema-27 archive. Extended the development audit runner with explicit fixture/case selection and retained binary-hash checks; 56 cases matched (9 shared acceptances, 30 shared refusals, 17 specified consumer-only refusals). Four new offline tests cover immutable fixtures, current audit replay, 15-row conversion/no-op and actual vault tags/links/bundle hashes, plus continued resource conversion refusal. All 17 focused tests passed (6.644s), and all 230 regression tests passed (101.920s, localhost sockets permitted; both bytecode-suppression flags). Commands, pins, digests and limits are in the schema-28 README; logs are `/tmp/movenotes-s28b-audit.log`, `/tmp/movenotes-s28b-focused.log` and `/tmp/movenotes-s28b-tests.log`. Original fixtures/vectors/audit results unchanged; no importer runtime or producer edits. Next: ask to proceed to 4c. |
 | 2026-09-14 | 4c complete | Reviewed TAG/NOTE_TAG to YAML-list to site explicit/generated-tag flow; documented site casefold/deduplication and the taxonomy-cap exception in `NOTRIOS_TAG_REVIEW.md`. Added a real schema-28 publication → vault → site test for default and cap-one settings: written tags match search-source tags, only published survives the cap, and generated préface stays out of taxonomy/search-source tags while its posting identifies the correct document. Corrected the early Ledger M2 table to reflect completed Step 46. Initial focused attempt mistakenly included section index files in note assertions; narrowing to note pages fixed the test without runtime changes. Four focused tests passed (3.991s); all 231 tests across the five regression modules passed (104.534s, localhost sockets permitted), with `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v`. Logs: `/tmp/movenotes-4c-focused.log`, `/tmp/movenotes-4c-tests.log`. Documentation links and diff checked; fixtures and runtime files unchanged. Generated-input review only; no new Hugo/Pagefind/browser/live-Bluge validation claimed. Next: ask to proceed to 5a. |
+| 2026-09-14 | 5a complete | Connected frozen RESOURCE row mapping to staged authenticated blob copies with bounded reads, exclusive mapped-ID/MIME-suffix files, explicit size/SHA-256 checks and file fsync. Resource rows join existing bounded batches and per-type finalization counts; corrected the reserved association column to `relation_id`. Four storage tests pass (0.714s): exact three-resource files/metadata and seven-byte reads, tiny batches, safe/extensionless names, distinct IDs sharing bytes, empty blobs, existing-file and bad hash/size refusal, plus real stage cleanup after second-resource read/short-write/fsync faults. Tests bypass unfinished note projection only to isolate storage; production preflight still refuses resources until 5b handles associations and link projection. All 235 five-module regression tests passed (103.850s, localhost sockets permitted), using both bytecode-suppression flags. Logs: `/tmp/movenotes-5a-focused.log`, `/tmp/movenotes-5a-tests.log`. Diff/documentation links checked; source fixtures unchanged. Main executed locally under the session delegation constraint. Next: ask to proceed to 5b. |

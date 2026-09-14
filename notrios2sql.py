@@ -222,6 +222,45 @@ def _lookup(connection, database_id, kind, key):
     return row[0]
 
 
+def _copy_resource(archive, ref, directory_fd, filename, limits):
+    """Copy authenticated opaque bytes into a new, exclusively owned file."""
+    try:
+        fd = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                     0o600, dir_fd=directory_fd)
+    except FileExistsError:
+        raise NotriosError("collision", "resource destination already exists") from None
+    digest, size = hashlib.sha256(), 0
+    with os.fdopen(fd, "wb") as output:
+        with archive.open_blob(ref) as source:
+            while chunk := source.read(limits.copy_chunk_bytes):
+                size += len(chunk)
+                if size > ref.size_bytes:
+                    raise NotriosError("integrity", "resource exceeds declared size")
+                if output.write(chunk) != len(chunk):
+                    raise OSError("short resource write")
+                digest.update(chunk)
+        if size != ref.size_bytes or digest.hexdigest() != ref.sha256:
+            raise NotriosError("integrity", "resource copy hash or size differs")
+        output.flush()
+        os.fsync(output.fileno())
+
+
+def _write_resources(archive, connection, stage, batch, limits):
+    database_id = archive.manifest.snapshot["database_id"]
+    directory_fd = os.open(stage / "resources", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        for record in archive.iter_records("resource"):
+            item_id = _lookup(connection, database_id, "resource", record.key)
+            ref = BlobRef(**record.payload["blob"])
+            extension = mapping.resource_extension(ref.media_type)
+            row = mapping.build_resource_row(record, item_id=item_id,
+                                             mime=ref.media_type, extension=extension)
+            _copy_resource(archive, ref, directory_fd, item_id + "." + extension, limits)
+            batch.add(row)
+    finally:
+        os.close(directory_fd)
+
+
 def _finalize_database(connection, expected_counts):
     notesdb.ensure_indexes(connection)
     connection.execute("CREATE UNIQUE INDEX notrios_item_id ON notes(joplin_id)")
@@ -259,7 +298,7 @@ def _build_payload(archive, stage, receipt, limits):
         connection.execute("PRAGMA cache_size=-8192")
         connection.execute("PRAGMA temp_store=FILE")
         _register_ids(connection, archive)
-        connection.execute("CREATE TABLE notrios_document_resources (rel_id TEXT PRIMARY KEY, note_id TEXT NOT NULL, "
+        connection.execute("CREATE TABLE notrios_document_resources (relation_id TEXT PRIMARY KEY, note_id TEXT NOT NULL, "
                            "resource_id TEXT NOT NULL, relation_type TEXT NOT NULL, ordinal INTEGER NOT NULL, "
                            "UNIQUE(note_id,resource_id,relation_type,ordinal))")
         connection.execute("CREATE INDEX notrios_resource_notes ON notrios_document_resources(resource_id)")
@@ -288,11 +327,13 @@ def _build_payload(archive, stage, receipt, limits):
                 note_id=lookup("document", document_id), tag_id=lookup("tag", tag_id),
                 timestamp=document.payload["created_at"],
             ))
+        _write_resources(archive, connection, stage, batch, limits)
         batch.flush()
         expected_counts = {2: archive.counts["notebooks"], 1: archive.counts["documents"],
-                           5: archive.counts["tags"], 6: archive.counts["document_tags"]}
+                           5: archive.counts["tags"], 6: archive.counts["document_tags"],
+                           4: archive.counts["resources"]}
         _finalize_database(connection, expected_counts)
-        return sum(expected_counts.values()), 0
+        return sum(expected_counts.values()), archive.counts["resources"]
     finally:
         connection.close()
 
