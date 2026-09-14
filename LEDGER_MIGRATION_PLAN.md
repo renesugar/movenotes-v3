@@ -110,11 +110,13 @@ users have copied.
 | tier | source | storage | surfaces |
 |---|---|---|---|
 | **explicit** | frontmatter `tags`/`tag` + inline `#hashtags` | Hugo `tags` taxonomy (front matter `tags`) | sidebar, `/tags/` grid, term archives, post footer, Pagefind/Bluge `tag:` filter |
-| **generated** | every unique non-filler word ≥ `--minimum-word-length` | existing hashed posting index under `static/movenotes/` + `tag` fields in `server/search-source.jsonl` | the movenotes **Browse Tags** page and `tag:` queries answered by Bluge |
+| **generated** | every unique non-filler word ≥ `--minimum-word-length` | existing hashed posting index under `static/movenotes/`; words also remain in searchable body text | the movenotes **Browse Tags** page and free-text search, never `tag:` filters |
 
-Both tiers keep working exactly as today for search; the change is only that
-the explicit tier is *also* a Hugo taxonomy so Ledger's designed surfaces have
-something real to show. Generated word tags never become taxonomy terms.
+This table reflects the completed Step 46 correction: only explicit tags reach
+`search-source.jsonl` tags. Generated words remain in the posting index and
+searchable body text; they never become taxonomy terms. The taxonomy cap can
+remove explicit tags from Hugo/Pagefind while retaining them in Bluge and
+Browse Tags. The original M2 proposal predated that search correction.
 
 The invariant in `AGENTS.md` ("static-site note titles must never be enumerated
 in the Relearn sidebar") is preserved and restated for Ledger: nothing

@@ -3232,6 +3232,57 @@ class NotriosSchema28Test(unittest.TestCase):
                 self.assertEqual(list(case.work.iterdir()), [])
 
 
+class NotriosSiteTagTest(unittest.TestCase):
+    setUp = NotriosSchema28Test.setUp
+    export = NotriosNoteIntegrationTest.export
+    vault_notes = NotriosNoteIntegrationTest.vault_notes
+
+    def test_written_tags_and_generated_words_through_real_site_generation(self):
+        import obsidian2site
+        source = self.fixtures / "publication-text/archive"
+        importer.import_publication(source, self.destination)
+        vault = self.export()
+        vault_tags = {path: metadata["tags"] for path, metadata, _ in self.vault_notes(vault).values()}
+        self.assertEqual(sorted(vault_tags.values()),
+                         sorted([["café", "published", "research notes"],
+                                 ["published", "東京"], ["published"]]))
+        for cap in (None, 1):
+            with self.subTest(taxonomy_cap=cap):
+                site = self.root / ("site-default" if cap is None else "site-capped")
+                command = [sys.executable, "-B", str(Path(__file__).parent / "obsidian2site.py"),
+                           "--input", str(vault), "--output", str(site), "--progress-every", "0"]
+                if cap is not None:
+                    command.extend(["--max-taxonomy-tags", str(cap)])
+                result = subprocess.run(command, capture_output=True, text=True, timeout=60,
+                                        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                search = {r["url"]: r for r in read_fixture_jsonl(site / "server/search-source.jsonl")}
+                self.assertEqual(len(search), 3)
+                observed_paths = set()
+                for path in (site / "content/notes").rglob("*.md"):
+                    if path.name == "_index.md":
+                        continue
+                    metadata = json.loads(path.read_text().split("\n", 1)[0])
+                    source_path = metadata["movenotes_source_path"]
+                    observed_paths.add(source_path)
+                    written = vault_tags[source_path]
+                    row = search[metadata["url"]]
+                    self.assertEqual(row["tags"], written)
+                    self.assertEqual(metadata.get("tags", []), written if cap is None else ["published"])
+                    self.assertNotIn("préface", row["tags"])
+                    self.assertNotIn("préface", metadata.get("tags", []))
+                self.assertEqual(observed_paths, set(vault_tags))
+                # Prove generated words were indexed, not silently disabled.
+                for tag, count in (("préface", 1), ("research notes", 1), ("published", 3)):
+                    bucket = f"{obsidian2site._tag_posting_bucket(tag):03x}"
+                    postings = load_json(site / "static/movenotes/tag-postings" / (bucket + ".json"))
+                    self.assertEqual(len(postings[tag]), count)
+                    if tag == "préface":
+                        body_rows = [r for r in search.values() if "préface" in r["body"].casefold()]
+                        self.assertEqual(len(body_rows), 1)
+                        self.assertEqual(postings[tag], [body_rows[0]["id"]])
+
+
 class CollectionCapabilitiesOptionalTest(unittest.TestCase):
     """`capabilities` is accepted and never required on a collection record.
 

@@ -401,3 +401,11 @@ The separately pinned [schema-28 evidence](schema28/README.md) adds real
 resource-bearing and resource-free publications, a 56-case differential audit,
 and offline conversion/no-op/vault regressions. The original schema-27 archive,
 expected values and audit results above remain historical evidence.
+
+## Vault-to-site tag semantics — slice 4c
+
+[The tag review](../../NOTRIOS_TAG_REVIEW.md) traces the real schema-28 text
+publication through vault export and site generation. `NotriosSiteTagTest`
+checks default and capped taxonomy against search-source tags and the posting
+index. Generated words remain outside both tag fields; capped written tags
+remain searchable through Bluge and Browse Tags.
