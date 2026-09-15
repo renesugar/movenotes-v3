@@ -441,5 +441,16 @@ preservation-bundle reimport. Both unchanged and edited native snapshots retain
 their exact note bytes. Missing resource files/rows and missing owning relations
 refuse; protected code IDs remain inert. Attachment ordering, label escaping,
 deduplication and conversion limits have direct checks. The real schema-28 full
-publication also converts through the internal API. Broader attachment stress
-and collision regressions remain slice 5c.
+publication also converts through the internal API.
+
+## Attachment byte regressions — slice 5c
+
+The same `NotriosResourceProjectionTest` class adds disposable resource fixtures
+with duplicate Unicode names, Markdown-sensitive punctuation, empty bytes and
+a larger opaque blob. Filename checks resolve the generated attachment links to
+actual files, compare source bytes/hashes independently, and verify preserved
+names through bundle reimport and filtered export. Existing filename sanitization
+handles wiki-link delimiters; these cases require no runtime change.
+
+The larger resource checks track its importer read requests and independently
+hash exported bytes in chunks. No large fixture or generated output is committed.

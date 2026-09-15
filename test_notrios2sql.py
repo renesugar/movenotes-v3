@@ -17,12 +17,14 @@ import io
 import json
 import os
 from pathlib import Path, PurePosixPath
+import re
 import shutil
 import sqlite3
 import subprocess
 import sys
 import tempfile
 import unittest
+from urllib.parse import unquote
 from unittest import mock
 
 import notrios_archive as archive_v2
@@ -3403,6 +3405,51 @@ class NotriosResourceProjectionTest(unittest.TestCase):
         self.vectors = load_json(FIXTURE_ROOT / "design-v1.json")
         self.ids = self.vectors["fixture_ids"]
 
+    def add_resource(self, source_id, filename, mime, raw, *, document_id, ordinal):
+        """Add a resource to this test's owned archive copy and rehash it."""
+        digest, relative = self.fixture.put_object(raw)
+        return self.add_resource_blob(source_id, filename, mime, digest, len(raw), relative,
+                                      document_id=document_id, ordinal=ordinal)
+
+    def add_resource_blob(self, source_id, filename, mime, digest, size, relative, *, document_id, ordinal):
+        """Add a resource whose blob has already been streamed into the copy."""
+        self.fixture.entries.append({
+            "sha256": digest, "kind": "blob", "size_bytes": size,
+            "media_type": mime,
+            "location": {"layout": "fanout", "path": relative},
+        })
+        self.fixture.manifest["totals"]["objects"] += 1
+        self.fixture.manifest["totals"]["blobs"] += 1
+        self.fixture.manifest["totals"]["bytes"] += size
+        records = self.fixture.envelopes()
+        original = next(r["payload"] for r in records if r["type"] == "resource")
+        resource = copy.deepcopy(original)
+        resource.update(id=source_id, filename=filename, mime_type=mime,
+                        blob={"sha256": digest, "size_bytes": size, "media_type": mime})
+        records.append({"type": "resource", "payload": resource})
+        relation = next(r["payload"] for r in records if r["type"] == "document_resource")
+        related = copy.deepcopy(relation)
+        related.update(document_id=document_id, resource_id=source_id,
+                       relation_type="attachment", ordinal=ordinal)
+        records.append({"type": "document_resource", "payload": related})
+        self.fixture.write_records(records)
+        return mapping.mapped_id(self.vectors["fixture_database_id"], "resource", (source_id,))
+
+    @staticmethod
+    def attachment_digest(path):
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            while chunk := handle.read(65536):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    @staticmethod
+    def wiki_target(body):
+        match = re.search(r"!\[\[(.*?)\]\]", body)
+        if match is None:
+            raise AssertionError("expected an Obsidian wiki embed")
+        return match.group(1)
+
     def test_full_publication_frozen_bodies_relations_vault_and_noop(self):
         result = importer.import_publication(self.fixture.archive, self.destination)
         self.assertEqual((result.row_count, result.resource_count), (18, 3))
@@ -3540,6 +3587,105 @@ class NotriosResourceProjectionTest(unittest.TestCase):
         child = self.vault_notes(vault)[self.ids["document"]["doc_child"]][2]
         self.assertIn("## Attachments", child)
         self.assertIn("same%20bytes.bin", child)
+
+    def test_duplicate_unicode_attachment_names_resolve_after_bundle_and_filter(self):
+        records = self.fixture.envelopes()
+        image = next(r["payload"] for r in records if r["type"] == "resource" and r["payload"]["id"] == "res_image")
+        image["filename"] = "café & [chart]#.png"
+        self.fixture.write_records(records)
+        twin_id = self.add_resource(
+            "res_duplicate_name", "café & [chart]#.png", "image/png", b"distinct png bytes",
+            document_id="doc_child", ordinal=7,
+        )
+        image_id = self.ids["resource"]["res_image"]
+        importer.import_publication(self.fixture.archive, self.destination)
+        vault = self.export("duplicate-unicode-vault")
+        manifest = load_json(vault / ".movenotes/manifest.json")
+        paths = {ident: vault / relative for ident, relative in manifest["attachments"].items()}
+        self.assertTrue({image_id, twin_id}.issubset(paths))
+        self.assertNotEqual(paths[image_id].name, paths[twin_id].name)
+        self.assertEqual(paths[image_id].name, "café & chart.png")
+        self.assertEqual(paths[twin_id].name, "café & chart 2.png")
+        public = self.vault_notes(vault)[self.ids["document"]["doc_public"]][2]
+        self.assertIn("![[", public, public)
+        self.assertEqual(self.wiki_target(public), paths[image_id].name)
+        child_relative, _, child = self.vault_notes(vault)[self.ids["document"]["doc_child"]]
+        href = next(value for value in re.findall(r"\]\(([^)]+)\)", child)
+                    if "attachments/" in value)
+        self.assertIn("caf%C3%A9%20%26%20chart%202.png", href)
+        self.assertIn("café &amp; &#91;chart&#93;#.png", child)
+        self.assertEqual((vault / PurePosixPath(child_relative).parent /
+                          unquote(href)).resolve(), paths[twin_id].resolve())
+        self.assertEqual(self.attachment_digest(paths[image_id]),
+                         load_json(PUBLICATION_ROOT / "expected.json")["resources"]["res_image"]["sha256"])
+        self.assertEqual(paths[twin_id].read_bytes(), b"distinct png bytes")
+        self.reimport_vault(vault, "duplicate-unicode-restored")
+        restored = self.export("duplicate-unicode-restored-vault")
+        restored_manifest = load_json(restored / ".movenotes/manifest.json")
+        self.assertEqual(restored_manifest["attachments"], manifest["attachments"])
+        for ident, relative in manifest["attachments"].items():
+            self.assertEqual((vault / relative).read_bytes(), (restored / restored_manifest["attachments"][ident]).read_bytes())
+        filtered = self.export("duplicate-unicode-filtered", "--notebooks", "研究")
+        filtered_manifest = load_json(filtered / ".movenotes/manifest.json")
+        self.assertEqual(set(filtered_manifest["attachments"]), {image_id, twin_id})
+        filtered_path = filtered / filtered_manifest["attachments"][twin_id]
+        # Reimported snapshot metadata keeps the previously allocated name,
+        # even though this filtered export writes a smaller note set.
+        self.assertEqual(filtered_path.name, "café & chart 2.png")
+        self.assertEqual(filtered_path.read_bytes(), b"distinct png bytes")
+
+    def test_zero_and_large_opaque_attachments_stream_exact_bytes(self):
+        zero_id = self.add_resource("res_zero", "empty [file].bin", "application/octet-stream", b"",
+                                    document_id="doc_public", ordinal=20)
+        block = bytes(range(251)) * 4096
+        chunks = 9
+        digest = hashlib.sha256()
+        for _ in range(chunks):
+            digest.update(block)
+        large_size = len(block) * chunks
+        self.assertGreater(large_size, 8 * 1024 * 1024)
+        large_digest = digest.hexdigest()
+        relative = f"objects/sha256/{large_digest[:2]}/{large_digest[2:4]}/{large_digest}"
+        target = self.fixture.archive / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open("wb") as handle:
+            for _ in range(chunks):
+                handle.write(block)
+        large_id = self.add_resource_blob("res_large", "large.dat", "application/octet-stream",
+                                          large_digest, large_size, relative,
+                                          document_id="doc_public", ordinal=21)
+        reads = []
+        original_read = archive_v2._CheckedBlob.read
+        def tracked_read(stream, size=-1):
+            if stream._ref.sha256 == large_digest:
+                reads.append(size)
+            return original_read(stream, size)
+        with mock.patch.object(archive_v2._CheckedBlob, "read", tracked_read):
+            importer.import_publication(self.fixture.archive, self.destination)
+        self.assertTrue(reads)
+        self.assertGreater(len(reads), 2)
+        self.assertTrue(all(size == importer.DEFAULT_CONVERSION_LIMITS.copy_chunk_bytes for size in reads))
+        with sqlite3.connect(self.destination / "notesdb.sqlite") as connection:
+            self.assertEqual(connection.execute(
+                "SELECT joplin_size FROM notes WHERE joplin_id=?", (large_id,)
+            ).fetchone()[0], large_size)
+        self.assertEqual(self.attachment_digest(self.destination / "resources" / (large_id + ".bin")), large_digest)
+        vault = self.export("large-attachments-vault")
+        manifest = load_json(vault / ".movenotes/manifest.json")
+        self.assertEqual((vault / manifest["attachments"][zero_id]).stat().st_size, 0)
+        large_path = vault / manifest["attachments"][large_id]
+        self.assertEqual(large_path.stat().st_size, large_size)
+        self.assertEqual(self.attachment_digest(large_path), large_digest)
+        self.assertEqual(self.attachment_digest(
+            vault / ".movenotes" / "joplin-raw" / "resources" / (large_id + ".bin")
+        ), large_digest)
+        self.reimport_vault(vault, "large-attachments-restored")
+        restored = self.export("large-attachments-restored-vault")
+        restored_manifest = load_json(restored / ".movenotes/manifest.json")
+        self.assertEqual((restored / restored_manifest["attachments"][zero_id]).stat().st_size, 0)
+        self.assertEqual(self.attachment_digest(
+            restored / restored_manifest["attachments"][large_id]
+        ), large_digest)
 
     def test_attachment_order_dedup_escaping_empty_body_and_limits(self):
         a, b = "a" * 32, "b" * 32
