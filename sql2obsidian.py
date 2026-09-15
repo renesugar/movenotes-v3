@@ -341,7 +341,7 @@ class AttachmentTable:
         self._resources = {
             row["joplin_id"]: row
             for row in sqlcur.execute(
-                "SELECT joplin_id, note_title, joplin_file_extension, joplin_mime "
+                "SELECT joplin_id, note_title, joplin_file_extension, joplin_mime, note_obsidian_path "
                 "FROM notes WHERE joplin_type_ = ?",
                 (int(constants.JoplinType.RESOURCE),),
             )
@@ -367,11 +367,15 @@ class AttachmentTable:
         extension = (row["joplin_file_extension"] or "").lower()
         return extension in _IMAGE_EXTENSIONS
 
-    def vault_name(self, resource_id: str) -> str | None:
+    def vault_name(self, resource_id: str, *, required: bool = False) -> str | None:
         """Return the attachment's vault file name, copying it on first use.
 
         Returns None for resource ids not present in the database.
         """
+        if required:
+            row = self._resources.get(resource_id)
+            if row is None or self._source_file(resource_id, row["joplin_file_extension"] or "") is None:
+                raise notrios_links.NotriosError("conversion", "missing mapped resource file")
         if resource_id in self._names:
             return self._names[resource_id]
         row = self._resources.get(resource_id)
@@ -383,10 +387,14 @@ class AttachmentTable:
         if source is not None and not extension:
             extension = source.suffix.lstrip(".")
 
-        # Prefer the resource's human-readable title for the file name.
-        title = sanitize_name(row["note_title"])
-        stem = title.removesuffix(f".{extension}") if extension else title
-        suffix = f".{extension}" if extension else ""
+        preserved = obsidianmeta.safe_relative_path(row["note_obsidian_path"] or "")
+        if preserved is not None and len(preserved.parts) == 2 and preserved.parts[0] == ATTACHMENTS_DIR_NAME:
+            stem, suffix = Path(preserved.name).stem, Path(preserved.name).suffix
+        else:
+            # Prefer the resource's human-readable title for the file name.
+            title = sanitize_name(row["note_title"])
+            stem = title.removesuffix(f".{extension}") if extension else title
+            suffix = f".{extension}" if extension else ""
         name = self._dedup.reserve(ATTACHMENTS_DIR_NAME, stem, suffix)
         self._names[resource_id] = name
         self.vault_paths[resource_id] = str((PurePosixPath(ATTACHMENTS_DIR_NAME) / name).as_posix())
@@ -799,6 +807,14 @@ def restore_native_obsidian_resources(
         relative = obsidianmeta.row_resource_path(row)
         if relative is None:
             continue
+        # Notrios bundle attachment paths are presentation metadata.
+        # AttachmentTable copies them only after an active mapped link in an
+        # exported note is found; restoring them here would leak unselected
+        # Notrios resources. Preserve the established generic bundle behavior.
+        if (relative.parts and relative.parts[0] == ATTACHMENTS_DIR_NAME
+                and row["joplin_source"] == "movenotes-notrios"
+                and obsidianmeta.path_snapshot(row["joplin_application_data"], "resource") is None):
+            continue
         source = _resource_source(input_resources_path, str(row["joplin_id"]))
         if source is None:
             continue
@@ -881,6 +897,55 @@ def main(argv: list[str]) -> int:
     referenced_resource_ids: set[str] = set()
     obsidian_paths: dict[str, str] = {}
     obsidian_hashes: dict[str, str] = {}
+    has_notrios_resource_provenance = sqlconn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' "
+        "AND name='notrios_preserved_resources'"
+    ).fetchone() is not None
+
+    def materialize_notrios_attachments(row) -> None:  # noqa: ANN001
+        """Copy resources represented by an exact Notrios vault snapshot.
+
+        A preservation-bundle reimport records the already rendered vault bytes
+        as a native snapshot.  Rewriting those bytes would lose their exact
+        frontmatter and user edits. The stored Notrios projection retains the
+        active mapped resource links, which are the bounded reachability set
+        even after Joplin RAW drops the auxiliary association table.
+        """
+        limits = notrios_links.DEFAULT_CONVERSION_LIMITS
+        body = notrios_links.projected_note_body(row).encode("utf-8")
+        if len(body) > limits.max_projected_body_bytes:
+            raise notrios_links.NotriosError("limit", "projected body exceeds conversion limit")
+        resource_ids = []
+        for count, token in enumerate(notrios_links.scan_markdown(body), 1):
+            if count > limits.max_links_per_note:
+                raise notrios_links.NotriosError("limit", "link count exceeds limit")
+            match = re.fullmatch(rb":/([0-9a-f]{32})", token.base)
+            if match is not None:
+                resource_ids.append(match[1].decode("ascii"))
+                if len(resource_ids) > limits.max_resource_relations_per_note:
+                    raise notrios_links.NotriosError("limit", "resource relation count exceeds limit")
+        for resource_id in dict.fromkeys(resource_ids):
+            row_type = sqlconn.execute(
+                "SELECT joplin_type_ FROM notes WHERE joplin_id=?", (resource_id,)
+            ).fetchone()
+            # A selected preservation bundle may omit a mapped *note* target.
+            # Resource rows in scope are retained in the bundle and therefore
+            # still take the required=True refusal below when their file is
+            # absent. The preserved resource identity table distinguishes a
+            # deleted resource row from an intentionally omitted note target.
+            if row_type is None:
+                known_resource = has_notrios_resource_provenance and sqlconn.execute(
+                    "SELECT 1 FROM notrios_preserved_resources WHERE resource_id=?",
+                    (resource_id,),
+                ).fetchone() is not None
+                if known_resource:
+                    raise notrios_links.NotriosError("conversion", "missing mapped resource row")
+                continue
+            if row_type[0] != int(constants.JoplinType.RESOURCE):
+                continue
+            attachments.vault_name(resource_id, required=True)
+            referenced_resource_ids.add(resource_id)
+
     for row in sqlcur.execute(
         "SELECT * FROM notes WHERE joplin_type_ = ? ORDER BY note_internal_date",
         (int(constants.JoplinType.NOTE),),
@@ -901,7 +966,11 @@ def main(argv: list[str]) -> int:
 
         item_id = row["joplin_id"]
         snapshot = obsidianmeta.row_note_snapshot(row)
-        if snapshot is not None:
+        snapshot_matches = (
+            snapshot is not None
+            and obsidianmeta.text_sha256(row["note_data"] or "") == snapshot[2]
+        )
+        if snapshot_matches:
             original_path, original_raw, expected_body_hash = snapshot
             current_body = row["note_data"] or ""
             if obsidianmeta.text_sha256(current_body) == expected_body_hash:
@@ -912,6 +981,8 @@ def main(argv: list[str]) -> int:
                 exported_note_ids.add(item_id)
                 obsidian_paths[item_id] = relative_written
                 obsidian_hashes[item_id] = hashlib.sha256(original_raw).hexdigest()
+                if notrios_links.is_generated_note(row):
+                    materialize_notrios_attachments(row)
                 note_count += 1
                 if args.verbose:
                     print(f"processing '{relative_written}' (exact Obsidian source)")
@@ -959,6 +1030,8 @@ def main(argv: list[str]) -> int:
     omitted_note_links = 0
     def lookup_item_type(item_id):
         result = sqlconn.execute("SELECT joplin_type_ FROM notes WHERE joplin_id=?", (item_id,)).fetchone()
+        if result is not None and result[0] == 4:
+            referenced_resource_ids.add(item_id)
         return result[0] if result is not None else None
 
     def lookup_note_path(item_id):
@@ -981,6 +1054,9 @@ def main(argv: list[str]) -> int:
             continue
         snapshot = obsidianmeta.row_note_snapshot(row)
         if snapshot is not None and obsidianmeta.text_sha256(row["note_data"] or "") == snapshot[2]:
+            # Preservation-bundle snapshots include both untouched and edited
+            # vault notes. Their active mapped resource links already
+            # materialized the required resources in the first pass.
             continue
         note_path = PurePosixPath(obsidian_paths[item_id])
         body = notrios_links.rewrite_projected_links(

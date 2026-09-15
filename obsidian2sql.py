@@ -546,6 +546,26 @@ def _import_preserved_joplin(
     if raw_resources.is_dir():
         common.copy_resources(raw_resources, output_path / "resources")
 
+    # Joplin RAW has no place for Notrios' resource-association bookkeeping.
+    # Retain only the in-scope resource identities in SQLite so a later vault
+    # export can distinguish a deleted resource row from an omitted note target.
+    is_notrios_bundle = sqlconn.execute(
+        "SELECT 1 FROM notes WHERE joplin_type_=? AND joplin_source=? "
+        "AND joplin_source_application=? LIMIT 1",
+        (int(constants.JoplinType.NOTE), "movenotes-notrios", "movenotes-notrios2sql"),
+    ).fetchone()
+    if is_notrios_bundle:
+        sqlconn.execute(
+            "CREATE TABLE IF NOT EXISTS notrios_preserved_resources "
+            "(resource_id TEXT PRIMARY KEY)"
+        )
+        sqlconn.executemany(
+            "INSERT OR IGNORE INTO notrios_preserved_resources(resource_id) VALUES (?)",
+            ((str(item["id"]),) for item in valid_items
+             if item.get("type") == int(constants.JoplinType.RESOURCE)
+             and isinstance(item.get("id"), str)),
+        )
+
     # Resolve attachment paths from the manifest and from native-Obsidian
     # metadata carried by resource items.
     attachment_map = manifest.get("attachments", {})
@@ -555,7 +575,17 @@ def _import_preserved_joplin(
         str(path): str(resource_id)
         for resource_id, path in attachment_map.items()
         if isinstance(resource_id, str) and isinstance(path, str)
+        and obsidianmeta.safe_relative_path(path) is not None
     }
+    # The bundle's attachment map records the names already embedded in exact
+    # Notrios vault snapshots.  Keep that presentation metadata in the
+    # dedicated Obsidian path column: it must not alter Joplin RAW source
+    # properties or application_data.
+    for path, resource_id in path_to_id.items():
+        sqlconn.execute(
+            "UPDATE notes SET note_obsidian_path=? WHERE joplin_id=? AND joplin_type_=?",
+            (path, resource_id, int(constants.JoplinType.RESOURCE)),
+        )
     for resource_row in sqlconn.execute(
         "SELECT joplin_id, joplin_application_data FROM notes "
         "WHERE joplin_type_ = ?",

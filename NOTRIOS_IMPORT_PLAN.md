@@ -2,14 +2,14 @@
 
 Status: slices **1a–1d, 2a–2e, 3a–3d and 4a–4c complete**. The subsequent
 collection-capabilities compatibility fix is committed as `cc4ec25`. Notes,
-links and tags are implemented internally; resources and the public CLI remain
+links, tags and resources are implemented internally; the public CLI remains
 pending. Plan revised on **2026-09-13** for Notrios database schema **28**.
 Schema-28 prerequisites **S28a and S28b are complete**. The importer declares
 schema support **28**, with separately pinned producer fixtures and differential
 evidence. The [vault/site tag review](NOTRIOS_TAG_REVIEW.md) is complete.
-Resource storage slice **5a** is complete. Slice **5b** has uncommitted parent
-work and is paused, incomplete, pending the coding-agent assignment check below.
-The completed baseline is `cef03a7`; the working tree is not a validated release.
+Resource slices **5a and 5b are complete**. Slice 5b was completed by the assigned
+`terra_worker` after taking over earlier parent work; all 241 regression tests
+pass. Next is **5c**, attachment regressions, subject to per-slice authorization.
 
 The frozen admission checklist is
 [NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
@@ -216,37 +216,35 @@ billing. Never silently transfer assignments, assume subscription coverage, or
 use another provider, model, effort or parent fallback.
 
 The following table is generated from
-[NOTRIOS_IMPORT_EXECUTION.json](NOTRIOS_IMPORT_EXECUTION.json). These are proposed
-current Codex assignments awaiting confirmation. Historical Luna assignments
+[NOTRIOS_IMPORT_EXECUTION.json](NOTRIOS_IMPORT_EXECUTION.json). These are
+current Codex assignments confirmed for this session. Historical Luna assignments
 retain their originally planned `medium` effort in the per-slice records;
-future Luna work proposes the available role's fixed `max` effort.
+future Luna work uses the available role's confirmed fixed `max` effort.
 
 <!-- NOTRIOS-ASSIGNMENTS:START -->
-Session confirmation: **pending**.
+Session confirmation: **confirmed**.
 
-User requested assignment review before further implementation; no approval of the revised assignments recorded.
+2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; only 5b implementation authorized.
 
 | Coding agent | Execution owner | Configured model | Reasoning effort | Availability | Billing route |
 |---|---|---|---|---|---|
-| codex | parent | not exposed | not exposed | Current parent runtime reports GPT-6 family only | not exposed |
-| codex | luna_worker | gpt-5.6-luna | max | Available fixed role; proposed update from historical plan medium | not exposed |
-| codex | terra_worker | gpt-5.6-terra | medium | Available fixed role | not exposed |
+| codex | parent | not exposed | not exposed | Current parent runtime reports GPT-6 family only | not exposed; suitability confirmed by user for this session |
+| codex | luna_worker | gpt-5.6-luna | max | Available fixed role; update from historical medium confirmed | not exposed; suitability confirmed by user for this session |
+| codex | terra_worker | gpt-5.6-terra | medium | Available fixed role | not exposed; suitability confirmed by user for this session |
 
 Runtime-reported parent family: **GPT-6**. Product/client version: not exposed; model provider: not exposed.
 
 - Worker model/effort values are runtime configuration, not proof of child execution.
 - Historical parent aliases/efforts were not recorded per slice; do not infer gpt-6-astra from the user's Astra label.
-- Historical Luna plan effort medium conflicts with current fixed max; proposed max for future Luna assignments awaits confirmation.
+- Future Luna assignments use fixed max effort, confirmed by the user for this session; historical medium assignments remain unchanged.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next implementation slice: **resume 5b**, assigned to
+Next implementation slice: **5c — attachment regressions**, assigned to
 **codex:terra_worker / gpt-5.6-terra / medium**, with parent review and final
-validation. It already has uncommitted parent implementation, not delegated
-worker output. It is paused and incomplete: the latest focused resource run has
-one failure and one error. After confirmation, the assigned worker must inspect
-and take over the existing changes, resolve outstanding validation and report
-its own contribution. Preserve the earlier parent contribution; do not attribute
-it to that worker. No new worker is being spawned during this documentation review.
+validation. Assignments, effort and billing suitability are confirmed for this
+unchanged session; 5c still requires the user's per-slice authorization. Slice
+5b is complete. Its native worker identifier is `/root/notrios_5b`; the ledger
+separates earlier parent implementation from worker completion and parent review.
 
 ## Execution and agent handoff rules
 
@@ -437,21 +435,23 @@ size/SHA-256 checks, exclusive creation and file fsync. Storage paths use mapped
 IDs and frozen MIME extensions, never source filenames. A repeated source
 resource is copied once; different IDs sharing bytes remain separate resources.
 The owned stage and completion inventory retain the existing cleanup/publication
-contract. `notrios_document_resources` now uses the frozen `relation_id` spelling;
-it remains empty until 5b populates and projects associations. Existing completed
-outputs are not rewritten or migrated.
+contract. `notrios_document_resources` uses the frozen `relation_id` spelling.
+Slice 5b populates every mapped association, validates inline resource targets
+against the owning note's relations, and appends the frozen deterministic list
+for relation-only resources. Existing completed outputs are not migrated.
 
-The admission gate remains in `_preflight`: resources cannot yet be imported
-through `import_publication`, because their inline and relation-only links are
-unfinished. Storage tests deliberately bypass only that gate and note projection
-to exercise lower-level construction and failure cleanup; they do not claim a
-successful resource publication or vault round trip. Slice 5b owns removal of
-the gate together with complete association and link projection.
+The 5b implementation removes the temporary resource admission gate. Vault
+export uses protected active tokens, actual note paths and required resource
+copies. Preservation-bundle reimport retains attachment presentation paths in
+the dedicated Obsidian column; exact snapshots retain their bytes while their
+active mapped resources are copied. Storage tests still isolate low-level copy
+failures; projection tests exercise full publication and vault round trips.
+The public importer CLI remains Step 6 work.
 
 | Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
 | 5a / Terra — complete | Connected the frozen resource row builder to bounded authenticated copies, exclusive mapped-ID filenames and staged item counts. Corrected the reserved relation table column to `relation_id`. Executed locally under the session delegation constraint. | 4c | Exact hashes/sizes and metadata, tiny read/batch bounds, safe display names, extensionless names, empty bytes, distinct IDs sharing bytes, collisions and read/write/fsync cleanup pass. Resource admission remains gated until 5b projects links/attachments. |
-| 5b / Terra | Translate retained resource links and implement relation-only attachment behavior frozen by Main in 1c. | 5a | Images/files resolve from nested notes; shared bytes with differing semantic MIME work; withheld resources absent; Main reviews the mapping. |
+| 5b / Terra — complete | Translated retained resource links and implemented relation-only attachment behavior frozen by Main in 1c. Assigned worker completed inherited parent work, including exact snapshot attachment restoration. | 5a | Images/files resolve from nested notes; shared bytes with differing semantic MIME work; withheld resources absent; Main reviews the mapping. |
 | 5c / Terra | Attachment regressions with independent byte comparisons. | 5b | Duplicate filenames, Unicode/escaping, zero-byte and large streamed files; exact attachment bytes. |
 | 5d / Main | Review reachability, rehash-at-use and interrupted-copy recovery. | 5c | No writes outside staging or overwrites; failure cannot expose partial completed output. |
 
@@ -561,6 +561,8 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-14 | 4c complete | Reviewed TAG/NOTE_TAG to YAML-list to site explicit/generated-tag flow; documented site casefold/deduplication and the taxonomy-cap exception in `NOTRIOS_TAG_REVIEW.md`. Added a real schema-28 publication → vault → site test for default and cap-one settings: written tags match search-source tags, only published survives the cap, and generated préface stays out of taxonomy/search-source tags while its posting identifies the correct document. Corrected the early Ledger M2 table to reflect completed Step 46. Initial focused attempt mistakenly included section index files in note assertions; narrowing to note pages fixed the test without runtime changes. Four focused tests passed (3.991s); all 231 tests across the five regression modules passed (104.534s, localhost sockets permitted), with `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v`. Logs: `/tmp/movenotes-4c-focused.log`, `/tmp/movenotes-4c-tests.log`. Documentation links and diff checked; fixtures and runtime files unchanged. Generated-input review only; no new Hugo/Pagefind/browser/live-Bluge validation claimed. Next: ask to proceed to 5a. |
 | 2026-09-14 | 5a complete | Connected frozen RESOURCE row mapping to staged authenticated blob copies with bounded reads, exclusive mapped-ID/MIME-suffix files, explicit size/SHA-256 checks and file fsync. Resource rows join existing bounded batches and per-type finalization counts; corrected the reserved association column to `relation_id`. Four storage tests pass (0.714s): exact three-resource files/metadata and seven-byte reads, tiny batches, safe/extensionless names, distinct IDs sharing bytes, empty blobs, existing-file and bad hash/size refusal, plus real stage cleanup after second-resource read/short-write/fsync faults. Tests bypass unfinished note projection only to isolate storage; production preflight still refuses resources until 5b handles associations and link projection. All 235 five-module regression tests passed (103.850s, localhost sockets permitted), using both bytecode-suppression flags. Logs: `/tmp/movenotes-5a-focused.log`, `/tmp/movenotes-5a-tests.log`. Diff/documentation links checked; source fixtures unchanged. Main executed locally under the session delegation constraint. Next: ask to proceed to 5b. |
 
+| 2026-09-14 | 5b complete | Following explicit session confirmation, delegated takeover to `codex:terra_worker` (configured `gpt-5.6-terra`, `medium`; native identifier `/root/notrios_5b`). Worker completed earlier parent work, preserved exact snapshot bytes and attachment paths through bundle reimport, and added indexed resource-identity provenance to distinguish missing resources from omitted notes. Parent reviewed mapping, bounds and snapshot behavior, integrated documentation and ran final validation. All 241 tests across the five required modules passed (117.237s), with both bytecode-suppression flags and localhost sockets permitted; log `/tmp/movenotes-5b-tests.log`. Focused resource, MIME, filtered-bundle, missing-row/file and protected-code checks pass; frozen fixture bodies and source hashes match. Original fixtures unchanged. Usage-limit interruption resumed on the same worker; actual backend model/effort not independently exposed. Full attribution is in the generated ledger. Public CLI remains Step 6. Next: ask to proceed to 5c. |
+
 ## Attribution amendment — 2026-09-14
 
 At the user's request, added coding-agent-specific session confirmation and
@@ -572,8 +574,8 @@ provider field and billing route: not exposed. The implementation scopes,
 dependencies, acceptance criteria and ordering were compared with the prior
 plan and are unchanged. Generated attribution/coverage checks and diff checks
 pass. No implementation tests were rerun for this documentation update.
-The four uncommitted 5b implementation files remain paused for assigned-worker
-takeover after confirmation; the recorded focused failures are unresolved.
+At that review, the four uncommitted 5b implementation files were paused for
+assigned-worker takeover after confirmation; the focused failures were unresolved.
 
 ## Per-slice execution provenance
 
@@ -1074,7 +1076,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 
 </details>
 
-<details><summary>5b — paused — incomplete; planned terra_worker</summary>
+<details><summary>5b — complete; planned terra_worker</summary>
 
 | Property | Value |
 |---|---|
@@ -1082,21 +1084,21 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | terra_worker |
 | Planned configured model | gpt-5.6-terra |
 | Planned reasoning effort | medium |
-| Assignment confirmation | pending session confirmation |
-| Actual worker | none |
-| Child thread | none |
-| Actual model | none |
-| Reasoning effort | none |
-| Worker contribution | none |
+| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
+| Actual worker | terra_worker |
+| Child thread | /root/notrios_5b (native canonical task identifier; separate thread UUID not exposed) |
+| Actual model | not exposed — configured worker model gpt-5.6-terra |
+| Reasoning effort | not exposed independently — configured fixed medium |
+| Worker contribution | Reviewed inherited parent projection/association implementation; completed exact-snapshot attachment materialization, bundle attachment-path retention, and indexed preserved-resource identity checks in obsidian2sql.py/sql2obsidian.py; corrected test setup and finalizer coupling; added semantic-MIME, protected-token, exact/edited snapshot, selected-bundle and missing-resource regressions. |
 | Parent | Codex; exact model not exposed |
 | Parent underlying model family | GPT-6 (runtime-reported during implementation) |
 | Parent reasoning effort | not exposed |
-| Parent contribution | Direct, uncommitted implementation in notrios2sql.py, notrios_links.py, sql2obsidian.py and test_notrios2sql.py; no worker spawned. Paused for delegation/attribution review. |
-| Validation | Parent ran /tmp/movenotes-5b-resources.log: nine focused tests, one failure and one error (4.486s). Restored vault attachments missing; missing-file test failed at output-directory setup. No passing final gate. |
-| Delegation failure or reassignment | Planned terra_worker was not spawned. Existing parent work must be reviewed by the assigned worker after session confirmation; no retroactive worker attribution. |
+| Parent contribution | Before delegation: initial uncommitted projection, association, exporter and test implementation in four files. After confirmation: spawned and resumed assigned worker, reviewed frozen mapping and snapshot/filtering/bounded-memory invariants, authorized necessary obsidian2sql.py dependency and minimal resource-identity table, requested corrections, integrated a comment correction, updated plan/design/provenance and ran final regression gate. |
+| Validation | Worker: 20 focused tests passed (13.642s); after final missing-row fix, ResourceProjection 6/6 (8.861s), plus Obsidian importer 8/8 (11.517s) during review. Parent final five-module suite: all 241 tests passed (117.237s), PYTHONDONTWRITEBYTECODE=1 and python3 -B, local HTTP sockets permitted. Earlier full run also passed 241 (116.538s) before final review completion. Diff and documentation links checked; immutable fixtures unchanged. |
+| Delegation failure or reassignment | Earlier parent implementation bypassed planned delegation; no retroactive worker attribution. After explicit confirmation, terra_worker took over. Worker interrupted by usage limit; same worker resumed using followup_task after user requested continuation. No reassignment. |
 | Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
-| Execution evidence | Uncommitted working tree at attribution review; /tmp/movenotes-5b-resources.log |
-| Commit | none — uncommitted |
+| Execution evidence | Uncommitted working tree at attribution review; /tmp/movenotes-5b-resources.log; Native spawn/followup and worker messages for /root/notrios_5b; User explicitly resumed 5b after usage-limit interruption; /tmp/movenotes-5b-tests.log; /tmp/movenotes-5b-tests-before-final-review.log |
+| Commit | Git commit containing this completion record: feat: project Notrios resource links and vault attachments |
 
 </details>
 
@@ -1108,7 +1110,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | terra_worker |
 | Planned configured model | gpt-5.6-terra |
 | Planned reasoning effort | medium |
-| Assignment confirmation | pending session confirmation |
+| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -1134,7 +1136,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | parent |
 | Planned configured model | not exposed |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | pending session confirmation |
+| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -1160,7 +1162,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | luna_worker |
 | Planned configured model | gpt-5.6-luna |
 | Planned reasoning effort | max |
-| Assignment confirmation | pending session confirmation |
+| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -1186,7 +1188,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | parent |
 | Planned configured model | not exposed |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | pending session confirmation |
+| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -1212,7 +1214,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | parent |
 | Planned configured model | not exposed |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | pending session confirmation |
+| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -1238,7 +1240,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | terra_worker |
 | Planned configured model | gpt-5.6-terra |
 | Planned reasoning effort | medium |
-| Assignment confirmation | pending session confirmation |
+| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -1264,7 +1266,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | terra_worker |
 | Planned configured model | gpt-5.6-terra |
 | Planned reasoning effort | medium |
-| Assignment confirmation | pending session confirmation |
+| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -1290,7 +1292,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | parent |
 | Planned configured model | not exposed |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | pending session confirmation |
+| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -1316,7 +1318,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | parent |
 | Planned configured model | not exposed |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | pending session confirmation |
+| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -1342,7 +1344,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | luna_worker |
 | Planned configured model | gpt-5.6-luna |
 | Planned reasoning effort | max |
-| Assignment confirmation | pending session confirmation |
+| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -1368,7 +1370,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | parent |
 | Planned configured model | not exposed |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | pending session confirmation |
+| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |

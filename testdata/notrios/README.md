@@ -423,7 +423,23 @@ shared bytes, empty blobs and collision/hash/size refusal. Read, short-write and
 fsync failures during the second resource leave no completed output or owned
 stage behind. All mutations use disposable copies; original fixtures are intact.
 
-The tests isolate storage from unfinished resource link projection. Production
-admission still refuses resource-bearing archives; 5b must populate relations,
-translate inline resource links and append relation-only attachments before
-that gate is removed. No resource-capable public CLI is exposed by 5a.
+These tests isolate storage and copy failures. At the 5a milestone production
+admission still refused resources; slice 5b removes that temporary gate together
+with resource link and association projection. The public CLI remains Step 6.
+
+## Resource links and vault attachments — slice 5b
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.NotriosResourceProjectionTest
+```
+
+The full publication is compared against the frozen projected-body vectors and
+source resource hashes. Checks cover mapped associations, the relation-only
+attachment suffix, nested note paths, shared resources, distinct semantic MIME
+types sharing bytes, selected notebooks and exact attachment paths/bytes through
+preservation-bundle reimport. Both unchanged and edited native snapshots retain
+their exact note bytes. Missing resource files/rows and missing owning relations
+refuse; protected code IDs remain inert. Attachment ordering, label escaping,
+deduplication and conversion limits have direct checks. The real schema-28 full
+publication also converts through the internal API. Broader attachment stress
+and collision regressions remain slice 5c.

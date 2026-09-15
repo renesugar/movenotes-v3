@@ -1,7 +1,7 @@
 """Internal publication importer; the public CLI is deferred to Step 6.
 
-This development slice accepts notes, tags and validated note/external/self
-links. Resources and their relations await the resource conversion slices.
+This development slice imports notes, tags, resources and their validated
+relations. The public CLI remains deferred to Step 6.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ import notrios_archive as archive_api
 from notrios_archive import ArchiveLimits, DEFAULT_LIMITS, NotriosError, BlobRef
 import notrios_mapping as mapping
 from notrios_links import ConversionLimits, DEFAULT_CONVERSION_LIMITS
-from notrios_links import validate_links, project_body
+from notrios_links import validate_links, project_body, Attachment
 
 
 RECEIPT_KEY = "movenotes.notrios.import.v1"
@@ -165,13 +165,23 @@ def _body(archive, revision, limits):
 
 def _project_note(archive, document, revision, limits, resolve):
     body = _body(archive, revision, limits).encode("utf-8")
-    plan = validate_links(body, archive.iter_relations("link", document.key[0]), resolve=resolve, limits=limits)
-    return project_body(body, plan)
+    attachments = []
+    for relation in archive.iter_relations("document_resource", document.key[0]):
+        if len(attachments) >= limits.max_resource_relations_per_note:
+            raise NotriosError("limit", "resource relation count exceeds limit")
+        p = relation.payload
+        resource = archive.get_record("resource", (p["resource_id"],))
+        item_id = resolve("resource", p["resource_id"])
+        mime = resource.payload["blob"]["media_type"]
+        row = mapping.build_resource_row(resource, item_id=item_id, mime=mime,
+                                          extension=mapping.resource_extension(mime))
+        attachments.append(Attachment(item_id, row["joplin_filename"], p["relation_type"], p["ordinal"]))
+    plan = validate_links(body, archive.iter_relations("link", document.key[0]), resolve=resolve, limits=limits,
+                          resource_ids=(a.resource_id for a in attachments))
+    return project_body(body, plan, related_resources=attachments)
 
 
 def _preflight(archive, limits):
-    if any(archive.counts[name] for name in ("resources", "document_resources")):
-        raise NotriosError("conversion", "archive requires unfinished resource conversion")
     def resolve(kind, source_id):
         archive.get_record(kind, (source_id,))
         return mapping.mapped_id(archive.manifest.snapshot["database_id"], kind, (source_id,))
@@ -261,7 +271,7 @@ def _write_resources(archive, connection, stage, batch, limits):
         os.close(directory_fd)
 
 
-def _finalize_database(connection, expected_counts):
+def _finalize_database(connection, expected_counts, expected_relations=0):
     notesdb.ensure_indexes(connection)
     connection.execute("CREATE UNIQUE INDEX notrios_item_id ON notes(joplin_id)")
     connection.execute("CREATE UNIQUE INDEX notrios_note_tag_pair ON notes(joplin_note_id,joplin_tag_id) WHERE joplin_type_=6")
@@ -285,6 +295,15 @@ def _finalize_database(connection, expected_counts):
         raise NotriosError("integrity", "staged tag membership has no note or tag target")
     if connection.execute("PRAGMA integrity_check").fetchone() != ("ok",):
         raise NotriosError("integrity", "staged SQLite integrity check failed")
+    if connection.execute("SELECT count(*) FROM notrios_document_resources").fetchone()[0] != expected_relations:
+        raise NotriosError("integrity", "staged resource relation count differs")
+    if connection.execute("SELECT 1 FROM notrios_document_resources r "
+                          "LEFT JOIN notes n ON n.joplin_id=r.note_id "
+                          "LEFT JOIN notes a ON a.joplin_id=r.resource_id "
+                          "LEFT JOIN notrios_ids i ON i.mapped_id=r.relation_id "
+                          "WHERE n.joplin_type_ IS NOT 1 OR a.joplin_type_ IS NOT 4 "
+                          "OR i.mapped_id IS NULL LIMIT 1").fetchone():
+        raise NotriosError("integrity", "staged resource relation target differs")
     connection.commit()
 
 
@@ -329,10 +348,16 @@ def _build_payload(archive, stage, receipt, limits):
             ))
         _write_resources(archive, connection, stage, batch, limits)
         batch.flush()
+        for relation in archive.iter_records("document_resource"):
+            p = relation.payload
+            connection.execute("INSERT INTO notrios_document_resources VALUES (?,?,?,?,?)",
+                               (_lookup(connection, database_id, "document_resource", relation.key),
+                                lookup("document", p["document_id"]), lookup("resource", p["resource_id"]),
+                                p["relation_type"], p["ordinal"]))
         expected_counts = {2: archive.counts["notebooks"], 1: archive.counts["documents"],
                            5: archive.counts["tags"], 6: archive.counts["document_tags"],
                            4: archive.counts["resources"]}
-        _finalize_database(connection, expected_counts)
+        _finalize_database(connection, expected_counts, archive.counts["document_resources"])
         return sum(expected_counts.values()), archive.counts["resources"]
     finally:
         connection.close()

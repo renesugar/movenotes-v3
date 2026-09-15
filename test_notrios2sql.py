@@ -16,7 +16,7 @@ import hashlib
 import io
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import shutil
 import sqlite3
 import subprocess
@@ -2181,7 +2181,7 @@ class NotriosPublicationLifecycleTest(unittest.TestCase):
         self.assertEqual(fixture_inventory(self.destination), before)
         self.assert_clean()
 
-    def test_conversion_bounds_and_unfinished_features_refuse(self):
+    def test_conversion_bounds_and_unsupported_bodies_refuse(self):
         for field in fields(ConversionLimits):
             for value in (0, False, field.default + 1):
                 with self.assertRaises(archive_v2.NotriosError):
@@ -2194,8 +2194,6 @@ class NotriosPublicationLifecycleTest(unittest.TestCase):
             with self.assertRaises(archive_v2.NotriosError) as caught:
                 self.run_import()
             self.assertEqual(caught.exception.code, "conversion")
-        with self.assertRaises(archive_v2.NotriosError):
-            importer.import_publication(PUBLICATION_ARCHIVE, self.destination)
         self.assertFalse(self.destination.exists())
         self.assert_clean()
 
@@ -2960,9 +2958,9 @@ class NotriosTagMappingIntegrationTest(unittest.TestCase):
             "joplin_type_=5",
         )
         for change in changes:
-            def corrupt(connection, expected_counts):
+            def corrupt(connection, expected_counts, expected_relations=0):
                 connection.execute("UPDATE notes SET " + change + " WHERE note_id=(SELECT min(note_id) FROM notes WHERE joplin_type_=6)")
-                return finalize(connection, expected_counts)
+                return finalize(connection, expected_counts, expected_relations)
             with self.subTest(change=change), mock.patch.object(importer, "_finalize_database", corrupt):
                 with self.assertRaises(archive_v2.NotriosError) as caught:
                     self.import_notes()
@@ -3196,12 +3194,9 @@ class NotriosSchema28Test(unittest.TestCase):
             if item["type"] == 1:
                 self.assertEqual(hashlib.sha256((vault / item["obsidian_path"]).read_bytes()).hexdigest(), item["obsidian_sha256"])
 
-    def test_real_resource_publication_still_refuses_conversion(self):
-        with self.assertRaises(archive_v2.NotriosError) as caught:
-            importer.import_publication(self.fixtures / "publication-loose/archive", self.destination)
-        self.assertEqual(caught.exception.code, "conversion")
-        self.assertIn("resource", str(caught.exception))
-        self.assertFalse(self.destination.exists())
+    def test_real_resource_publication_converts(self):
+        result = importer.import_publication(self.fixtures / "publication-loose/archive", self.destination)
+        self.assertEqual((result.row_count, result.resource_count), (18, 3))
 
     def test_current_producer_differential_cases(self):
         specs = load_json(FIXTURE_ROOT / "schema28-audit-cases.json")
@@ -3275,7 +3270,7 @@ class NotriosResourceStorageTest(unittest.TestCase):
                 conn.row_factory = sqlite3.Row
                 rows = {r["joplin_id"]: dict(r) for r in conn.execute("SELECT * FROM notes WHERE joplin_type_=4")}
                 self.assertIn("relation_id", [r[1] for r in conn.execute("PRAGMA table_info(notrios_document_resources)")])
-                self.assertEqual(conn.execute("SELECT count(*) FROM notrios_document_resources").fetchone()[0], 0)
+                self.assertEqual(conn.execute("SELECT count(*) FROM notrios_document_resources").fetchone()[0], 4)
             expected_files = set()
             for record in verified.iter_records("resource"):
                 ref = archive_v2.BlobRef(**record.payload["blob"])
@@ -3391,6 +3386,205 @@ class NotriosResourceStorageTest(unittest.TestCase):
                 self.assertEqual(len(calls), 2)
                 self.assertFalse(destination.exists())
                 self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
+
+
+class NotriosResourceProjectionTest(unittest.TestCase):
+    rows = NotriosNoteIntegrationTest.rows
+    export = NotriosNoteIntegrationTest.export
+    vault_notes = NotriosNoteIntegrationTest.vault_notes
+    reimport_vault = NotriosTagRoundTripTest.reimport_vault
+
+    def setUp(self):
+        self.fixture = NotriosObjectSpoolTest()
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.root = self.fixture.root
+        self.destination = self.root / "publication"
+        self.vectors = load_json(FIXTURE_ROOT / "design-v1.json")
+        self.ids = self.vectors["fixture_ids"]
+
+    def test_full_publication_frozen_bodies_relations_vault_and_noop(self):
+        result = importer.import_publication(self.fixture.archive, self.destination)
+        self.assertEqual((result.row_count, result.resource_count), (18, 3))
+        for row in self.rows():
+            if row["joplin_type_"] == 1:
+                source = next(k for k, v in self.ids["document"].items() if v == row["joplin_id"])
+                self.assertEqual(row["note_data"], self.vectors["fixture_projected_notes"][source]["body"])
+        with sqlite3.connect(self.destination / "notesdb.sqlite") as conn:
+            relations = conn.execute("SELECT note_id,resource_id,relation_type,ordinal FROM notrios_document_resources").fetchall()
+            self.assertIsNone(conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='notrios_preserved_resources'"
+            ).fetchone())
+            expected = [(self.ids["document"][r["document_id"]], self.ids["resource"][r["resource_id"]],
+                         r["relation_type"], r["ordinal"]) for r in load_json(PUBLICATION_ROOT / "expected.json")["document_resources"]]
+            self.assertEqual(set(relations), set(expected))
+        before = fixture_inventory(self.destination)
+        self.assertEqual(importer.import_publication(self.fixture.archive, self.destination).status, "unchanged")
+        self.assertEqual(fixture_inventory(self.destination), before)
+        vault = self.export()
+        manifest = load_json(vault / ".movenotes/manifest.json")
+        self.assertEqual(set(manifest["attachments"]), set(self.ids["resource"].values()))
+        self.assertEqual(len(list((vault / "attachments").iterdir())), 3)
+        expected_resources = load_json(PUBLICATION_ROOT / "expected.json")["resources"]
+        for source, ident in self.ids["resource"].items():
+            raw = (vault / manifest["attachments"][ident]).read_bytes()
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), expected_resources[source]["sha256"])
+        notes = self.vault_notes(vault)
+        public = notes[self.ids["document"]["doc_public"]][2]
+        child = notes[self.ids["document"]["doc_child"]][2]
+        image = Path(manifest["attachments"][self.ids["resource"]["res_image"]]).name
+        self.assertIn(f"![[{image}]]", public)
+        self.assertIn(f"![[{image}]]", child)
+        self.assertIn("- [related.bin](../attachments/related.bin)", public)
+        self.assertIn("Download [field notes](../attachments/field%20notes.txt)", public)
+        for item in manifest["items"]:
+            if item["type"] == 1:
+                self.assertEqual(hashlib.sha256((vault / item["obsidian_path"]).read_bytes()).hexdigest(), item["obsidian_sha256"])
+        self.reimport_vault(vault, "restored")
+        restored = self.export("restored-vault")
+        restored_manifest = load_json(restored / ".movenotes/manifest.json")
+        self.assertEqual(set(restored_manifest["attachments"]), set(self.ids["resource"].values()))
+        self.assertEqual(restored_manifest["attachments"], manifest["attachments"])
+        self.assertEqual(len(list((restored / "attachments").iterdir())), 3)
+        for source, ident in self.ids["resource"].items():
+            raw = (restored / restored_manifest["attachments"][ident]).read_bytes()
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), expected_resources[source]["sha256"])
+        self.assertIn("## Attachments", self.vault_notes(restored)[self.ids["document"]["doc_public"]][2])
+        original_items = {item["id"]: item for item in manifest["items"] if item["type"] == 1}
+        restored_items = {item["id"]: item for item in restored_manifest["items"] if item["type"] == 1}
+        for item_id, item in original_items.items():
+            self.assertEqual((vault / item["obsidian_path"]).read_bytes(),
+                             (restored / restored_items[item_id]["obsidian_path"]).read_bytes())
+        edited_vault = self.root / "edited-vault"
+        shutil.copytree(vault, edited_vault)
+        public_path = edited_vault / original_items[self.ids["document"]["doc_public"]]["obsidian_path"]
+        public_path.write_text(public_path.read_text(encoding="utf-8") + "\nUser edit\n", encoding="utf-8")
+        self.reimport_vault(edited_vault, "edited-restored")
+        edited = self.export("edited-restored-vault")
+        self.assertIn("User edit", self.vault_notes(edited)[self.ids["document"]["doc_public"]][2])
+        edited_manifest = load_json(edited / ".movenotes/manifest.json")
+        edited_item = next(item for item in edited_manifest["items"]
+                           if item["id"] == self.ids["document"]["doc_public"])
+        self.assertEqual((edited / edited_item["obsidian_path"]).read_bytes(), public_path.read_bytes())
+        self.reimport_vault(vault, "row-missing-restored")
+        with sqlite3.connect(self.destination / "notesdb.sqlite") as conn:
+            conn.execute("DELETE FROM notes WHERE joplin_id=?", (self.ids["resource"]["res_image"],))
+        missing_restored = self.root / "row-missing-restored-vault"
+        missing_restored.mkdir()
+        result = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "sql2obsidian.py"),
+                                 "--input", str(self.destination), "--output", str(missing_restored)],
+                                capture_output=True, text=True,
+                                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing mapped resource row", result.stdout + result.stderr)
+
+    def test_selected_notebook_and_missing_resource(self):
+        importer.import_publication(self.fixture.archive, self.destination)
+        vault = self.export("child-vault", "--notebooks", "研究")
+        manifest = load_json(vault / ".movenotes/manifest.json")
+        image = self.ids["resource"]["res_image"]
+        self.assertEqual(set(manifest["attachments"]), {image})
+        self.assertEqual({i["id"] for i in manifest["items"] if i["type"] == 4}, {image})
+        self.assertEqual(len(list((vault / "attachments").iterdir())), 1)
+        (self.destination / "resources" / (image + ".png")).unlink()
+        with self.assertRaises(archive_v2.NotriosError):
+            importer.import_publication(self.fixture.archive, self.destination)
+        (self.root / "missing-vault").mkdir()
+        result = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "sql2obsidian.py"),
+                                 "--input", str(self.destination), "--output", str(self.root / "missing-vault")],
+                                capture_output=True, text=True, env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing mapped resource file", result.stdout + result.stderr)
+        self.assertFalse((self.root / "missing-vault/.movenotes/manifest.json").exists())
+        row_missing = self.root / "row-missing-publication"
+        importer.import_publication(self.fixture.archive, row_missing)
+        with sqlite3.connect(row_missing / "notesdb.sqlite") as conn:
+            conn.execute("DELETE FROM notes WHERE joplin_id=?", (image,))
+        row_missing_vault = self.root / "row-missing-vault"
+        row_missing_vault.mkdir()
+        result = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "sql2obsidian.py"),
+                                 "--input", str(row_missing), "--output", str(row_missing_vault)],
+                                capture_output=True, text=True,
+                                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("mapped link has no supported note target", result.stdout + result.stderr)
+        self.assertFalse((row_missing_vault / ".movenotes/manifest.json").exists())
+        self.reimport_vault(vault, "child-restored")
+        child_restored = self.export("child-restored-vault", "--notebooks", "研究")
+        child_manifest = load_json(child_restored / ".movenotes/manifest.json")
+        self.assertEqual(child_manifest["attachments"], manifest["attachments"])
+        self.assertEqual({item["id"] for item in child_manifest["items"] if item["type"] == 4}, {image})
+
+    def test_shared_bytes_with_distinct_semantic_mime_stay_distinct(self):
+        records = self.fixture.envelopes()
+        original = next(r["payload"] for r in records if r["type"] == "resource" and r["payload"]["id"] == "res_image")
+        twin = copy.deepcopy(original)
+        twin.update(id="res_binary_twin", filename="same bytes.bin", mime_type="application/octet-stream")
+        twin["blob"]["media_type"] = "application/octet-stream"
+        records.append({"type": "resource", "payload": twin})
+        relation = copy.deepcopy(next(r["payload"] for r in records if r["type"] == "document_resource" and
+                                      r["payload"]["document_id"] == "doc_child"))
+        relation.update(resource_id="res_binary_twin", relation_type="attachment", ordinal=1)
+        records.append({"type": "document_resource", "payload": relation})
+        self.fixture.write_records(records)
+        result = importer.import_publication(self.fixture.archive, self.destination)
+        self.assertEqual((result.row_count, result.resource_count), (19, 4))
+        twin_id = mapping.mapped_id(self.vectors["fixture_database_id"], "resource", ("res_binary_twin",))
+        vault = self.export("twin-vault", "--notebooks", "研究")
+        manifest = load_json(vault / ".movenotes/manifest.json")
+        self.assertEqual(set(manifest["attachments"]), {self.ids["resource"]["res_image"], twin_id})
+        image_bytes = (vault / manifest["attachments"][self.ids["resource"]["res_image"]]).read_bytes()
+        twin_bytes = (vault / manifest["attachments"][twin_id]).read_bytes()
+        self.assertEqual(image_bytes, twin_bytes)
+        self.assertTrue(manifest["attachments"][twin_id].endswith(".bin"))
+        child = self.vault_notes(vault)[self.ids["document"]["doc_child"]][2]
+        self.assertIn("## Attachments", child)
+        self.assertIn("same%20bytes.bin", child)
+
+    def test_attachment_order_dedup_escaping_empty_body_and_limits(self):
+        a, b = "a" * 32, "b" * 32
+        attachments = [links.Attachment(a, "A&[x]<y>\\z", "unknown", 9),
+                       links.Attachment(b, "B", "other", 2), links.Attachment(a, "A&[x]<y>\\z", "other", 1)]
+        plan = links.validate_links(b"", [], resolve=lambda *args: a)
+        projected = links.project_body(b"", plan, related_resources=attachments)
+        self.assertEqual(projected, "\n\n## Attachments\n\n- [A&amp;&#91;x&#93;&lt;y&gt;&#92;z](:/" + a + ")\n- [B](:/" + b + ")\n")
+        for limits in (ConversionLimits(max_resource_relations_per_note=2),
+                       ConversionLimits(max_projected_body_bytes=len(projected.encode())-1),
+                       ConversionLimits(max_links_per_note=1)):
+            with self.subTest(limits=limits), self.assertRaises(archive_v2.NotriosError) as caught:
+                plan = links.validate_links(b"", [], resolve=lambda *args: a, limits=limits)
+                links.project_body(b"", plan, related_resources=attachments)
+            self.assertEqual(caught.exception.code, "limit")
+        with self.assertRaises(archive_v2.NotriosError) as caught:
+            importer.import_publication(self.fixture.archive, self.destination,
+                conversion_limits=ConversionLimits(max_resource_relations_per_note=1))
+        self.assertEqual(caught.exception.code, "limit")
+        self.assertFalse(self.destination.exists())
+
+    def test_protected_resource_ids_do_not_copy_or_rewrite(self):
+        resource_id = "a" * 32
+        body = ("```markdown\n![chart](:/" + resource_id + ")\n```\n"
+                "and `[chart](:/" + resource_id + ")`")
+        lookup_type = mock.Mock()
+        attachments = mock.Mock()
+        self.assertEqual(links.rewrite_projected_links(
+            body, note_id="b" * 32, note_path=PurePosixPath("nested/note.md"),
+            lookup_item_type=lookup_type, lookup_note_path=mock.Mock(), attachments=attachments), body)
+        lookup_type.assert_not_called()
+        attachments.vault_name.assert_not_called()
+
+    def test_rehashed_resource_link_without_owning_relation_refuses(self):
+        records = self.fixture.envelopes()
+        records = [r for r in records if not (r["type"] == "document_resource" and
+                   r["payload"]["document_id"] == "doc_public" and r["payload"]["resource_id"] == "res_image")]
+        self.fixture.write_records(records)
+        with self.fixture.verify():
+            pass  # The shared resource is still reachable from the child note.
+        with self.assertRaises(archive_v2.NotriosError) as caught:
+            importer.import_publication(self.fixture.archive, self.destination)
+        self.assertEqual(caught.exception.code, "conversion")
+        self.assertIn("no document-resource relation", str(caught.exception))
+        self.assertFalse(self.destination.exists())
 
 
 class NotriosSiteTagTest(unittest.TestCase):

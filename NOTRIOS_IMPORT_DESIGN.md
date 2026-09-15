@@ -45,7 +45,10 @@ safe display filename, relation type and ordinal; it contains no anchor JSON.
 of notebook filtering. `lookup_note_path(id)` returns an actual exported
 vault-relative path or `None`. The
 `attachments` argument is the existing `AttachmentTable` protocol (`vault_name`,
-`is_image`). Shared constants live in their owning module, not in the CLI.
+`is_image`). Slice 5b adds `vault_name(id, required=True)` for mapped Notrios
+resources: missing metadata or bytes must refuse before returning a cached name.
+The default remains compatible with existing callers. Shared constants live in
+their owning module, not in the CLI.
 
 ## Stable identity and collision rules
 
@@ -373,6 +376,24 @@ filter must not make a missing resource silently look like a note link.
    `obsidian_hashes` from finalized bytes **before** writing the preservation
    bundle and any receipt sidecar. Use the normal frontmatter and final-newline
    behavior. Nothing in this branch changes canonical site URL generation.
+
+Preservation-bundle reimport also creates exact native Obsidian snapshots.
+Slice 5b retains those snapshot bytes, including user edits, instead of passing
+them through generated frontmatter/link rewriting again. It materializes their
+active mapped resources from the stored body using the protected lexer and
+indexed item-type lookups. Bundle reimport keeps attachment presentation paths
+in the existing dedicated `note_obsidian_path` column; it does not modify
+Joplin RAW properties or `application_data`. Attachment naming reuses those
+paths so preserved Markdown continues to resolve. This requires a narrow
+`obsidian2sql.py` preservation-overlay change alongside the exporter work.
+The auxiliary Notrios association table is not carried by a Joplin RAW bundle;
+the projected attachment links carry relation-only reachability through it.
+For a bundle containing marked Notrios notes, the preservation importer records
+the manifest's RESOURCE identities in
+`notrios_preserved_resources(resource_id TEXT PRIMARY KEY)`. Indexed lookup of
+that minimal set distinguishes a deleted resource row from an intentionally
+omitted mapped note during exact-snapshot export. It contains no source payload,
+does not reconstruct relations, and does not alter preserved RAW properties.
 
 This keeps bodies bounded per note; existing exporter metadata maps still scale
 with the vault. It does not make vault export transactional: an interrupted vault
