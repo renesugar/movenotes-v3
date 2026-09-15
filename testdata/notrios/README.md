@@ -454,3 +454,14 @@ handles wiki-link delimiters; these cases require no runtime change.
 
 The larger resource checks track its importer read requests and independently
 hash exported bytes in chunks. No large fixture or generated output is committed.
+
+## Resource safety review — slice 5d
+
+[The resource review](../../NOTRIOS_RESOURCE_REVIEW.md) traces reachability,
+rehashing at consumption, stage confinement, no-replace publication and recovery.
+`NotriosResourceSafetyTest` adds full-import checks for a rehashed orphan
+resource, same-size private resource corruption and a symlink immediately before
+consumption, and abrupt child exit inside the real resource writer. The latter
+verifies that stale ownership blocks retry until exact inspected entries are
+moved aside, then checks fresh creation and an unchanged rerun. These complement
+the existing storage and lifecycle fault tests; physical power loss is not tested.

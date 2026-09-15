@@ -7,10 +7,10 @@ pending. Plan revised on **2026-09-13** for Notrios database schema **28**.
 Schema-28 prerequisites **S28a and S28b are complete**. The importer declares
 schema support **28**, with separately pinned producer fixtures and differential
 evidence. The [vault/site tag review](NOTRIOS_TAG_REVIEW.md) is complete.
-Resource slices **5a–5c are complete**. Slice 5b was completed by the assigned
-`terra_worker` after taking over earlier parent work; all 241 regression tests
-passed at that milestone. Slice 5c adds attachment regressions; all **243 tests**
-now pass. Next is **5d**, the parent-owned resource safety review.
+Resource slices **5a–5d are complete**. The
+[resource safety review](NOTRIOS_RESOURCE_REVIEW.md) found no required runtime
+change and adds full-import interruption and mutation evidence. All **246 tests**
+pass. Next is **6a**, versioned receipt and content-free summary validation.
 
 The frozen admission checklist is
 [NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
@@ -225,7 +225,7 @@ future Luna work uses the available role's confirmed fixed `max` effort.
 <!-- NOTRIOS-ASSIGNMENTS:START -->
 Session confirmation: **confirmed**.
 
-2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c.
+2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d.
 
 | Coding agent | Execution owner | Configured model | Reasoning effort | Availability | Billing route |
 |---|---|---|---|---|---|
@@ -240,12 +240,12 @@ Runtime-reported parent family: **GPT-6**. Product/client version: not exposed; 
 - Future Luna assignments use fixed max effort, confirmed by the user for this session; historical medium assignments remain unchanged.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **5d — resource safety review**, assigned to the **Codex parent**
-(runtime-reported **GPT-6** family; exact model alias and reasoning effort
-**not exposed**). Assignments and billing suitability remain confirmed for this
-unchanged session; 5d requires the user's per-slice authorization. Slice 5c was
-implemented by `/root/notrios_5c` (`terra_worker`, configured `gpt-5.6-terra`,
-`medium`) and reviewed and validated by the parent; the ledger records both.
+Next slice: **6a — versioned receipt and content-free summary**, assigned to
+**codex:luna_worker / gpt-5.6-luna / max**, with parent review and validation.
+Assignments and billing suitability remain confirmed for this unchanged session;
+6a requires the user's per-slice authorization. Slice 5d was reviewed and
+validated by the Codex parent (runtime-reported GPT-6 family; exact model alias
+and reasoning effort not exposed), with no worker delegation.
 
 ## Execution and agent handoff rules
 
@@ -454,7 +454,7 @@ The public importer CLI remains Step 6 work.
 | 5a / Terra — complete | Connected the frozen resource row builder to bounded authenticated copies, exclusive mapped-ID filenames and staged item counts. Corrected the reserved relation table column to `relation_id`. Executed locally under the session delegation constraint. | 4c | Exact hashes/sizes and metadata, tiny read/batch bounds, safe display names, extensionless names, empty bytes, distinct IDs sharing bytes, collisions and read/write/fsync cleanup pass. Resource admission remains gated until 5b projects links/attachments. |
 | 5b / Terra — complete | Translated retained resource links and implemented relation-only attachment behavior frozen by Main in 1c. Assigned worker completed inherited parent work, including exact snapshot attachment restoration. | 5a | Images/files resolve from nested notes; shared bytes with differing semantic MIME work; withheld resources absent; Main reviews the mapping. |
 | 5c / Terra — complete | Added attachment regressions with independent byte comparisons and bounded fixture generation; no runtime change needed. | 5b | Duplicate filenames, Unicode/escaping, zero-byte and large streamed files; exact attachment bytes. |
-| 5d / Main | Review reachability, rehash-at-use and interrupted-copy recovery. | 5c | No writes outside staging or overwrites; failure cannot expose partial completed output. |
+| 5d / Main — complete | Reviewed reachability, rehash-at-use and interrupted-copy recovery in [the resource review](NOTRIOS_RESOURCE_REVIEW.md), with three additional full-import regressions. No runtime change required. | 5c | No writes outside staging or overwrites; failure cannot expose partial completed output. |
 
 Do not run `cleanres.py` during import. Its Markdown-reference rule could remove
 a relation-only attachment; the adapter must resolve that representation.
@@ -565,6 +565,8 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-14 | 5b complete | Following explicit session confirmation, delegated takeover to `codex:terra_worker` (configured `gpt-5.6-terra`, `medium`; native identifier `/root/notrios_5b`). Worker completed earlier parent work, preserved exact snapshot bytes and attachment paths through bundle reimport, and added indexed resource-identity provenance to distinguish missing resources from omitted notes. Parent reviewed mapping, bounds and snapshot behavior, integrated documentation and ran final validation. All 241 tests across the five required modules passed (117.237s), with both bytecode-suppression flags and localhost sockets permitted; log `/tmp/movenotes-5b-tests.log`. Focused resource, MIME, filtered-bundle, missing-row/file and protected-code checks pass; frozen fixture bodies and source hashes match. Original fixtures unchanged. Usage-limit interruption resumed on the same worker; actual backend model/effort not independently exposed. Full attribution is in the generated ledger. Public CLI remains Step 6. Next: ask to proceed to 5c. |
 
 | 2026-09-14 | 5c complete | Assigned `codex:terra_worker` (`gpt-5.6-terra`, fixed `medium`; native identifier `/root/notrios_5c`) added duplicate Unicode/punctuation filename, escaped-label and resolved-link checks through vault/bundle/filtered round trips, plus zero-byte and 9,252,864-byte opaque resources. The larger fixture is generated in blocks; resource reads are tracked by blob hash, and independent streaming hashes verify published, vault, preservation and re-exported bytes. Existing sanitization handles wiki delimiters; runtime code and immutable fixtures are unchanged. Parent reviewed coverage and final assertions, updated documentation/provenance and ran validation after the usage-limit interruption. All 8 final focused tests passed (14.839s); all 243 tests across the five regression modules passed (121.125s), with both bytecode-suppression flags and localhost sockets permitted. Logs: `/tmp/movenotes-5c-final-focused.log`, `/tmp/movenotes-5c-tests.log`. Next: ask to proceed to 5d. |
+
+| 2026-09-14 | 5d complete | Codex parent reviewed the full resource path at baseline `22929c8`: indexed reachability, authenticated consumption, exclusive mapped-ID writes, owned staging, no-replace publication and recovery. Added three full-import regressions for orphan refusal before payload creation, same-size corruption/symlink at second-resource consumption, and abrupt child exit during a real write followed by stale-lock refusal and inspected manual recovery. No runtime defect found within the frozen boundary; process-exit evidence does not claim physical power-loss testing or adversarial same-user path protection. Review: `NOTRIOS_RESOURCE_REVIEW.md`. All 21 focused tests passed (5.912s); all 246 five-module regression tests passed (124.044s), with both bytecode-suppression flags and localhost sockets permitted. Logs: `/tmp/movenotes-5d-focused.log`, `/tmp/movenotes-5d-tests.log`. Runtime code and immutable fixtures unchanged; documentation links, diff and attribution checked. No worker used: this slice is parent-owned. Next: ask to proceed to 6a (`codex:luna_worker`, `gpt-5.6-luna`, fixed `max`). |
 
 ## Attribution amendment — 2026-09-14
 
@@ -1131,7 +1133,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 
 </details>
 
-<details><summary>5d — pending; planned parent</summary>
+<details><summary>5d — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -1139,21 +1141,21 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | parent |
 | Planned configured model | not exposed |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
-| Delegation failure or reassignment | pending |
+| Assignment confirmation | Confirmed unchanged Codex session; user explicitly authorized 5d. |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Codex; exact model not exposed |
+| Parent underlying model family | GPT-6 (runtime-reported) |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Reviewed indexed resource reachability, authenticated private-copy consumption, exclusive descriptor-relative resource writes, completion/no-replace publication, ownership cleanup and immutable reruns. Added three full-import safety regressions and NOTRIOS_RESOURCE_REVIEW.md; updated plan/provenance/fixture documentation. No runtime changes. |
+| Validation | 21 focused safety/storage/lifecycle tests passed (5.912s). All 246 tests across the five regression modules passed (124.044s), with PYTHONDONTWRITEBYTECODE=1 and python3 -B; localhost sockets permitted. New tests cover orphan refusal, same-size corruption and symlink at second-resource use, abrupt resource-write process exit, stale-state refusal and inspected manual recovery. Diff, generated attribution and document links checked; runtime code and immutable fixtures unchanged. |
+| Delegation failure or reassignment | none — parent-owned slice |
 | Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Proceed with 5d; NOTRIOS_RESOURCE_REVIEW.md; /tmp/movenotes-5d-focused.log; /tmp/movenotes-5d-tests.log |
+| Commit | Git commit containing this completion record: test: audit Notrios resource publication safety |
 
 </details>
 

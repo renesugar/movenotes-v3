@@ -2134,8 +2134,8 @@ class NotriosPublicationLifecycleTest(unittest.TestCase):
     def test_edited_completed_outputs_refuse_without_writes(self):
         for change in ("database", "receipt", "extra", "symlink", "resource", "inventory", "marker"):
             self.destination = self.root / change
-            # Synthetic resource exercises lifecycle inventory; actual archive
-            # resource projection remains explicitly refused until Step 5.
+            # Synthetic resource isolates lifecycle inventory on the text fixture;
+            # full archive resources have separate projection and safety tests.
             build = importer._build_payload
             def with_resource(*args):
                 result = build(*args)
@@ -3388,6 +3388,134 @@ class NotriosResourceStorageTest(unittest.TestCase):
                 self.assertEqual(len(calls), 2)
                 self.assertFalse(destination.exists())
                 self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
+
+
+class NotriosResourceSafetyTest(unittest.TestCase):
+    def setUp(self):
+        self.fixture = NotriosObjectSpoolTest()
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.root = self.fixture.root
+        self.destination = self.root / "publication"
+
+    def assert_unpublished_and_clean(self):
+        self.assertFalse(self.destination.exists())
+        self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
+
+    def test_unreachable_resource_refuses_before_payload_creation(self):
+        records = [r for r in self.fixture.envelopes() if not (
+            r["type"] == "document_resource" and r["payload"]["resource_id"] == "res_sidecar")]
+        self.fixture.write_records(records)
+        before = fixture_inventory(self.fixture.archive)
+        with mock.patch.object(importer, "_build_payload") as build:
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                importer.import_publication(self.fixture.archive, self.destination)
+        self.assertEqual(caught.exception.code, "publication")
+        self.assertIn("not reachable", str(caught.exception))
+        build.assert_not_called()
+        self.assertEqual(fixture_inventory(self.fixture.archive), before)
+        self.assert_unpublished_and_clean()
+
+    def test_private_resource_mutation_at_use_never_completes(self):
+        before = fixture_inventory(self.fixture.archive)
+        outside = self.root / "outside-sentinel"
+        outside.write_bytes(b"must remain unchanged")
+        copying = importer._copy_resource
+        for damage in ("same-size bytes", "symlink"):
+            calls = []
+            def mutate(archive, ref, directory_fd, filename, limits):
+                calls.append(filename)
+                if len(calls) == 2:
+                    relative = archive._spool.connection.execute(
+                        "SELECT path FROM objects WHERE sha256=?", (ref.sha256,)
+                    ).fetchone()[0]
+                    private = archive._spool.directory / relative
+                    if damage == "symlink":
+                        private.unlink()
+                        private.symlink_to(outside)
+                    else:
+                        private.chmod(0o600)
+                        with private.open("r+b") as stream:
+                            first = stream.read(1)
+                            self.assertTrue(first)
+                            stream.seek(0)
+                            stream.write(bytes([first[0] ^ 1]))
+                return copying(archive, ref, directory_fd, filename, limits)
+            with self.subTest(damage=damage), mock.patch.object(importer, "_copy_resource", mutate), \
+                    mock.patch.object(importer, "_complete") as complete:
+                with self.assertRaises(archive_v2.NotriosError) as caught:
+                    importer.import_publication(self.fixture.archive, self.destination)
+                self.assertEqual(caught.exception.code, "integrity" if damage == "same-size bytes" else "io")
+                self.assertEqual(len(calls), 2)
+                complete.assert_not_called()
+            self.assertEqual(outside.read_bytes(), b"must remain unchanged")
+            self.assertEqual(fixture_inventory(self.fixture.archive), before)
+            self.assert_unpublished_and_clean()
+
+    def test_abrupt_resource_write_requires_explicit_stale_state_recovery(self):
+        before = fixture_inventory(self.fixture.archive)
+        # Exit inside the real resource writer, bypassing Python finally blocks.
+        # Only this disposable child and its owned temporary tree are affected.
+        script = r'''
+import os
+from pathlib import Path
+import sys
+from unittest import mock
+import notrios2sql as importer
+copying, fdopen = importer._copy_resource, os.fdopen
+def interrupt(archive, ref, directory_fd, filename, limits):
+    def opening(fd, mode, *args, **kwargs):
+        stream = fdopen(fd, mode, *args, **kwargs)
+        if mode != "wb":
+            return stream
+        class Writer:
+            def __enter__(self):
+                return self
+            def __exit__(self, *exc):
+                stream.close()
+            def write(self, data):
+                stream.write(data[:1])
+                stream.flush()
+                os._exit(73)
+        return Writer()
+    with mock.patch.object(importer.os, "fdopen", opening):
+        return copying(archive, ref, directory_fd, filename, limits)
+with mock.patch.object(importer, "_copy_resource", interrupt):
+    importer.import_publication(Path(sys.argv[1]), Path(sys.argv[2]))
+'''
+        result = subprocess.run(
+            [sys.executable, "-B", "-c", script, str(self.fixture.archive), str(self.destination)],
+            cwd=Path(__file__).parent, capture_output=True, text=True, timeout=30,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+        self.assertEqual(result.returncode, 73, result.stdout + result.stderr)
+        self.assertFalse(self.destination.exists())
+        lock, = self.root.glob(".movenotes-notrios-lock-*")
+        owner = load_json(lock / importer.OWNER)
+        stage, work = self.root / owner["stage"], self.root / owner["work"]
+        for path in (stage, work):
+            self.assertEqual(load_json(path / importer.OWNER)["token"], owner["token"])
+        partial, = (stage / "resources").iterdir()
+        self.assertEqual(partial.stat().st_size, 1)
+        self.assertFalse((stage / importer.COMPLETE).exists())
+        stale = {path.name: fixture_inventory(path) for path in (lock, stage, work)}
+        with self.assertRaises(archive_v2.NotriosError) as caught:
+            importer.import_publication(self.fixture.archive, self.destination)
+        self.assertIn("lock exists", str(caught.exception))
+        for path in (lock, stage, work):
+            self.assertEqual(fixture_inventory(path), stale[path.name])
+        # Simulate the documented operator procedure after confirming child exit:
+        # inspect matching ownership, move these exact entries aside, then retry.
+        quarantine = self.root / "inspected-stale-state"
+        quarantine.mkdir()
+        for path in (stage, work, lock):
+            path.rename(quarantine / path.name)
+        self.assertEqual(importer.import_publication(self.fixture.archive, self.destination).status, "created")
+        self.assertEqual(importer.import_publication(self.fixture.archive, self.destination).status, "unchanged")
+        for name, inventory in stale.items():
+            self.assertEqual(fixture_inventory(quarantine / name), inventory)
+        self.assertEqual(fixture_inventory(self.fixture.archive), before)
+        self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
 
 
 class NotriosResourceProjectionTest(unittest.TestCase):
