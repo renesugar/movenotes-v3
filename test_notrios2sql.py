@@ -3403,6 +3403,105 @@ class NotriosResourceStorageTest(unittest.TestCase):
                 self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
 
 
+class NotriosCLITest(unittest.TestCase):
+    def setUp(self):
+        self.fixture = NotriosObjectSpoolTest()
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.root = self.fixture.root
+        self.destination = self.root / "published"
+        self.expected = load_json(PUBLICATION_ROOT / "expected.json")
+
+    def cli(self, *extra, output=None):
+        return subprocess.run(
+            [sys.executable, "-B", str(Path(__file__).parent / "notrios2sql.py"),
+             "--input", str(self.fixture.archive), "--output", str(output or self.destination), *extra],
+            capture_output=True, text=True, timeout=30,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+
+    def assert_refused(self, result, code=1):
+        self.assertEqual(result.returncode, code, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("error", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
+
+    def test_cli_create_and_identical_rerun_have_only_allowlisted_json(self):
+        source_before = fixture_inventory(self.fixture.archive)
+        expected = {
+            "status": "created", "commit_sha256": self.expected["commit_sha256"],
+            "selection_manifest_sha256": self.expected["selection_manifest_sha256"],
+            "row_count": 18, "resource_count": 3,
+        }
+        result = self.cli("--expected-selection-sha256", self.expected["selection_manifest_sha256"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), expected)
+        self.assertEqual(result.stdout.count("\n"), 1)
+        self.assertIn("Verifying publication", result.stderr)
+        self.assertNotIn(str(self.destination), result.stdout)
+        before = fixture_inventory(self.destination)
+        result = self.cli("--expected-selection-sha256", self.expected["selection_manifest_sha256"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), dict(expected, status="unchanged"))
+        self.assertEqual(fixture_inventory(self.destination), before)
+        self.assertEqual(fixture_inventory(self.fixture.archive), source_before)
+
+    def test_cli_digest_mismatch_and_changed_source_refuse_without_output_changes(self):
+        self.assert_refused(self.cli("--expected-selection-sha256", "0" * 64))
+        self.assertFalse(self.destination.exists())
+        self.assertEqual(self.cli().returncode, 0)
+        before = fixture_inventory(self.destination)
+        self.assert_refused(self.cli("--expected-selection-sha256", "0" * 64))
+        records = self.fixture.envelopes()
+        notebook = next(r["payload"] for r in records if r["type"] == "notebook")
+        notebook["name"] = "Changed publication notebook"
+        self.fixture.write_records(records)
+        result = self.cli()
+        self.assert_refused(result)
+        self.assertIn("receipt", result.stderr)
+        self.assertEqual(fixture_inventory(self.destination), before)
+
+    def test_cli_conflicting_and_edited_destinations_are_not_overwritten(self):
+        self.destination.mkdir()
+        sentinel = self.destination / "unrelated"
+        sentinel.write_bytes(b"existing bytes")
+        before = fixture_inventory(self.destination)
+        self.assert_refused(self.cli())
+        self.assertEqual(fixture_inventory(self.destination), before)
+        completed = self.root / "completed"
+        self.assertEqual(self.cli(output=completed).returncode, 0)
+        resource = next((completed / "resources").iterdir())
+        resource.write_bytes(b"edited bytes")
+        before = fixture_inventory(completed)
+        self.assert_refused(self.cli(output=completed))
+        self.assertEqual(fixture_inventory(completed), before)
+
+    def test_cli_usage_and_import_errors_have_no_success_summary(self):
+        for extra in (("--overwrite",), ("--merge",), ("--input-extra", "x"),
+                      ("--expected-selection-sha256", "BAD"), ("--max-blob-bytes", "100")):
+            with self.subTest(extra=extra):
+                self.assert_refused(self.cli(*extra), code=2)
+                self.assertFalse(self.destination.exists())
+        self.assert_refused(self.cli(output=self.root / "missing-parent" / "output"))
+        script = """
+import sys
+from unittest import mock
+import notrios2sql
+with mock.patch.object(notrios2sql, '_complete', side_effect=OSError('injected sealing failure')):
+    raise SystemExit(notrios2sql.main(sys.argv[1:]))
+"""
+        result = subprocess.run(
+            [sys.executable, "-B", "-c", script, "--input", str(self.fixture.archive),
+             "--output", str(self.destination)],
+            cwd=Path(__file__).parent, capture_output=True, text=True, timeout=30,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+        self.assert_refused(result)
+        self.assertIn("injected sealing failure", result.stderr)
+        self.assertFalse(self.destination.exists())
+
+
 class NotriosResourceSafetyTest(unittest.TestCase):
     def setUp(self):
         self.fixture = NotriosObjectSpoolTest()

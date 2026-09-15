@@ -30,7 +30,7 @@ No API returns an archive-wide list of bodies, records or paths.
 | Same | `VerifiedArchive.manifest`, `.counts`; `iter_records(kind: str) -> Iterator[Record]` in binary source-key order; `get_record(kind: str, key: tuple[str, ...]) -> Record`; `iter_relations(kind: str, document_id: str) -> Iterator[Record]`; `open_blob(ref: BlobRef) -> ContextManager[BinaryIO]`. A blob context verifies on complete read, including EOF; abandoning it cannot count as successfully consumed. `Record` exposes `.kind`, `.key`, `.payload`; `BlobRef` exposes `.sha256`, `.size_bytes`, `.media_type`. Handles cannot outlive `VerifiedArchive`. |
 | Luna 3a, Main 3b; `notrios_mapping.py` | `source_key(database_id: str, kind: str, parts: tuple[str, ...]) -> bytes`; `mapped_id(...) -> str`; `joplin_timestamp(value: str) -> str`; `build_notebook_row(record, *, item_id, parent_id) -> dict`; `build_note_row(document, revision, *, item_id, parent_id, body) -> dict`; `build_tag_row(record, *, item_id) -> dict`; `build_note_tag_row(*, item_id, note_id, tag_id, timestamp) -> dict`; `build_resource_row(record, *, item_id, mime, extension) -> dict`; `generated_properties(row: Mapping) -> list[tuple[str, str]]`; `resource_extension(mime: str) -> str` for the frozen canonical-MIME suffix map. Pure builders take validated input and use the exact rules below. They do not read files or independently allocate IDs. |
 | Main design / Terra 3d and 5b; `notrios_links.py` | Owns `ConversionLimits` with constants below (Main adds the dataclass when first needed for 3a/3b). `scan_markdown(body: bytes) -> Iterator[Token]`; `validate_links(body: bytes, records: Iterable[Record], *, resolve, limits: ConversionLimits) -> LinkPlan`; `project_body(body: bytes, plan: LinkPlan, *, related_resources: Iterable[Attachment]) -> str`; `rewrite_projected_links(body: str, *, note_id: str, note_path: PurePosixPath, lookup_item_type, lookup_note_path, attachments) -> str`. Token/plan details below; may import archive dataclasses/errors, but performs no archive I/O and never imports a CLI. |
-| Main 3b/6b; Luna 6a; `notrios2sql.py` | Imports `ConversionLimits` from `notrios_links`; `import_publication(source: Path, destination: Path, *, expected_selection_sha256: str | None = None, archive_limits: ArchiveLimits = DEFAULT_LIMITS, conversion_limits: ConversionLimits = DEFAULT_CONVERSION_LIMITS) -> ImportResult`. Result: `status` (`created` or `unchanged`), `destination`, `commit_sha256`, `selection_manifest_sha256`, and numeric row/resource counts. Owns staging, collision checks, database writes, receipt and completion. Future CLI: `notrios2sql.py SOURCE DESTINATION [--expected-selection-sha256 HEX]`; no limit-widening, overwrite, merge or unsafe flags. Exit 0 for created/unchanged, 2 for usage, 1 for refused/failed import. Do not expose it until Step 6. |
+| Main 3b/6b; Luna 6a; `notrios2sql.py` | Imports `ConversionLimits` from `notrios_links`; `import_publication(source: Path, destination: Path, *, expected_selection_sha256: str | None = None, archive_limits: ArchiveLimits = DEFAULT_LIMITS, conversion_limits: ConversionLimits = DEFAULT_CONVERSION_LIMITS) -> ImportResult`. Result: `status` (`created` or `unchanged`), `destination`, `commit_sha256`, `selection_manifest_sha256`, and numeric row/resource counts. Owns staging, collision checks, database writes, receipt and completion. Final CLI (6b): `notrios2sql.py --input SOURCE --output DESTINATION [--expected-selection-sha256 HEX]`; no limit-widening, overwrite, merge or unsafe flags. Exit 0 for created/unchanged, 2 for usage, 1 for refused/failed import. |
 | Terra 3d; `sql2obsidian.py`, narrowly `notesdb.py` | A narrow branch for the Notrios-generated note marker and a second finalization pass, plus generated RAW title serialization described below. Reuse folder naming, deduplication, attachment copying, frontmatter and bundle writers. No changes to `obsidian2site.py` path maps, templates or schema are authorized by this design. |
 | Luna 1d; `test_notrios2sql.py` | Fixture-copy/inventory helpers and baseline data assertions only. ID builders are implemented/tested in 3a; importer admission tests start in 2a. Tests must not import future modules before they exist. Own no runtime module in 1d. |
 
@@ -477,8 +477,31 @@ The receipt is staged; the summary is available only after `import_publication`
 returns successfully, for either `created` or `unchanged`. Failed calls do not
 return a success summary. A post-rename durability error still leaves the
 complete output and its receipt intact, as specified above. No additional
-summary file or settings row changes the frozen completion inventory. CLI
-printing belongs to slice 6b.
+summary file or settings row changes the frozen completion inventory.
+
+### Final CLI contract — slice 6b
+
+Use `python3 notrios2sql.py --input SOURCE --output DESTINATION` with optional
+`--expected-selection-sha256 HEX`. This replaces the provisional positional
+syntax from the original design to match the other tools and the 6d acceptance rule.
+Option abbreviations are disabled. The reviewed digest must be exactly 64
+lowercase hexadecimal characters; malformed input is a usage error (exit 2),
+and a well-formed mismatch is an import refusal (exit 1), including on reruns.
+`--help` exits 0 without invoking the importer.
+
+Input is a loose publication archive. The destination parent must already exist;
+the destination itself must be absent or an exactly matching completed import.
+The CLI delegates validation, staging, no-replace publication and unchanged checks
+to `import_publication`; it creates no alternate overwrite or merge path.
+
+On success, stdout contains exactly one compact JSON summary line from
+`ImportResult.summary()`, with status `created` or `unchanged`, and exit 0.
+Progress from the CLI and existing database helpers goes to stderr. On import
+failure, stdout is empty and stderr contains a concise error, including any
+ownership-cleanup notes; exit 1. Keyboard interruption also exits 1 after normal
+unwinding. A post-rename durability error has no success summary even though its
+complete output is retained. Phase/count progress refinements and broader
+help/error subprocess coverage remain slice 6d.
 
 Final payload is `notesdb.sqlite` and `resources/` (present even when empty).
 `notrios-inventory.jsonl` has sorted relative POSIX paths, one compact object

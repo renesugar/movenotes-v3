@@ -2,8 +2,8 @@
 
 Status: slices **1a–1d, 2a–2e, 3a–3d and 4a–4c complete**. The subsequent
 collection-capabilities compatibility fix is committed as `cc4ec25`. Notes,
-links, tags and resources are implemented internally; the public CLI remains
-pending. Plan revised on **2026-09-13** for Notrios database schema **28**.
+links, tags and resources are implemented, and the public import CLI is available.
+Plan revised on **2026-09-13** for Notrios database schema **28**.
 Schema-28 prerequisites **S28a and S28b are complete**. The importer declares
 schema support **28**, with separately pinned producer fixtures and differential
 evidence. The [vault/site tag review](NOTRIOS_TAG_REVIEW.md) is complete.
@@ -12,7 +12,9 @@ Resource slices **5a–5d are complete**. The
 change and adds full-import interruption and mutation evidence. All **246 tests**
 passed at that milestone. Slice **6a is complete**: the staged receipt is
 validated and the internal API exposes an allowlisted content-free summary.
-All **249 tests** now pass. Next is **6b**, public CLI finalization.
+Slice **6b is complete**: `notrios2sql.py --input SOURCE --output DESTINATION`
+exposes verified publication and safe reruns. All **253 tests** now pass.
+Next is **6c**, explicit receipt propagation to vault/site sidecars.
 
 The frozen admission checklist is
 [NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
@@ -227,7 +229,7 @@ future Luna work uses the available role's confirmed fixed `max` effort.
 <!-- NOTRIOS-ASSIGNMENTS:START -->
 Session confirmation: **confirmed**.
 
-2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15.
+2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b.
 
 | Coding agent | Execution owner | Configured model | Reasoning effort | Availability | Billing route |
 |---|---|---|---|---|---|
@@ -242,12 +244,11 @@ Runtime-reported parent family: **GPT-6**. Product/client version: not exposed; 
 - Future Luna assignments use fixed max effort, confirmed by the user for this session; historical medium assignments remain unchanged.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **6b — public CLI finalization**, assigned to the **Codex parent**
+Next slice: **6c — explicit receipt propagation**, assigned to the **Codex parent**
 (runtime-reported **GPT-6** family; exact model alias and reasoning effort
 **not exposed**). Assignments and billing suitability remain confirmed for this
-unchanged session; 6b requires the user's per-slice authorization. Slice 6a was
-implemented by `/root/notrios_6a` (`luna_worker`, configured `gpt-5.6-luna`,
-fixed `max`) and reviewed and validated by the parent.
+unchanged session; 6c requires the user's per-slice authorization. Slice 6b was
+implemented and validated by the parent, with no worker delegation.
 
 ## Execution and agent handoff rules
 
@@ -449,7 +450,7 @@ copies. Preservation-bundle reimport retains attachment presentation paths in
 the dedicated Obsidian column; exact snapshots retain their bytes while their
 active mapped resources are copied. Storage tests still isolate low-level copy
 failures; projection tests exercise full publication and vault round trips.
-The public importer CLI remains Step 6 work.
+The public importer CLI is available as of slice 6b.
 
 | Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
@@ -468,7 +469,7 @@ Target refusal is mandatory in 2a, not deferred to this step.
 | Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
 | 6a / Luna — complete | Validated the existing versioned settings receipt in staging and added the allowlisted `ImportResult.summary()` API after successful publication. | 5d | Both digests correct; failed imports have no success receipt. |
-| 6b / Main | Finalize CLI, expected reviewed-digest comparison, identical completed rerun and conflicting-output refusal. | 6a | Digest mismatch/changed source refuse; same import is safe; no unsafe override. |
+| 6b / Main — complete | Finalized `--input`/`--output` CLI, reviewed-selection digest checking, JSON success stdout, stderr diagnostics, identical completed reruns and conflicting-output refusal. | 6a | Digest mismatch/changed source refuse; same import is safe; no unsafe override. |
 | 6c / Main | Specify and implement explicit receipt propagation to vault/site outside notes/indexes. | 6b | Both digests traceable; no claim that settings propagate automatically; no source-path leakage. |
 | 6d / Terra | Help/errors/progress and CLI subprocess tests against Main's finalized CLI contract. | 6c | Consistent `--input`/`--output`, phase/count progress, nonzero errors and no success on partial output. |
 
@@ -571,6 +572,8 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-14 | 5d complete | Codex parent reviewed the full resource path at baseline `22929c8`: indexed reachability, authenticated consumption, exclusive mapped-ID writes, owned staging, no-replace publication and recovery. Added three full-import regressions for orphan refusal before payload creation, same-size corruption/symlink at second-resource consumption, and abrupt child exit during a real write followed by stale-lock refusal and inspected manual recovery. No runtime defect found within the frozen boundary; process-exit evidence does not claim physical power-loss testing or adversarial same-user path protection. Review: `NOTRIOS_RESOURCE_REVIEW.md`. All 21 focused tests passed (5.912s); all 246 five-module regression tests passed (124.044s), with both bytecode-suppression flags and localhost sockets permitted. Logs: `/tmp/movenotes-5d-focused.log`, `/tmp/movenotes-5d-tests.log`. Runtime code and immutable fixtures unchanged; documentation links, diff and attribution checked. No worker used: this slice is parent-owned. Next: ask to proceed to 6a (`codex:luna_worker`, `gpt-5.6-luna`, fixed `max`). |
 
 | 2026-09-15 | 6a complete | Assigned `codex:luna_worker` (`gpt-5.6-luna`, fixed `max`; native identifier `/root/notrios_6a`) added `ImportResult.summary()` with only status, both digests and row/resource counts, returning a fresh JSON-compatible dictionary without destination/content. Tests compare the staged SQLite receipt and completion marker against independent pinned fixture values and the exact versioned allowlist, check created/unchanged summaries and mutation isolation, and cover pre-rename receipt cleanup and the existing post-rename durability-error exception (complete receipt retained, no success result). No new persisted summary payload or CLI is exposed. Parent specified the summary interface, reviewed the patch, updated documentation/provenance and ran all five regression modules. All 25 focused tests passed (19.302s); all 249 regression tests passed (128.500s), with both bytecode-suppression flags and localhost sockets permitted. Logs: `/tmp/movenotes-6a-focused.log`, `/tmp/movenotes-6a-tests.log`. User resumed after a usage-limit interruption; no reassignment. Immutable fixtures unchanged. Next: ask to proceed to 6b. |
+
+| 2026-09-15 | 6b complete | Codex parent finalized the public CLI using `--input`/`--output` (replacing provisional positional syntax), optional strict reviewed-selection digest, non-abbreviated arguments and no unsafe override flags. Successful stdout is one content-free JSON summary; existing helper progress and errors go to stderr, with cleanup notes retained. Import and rerun safety use the existing verified lifecycle. Four subprocess tests cover creation, unchanged source/output inventories, mismatch on new/existing output, valid rehashed source changes, unrelated/edited destinations, malformed/unsafe usage and injected sealing failure without success stdout. Corrected an initial invalid notebook field in the test fixture; no importer rule change was needed. All 4 focused tests passed (10.784s); all 253 five-module regression tests passed (132.355s), with both bytecode-suppression flags and localhost sockets permitted. Logs: `/tmp/movenotes-6b-focused.log`, `/tmp/movenotes-6b-tests.log`. Help and finalized contract reviewed; fixture instructions, links, diff and attribution checked. No worker used: parent-owned slice. Next: ask to proceed to 6c. |
 
 ## Attribution amendment — 2026-09-14
 
@@ -1189,7 +1192,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 
 </details>
 
-<details><summary>6b — pending; planned parent</summary>
+<details><summary>6b — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -1197,21 +1200,21 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | parent |
 | Planned configured model | not exposed |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
-| Delegation failure or reassignment | pending |
+| Assignment confirmation | Confirmed unchanged Codex session; user explicitly authorized 6b. |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Codex; exact model not exposed |
+| Parent underlying model family | GPT-6 (runtime-reported) |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Implemented --input/--output and optional reviewed-selection digest CLI with strict non-abbreviated options, single allowlisted JSON stdout result and stderr progress/errors; reused existing importer publication/refusal logic. Added subprocess creation, rerun, mismatch, changed-source, conflict, malformed-usage and sealing-failure checks. Updated finalized CLI design and fixture instructions. |
+| Validation | All 4 focused CLI tests passed (10.784s); manual --help inspected. All 253 tests across the five regression modules passed (132.355s), with PYTHONDONTWRITEBYTECODE=1 and python3 -B; localhost sockets permitted. Initial changed-source test used a nonexistent title field; corrected to valid notebook name so it exercises receipt mismatch. Diff, document links and generated attribution checked; immutable fixtures unchanged. |
+| Delegation failure or reassignment | none — parent-owned slice |
 | Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Proceed with 6b; /tmp/movenotes-6b-focused.log; /tmp/movenotes-6b-tests.log |
+| Commit | Git commit containing this completion record: feat: expose safe Notrios publication CLI |
 
 </details>
 

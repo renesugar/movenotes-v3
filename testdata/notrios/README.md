@@ -478,4 +478,29 @@ unchanged imports share the same summary fields.
 Lifecycle coverage verifies that a pre-rename failure leaves no published
 receipt. A post-rename parent-fsync error returns no success result but retains
 the complete receipt and payload for an identical verified rerun. These are
-internal API checks; public CLI output remains slice 6b.
+internal API checks, complemented by the slice 6b CLI coverage below.
+
+## Public CLI checks — slice 6b
+
+From the repository root, with an existing `/tmp` parent and an absent output
+(or an identical completed import):
+
+```bash
+python3 -B notrios2sql.py \
+  --input testdata/notrios/publication-loose/archive \
+  --output /tmp/movenotes-notrios-example \
+  --expected-selection-sha256 54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0
+```
+
+This digest belongs to this pinned synthetic fixture. Supply the digest reviewed
+for your own archive when importing another publication. Successful stdout is
+one JSON line containing status, both digests and row/resource counts. Progress
+and errors go to stderr. An exact rerun reports `unchanged`; an unrelated,
+edited or mismatched output refuses without overwrite.
+
+`NotriosCLITest` runs the actual script to check creation, unchanged inventories,
+digest mismatch before and after publication, a valid rehashed source change,
+conflicting/edited outputs, rejected unsafe options and malformed usage. It also
+injects sealing failure through the CLI entry point to verify empty success
+stdout and cleanup. Full receipt propagation is slice 6c; broader CLI progress
+and diagnostic coverage remains slice 6d.

@@ -1,11 +1,8 @@
-"""Internal publication importer; the public CLI is deferred to Step 6.
-
-This development slice imports notes, tags, resources and their validated
-relations. The public CLI remains deferred to Step 6.
-"""
+"""Verify and import a loose Notrios publication into a fresh notesdb directory."""
 from __future__ import annotations
 
-from contextlib import ExitStack, contextmanager
+import argparse
+from contextlib import ExitStack, contextmanager, redirect_stdout
 import ctypes
 from dataclasses import dataclass
 import errno
@@ -18,6 +15,7 @@ import secrets
 import shutil
 import sqlite3
 import stat
+import sys
 import time
 
 import notesdb
@@ -590,3 +588,51 @@ def import_publication(source: Path, destination: Path, *, expected_selection_sh
                     failure.add_note(message)
                 else:
                     raise NotriosError("io", message)
+
+
+def _selection_digest(value: str) -> str:
+    if not re.fullmatch(r"[0-9a-f]{64}", value):
+        raise argparse.ArgumentTypeError("expected 64 lowercase hexadecimal characters")
+    return value
+
+
+def _build_argument_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="notrios2sql.py", description=__doc__, allow_abbrev=False,
+        epilog="Output must be absent or an identical completed import. No overwrite or merge. "
+               "The output parent must exist. Atomic publication requires Linux "
+               "renameat2(RENAME_NOREPLACE) and filesystem fsync support.",
+    )
+    parser.add_argument("--input", required=True, type=Path, dest="input_path",
+                        help="Loose Notrios publication archive directory")
+    parser.add_argument("--output", required=True, type=Path, dest="output_path",
+                        help="Fresh notesdb destination, or an identical completed import")
+    parser.add_argument("--expected-selection-sha256", type=_selection_digest, metavar="HEX",
+                        help="Require this reviewed selection digest, including on unchanged reruns")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _build_argument_parser().parse_args(argv)
+    try:
+        print("Verifying publication and preparing import...", file=sys.stderr, flush=True)
+        # Existing notesdb helpers print progress. Keep stdout reserved for the
+        # successful content-free result, including when construction fails.
+        with redirect_stdout(sys.stderr):
+            result = import_publication(args.input_path, args.output_path,
+                                        expected_selection_sha256=args.expected_selection_sha256)
+    except (NotriosError, OSError, sqlite3.Error) as exc:
+        code = exc.code if isinstance(exc, NotriosError) else "io"
+        print(f"error [{code}]: {exc}", file=sys.stderr)
+        for note in getattr(exc, "__notes__", ()):
+            print(note, file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        print("error: import interrupted", file=sys.stderr)
+        return 1
+    print(_json(result.summary()).decode("utf-8"))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
