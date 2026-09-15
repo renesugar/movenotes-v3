@@ -465,3 +465,17 @@ consumption, and abrupt child exit inside the real resource writer. The latter
 verifies that stale ownership blocks retry until exact inspected entries are
 moved aside, then checks fresh creation and an unchanged rerun. These complement
 the existing storage and lifecycle fault tests; physical power loss is not tested.
+
+## Receipt and content-free summary — slice 6a
+
+The resource-projection tests compare the SQLite receipt and completion marker
+against the pinned fixture's independent commit and selection digests, snapshot
+and database IDs, and the literal versioned allowlist. `ImportResult.summary()`
+returns a fresh JSON-compatible dictionary containing only status, both digests
+and numeric row/resource counts; it excludes the destination path. Created and
+unchanged imports share the same summary fields.
+
+Lifecycle coverage verifies that a pre-rename failure leaves no published
+receipt. A post-rename parent-fsync error returns no success result but retains
+the complete receipt and payload for an identical verified rerun. These are
+internal API checks; public CLI output remains slice 6b.

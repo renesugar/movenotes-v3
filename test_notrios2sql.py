@@ -2019,8 +2019,10 @@ class NotriosPublicationLifecycleTest(unittest.TestCase):
             self.assertEqual(connection.execute("PRAGMA journal_mode").fetchone()[0], "delete")
             self.assertEqual(connection.execute("SELECT count(*) FROM notrios_ids").fetchone()[0], 9)
             self.assertEqual(connection.execute("SELECT count(*) FROM notrios_document_resources").fetchone()[0], 0)
+        created_summary = result.summary()
         result = self.run_import(expected_selection_sha256=result.selection_manifest_sha256)
         self.assertEqual(result.status, "unchanged")
+        self.assertEqual(result.summary(), dict(created_summary, status="unchanged"))
         self.assertEqual(fixture_inventory(self.destination), payload)
         self.assertEqual(fixture_inventory(self.fixture.archive), before)
         self.assert_clean()
@@ -2036,6 +2038,17 @@ class NotriosPublicationLifecycleTest(unittest.TestCase):
             with self.assertRaises(archive_v2.NotriosError):
                 self.run_import()
         self.assertFalse(self.destination.exists())
+        self.assert_clean()
+
+    def test_pre_rename_failure_has_no_success_receipt(self):
+        # _complete seals a receipt in the private stage before publication;
+        # a failed rename must clean that stage without exposing a success
+        # receipt or result tree.
+        with mock.patch.object(importer, "_rename_noreplace", side_effect=OSError("injected rename failure")):
+            with self.assertRaises(archive_v2.NotriosError):
+                self.run_import()
+        self.assertFalse(self.destination.exists())
+        self.assertEqual(list(self.root.rglob(importer.COMPLETE)), [])
         self.assert_clean()
 
     def test_fsync_faults_before_and_after_rename(self):
@@ -3689,6 +3702,85 @@ class NotriosResourceProjectionTest(unittest.TestCase):
         child_manifest = load_json(child_restored / ".movenotes/manifest.json")
         self.assertEqual(child_manifest["attachments"], manifest["attachments"])
         self.assertEqual({item["id"] for item in child_manifest["items"] if item["type"] == 4}, {image})
+
+    def test_receipt_and_summary_use_frozen_digests_and_allowlisted_fields(self):
+        expected = load_json(PUBLICATION_ROOT / "expected.json")
+        result = importer.import_publication(self.fixture.archive, self.destination)
+        expected_summary = {
+            "status": "created",
+            "commit_sha256": expected["commit_sha256"],
+            "selection_manifest_sha256": expected["selection_manifest_sha256"],
+            "row_count": 18,
+            "resource_count": 3,
+        }
+        self.assertEqual(result.summary(), expected_summary)
+        self.assertEqual(set(result.summary()), {
+            "status", "commit_sha256", "selection_manifest_sha256", "row_count", "resource_count",
+        })
+        self.assertNotIn("destination", result.summary())
+        self.assertIsNot(result.summary(), result.summary())
+        self.assertEqual(json.loads(json.dumps(result.summary(), ensure_ascii=False)), expected_summary)
+        changed = result.summary()
+        changed["status"] = "tampered"
+        changed["commit_sha256"] = "0" * 64
+        changed["row_count"] = 0
+        self.assertEqual(result.summary(), expected_summary)
+
+        expected_receipt = {
+            "version": 1,
+            "contract": "notrios-archive-v2",
+            "contract_schema_version": 1,
+            "reader_profile": "movenotes-publication-loose-v1",
+            "mapper": "movenotes-notrios-v1",
+            "commit_sha256": expected["commit_sha256"],
+            "selection_manifest_sha256": expected["selection_manifest_sha256"],
+            "snapshot_id": expected["snapshot_id"],
+            "database_id": expected["database_id"],
+            "target": "publication_handoff",
+        }
+        marker = load_json(self.destination / importer.COMPLETE)
+        self.assertEqual(set(marker), {
+            "version", "receipt", "inventory_sha256", "inventory_size_bytes", "file_count",
+        })
+        self.assertEqual(marker["receipt"], expected_receipt)
+        with sqlite3.connect(self.destination / "notesdb.sqlite") as connection:
+            saved = connection.execute("SELECT value FROM settings WHERE name=?", (importer.RECEIPT_KEY,)).fetchone()
+        self.assertIsNotNone(saved)
+        self.assertEqual(json.loads(saved[0]), expected_receipt)
+        self.assertEqual(saved[0], json.dumps(expected_receipt, ensure_ascii=False, separators=(",", ":")))
+
+    def test_post_rename_durability_failure_keeps_receipt_without_success_result(self):
+        expected = load_json(PUBLICATION_ROOT / "expected.json")
+        expected_receipt = {
+            "version": 1,
+            "contract": "notrios-archive-v2",
+            "contract_schema_version": 1,
+            "reader_profile": "movenotes-publication-loose-v1",
+            "mapper": "movenotes-notrios-v1",
+            "commit_sha256": expected["commit_sha256"],
+            "selection_manifest_sha256": expected["selection_manifest_sha256"],
+            "snapshot_id": expected["snapshot_id"],
+            "database_id": expected["database_id"],
+            "target": "publication_handoff",
+        }
+        real_sync = os.fsync
+
+        def fail_parent_sync(fd):
+            if os.readlink(f"/proc/self/fd/{fd}") == str(self.root):
+                raise OSError("injected post-rename fsync failure")
+            return real_sync(fd)
+
+        with mock.patch.object(importer.os, "fsync", fail_parent_sync):
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                importer.import_publication(self.fixture.archive, self.destination)
+        self.assertIn("durability", str(caught.exception))
+        self.assertTrue(self.destination.is_dir())
+        marker = load_json(self.destination / importer.COMPLETE)
+        self.assertEqual(marker["receipt"], expected_receipt)
+        with sqlite3.connect(self.destination / "notesdb.sqlite") as connection:
+            saved = connection.execute("SELECT value FROM settings WHERE name=?", (importer.RECEIPT_KEY,)).fetchone()
+        self.assertEqual(json.loads(saved[0]), marker["receipt"])
+        self.assertEqual(importer.import_publication(self.fixture.archive, self.destination).status, "unchanged")
 
     def test_shared_bytes_with_distinct_semantic_mime_stay_distinct(self):
         records = self.fixture.envelopes()

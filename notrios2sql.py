@@ -46,6 +46,16 @@ class ImportResult:
     row_count: int
     resource_count: int
 
+    def summary(self) -> dict[str, object]:
+        """Return the content-free result fields intended for future CLI output."""
+        return {
+            "status": self.status,
+            "commit_sha256": self.commit_sha256,
+            "selection_manifest_sha256": self.selection_manifest_sha256,
+            "row_count": self.row_count,
+            "resource_count": self.resource_count,
+        }
+
 
 def _json(value):
     return json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")

@@ -10,7 +10,9 @@ evidence. The [vault/site tag review](NOTRIOS_TAG_REVIEW.md) is complete.
 Resource slices **5a–5d are complete**. The
 [resource safety review](NOTRIOS_RESOURCE_REVIEW.md) found no required runtime
 change and adds full-import interruption and mutation evidence. All **246 tests**
-pass. Next is **6a**, versioned receipt and content-free summary validation.
+passed at that milestone. Slice **6a is complete**: the staged receipt is
+validated and the internal API exposes an allowlisted content-free summary.
+All **249 tests** now pass. Next is **6b**, public CLI finalization.
 
 The frozen admission checklist is
 [NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
@@ -225,7 +227,7 @@ future Luna work uses the available role's confirmed fixed `max` effort.
 <!-- NOTRIOS-ASSIGNMENTS:START -->
 Session confirmation: **confirmed**.
 
-2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d.
+2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15.
 
 | Coding agent | Execution owner | Configured model | Reasoning effort | Availability | Billing route |
 |---|---|---|---|---|---|
@@ -240,12 +242,12 @@ Runtime-reported parent family: **GPT-6**. Product/client version: not exposed; 
 - Future Luna assignments use fixed max effort, confirmed by the user for this session; historical medium assignments remain unchanged.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **6a — versioned receipt and content-free summary**, assigned to
-**codex:luna_worker / gpt-5.6-luna / max**, with parent review and validation.
-Assignments and billing suitability remain confirmed for this unchanged session;
-6a requires the user's per-slice authorization. Slice 5d was reviewed and
-validated by the Codex parent (runtime-reported GPT-6 family; exact model alias
-and reasoning effort not exposed), with no worker delegation.
+Next slice: **6b — public CLI finalization**, assigned to the **Codex parent**
+(runtime-reported **GPT-6** family; exact model alias and reasoning effort
+**not exposed**). Assignments and billing suitability remain confirmed for this
+unchanged session; 6b requires the user's per-slice authorization. Slice 6a was
+implemented by `/root/notrios_6a` (`luna_worker`, configured `gpt-5.6-luna`,
+fixed `max`) and reviewed and validated by the parent.
 
 ## Execution and agent handoff rules
 
@@ -465,7 +467,7 @@ Target refusal is mandatory in 2a, not deferred to this step.
 
 | Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| 6a / Luna | Versioned settings receipt and content-free import summary in staging. | 5d | Both digests correct; failed imports have no success receipt. |
+| 6a / Luna — complete | Validated the existing versioned settings receipt in staging and added the allowlisted `ImportResult.summary()` API after successful publication. | 5d | Both digests correct; failed imports have no success receipt. |
 | 6b / Main | Finalize CLI, expected reviewed-digest comparison, identical completed rerun and conflicting-output refusal. | 6a | Digest mismatch/changed source refuse; same import is safe; no unsafe override. |
 | 6c / Main | Specify and implement explicit receipt propagation to vault/site outside notes/indexes. | 6b | Both digests traceable; no claim that settings propagate automatically; no source-path leakage. |
 | 6d / Terra | Help/errors/progress and CLI subprocess tests against Main's finalized CLI contract. | 6c | Consistent `--input`/`--output`, phase/count progress, nonzero errors and no success on partial output. |
@@ -567,6 +569,8 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-14 | 5c complete | Assigned `codex:terra_worker` (`gpt-5.6-terra`, fixed `medium`; native identifier `/root/notrios_5c`) added duplicate Unicode/punctuation filename, escaped-label and resolved-link checks through vault/bundle/filtered round trips, plus zero-byte and 9,252,864-byte opaque resources. The larger fixture is generated in blocks; resource reads are tracked by blob hash, and independent streaming hashes verify published, vault, preservation and re-exported bytes. Existing sanitization handles wiki delimiters; runtime code and immutable fixtures are unchanged. Parent reviewed coverage and final assertions, updated documentation/provenance and ran validation after the usage-limit interruption. All 8 final focused tests passed (14.839s); all 243 tests across the five regression modules passed (121.125s), with both bytecode-suppression flags and localhost sockets permitted. Logs: `/tmp/movenotes-5c-final-focused.log`, `/tmp/movenotes-5c-tests.log`. Next: ask to proceed to 5d. |
 
 | 2026-09-14 | 5d complete | Codex parent reviewed the full resource path at baseline `22929c8`: indexed reachability, authenticated consumption, exclusive mapped-ID writes, owned staging, no-replace publication and recovery. Added three full-import regressions for orphan refusal before payload creation, same-size corruption/symlink at second-resource consumption, and abrupt child exit during a real write followed by stale-lock refusal and inspected manual recovery. No runtime defect found within the frozen boundary; process-exit evidence does not claim physical power-loss testing or adversarial same-user path protection. Review: `NOTRIOS_RESOURCE_REVIEW.md`. All 21 focused tests passed (5.912s); all 246 five-module regression tests passed (124.044s), with both bytecode-suppression flags and localhost sockets permitted. Logs: `/tmp/movenotes-5d-focused.log`, `/tmp/movenotes-5d-tests.log`. Runtime code and immutable fixtures unchanged; documentation links, diff and attribution checked. No worker used: this slice is parent-owned. Next: ask to proceed to 6a (`codex:luna_worker`, `gpt-5.6-luna`, fixed `max`). |
+
+| 2026-09-15 | 6a complete | Assigned `codex:luna_worker` (`gpt-5.6-luna`, fixed `max`; native identifier `/root/notrios_6a`) added `ImportResult.summary()` with only status, both digests and row/resource counts, returning a fresh JSON-compatible dictionary without destination/content. Tests compare the staged SQLite receipt and completion marker against independent pinned fixture values and the exact versioned allowlist, check created/unchanged summaries and mutation isolation, and cover pre-rename receipt cleanup and the existing post-rename durability-error exception (complete receipt retained, no success result). No new persisted summary payload or CLI is exposed. Parent specified the summary interface, reviewed the patch, updated documentation/provenance and ran all five regression modules. All 25 focused tests passed (19.302s); all 249 regression tests passed (128.500s), with both bytecode-suppression flags and localhost sockets permitted. Logs: `/tmp/movenotes-6a-focused.log`, `/tmp/movenotes-6a-tests.log`. User resumed after a usage-limit interruption; no reassignment. Immutable fixtures unchanged. Next: ask to proceed to 6b. |
 
 ## Attribution amendment — 2026-09-14
 
@@ -1159,7 +1163,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 
 </details>
 
-<details><summary>6a — pending; planned luna_worker</summary>
+<details><summary>6a — complete; planned luna_worker</summary>
 
 | Property | Value |
 |---|---|
@@ -1167,21 +1171,21 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | luna_worker |
 | Planned configured model | gpt-5.6-luna |
 | Planned reasoning effort | max |
-| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
-| Delegation failure or reassignment | pending |
+| Assignment confirmation | Confirmed unchanged Codex session; user explicitly authorized 6a. |
+| Actual worker | luna_worker |
+| Child thread | /root/notrios_6a (native canonical task identifier; separate thread UUID not exposed) |
+| Actual model | not exposed — configured worker model gpt-5.6-luna |
+| Reasoning effort | not exposed independently — configured fixed max |
+| Worker contribution | Added ImportResult.summary() with the explicit status/digests/counts allowlist and fresh dictionary semantics; added independent pinned receipt/summary tests plus pre-rename and post-rename durability failure checks. |
+| Parent | Codex; exact model not exposed |
+| Parent underlying model family | GPT-6 (runtime-reported) |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Delegated assigned slice, specified the summary API without changing persisted payload, reviewed receipt allowlist and failure semantics, reconciled design ownership, updated documentation/provenance and ran the final regression gate. |
+| Validation | Worker: all 25 focused tests passed (19.302s). Parent: all 249 tests across the five regression modules passed (128.500s), with PYTHONDONTWRITEBYTECODE=1 and python3 -B; localhost sockets permitted. Exact pinned digests, receipt allowlist/serialization, completion equality, fresh path-free summaries, unchanged results and pre/post-rename failures checked. Diff and generated attribution checked; immutable fixtures unchanged. |
+| Delegation failure or reassignment | No reassignment. Usage-limit interruption after worker handoff; user requested continuation and parent resumed final validation/documentation. |
 | Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Proceed with 6a; Native spawn of /root/notrios_6a; /tmp/movenotes-6a-focused.log; Worker handoff for /root/notrios_6a; /tmp/movenotes-6a-tests.log; User resumed 6a after usage limit on 2026-09-15 |
+| Commit | Git commit containing this completion record: feat: expose content-free Notrios import summaries |
 
 </details>
 
