@@ -30,7 +30,7 @@ No API returns an archive-wide list of bodies, records or paths.
 | Same | `VerifiedArchive.manifest`, `.counts`; `iter_records(kind: str) -> Iterator[Record]` in binary source-key order; `get_record(kind: str, key: tuple[str, ...]) -> Record`; `iter_relations(kind: str, document_id: str) -> Iterator[Record]`; `open_blob(ref: BlobRef) -> ContextManager[BinaryIO]`. A blob context verifies on complete read, including EOF; abandoning it cannot count as successfully consumed. `Record` exposes `.kind`, `.key`, `.payload`; `BlobRef` exposes `.sha256`, `.size_bytes`, `.media_type`. Handles cannot outlive `VerifiedArchive`. |
 | Luna 3a, Main 3b; `notrios_mapping.py` | `source_key(database_id: str, kind: str, parts: tuple[str, ...]) -> bytes`; `mapped_id(...) -> str`; `joplin_timestamp(value: str) -> str`; `build_notebook_row(record, *, item_id, parent_id) -> dict`; `build_note_row(document, revision, *, item_id, parent_id, body) -> dict`; `build_tag_row(record, *, item_id) -> dict`; `build_note_tag_row(*, item_id, note_id, tag_id, timestamp) -> dict`; `build_resource_row(record, *, item_id, mime, extension) -> dict`; `generated_properties(row: Mapping) -> list[tuple[str, str]]`; `resource_extension(mime: str) -> str` for the frozen canonical-MIME suffix map. Pure builders take validated input and use the exact rules below. They do not read files or independently allocate IDs. |
 | Main design / Terra 3d and 5b; `notrios_links.py` | Owns `ConversionLimits` with constants below (Main adds the dataclass when first needed for 3a/3b). `scan_markdown(body: bytes) -> Iterator[Token]`; `validate_links(body: bytes, records: Iterable[Record], *, resolve, limits: ConversionLimits) -> LinkPlan`; `project_body(body: bytes, plan: LinkPlan, *, related_resources: Iterable[Attachment]) -> str`; `rewrite_projected_links(body: str, *, note_id: str, note_path: PurePosixPath, lookup_item_type, lookup_note_path, attachments) -> str`. Token/plan details below; may import archive dataclasses/errors, but performs no archive I/O and never imports a CLI. |
-| Main 3b/6b; Luna 6a; `notrios2sql.py` | Imports `ConversionLimits` from `notrios_links`; `import_publication(source: Path, destination: Path, *, expected_selection_sha256: str | None = None, archive_limits: ArchiveLimits = DEFAULT_LIMITS, conversion_limits: ConversionLimits = DEFAULT_CONVERSION_LIMITS) -> ImportResult`. Result: `status` (`created` or `unchanged`), `destination`, `commit_sha256`, `selection_manifest_sha256`, and numeric row/resource counts. Owns staging, collision checks, database writes, receipt and completion. Final CLI (6b): `notrios2sql.py --input SOURCE --output DESTINATION [--expected-selection-sha256 HEX]`; no limit-widening, overwrite, merge or unsafe flags. Exit 0 for created/unchanged, 2 for usage, 1 for refused/failed import. |
+| Main 3b/6b; Luna 6a; Terra 6d; `notrios2sql.py` | Imports `ConversionLimits` from `notrios_links`; `import_publication(source: Path, destination: Path, *, expected_selection_sha256: str | None = None, archive_limits: ArchiveLimits = DEFAULT_LIMITS, conversion_limits: ConversionLimits = DEFAULT_CONVERSION_LIMITS, progress: Callable[..., None] | None = None) -> ImportResult`. Result: `status` (`created` or `unchanged`), `destination`, `commit_sha256`, `selection_manifest_sha256`, and numeric row/resource counts. Owns staging, collision checks, database writes, receipt and completion. Final CLI (6b): `notrios2sql.py --input SOURCE --output DESTINATION [--expected-selection-sha256 HEX]`; no limit-widening, overwrite, merge or unsafe flags. Exit 0 for created/unchanged, 2 for usage, 1 for refused/failed import. |
 | Terra 3d; `sql2obsidian.py`, narrowly `notesdb.py` | A narrow branch for the Notrios-generated note marker and a second finalization pass, plus generated RAW title serialization described below. Reuse folder naming, deduplication, attachment copying, frontmatter and bundle writers. No changes to `obsidian2site.py` path maps, templates or schema are authorized by this design. |
 | Luna 1d; `test_notrios2sql.py` | Fixture-copy/inventory helpers and baseline data assertions only. ID builders are implemented/tested in 3a; importer admission tests start in 2a. Tests must not import future modules before they exist. Own no runtime module in 1d. |
 
@@ -500,8 +500,24 @@ Progress from the CLI and existing database helpers goes to stderr. On import
 failure, stdout is empty and stderr contains a concise error, including any
 ownership-cleanup notes; exit 1. Keyboard interruption also exits 1 after normal
 unwinding. A post-rename durability error has no success summary even though its
-complete output is retained. Phase/count progress refinements and broader
-help/error subprocess coverage remain slice 6d.
+complete output is retained.
+
+Slice 6d adds an optional library progress callback, called as
+`progress(phase, row_count=None, resource_count=None)`. It receives fixed phase
+names only: `verify`, `preflight`, then either `stage` and `staged`, or
+`verify-existing` and `verified-existing`. A new import continues through `seal`
+and `publish`. Only `staged` and `verified-existing` carry counts: completed
+SQLite rows and resource rows, not estimates or source-document totals. The
+callback never receives paths, identifiers, digests or note content. Omitting it
+adds no progress events to existing library callers.
+
+The CLI formats these events as `phase: NAME`, with `rows=N resources=N` where
+counts are available, on stderr. It adds `phase: complete rows=N resources=N`
+only after the importer returns, including ownership cleanup and publication
+fsync. Intermediate staged counts do not claim publication success. Progress is
+bounded by phase count, not archive size; existing database helper output also
+remains on stderr. JSON summary fields, receipt contents, publication rules and
+exit codes are unchanged.
 
 Final payload is `notesdb.sqlite` and `resources/` (present even when empty).
 `notrios-inventory.jsonl` has sorted relative POSIX paths, one compact object

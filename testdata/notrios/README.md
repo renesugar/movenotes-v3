@@ -495,15 +495,24 @@ python3 -B notrios2sql.py \
 This digest belongs to this pinned synthetic fixture. Supply the digest reviewed
 for your own archive when importing another publication. Successful stdout is
 one JSON line containing status, both digests and row/resource counts. Progress
-and errors go to stderr. An exact rerun reports `unchanged`; an unrelated,
-edited or mismatched output refuses without overwrite.
+and errors go to stderr. Phase messages identify verification, preflight,
+staging or existing-output verification, sealing and publication. Completed
+staging/verification reports `rows=N resources=N`; `phase: complete` appears
+only after successful publication or rerun verification and cleanup. These
+bounded messages contain no paths, digests or note content. An exact rerun
+reports `unchanged`; an unrelated, edited or mismatched output refuses without
+overwrite. Exit codes are 0 for success/help, 2 for usage errors, and 1 for
+import refusals, failures or interruption.
 
 `NotriosCLITest` runs the actual script to check creation, unchanged inventories,
 digest mismatch before and after publication, a valid rehashed source change,
-conflicting/edited outputs, rejected unsafe options and malformed usage. It also
-injects sealing failure through the CLI entry point to verify empty success
-stdout and cleanup. Explicit receipt propagation is implemented in slice 6c; broader CLI progress
-and diagnostic coverage remains slice 6d.
+conflicting/edited outputs, rejected unsafe options and malformed usage. It
+checks help and exact ordered phase/count output for creation and reruns.
+Injected preflight, sealing, post-rename durability and owned-cleanup failures
+must return nonzero with empty stdout and no completion phase. Durability and
+cleanup failures retain the completed destination; an owned-cleanup failure also
+leaves the failed work directory for recovery. Explicit receipt propagation is
+implemented in slice 6c.
 
 ### Explicit vault/site receipt propagation (6c)
 

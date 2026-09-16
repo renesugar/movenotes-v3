@@ -3573,7 +3573,12 @@ class NotriosCLITest(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("error", result.stderr)
         self.assertNotIn("Traceback", result.stderr)
+        self.assertNotIn("phase: complete", result.stderr)
         self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
+
+    @staticmethod
+    def phase_lines(result):
+        return [line for line in result.stderr.splitlines() if line.startswith("phase: ")]
 
     def test_cli_create_and_identical_rerun_have_only_allowlisted_json(self):
         source_before = fixture_inventory(self.fixture.archive)
@@ -3586,14 +3591,43 @@ class NotriosCLITest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout), expected)
         self.assertEqual(result.stdout.count("\n"), 1)
-        self.assertIn("Verifying publication", result.stderr)
+        self.assertEqual(self.phase_lines(result), [
+            "phase: verify", "phase: preflight", "phase: stage",
+            "phase: staged rows=18 resources=3", "phase: seal", "phase: publish",
+            "phase: complete rows=18 resources=3",
+        ])
         self.assertNotIn(str(self.destination), result.stdout)
         before = fixture_inventory(self.destination)
         result = self.cli("--expected-selection-sha256", self.expected["selection_manifest_sha256"])
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout), dict(expected, status="unchanged"))
+        self.assertEqual(self.phase_lines(result), [
+            "phase: verify", "phase: preflight", "phase: verify-existing",
+            "phase: verified-existing rows=18 resources=3",
+            "phase: complete rows=18 resources=3",
+        ])
         self.assertEqual(fixture_inventory(self.destination), before)
         self.assertEqual(fixture_inventory(self.fixture.archive), source_before)
+
+    def test_cli_help_is_quiet_and_describes_only_safe_contract(self):
+        result = subprocess.run(
+            [sys.executable, "-B", str(Path(__file__).parent / "notrios2sql.py"), "--help"],
+            capture_output=True, text=True, timeout=30,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stderr, "")
+        self.assertIn("--input", result.stdout)
+        self.assertIn("--output", result.stdout)
+        self.assertIn("--expected-selection-sha256", result.stdout)
+        self.assertIn("No overwrite or merge", result.stdout)
+        help_text = " ".join(result.stdout.split())
+        self.assertIn("stdout contains one JSON summary line", help_text)
+        self.assertIn("phase/count progress and errors use stderr", help_text)
+        self.assertIn("Usage errors exit 2 and import errors exit 1", help_text)
+        self.assertNotIn("--overwrite", result.stdout)
+        self.assertNotIn("--merge", result.stdout)
+        self.assertFalse(self.destination.exists())
 
     def test_cli_digest_mismatch_and_changed_source_refuse_without_output_changes(self):
         self.assert_refused(self.cli("--expected-selection-sha256", "0" * 64))
@@ -3632,11 +3666,79 @@ class NotriosCLITest(unittest.TestCase):
                 self.assert_refused(self.cli(*extra), code=2)
                 self.assertFalse(self.destination.exists())
         self.assert_refused(self.cli(output=self.root / "missing-parent" / "output"))
-        script = """
+        sealing_script = """
 import sys
 from unittest import mock
 import notrios2sql
 with mock.patch.object(notrios2sql, '_complete', side_effect=OSError('injected sealing failure')):
+    raise SystemExit(notrios2sql.main(sys.argv[1:]))
+"""
+        result = subprocess.run(
+            [sys.executable, "-B", "-c", sealing_script, "--input", str(self.fixture.archive),
+             "--output", str(self.destination)],
+            cwd=Path(__file__).parent, capture_output=True, text=True, timeout=30,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+        self.assert_refused(result)
+        self.assertIn("injected sealing failure", result.stderr)
+        self.assertNotIn("phase: complete", result.stderr)
+        self.assertFalse(self.destination.exists())
+
+        preflight_script = """
+import sys
+from unittest import mock
+import notrios2sql
+from notrios_archive import NotriosError
+with mock.patch.object(notrios2sql, '_preflight', side_effect=NotriosError('conversion', 'injected preflight failure')):
+    raise SystemExit(notrios2sql.main(sys.argv[1:]))
+"""
+        result = subprocess.run(
+            [sys.executable, "-B", "-c", preflight_script, "--input", str(self.fixture.archive),
+             "--output", str(self.destination)],
+            cwd=Path(__file__).parent, capture_output=True, text=True, timeout=30,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+        self.assert_refused(result)
+        self.assertIn("injected preflight failure", result.stderr)
+        self.assertNotIn("phase: complete", result.stderr)
+        self.assertFalse(self.destination.exists())
+
+        durability_script = """
+import sys
+from pathlib import Path
+from unittest import mock
+import notrios2sql
+destination = Path(sys.argv[sys.argv.index('--output') + 1])
+original = notrios2sql.os.fsync
+def fail_parent_sync(fd):
+    if destination.is_dir():
+        raise OSError('injected parent durability failure')
+    return original(fd)
+with mock.patch.object(notrios2sql.os, 'fsync', fail_parent_sync):
+    raise SystemExit(notrios2sql.main(sys.argv[1:]))
+"""
+        result = subprocess.run(
+            [sys.executable, "-B", "-c", durability_script, "--input", str(self.fixture.archive),
+             "--output", str(self.destination)],
+            cwd=Path(__file__).parent, capture_output=True, text=True, timeout=30,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+        self.assert_refused(result)
+        self.assertIn("durability", result.stderr)
+        self.assertNotIn("phase: complete", result.stderr)
+        self.assertTrue((self.destination / importer.COMPLETE).exists())
+
+    def test_cli_cleanup_failure_after_publication_has_no_success_result(self):
+        script = """
+import sys
+from unittest import mock
+import notrios2sql
+original = notrios2sql._OwnedDirectory.remove
+def fail_work_cleanup(self, parent_fd):
+    if self.name.startswith('.movenotes-notrios-work-'):
+        raise OSError('injected owned cleanup failure')
+    return original(self, parent_fd)
+with mock.patch.object(notrios2sql._OwnedDirectory, 'remove', fail_work_cleanup):
     raise SystemExit(notrios2sql.main(sys.argv[1:]))
 """
         result = subprocess.run(
@@ -3645,9 +3747,13 @@ with mock.patch.object(notrios2sql, '_complete', side_effect=OSError('injected s
             cwd=Path(__file__).parent, capture_output=True, text=True, timeout=30,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
-        self.assert_refused(result)
-        self.assertIn("injected sealing failure", result.stderr)
-        self.assertFalse(self.destination.exists())
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("owned cleanup failed", result.stderr)
+        self.assertIn("injected owned cleanup failure", result.stderr)
+        self.assertNotIn("phase: complete", result.stderr)
+        self.assertTrue((self.destination / importer.COMPLETE).exists())
+        self.assertTrue(list(self.root.glob(".movenotes-notrios-work-*")))
 
 
 class NotriosResourceSafetyTest(unittest.TestCase):

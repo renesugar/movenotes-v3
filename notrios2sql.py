@@ -17,6 +17,7 @@ import sqlite3
 import stat
 import sys
 import time
+from collections.abc import Callable
 
 import notesdb
 import notrios_archive as archive_api
@@ -45,7 +46,7 @@ class ImportResult:
     resource_count: int
 
     def summary(self) -> dict[str, object]:
-        """Return the content-free result fields intended for future CLI output."""
+        """Return the content-free result fields emitted by the successful CLI."""
         return {
             "status": self.status,
             "commit_sha256": self.commit_sha256,
@@ -503,10 +504,22 @@ def _check_existing(destination, work, receipt, limits):
         connection.close()
 
 
+def _report_progress(progress: Callable[..., None] | None, phase: str, *,
+                     row_count: int | None = None, resource_count: int | None = None) -> None:
+    """Report a fixed, content-free import phase for an optional caller callback."""
+    if progress is not None:
+        progress(phase, row_count=row_count, resource_count=resource_count)
+
+
 def import_publication(source: Path, destination: Path, *, expected_selection_sha256: str | None = None,
                        archive_limits: ArchiveLimits = DEFAULT_LIMITS,
-                       conversion_limits: ConversionLimits = DEFAULT_CONVERSION_LIMITS) -> ImportResult:
-    """Verify, stage and atomically publish an import, or verify an exact rerun."""
+                       conversion_limits: ConversionLimits = DEFAULT_CONVERSION_LIMITS,
+                       progress: Callable[..., None] | None = None) -> ImportResult:
+    """Verify, stage and atomically publish an import, or verify an exact rerun.
+
+    `progress`, when supplied, receives only fixed phase names plus completed
+    SQLite row/resource counts. It never receives paths, digests, or content.
+    """
     source, destination = Path(source).absolute(), Path(destination).absolute()
     if destination.name in ("", ".", ".."):
         raise NotriosError("destination", "invalid destination basename")
@@ -533,29 +546,37 @@ def import_publication(source: Path, destination: Path, *, expected_selection_sh
             stage = _make_owned(parent_fd, stage_name, token)
             owned.append(stage)
             work_path, stage_path = destination.parent / work_name, destination.parent / stage_name
+            _report_progress(progress, "verify")
             with archive_api.verify_archive(source, work_dir=work_path, limits=archive_limits) as archive, _conversion_errors():
                 receipt = _receipt(archive.manifest)
                 if expected_selection_sha256 is not None and (
                         type(expected_selection_sha256) is not str or not re.fullmatch(r"[0-9a-f]{64}", expected_selection_sha256)
                         or expected_selection_sha256 != receipt["selection_manifest_sha256"]):
                     raise NotriosError("selection", "expected selection digest is malformed or differs")
+                _report_progress(progress, "preflight")
                 _preflight(archive, conversion_limits)
                 if os.path.lexists(destination):
+                    _report_progress(progress, "verify-existing")
                     rows, resources = _check_existing(destination, work_path, receipt, conversion_limits)
                     status = "unchanged"
+                    _report_progress(progress, "verified-existing", row_count=rows, resource_count=resources)
                 else:
+                    _report_progress(progress, "stage")
                     rows, resources = _build_payload(archive, stage_path, receipt, conversion_limits)
                     status = "created"
+                    _report_progress(progress, "staged", row_count=rows, resource_count=resources)
             if status == "created":
                 stage.check(parent_fd)
                 os.unlink(OWNER, dir_fd=stage.fd)
                 stage.has_owner = False
+                _report_progress(progress, "seal")
                 _complete(stage.fd, work_path, receipt, conversion_limits)
                 # Ensure path-based staging and the held publication descriptor
                 # still name the same parent before the final operation.
                 info, held = destination.parent.stat(), os.fstat(parent_fd)
                 if (info.st_dev, info.st_ino) != (held.st_dev, held.st_ino):
                     raise NotriosError("io", "destination parent identity changed")
+                _report_progress(progress, "publish")
                 _rename_noreplace(parent_fd, stage.name, destination.name)
                 published = True
                 try:
@@ -601,7 +622,9 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         prog="notrios2sql.py", description=__doc__, allow_abbrev=False,
         epilog="Output must be absent or an identical completed import. No overwrite or merge. "
                "The output parent must exist. Atomic publication requires Linux "
-               "renameat2(RENAME_NOREPLACE) and filesystem fsync support.",
+               "renameat2(RENAME_NOREPLACE) and filesystem fsync support. On success, stdout "
+               "contains one JSON summary line; phase/count progress and errors use stderr. "
+               "Usage errors exit 2 and import errors exit 1.",
     )
     parser.add_argument("--input", required=True, type=Path, dest="input_path",
                         help="Loose Notrios publication archive directory")
@@ -612,15 +635,25 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _cli_progress(phase: str, *, row_count: int | None = None,
+                  resource_count: int | None = None) -> None:
+    """Write bounded CLI progress without archive identifiers or local paths."""
+    if row_count is None:
+        print(f"phase: {phase}", file=sys.stderr, flush=True)
+    else:
+        print(f"phase: {phase} rows={row_count} resources={resource_count}",
+              file=sys.stderr, flush=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_argument_parser().parse_args(argv)
     try:
-        print("Verifying publication and preparing import...", file=sys.stderr, flush=True)
         # Existing notesdb helpers print progress. Keep stdout reserved for the
         # successful content-free result, including when construction fails.
         with redirect_stdout(sys.stderr):
             result = import_publication(args.input_path, args.output_path,
-                                        expected_selection_sha256=args.expected_selection_sha256)
+                                        expected_selection_sha256=args.expected_selection_sha256,
+                                        progress=_cli_progress)
     except (NotriosError, OSError, sqlite3.Error) as exc:
         code = exc.code if isinstance(exc, NotriosError) else "io"
         print(f"error [{code}]: {exc}", file=sys.stderr)
@@ -630,6 +663,7 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         print("error: import interrupted", file=sys.stderr)
         return 1
+    _cli_progress("complete", row_count=result.row_count, resource_count=result.resource_count)
     print(_json(result.summary()).decode("utf-8"))
     return 0
 
