@@ -19,7 +19,10 @@ Slice **6d is complete**: CLI help explains output and exit codes, bounded phase
 progress reports aggregate counts, and failure tests prevent premature success.
 Slice **7a is complete**: current schema-28 and historical schema-27 publications
 pass the offline importer CLI → SQLite → vault acceptance tests. All **262 tests**
-now pass. Next is **7b**, live Hugo/Ledger and search build acceptance.
+now pass. Slice **7b is complete**: real Hugo/Ledger, Bluge and Pagefind
+acceptance passed after a Ledger subpath fix (`85ac1b0`). See the
+[live acceptance report](NOTRIOS_SITE_ACCEPTANCE.md). Next is **7c**, large-corpus
+measurements and failure recovery.
 
 The frozen admission checklist is
 [NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
@@ -236,7 +239,7 @@ future Luna work uses the available role's confirmed fixed `max` effort.
 <!-- NOTRIOS-ASSIGNMENTS:START -->
 Session confirmation: **confirmed**.
 
-2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a.
+2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained.
 
 | Coding agent | Execution owner | Configured model | Reasoning effort | Availability | Billing route |
 |---|---|---|---|---|---|
@@ -251,13 +254,13 @@ Runtime-reported parent family: **GPT-6**. Product/client version: not exposed; 
 - Future Luna assignments use fixed max effort, confirmed by the user for this session; historical medium assignments remain unchanged.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **7b — live Hugo/Ledger and search build acceptance**, assigned to
-the **Codex parent** (runtime-reported **GPT-6** family; exact model alias and
+Next slice: **7c — large-corpus measurements and failure recovery**, assigned
+to the **Codex parent** (runtime-reported **GPT-6** family; exact model alias and
 reasoning effort **not exposed**). Assignments and billing suitability remain
-confirmed for this unchanged session; 7b requires the user's per-slice
-authorization. Slice 7a was implemented by `/root/notrios_7a` and reviewed and
-validated by the parent. The worker reported GPT-5 family; its exact execution
-alias/effort were not exposed.
+confirmed for this unchanged session; 7c requires the user's per-slice
+authorization. Slice 7b was implemented and validated by the parent, with no
+worker delegation. Live site acceptance pins Ledger `85ac1b0` for its Bluge
+subpath fix; older theme revisions retain the broken result links.
 
 ## Execution and agent handoff rules
 
@@ -586,6 +589,7 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-15 | 6c complete | Codex parent specified and implemented opt-in validated receipt sidecars for vault and site exports. Both source digests survive outside notes, preservation payloads and generated search inputs; strict allowlists, bounded JSON, no-follow reads, atomic replacement and stale-sidecar removal are covered. Filtered exports retain upstream lineage; reimport does not restore settings automatically. Five focused tests passed (14.751s); all 258 five-module regression tests passed (160.004s) with both bytecode-suppression flags and localhost sockets permitted. Initial focused assertions were corrected for timestamped landing pages and normalized write errors. Logs: `/tmp/movenotes-6c-focused.log`, `/tmp/movenotes-6c-tests.log`. Help, diff and documentation reviewed; fixtures unchanged. Live Hugo/search builds remain 7b. No worker used: parent-owned slice. Next: ask to proceed to 6d (Terra, medium). |
 | 2026-09-15 | 6d complete | Assigned `terra_worker` (`/root/notrios_6d`; configured `gpt-5.6-terra` / `medium`) implemented optional library phase callbacks, CLI stderr phase/count reporting and explicit help output/exit-code documentation. Completion is emitted only after importer return, including cleanup and durability checks. Parent reviewed and requested exact ordered phase assertions and a post-publication cleanup failure case; worker completed both. Six focused CLI tests passed (13.098s); parent ran all 260 five-module regression tests successfully (149.849s), with both bytecode-suppression flags and localhost sockets permitted. Logs: `/tmp/movenotes-6d-focused.log`, `/tmp/movenotes-6d-tests.log`. Source/destination inventories, receipt/summary shape and safety logic remain unchanged. Design, fixture instructions, links, diff and attribution checked. User resumed final validation after a usage limit; no reassignment. Next: ask to proceed to 7a (Terra, medium). |
 | 2026-09-15 | 7a complete | Assigned `terra_worker` (`/root/notrios_7a`; configured `gpt-5.6-terra` / `medium`) implemented real importer CLI → SQLite → vault regressions for the current schema-28 resource publication and historical schema-27 publication. Frozen expectations independently check summary/digests, source inventory, receipt agreement across SQLite/marker/vault, complete schema-28 bodies, paths/titles/tags/links, exact attachment hashes and excluded sentinels throughout publication and vault. Parent requested stronger full-body and cross-stage receipt assertions, reviewed worker follow-up and validated the result. Both focused tests passed (2.697s); all 262 five-module regression tests passed (138.773s), with both bytecode-suppression flags and localhost sockets permitted. Logs: `/tmp/movenotes-7a-focused.log`, `/tmp/movenotes-7a-tests.log`. Documentation distinguishes historical S28b limitations from current support; links, diff and attribution checked. No runtime or immutable fixture data edits. Live Hugo/search and performance work remain 7b/7c. Next: ask to proceed to 7b (Main). |
+| 2026-09-16 | 7b complete | Codex parent ran the real current-schema fixture through the CLI/vault and Hugo/Ledger with separate Bluge and Pagefind builds, then Chromium at /archive/ on desktop/mobile. Found Bluge result URLs missing the prefix; fixed the theme adapter with a regression in Ledger `85ac1b0` (approved external-checkout write), rebuilt both sites and reran checks. Both builds have 24 HTML pages; Pagefind indexed 3 notes/74 words. Tag/taxonomy counts agree (3/1/1/1), links/attachments/receipts and backend isolation pass, all ten excluded sentinels and two receipt digests return no search results, and browser console/HTTP checks are clean. Sixteen theme JS tests and all 262 Python regressions passed (150.295s). Initial Hugo sandbox cache failure resolved with approved cache access. Reusable fixture-only harnesses and NOTRIOS_SITE_ACCEPTANCE.md capture tools, pins, commands, limits and evidence. User resumed after usage limit; no worker/reassignment. No scale claims. Next: ask to proceed to 7c (Main). |
 
 ## Attribution amendment — 2026-09-14
 
@@ -1308,7 +1312,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 
 </details>
 
-<details><summary>7b — pending; planned parent</summary>
+<details><summary>7b — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -1316,21 +1320,21 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | parent |
 | Planned configured model | not exposed |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
-| Delegation failure or reassignment | pending |
+| Assignment confirmation | Confirmed unchanged Codex session; user explicitly authorized 7b. |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Codex; exact model not exposed |
+| Parent underlying model family | GPT-6 (runtime-reported) |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Ran actual schema-28 fixture import/vault/Hugo builds, compiled and queried Bluge, indexed Pagefind and drove desktop/mobile Chromium under /archive/. Found Bluge result URLs losing the prefix; fixed and tested the Ledger adapter in theme commit 85ac1b0, then rebuilt both sites and reran browser acceptance. Added reproducible fixture-only acceptance helpers and report; reviewed screenshots, inventories, tag counts, attachment hashes, receipt exclusion and backend isolation; updated plan/provenance. |
+| Validation | Both real builds passed (24 HTML pages each); Pagefind indexed 3 pages/74 words. Four explicit tag counts matched taxonomy and both live backends (3/1/1/1); 12 excluded-sentinel/digest searches per backend returned no results. No browser console errors, HTTP failures or horizontal overflow at 1365x900 and 390x844. Artifact scans passed (103 Bluge, 122 Pagefind files). All 16 theme JS tests passed with --test-isolation=none. All 262 Python regressions passed in 150.295s with both bytecode flags and localhost sockets permitted. Saved browser/artifact helpers rerun successfully. See NOTRIOS_SITE_ACCEPTANCE.md. |
+| Delegation failure or reassignment | none — parent-owned slice; user resumed after usage limit. Theme write outside workspace explicitly approved through filesystem escalation. |
 | Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Proceed with 7b; continue with 7b after usage limit; NOTRIOS_SITE_ACCEPTANCE.md; Ledger theme commit 85ac1b070c657b975629ed728c700694811d6e80; /tmp/movenotes-7b/browser-results.json; /tmp/movenotes-7b/artifact-results.json; /tmp/movenotes-7b/theme-tests.log; /tmp/movenotes-7b-tests.log |
+| Commit | Git commit containing this completion record: test: record live Notrios site acceptance |
 
 </details>
 

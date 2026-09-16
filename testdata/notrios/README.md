@@ -537,7 +537,11 @@ Reimporting the vault with `obsidian2sql.py` does not restore the receipt settin
 `NotriosReceiptPropagationTest` covers both subprocess stages, hidden-file scan
 exclusion, unchanged generated notes/search rows, filtered and opt-out reruns,
 malformed/oversized metadata, symlink refusal and failed atomic replacement.
-Actual Hugo/search build acceptance remains slice 7b.
+Actual Hugo/search build acceptance was performed in slice 7b.
+
+Completed 7b evidence, exact tool/theme pins and reproducible live browser/build
+commands are in [NOTRIOS_SITE_ACCEPTANCE.md](../../NOTRIOS_SITE_ACCEPTANCE.md).
+The run found and fixed Bluge subpath result links in Ledger commit `85ac1b0`.
 
 ### Offline publication-to-vault acceptance (7a)
 
