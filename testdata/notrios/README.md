@@ -538,3 +538,27 @@ Reimporting the vault with `obsidian2sql.py` does not restore the receipt settin
 exclusion, unchanged generated notes/search rows, filtered and opt-out reruns,
 malformed/oversized metadata, symlink refusal and failed atomic replacement.
 Actual Hugo/search build acceptance remains slice 7b.
+
+### Offline publication-to-vault acceptance (7a)
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v \
+  test_notrios2sql.NotriosPublicationToVaultAcceptanceTest
+```
+
+This regression runs `notrios2sql.py` and `sql2obsidian.py` as subprocesses over
+temporary copies of the real schema-28 resource publication and the historical
+schema-27 publication. It uses each fixture's frozen `expected.json`, not a live
+producer or production mapping helpers, as the source of digests, content,
+resource hashes and excluded sentinels. Vault export opts into the receipt and
+uses `--no-simplify-urls` for fidelity checks.
+
+The current-schema case checks exact note paths, titles, explicit tags, complete
+exported body text, translated note/resource links and attachment hashes. Expected
+bodies use literal fixture-specific substitutions in the frozen source text.
+Both cases check the reviewed digest, unchanged source inventory, agreement of
+SQLite/marker/vault receipts and absence of excluded content throughout the
+generated publication and vault, including preservation sidecars.
+These are offline CLI-to-vault checks. They do not run Hugo, Pagefind or Bluge,
+measure large-library performance, or establish redaction guarantees for arbitrary
+input content; those remain separate acceptance scopes.

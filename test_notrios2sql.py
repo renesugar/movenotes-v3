@@ -3756,6 +3756,166 @@ with mock.patch.object(notrios2sql._OwnedDirectory, 'remove', fail_work_cleanup)
         self.assertTrue(list(self.root.glob(".movenotes-notrios-work-*")))
 
 
+class NotriosPublicationToVaultAcceptanceTest(unittest.TestCase):
+    """Frozen publication → public CLI → vault acceptance, without a producer."""
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="movenotes-notrios-7a-")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+
+    def pipeline(self, fixture_root, name):
+        expected = load_json(fixture_root / "expected.json")
+        source = self.root / f"{name}-archive"
+        shutil.copytree(fixture_root / "archive", source, symlinks=True)
+        source_before = fixture_inventory(source)
+        publication = self.root / f"{name}-publication"
+        result = subprocess.run(
+            [sys.executable, "-B", str(Path(__file__).parent / "notrios2sql.py"),
+             "--input", str(source), "--output", str(publication),
+             "--expected-selection-sha256", expected["selection_manifest_sha256"]],
+            capture_output=True, text=True, timeout=60,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(json.loads(result.stdout), {
+            "status": "created",
+            "commit_sha256": expected["commit_sha256"],
+            "selection_manifest_sha256": expected["selection_manifest_sha256"],
+            "row_count": 18,
+            "resource_count": 3,
+        })
+        self.assertEqual(fixture_inventory(source), source_before)
+        receipt = self.expected_receipt(expected)
+        with sqlite3.connect(publication / "notesdb.sqlite") as connection:
+            self.assertEqual(notrios_receipt.from_settings(connection), receipt)
+        self.assertEqual(load_json(publication / importer.COMPLETE)["receipt"], receipt)
+
+        vault = self.root / f"{name}-vault"
+        vault.mkdir()
+        result = subprocess.run(
+            [sys.executable, "-B", str(Path(__file__).parent / "sql2obsidian.py"),
+             "--input", str(publication), "--output", str(vault),
+             "--no-simplify-urls", "--include-notrios-receipt", "--progress-every", "0"],
+            capture_output=True, text=True, timeout=60,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return expected, source, source_before, publication, vault
+
+    @staticmethod
+    def vault_notes(vault):
+        from obsidian2sql import parse_frontmatter, split_frontmatter
+        result = {}
+        for path in vault.rglob("*.md"):
+            if ".movenotes" in path.relative_to(vault).parts:
+                continue
+            frontmatter, body = split_frontmatter(path.read_text(encoding="utf-8"))
+            result[path.relative_to(vault).as_posix()] = (parse_frontmatter(frontmatter), body)
+        return result
+
+    @staticmethod
+    def expected_receipt(expected):
+        return {
+            "version": 1,
+            "contract": "notrios-archive-v2",
+            "contract_schema_version": 1,
+            "reader_profile": "movenotes-publication-loose-v1",
+            "mapper": "movenotes-notrios-v1",
+            "commit_sha256": expected["commit_sha256"],
+            "selection_manifest_sha256": expected["selection_manifest_sha256"],
+            "snapshot_id": expected["snapshot_id"],
+            "database_id": expected["database_id"],
+            "target": "publication_handoff",
+        }
+
+    def assert_no_excluded_sentinels(self, root, expected):
+        for path in root.rglob("*"):
+            if not path.is_file():
+                continue
+            raw = path.read_bytes()
+            for sentinel in expected["forbidden_in_archive"]:
+                with self.subTest(path=path.relative_to(root), sentinel=sentinel):
+                    self.assertNotIn(sentinel.encode("utf-8"), raw)
+
+    def test_schema28_resource_publication_reaches_a_faithful_vault(self):
+        fixture = FIXTURE_ROOT / "schema28" / "publication-loose"
+        expected, source, source_before, publication, vault = self.pipeline(fixture, "schema28")
+        self.assertEqual(source_before, expected["archive_files"])
+        self.assertEqual(fixture_inventory(source), source_before)
+
+        notes = self.vault_notes(vault)
+        expected_paths = {
+            "Public/研究/Child 東京.md": "doc_child",
+            "Public/Café & field notes.md": "doc_public",
+            "Public/Café & field notes 2.md": "doc_duplicate",
+        }
+        self.assertEqual(set(notes), set(expected_paths))
+        for path, source_id in expected_paths.items():
+            metadata, body = notes[path]
+            note = expected["notes"][source_id]
+            self.assertEqual(metadata["title"], note["title"])
+            self.assertEqual(metadata["tags"], note["tags"])
+            self.assertEqual(metadata["movenotes-original-format"], "notrios")
+            self.assertIn(note["body"].split("\n\n")[0], body)
+        public = expected["notes"]["doc_public"]["body"]
+        public = public.replace(
+            "[child section](document://default/documents/doc_child#details)",
+            "[child section](%E7%A0%94%E7%A9%B6/Child%20%E6%9D%B1%E4%BA%AC.md#details)",
+        ).replace(
+            "[same title](document://default/documents/doc_duplicate)",
+            "[same title](Caf%C3%A9%20%26%20field%20notes%202.md)",
+        ).replace(
+            "![café chart](resource://default/resources/res_image)", "![[café chart.png]]",
+        ).replace(
+            "[field notes](resource://default/resources/res_text)",
+            "[field notes](../attachments/field%20notes.txt)",
+        ) + "\n\n## Attachments\n\n- [related.bin](../attachments/related.bin)\n"
+        child = expected["notes"]["doc_child"]["body"].replace(
+            "[Back](document://default/documents/doc_public)",
+            "[Back](../Caf%C3%A9%20%26%20field%20notes.md)",
+        ).replace(
+            "![shared image](resource://default/resources/res_image)", "![[café chart.png]]",
+        )
+        self.assertEqual(notes["Public/Café & field notes.md"][1], public)
+        self.assertEqual(notes["Public/研究/Child 東京.md"][1], child)
+        self.assertEqual(notes["Public/Café & field notes 2.md"][1],
+                         expected["notes"]["doc_duplicate"]["body"])
+
+        public = notes["Public/Café & field notes.md"][1]
+        child = notes["Public/研究/Child 東京.md"][1]
+        self.assertIn("[child section](%E7%A0%94%E7%A9%B6/Child%20%E6%9D%B1%E4%BA%AC.md#details)", public)
+        self.assertIn("[same title](Caf%C3%A9%20%26%20field%20notes%202.md)", public)
+        self.assertIn("![[café chart.png]]", public)
+        self.assertIn("[field notes](../attachments/field%20notes.txt)", public)
+        self.assertIn("[related.bin](../attachments/related.bin)", public)
+        self.assertIn("[Back](../Caf%C3%A9%20%26%20field%20notes.md)", child)
+        self.assertNotIn("document://", public + child)
+        self.assertNotIn("resource://", public + child)
+
+        attachments = vault / "attachments"
+        self.assertEqual({path.name for path in attachments.iterdir()},
+                         {resource["filename"] for resource in expected["resources"].values()})
+        for resource in expected["resources"].values():
+            raw = (attachments / resource["filename"]).read_bytes()
+            self.assertEqual(len(raw), resource["size_bytes"])
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), resource["sha256"])
+
+        receipt = load_json(vault / notrios_receipt.VAULT_PATH)
+        self.assertEqual(receipt, self.expected_receipt(expected))
+        self.assert_no_excluded_sentinels(publication, expected)
+        self.assert_no_excluded_sentinels(vault, expected)
+
+    def test_historical_schema27_publication_still_reaches_vault_with_receipt(self):
+        expected, source, source_before, publication, vault = self.pipeline(PUBLICATION_ROOT, "schema27")
+        self.assertEqual(source_before, expected["archive_files"])
+        self.assertEqual(fixture_inventory(source), source_before)
+        self.assertEqual(load_json(vault / notrios_receipt.VAULT_PATH), self.expected_receipt(expected))
+        self.assertEqual(len(self.vault_notes(vault)), 3)
+        self.assert_no_excluded_sentinels(publication, expected)
+        self.assert_no_excluded_sentinels(vault, expected)
+
+
 class NotriosResourceSafetyTest(unittest.TestCase):
     def setUp(self):
         self.fixture = NotriosObjectSpoolTest()

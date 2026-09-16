@@ -53,9 +53,14 @@ reports, replays the current audit cases offline, converts the real text handoff
 to 15 rows, confirms an identical rerun leaves the output inventory unchanged,
 and runs the real vault exporter. Expected source bodies, tags and mapped note
 links are checked independently; vault links use actual duplicate-title paths
-and bundle hashes cover finalized files. The resource-bearing archive continues
-to refuse conversion before publication. Resources and the public CLI remain
-later work; this evidence does not expand those supported features.
+and bundle hashes cover finalized files. At the S28b milestone, the
+resource-bearing archive refused conversion before publication; resource mapping
+and the public CLI were still later work. Slices 5 and 6 subsequently enabled
+both. The historical S28b evidence below retains its original validation scope.
+
+The [7a offline CLI-to-vault regression](../README.md#offline-publication-to-vault-acceptance-7a)
+now exercises this resource-bearing publication with the supported importer and
+vault exporter, including attachments and explicit receipt propagation.
 
 Validation on 2026-09-13: all 17 focused tests passed in 6.644 seconds; all
 230 tests across the five regression modules passed in 101.920 seconds with
