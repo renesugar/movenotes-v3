@@ -502,5 +502,30 @@ edited or mismatched output refuses without overwrite.
 digest mismatch before and after publication, a valid rehashed source change,
 conflicting/edited outputs, rejected unsafe options and malformed usage. It also
 injects sealing failure through the CLI entry point to verify empty success
-stdout and cleanup. Full receipt propagation is slice 6c; broader CLI progress
+stdout and cleanup. Explicit receipt propagation is implemented in slice 6c; broader CLI progress
 and diagnostic coverage remains slice 6d.
+
+### Explicit vault/site receipt propagation (6c)
+
+Create the vault directory first, then opt in separately at each stage:
+
+```bash
+python3 sql2obsidian.py --input IMPORT --output VAULT --include-notrios-receipt
+python3 obsidian2site.py --input VAULT --output SITE --include-notrios-receipt
+```
+
+The validated receipt is written to `VAULT/.movenotes/notrios-receipt.json` and
+`SITE/static/movenotes/notrios-receipt.json`, respectively. Hugo publishes the
+latter at `movenotes/notrios-receipt.json`. Both original digests and source IDs
+remain available without putting receipt data in note pages, attachments,
+preservation payloads or search sources. Without the flag, no receipt is copied;
+rerunning an export removes its old reserved sidecar. Opt-in with a missing or
+invalid receipt fails.
+
+The receipt identifies the upstream publication, even when notebook filtering
+exports only a subset. It does not hash or authenticate the generated vault/site.
+Reimporting the vault with `obsidian2sql.py` does not restore the receipt setting.
+`NotriosReceiptPropagationTest` covers both subprocess stages, hidden-file scan
+exclusion, unchanged generated notes/search rows, filtered and opt-out reruns,
+malformed/oversized metadata, symlink refusal and failed atomic replacement.
+Actual Hugo/search build acceptance remains slice 7b.

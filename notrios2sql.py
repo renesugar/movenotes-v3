@@ -22,11 +22,11 @@ import notesdb
 import notrios_archive as archive_api
 from notrios_archive import ArchiveLimits, DEFAULT_LIMITS, NotriosError, BlobRef
 import notrios_mapping as mapping
+from notrios_receipt import RECEIPT_KEY
 from notrios_links import ConversionLimits, DEFAULT_CONVERSION_LIMITS
 from notrios_links import validate_links, project_body, Attachment
 
 
-RECEIPT_KEY = "movenotes.notrios.import.v1"
 INVENTORY = "notrios-inventory.jsonl"
 COMPLETE = "notrios-complete.json"
 OWNER = "owner.json"

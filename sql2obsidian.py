@@ -55,6 +55,7 @@ import constants
 import notesdb
 import obsidianmeta
 import notrios_links
+import notrios_receipt
 
 __program_name__ = "sql2obsidian"
 __author__ = "Rene Sugar"
@@ -87,6 +88,8 @@ _IMAGE_EXTENSIONS = frozenset(
 
 def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=__program_name__, description=__doc__)
+    parser.add_argument("--include-notrios-receipt", action="store_true",
+                        help="Copy the validated source-publication receipt to .movenotes/notrios-receipt.json")
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}"
     )
@@ -867,6 +870,13 @@ def main(argv: list[str]) -> int:
     sqlconn = notesdb.open_database(database_path, __program_name__)
     sqlcur = sqlconn.cursor()
 
+    try:
+        notrios_receipt.remove_vault(vault_path)
+        receipt = notrios_receipt.from_settings(sqlconn) if args.include_notrios_receipt else None
+    except (ValueError, OSError, sqlite3.Error) as exc:
+        sqlconn.close()
+        common.error(f"cannot prepare Notrios receipt: {exc}")
+
     dedup = NameDeduplicator()
     # Reserve the attachments directory name at the vault root so a notebook
     # with the same name cannot collide with it.
@@ -1088,6 +1098,13 @@ def main(argv: list[str]) -> int:
             # lost in it, and its user is not the one watching for a hang.
             progress_every=0 if args.verbose else args.progress_every,
         )
+
+    if receipt is not None:
+        try:
+            notrios_receipt.write(vault_path, notrios_receipt.VAULT_PATH, receipt)
+        except (ValueError, OSError) as exc:
+            sqlconn.close()
+            common.error(f"cannot write Notrios receipt: {exc}")
 
     summary = f"exported {note_count} note(s)"
     if omitted_note_links:

@@ -467,8 +467,8 @@ exact fields `version=1`, `contract="notrios-archive-v2"`,
 `selection_manifest_sha256`, `snapshot_id`, `database_id`,
 `target="publication_handoff"`. No wall-clock import time, replica/path, arbitrary
 metadata or body is recorded. It establishes traceability, not authenticated
-approval. Slice 6c may propagate only this content-free allowlist in excluded
-sidecars, after testing site/search/bundle exclusion.
+approval. Slice 6c propagates only this content-free allowlist in excluded
+sidecars, as specified below.
 
 Slice 6a adds `ImportResult.summary()`: a fresh JSON-compatible dictionary with
 exactly `status`, `commit_sha256`, `selection_manifest_sha256`, `row_count` and
@@ -520,6 +520,38 @@ streamed hashing; do not trust marker presence alone or compare nondeterministic
 SQLite bytes against a fresh rebuild. Different/edited/unrelated/incomplete
 outputs refuse. It is acceptable that later database maintenance invalidates
 this exact-complete no-op. No merge/update semantics are implied.
+
+## Explicit receipt propagation — slice 6c
+
+Both exporters default to omitting the receipt. With `--include-notrios-receipt`,
+`sql2obsidian.py` reads the settings receipt and writes
+`.movenotes/notrios-receipt.json` after notes and the optional preservation bundle.
+`obsidian2site.py` reads that sidecar and writes
+`static/movenotes/notrios-receipt.json`; Hugo's static-file handling publishes it
+at `movenotes/notrios-receipt.json` under the site's base URL. Each stage requires
+its own explicit flag. Missing or invalid receipts refuse the requested export;
+the site validates before clearing existing generated output.
+
+The sidecar contains exactly the original receipt object, with no added paths,
+timestamps, counts or arbitrary metadata. Validation rejects unknown fields,
+duplicate JSON keys, unsupported versions/constants, malformed identifiers or
+digests, and input over 16 KiB. Reads reject symlinks; writes atomically replace
+the reserved file through real directories and clean up temporary files on
+failure. This makes the individual sidecar atomic, not the whole export.
+
+The digests identify the upstream publication and selection, not the resulting
+vault/site bytes or a later filtered subset. Filtered exports retain that same
+source receipt; it is neither proof of authentication nor a redaction audit.
+Opt-out reruns remove an old reserved sidecar to avoid stale traceability.
+
+The vault sidecar is outside notes and the Joplin preservation manifest. Existing
+vault scanning excludes `.movenotes`, including with `--include-hidden`, so it
+does not become an attachment or search source. The site adds no receipt page,
+link, tag or search row. The receipt is deliberately publicly downloadable when
+the site flag is used. `obsidian2sql.py` and Joplin RAW do not automatically
+restore this sidecar into settings; arbitrary settings do not round-trip through
+those formats. Generated artifact exclusions are tested in 6c; live Hugo/search
+build acceptance remains 7b.
 
 ## Acceptance cases assigned to later slices
 

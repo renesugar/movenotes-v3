@@ -33,6 +33,7 @@ from pathlib import Path, PurePosixPath
 
 import common
 import obsidian2sql
+import notrios_receipt
 
 __program_name__ = "obsidian2site"
 __version__ = "3.36"
@@ -111,6 +112,8 @@ def _automatic_taxonomy_tag_cap(notes: int) -> int:
 
 def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=__program_name__, description=__doc__)
+    parser.add_argument("--include-notrios-receipt", action="store_true",
+                        help="Publish the validated .movenotes source receipt as movenotes/notrios-receipt.json")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "--input", dest="input_path", type=common.existing_dir, required=True,
@@ -3030,6 +3033,10 @@ def main(argv: list[str]) -> int:
     output = args.output_path.expanduser().resolve()
     if output == input_root or input_root in output.parents:
         common.error("output directory must not be inside the input vault")
+    try:
+        receipt = notrios_receipt.from_vault(input_root) if args.include_notrios_receipt else None
+    except (ValueError, OSError) as exc:
+        common.error(f"cannot read Notrios receipt: {exc}")
     _prepare_output(output, args.force)
 
     # Everything from here to the first `converted` line used to run in
@@ -3248,6 +3255,11 @@ def main(argv: list[str]) -> int:
         wal.unlink(missing_ok=True)
         shm.unlink(missing_ok=True)
 
+    if receipt is not None:
+        try:
+            notrios_receipt.write(output, notrios_receipt.SITE_PATH, receipt)
+        except (ValueError, OSError) as exc:
+            common.error(f"cannot write Notrios receipt: {exc}")
     _write_site_marker(output, input_root, processed, copied_assets)
     print(
         f"generated Hugo project: {processed:,} note(s), {copied_assets:,} file(s), "

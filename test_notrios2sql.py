@@ -28,6 +28,7 @@ from urllib.parse import unquote
 from unittest import mock
 
 import notrios_archive as archive_v2
+import notrios_receipt
 import notrios_mapping as mapping
 import notrios2sql as importer
 import notrios_links as links
@@ -3401,6 +3402,153 @@ class NotriosResourceStorageTest(unittest.TestCase):
                 self.assertEqual(len(calls), 2)
                 self.assertFalse(destination.exists())
                 self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
+
+
+class NotriosReceiptPropagationTest(unittest.TestCase):
+    export = NotriosNoteIntegrationTest.export
+    reimport_vault = NotriosTagRoundTripTest.reimport_vault
+
+    def setUp(self):
+        self.fixture = NotriosObjectSpoolTest()
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.root = self.fixture.root
+        self.destination = self.root / "publication"
+        importer.import_publication(self.fixture.archive, self.destination)
+        expected = load_json(PUBLICATION_ROOT / "expected.json")
+        self.receipt = dict(version=1, contract="notrios-archive-v2", contract_schema_version=1,
+                            reader_profile="movenotes-publication-loose-v1", mapper="movenotes-notrios-v1",
+                            commit_sha256=expected["commit_sha256"],
+                            selection_manifest_sha256=expected["selection_manifest_sha256"],
+                            snapshot_id=expected["snapshot_id"], database_id=expected["database_id"],
+                            target="publication_handoff")
+
+    def run_script(self, script, source, output, *args):
+        return subprocess.run(
+            [sys.executable, "-B", str(Path(__file__).parent / script), "--input", str(source),
+             "--output", str(output), "--progress-every", "0", *args],
+            capture_output=True, text=True, timeout=60,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+
+    def test_opt_in_preserves_digests_without_notes_bundle_or_search_content(self):
+        vault = self.export("receipt-vault", "--include-notrios-receipt")
+        sidecar = vault / notrios_receipt.VAULT_PATH
+        self.assertEqual(load_json(sidecar), self.receipt)
+        self.assertNotIn(str(self.root), sidecar.read_text())
+        manifest = load_json(vault / ".movenotes/manifest.json")
+        self.assertEqual(len([r for r in manifest["items"] if r["type"] == 4]), 3)
+        for path in vault.rglob("*"):
+            if path.is_file() and path != sidecar:
+                for digest in (self.receipt["commit_sha256"], self.receipt["selection_manifest_sha256"]):
+                    self.assertNotIn(digest.encode(), path.read_bytes(), str(path))
+        import obsidian2site
+        for hidden in (False, True):
+            notes, assets = obsidian2site._scan_vault(vault, hidden)
+            self.assertEqual(len(notes), 3)
+            self.assertEqual(len(assets), 3)
+            self.assertNotIn(sidecar, notes + assets)
+        plain, included = self.root / "site-plain", self.root / "site-receipt"
+        for output, flags in ((plain, ()), (included, ("--include-notrios-receipt",))):
+            result = self.run_script("obsidian2site.py", vault, output, "--include-hidden", *flags)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse((plain / notrios_receipt.SITE_PATH).exists())
+        self.assertEqual(load_json(included / notrios_receipt.SITE_PATH), self.receipt)
+        # Project landing pages contain generation timestamps. Compare actual
+        # note pages and search inputs byte-for-byte, then check all templates
+        # and content for receipt exclusion independently of those timestamps.
+        for directory in ("content/notes", "server"):
+            left, right = fixture_inventory(plain / directory), fixture_inventory(included / directory)
+            if directory == "content/notes":
+                left.pop("_index.md")
+                right.pop("_index.md")
+            self.assertEqual(left, right)
+        for directory in ("content", "layouts"):
+            for path in (included / directory).rglob("*"):
+                if path.is_file():
+                    for digest in (self.receipt["commit_sha256"], self.receipt["selection_manifest_sha256"]):
+                        self.assertNotIn(digest.encode(), path.read_bytes(), str(path))
+        for path in (included / "static").rglob("*"):
+            if path.is_file() and path != included / notrios_receipt.SITE_PATH:
+                self.assertNotIn(self.receipt["commit_sha256"].encode(), path.read_bytes())
+        self.reimport_vault(vault, "receipt-reimport")
+        with sqlite3.connect(self.destination / "notesdb.sqlite") as connection:
+            self.assertEqual(connection.execute("SELECT count(*) FROM notes WHERE joplin_type_=4").fetchone()[0], 3)
+            self.assertIsNone(connection.execute("SELECT value FROM settings WHERE name=?",
+                                               (notrios_receipt.RECEIPT_KEY,)).fetchone())
+
+    def test_opt_out_removes_stale_receipts_and_filtered_export_is_explicit(self):
+        plain = self.export("plain-vault", "--no-preserve-joplin")
+        self.assertFalse((plain / notrios_receipt.VAULT_PATH).exists())
+        missing_site = self.root / "missing-receipt-site"
+        result = self.run_script("obsidian2site.py", plain, missing_site, "--include-notrios-receipt")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(missing_site.exists())
+        vault = self.export("filtered-receipt-vault", "--notebooks", "研究",
+                            "--no-preserve-joplin", "--include-notrios-receipt")
+        self.assertEqual(load_json(vault / notrios_receipt.VAULT_PATH), self.receipt)
+        self.assertFalse((vault / ".movenotes/manifest.json").exists())
+        site = self.root / "regenerated-site"
+        result = self.run_script("obsidian2site.py", vault, site, "--include-notrios-receipt")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result = self.run_script("obsidian2site.py", vault, site)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((site / notrios_receipt.SITE_PATH).exists())
+        result = self.run_script("sql2obsidian.py", self.destination, vault,
+                                 "--no-preserve-joplin", "--notebooks", "研究")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((vault / notrios_receipt.VAULT_PATH).exists())
+
+    def test_invalid_settings_refuse_without_propagating_arbitrary_content(self):
+        cases = [dict(self.receipt, source_path="PRIVATE-PATH-SENTINEL"),
+                 dict(self.receipt, version=True), dict(self.receipt, database_id="/private/source"),
+                 dict(self.receipt, commit_sha256="A" * 64), dict(self.receipt, mapper="future"),
+                 "x" * (notrios_receipt.MAX_BYTES + 1)]
+        for index, value in enumerate(cases):
+            with self.subTest(index=index):
+                with sqlite3.connect(self.destination / "notesdb.sqlite") as connection:
+                    connection.execute("UPDATE settings SET value=? WHERE name=?",
+                                       (json.dumps(value), notrios_receipt.RECEIPT_KEY))
+                vault = self.root / f"invalid-settings-{index}"
+                vault.mkdir()
+                result = self.run_script("sql2obsidian.py", self.destination, vault, "--include-notrios-receipt")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn("PRIVATE-PATH-SENTINEL", result.stdout + result.stderr)
+                self.assertEqual(list(vault.iterdir()), [])
+
+    def test_invalid_and_symlink_vault_receipts_refuse_before_site_generation(self):
+        vault = self.export("invalid-sidecar-vault", "--include-notrios-receipt")
+        path = vault / notrios_receipt.VAULT_PATH
+        good = json.dumps(self.receipt)
+        cases = [good[:-1] + ', "version":1}', json.dumps(dict(self.receipt, extra="PRIVATE-PATH-SENTINEL")),
+                 " " * (notrios_receipt.MAX_BYTES + 1)]
+        for index, raw in enumerate(cases):
+            with self.subTest(index=index):
+                path.write_text(raw)
+                site = self.root / f"invalid-sidecar-site-{index}"
+                result = self.run_script("obsidian2site.py", vault, site, "--include-notrios-receipt")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn("PRIVATE-PATH-SENTINEL", result.stdout + result.stderr)
+                self.assertFalse(site.exists())
+        outside = self.root / "outside-receipt"
+        outside.write_text(good)
+        path.unlink()
+        path.symlink_to(outside)
+        site = self.root / "symlink-receipt-site"
+        result = self.run_script("obsidian2site.py", vault, site, "--include-notrios-receipt")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(site.exists())
+        self.assertEqual(outside.read_text(), good)
+
+    def test_sidecar_replace_failure_preserves_existing_bytes(self):
+        vault = self.export("atomic-receipt-vault", "--include-notrios-receipt")
+        before = (vault / notrios_receipt.VAULT_PATH).read_bytes()
+        with mock.patch.object(notrios_receipt.os, "replace", side_effect=OSError("injected replacement failure")):
+            with self.assertRaises(archive_v2.NotriosError) as caught:
+                notrios_receipt.write(vault, notrios_receipt.VAULT_PATH, self.receipt)
+        self.assertEqual(caught.exception.code, "receipt")
+        self.assertEqual((vault / notrios_receipt.VAULT_PATH).read_bytes(), before)
+        self.assertFalse(list((vault / ".movenotes").glob(".notrios-receipt-*")))
 
 
 class NotriosCLITest(unittest.TestCase):
