@@ -3455,13 +3455,24 @@ class NotriosReceiptPropagationTest(unittest.TestCase):
         self.assertFalse((plain / notrios_receipt.SITE_PATH).exists())
         self.assertEqual(load_json(included / notrios_receipt.SITE_PATH), self.receipt)
         # Project landing pages contain generation timestamps. Compare actual
-        # note pages and search inputs byte-for-byte, then check all templates
+        # note pages byte-for-byte and search records independent of worker
+        # completion order, then check all templates
         # and content for receipt exclusion independently of those timestamps.
         for directory in ("content/notes", "server"):
             left, right = fixture_inventory(plain / directory), fixture_inventory(included / directory)
             if directory == "content/notes":
                 left.pop("_index.md")
                 right.pop("_index.md")
+            else:
+                # FIRST_COMPLETED writes JSONL rows in completion order.
+                # Preserve duplicate sensitivity and compare every field.
+                source = "search-source.jsonl"
+                left.pop(source)
+                right.pop(source)
+                def search_records(root):
+                    return sorted(json.dumps(json.loads(line), sort_keys=True)
+                                  for line in (root / directory / source).read_text().splitlines())
+                self.assertEqual(search_records(plain), search_records(included))
             self.assertEqual(left, right)
         for directory in ("content", "layouts"):
             for path in (included / directory).rglob("*"):
