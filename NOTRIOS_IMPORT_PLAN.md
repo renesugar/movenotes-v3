@@ -21,8 +21,16 @@ Slice **7a is complete**: current schema-28 and historical schema-27 publication
 pass the offline importer CLI → SQLite → vault acceptance tests. All **262 tests**
 now pass. Slice **7b is complete**: real Hugo/Ledger, Bluge and Pagefind
 acceptance passed after a Ledger subpath fix (`85ac1b0`). See the
-[live acceptance report](NOTRIOS_SITE_ACCEPTANCE.md). Next is **7c**, large-corpus
-measurements and failure recovery.
+[live acceptance report](NOTRIOS_SITE_ACCEPTANCE.md). Next is **C7b**, implementation of the completed C7a compatibility decisions, before
+resuming large-corpus acceptance. Slice **7c remains incomplete**; isolated work
+and checkpoints are under `/media/$USER/HD2/movenotes-7c-20260916/`.
+Both recipe imports succeeded (382,206 documents each), but bounded real
+conversions refused input and semantic comparison differed. Full real trials
+remain skipped; see [partial trial evidence](NOTRIOS_CORPUS_TRIALS.md).
+Compatibility prerequisites C7a–C7c and measured performance prerequisites
+P7a–P7c precede resumed 7c. The performance investigation distinguishes Go
+producer timings from Python importer review claims and adopts only measured
+winners. Do not proceed to 7d until the outstanding acceptance gates are resolved.
 
 The frozen admission checklist is
 [NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
@@ -239,7 +247,7 @@ future Luna work uses the available role's confirmed fixed `max` effort.
 <!-- NOTRIOS-ASSIGNMENTS:START -->
 Session confirmation: **confirmed**.
 
-2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained.
+2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c.
 
 | Coding agent | Execution owner | Configured model | Reasoning effort | Availability | Billing route |
 |---|---|---|---|---|---|
@@ -254,13 +262,20 @@ Runtime-reported parent family: **GPT-6**. Product/client version: not exposed; 
 - Future Luna assignments use fixed max effort, confirmed by the user for this session; historical medium assignments remain unchanged.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **7c — large-corpus measurements and failure recovery**, assigned
-to the **Codex parent** (runtime-reported **GPT-6** family; exact model alias and
-reasoning effort **not exposed**). Assignments and billing suitability remain
-confirmed for this unchanged session; 7c requires the user's per-slice
-authorization. Slice 7b was implemented and validated by the parent, with no
-worker delegation. Live site acceptance pins Ledger `85ac1b0` for its Bluge
-subpath fix; older theme revisions retain the broken result links.
+Next slice: **C7b — approved body/link compatibility changes**, assigned to
+Codex **`terra_worker`**, configured **`gpt-5.6-terra` / fixed `medium`**. C7a
+is complete: [decisions and evidence](NOTRIOS_COMPATIBILITY_REVIEW.md). Actual
+worker model/effort will be recorded only from execution evidence. Parent runtime
+family is GPT-6; exact parent alias/effort and billing metadata are not exposed.
+Existing session role/effort and billing suitability confirmation remains valid.
+C7b implementation still requires the user's next-slice instruction.
+
+Remaining sequence: C7b → C7c → P7a → P7b → P7c → resumed 7c. C7c/P7c use
+Luna / fixed max; P7a uses Main and P7b uses Terra / fixed medium. Every data-heavy
+run uses the user-required auxiliary Luna monitor and long notification waits.
+C7a does not waive the remaining real reference-link refusals or the producer tag
+difference; they must be reported and resolved or explicitly reviewed before full
+7c acceptance. Existing 7c ownership/history and Ledger `85ac1b0` remain unchanged.
 
 ## Execution and agent handoff rules
 
@@ -491,9 +506,257 @@ Target refusal is mandatory in 2a, not deferred to this step.
 |---|---|---|---|
 | 7a / Terra | Small offline publication-fixture → SQLite → vault regression with independent expectations. | 6d | Notes/tags/links, exact attachments, absence of excluded sentinels and receipt assertions pass. |
 | 7b / Main | Actual local Hugo/Ledger + Bluge build and bounded Pagefind fixture; test search/subpath URLs. | 7a | Canonical URLs, links, attachments, explicit tag counts and backend isolation correct; excluded sentinel absent from publishable files/index sources. |
-| 7c / Main | Large-corpus trials below; record time/RSS/disk/counts/hashes and failure recovery. | 7b | Importer bounds demonstrated; stage bottlenecks separated; no unmeasured whole-pipeline memory claim. |
+| 7c / Main | Resume after C7a–C7c and P7a–P7c; large-corpus trials below; record time/RSS/disk/counts/hashes and failure recovery. | P7c | Importer bounds demonstrated; stage bottlenecks separated; no unmeasured whole-pipeline memory claim. |
 | 7d / Luna | README script list/usage and CHANGELOG from measured accepted commands. | 7c | Reproducible publication → import → vault → site recipe; loose/fresh-output limitations; no private content in public examples. |
 | 7e / Main | Full regression gate, evidence/diff review, final status and commit. | 7d | Every required method passes; skipped integrations not counted as acceptance. |
+
+### Compatibility prerequisites added after partial 7c trials
+
+Revision authorized by the user on 2026-09-17. The successful producer imports
+are reusable evidence: each recipe library has 382,206 documents. Preserve the
+original 7c results and failed attempts; new slices do not retroactively change
+its planned owner or turn refusals/skips into passes. The current design remains
+binding until C7a explicitly revises it. No new producer/schema pin is implied.
+
+| Slice / planned owner | Work and owned output | Depends on | Acceptance |
+|---|---|---|---|
+| C7a / Main — complete | Diagnose real-body refusals and source/import differences; amend NOTRIOS_IMPORT_DESIGN.md and specify independent sanitized fixtures, comparison rules and mapper/version consequences. | Partial 7c evidence | Completed in NOTRIOS_COMPATIBILITY_REVIEW.md and the amended design: non-NUL body controls, narrow literal brackets, unchanged mapper/receipts conditional on identical old outputs, source-path comparison and explicit retained refusals. |
+| C7b / Terra | Implement only the C7a-approved body/link compatibility changes in notrios2sql.py, notrios_links.py and focused test_notrios2sql.py fixtures/tests; dependent serializer/exporter changes require Main's explicit scoped handoff. | C7a | Implement only the C7a decisions; positive/adversarial synthetic importer → SQL → vault → site checks and old-output equivalence pass. Retest original bounded publications and record remaining intentional refusals; Main reviews. No filtering to force success. |
+| C7c / Luna | Implement the frozen semantic comparison and checkpoint/resume harness rules; retain generic scripts and sanitized aggregate evidence, keeping source data and per-note diagnostics private. | C7b | Duplicate-safe semantic comparison explains every category of difference; no title-only pairing or arbitrary YAML stripping; corrected checkpoint invalidation and one final notification demonstrated; Main reviews. |
+
+**Monitoring assignment for every data-heavy slice:** The user explicitly
+requires the same low-usage monitoring method for C7a's corpus audit, C7b's
+large validation runs, C7c's semantic comparisons, resumed 7c and any later
+slice processing substantial data. The implementation owner in the table does
+not change. Delegate harness execution/monitoring to Codex `luna_worker`
+(configured `gpt-5.6-luna`, fixed `max`); record this auxiliary assignment and
+actual child execution separately. Reuse the slice's Luna worker when applicable;
+otherwise hand off a bounded monitoring task after its executable commands and
+acceptance criteria are ready. Parent-owned diagnosis and Terra-owned code stay
+with their assigned owners. Do not run overlapping writers against shared data.
+
+Prepare the full sequential script and durable checkpoints before a large run.
+The monitor waits on OS process completion/PIDFD and notifies the parent once
+with terminal results, or immediately for a blocker requiring intervention.
+Parent uses native notification waits with a 25-minute timeout, extending the
+fallback to the estimated total run duration where the host allows it. A timeout
+alone is not a reason to request worker status: use the predeclared estimate or
+stall threshold for a single diagnostic, then return to notification waiting.
+No frequent process polling, worker-status checks or repeated log reads. Record
+the expected duration, fallback threshold, notification location, current run ID
+and safe reconnect/resume commands. If the notification mechanism fails, retain
+the durable result and report that failure without silently switching to busy
+polling. This requirement also applies across usage-limit resumptions.
+
+**C7a decisions to make before implementation:**
+
+- Audit bounded examples plus streaming aggregate counts of refused body forms.
+  Both recipe samples contain U+0014; distinguish actual C0 characters, a leading
+  BOM, and controls in link destinations. Establish which stage introduced each
+  form using source → producer → publication evidence. Check exact preservation
+  through Python/SQLite/Joplin RAW/Obsidian and safe renderer/search behavior.
+  Prefer preserving admitted body bytes; do not remove controls globally or
+  weaken URL/target validation. If a form cannot be represented faithfully,
+  document its explicit refusal and the remaining acceptance limitation.
+- Distinguish literal bracketed prose (including observed annotations) from
+  inline links, reference definitions/uses, shortcut references, wiki syntax and
+  malformed/ambiguous constructs. Account for reference definitions across the
+  whole note before treating a bracket pair as prose. Retain protected-code
+  rules, complete internal-link accounting, withheld-target constraints, exact
+  UTF-8 byte spans, overlap checks and fail-closed ambiguous internal targets.
+  Specify the supported subset; do not promise a complete Markdown parser.
+- Use sanitized independently expected fixtures for accepted prose and controls,
+  with negative cases for hidden/unrecorded internal targets, reference syntax,
+  malformed destinations, control-bearing URLs and changed/stale link spans.
+  Preserve original bytes outside approved destination replacements and the
+  established relation-only suffix. Do not edit immutable historical fixtures.
+- Decide whether admitted syntax/output changes require a mapper/receipt version
+  update. Check old completed outputs, no-op detection, source digests and output
+  inventories; do not reuse an old completion marker as evidence for new code.
+- Define recipe semantics from actual source/import metadata. Both sampled
+  producer bodies retain YAML; initial whole-body hash differences therefore
+  are not a completed semantic comparison. Identify only proven frontmatter
+  envelopes and their fields using existing supported parsing rules; preserve
+  unknown or ambiguous blocks and do not split at arbitrary `---` separators.
+  Separate recipe text, title, tags and provenance metadata. Reconcile RAW tag
+  relations, YAML tags and vault tags explicitly; retain the existing NFC/LF
+  normalization only where justified. Compare duplicate-sensitive multisets or
+  groups keyed by independently validated source identity; titles alone are not
+  unique keys. Report missing/extra/ambiguous groups and field-level mismatches,
+  including explained source/import/privacy differences, without excluding rows
+  merely because they differ. Require zero unexplained differences before
+  declaring equivalence; known differences require quantified acceptance limits.
+
+**Resume and measurement contract (C7c → 7c):**
+
+- Reuse the completed pinned producer libraries and read-only sources for
+  compatibility work. P7a–P7c authorize separate disposable baseline/candidate
+  imports when required for controlled performance experiments; those must not
+  overwrite existing acceptance libraries. Recipe
+  imports use the pinned CLI maximum batch size 500. Outside those recorded experiments, reingestion is justified only by a
+  demonstrated producer/import defect and a recorded pin/input change.
+- Bind each new checkpoint to input inventories/digests, producer and consumer
+  revisions (or working-tree hashes), mapper version, arguments and profile
+  digest. Reuse only matching successful upstream stages. Preserve old attempts;
+  changed conversion code invalidates conversion and dependent exports/builds,
+  while comparison-rule changes invalidate comparison results. Use fresh output
+  paths for corrected attempts. An aggregate must distinguish historical runs
+  from the current attempt and never report an older passing regression as the
+  result of a newer failing run.
+- Keep a sequential executable harness with bounded disk checks, stage exit
+  codes, time/RSS, output counts/hashes and conversion phase callbacks. A monitor
+  blocks on child completion (or PIDFD after reconnect), sends one terminal
+  notification, and uses an estimated-run-duration fallback to diagnose a stall.
+  Parent waits for notifications with a 25-minute timeout; avoid repeated process
+  or worker status polling. Notify immediately only for a blocker needing action.
+- Rerun all three bounded conversions and downstream gates first, then full real
+  trials. Measure producer/Python verification, conversion, vault export, site
+  generation, Hugo and Bluge separately. Compare real attachment bytes and exact
+  reachable sets; resource-free synthetic checks cannot satisfy this gate.
+  Refused notes cannot be filtered out to manufacture an acceptance pass.
+- Preserve the corrected receipt-test invariant: complete search-source record
+  multisets match despite parallel completion order, duplicates included; other
+  deterministic artifacts remain exact. Run the full five-module regression
+  gate with both bytecode controls after final changes, plus recovery and small
+  live-site checks affected by compatibility changes. Retain old failures.
+- Main records actual worker/thread/model evidence in the structured ledger,
+  reviews comparisons and stage evidence, and marks 7c complete only when its
+  outstanding gates pass. If a refusal remains intentional, explicitly revise
+  the acceptance scope with the user; do not count skipped full integrations as
+  passed. 7d and 7e remain downstream of completed 7c.
+
+### Performance investigation and measured adoption before resuming 7c
+
+Added at the user's request on 2026-09-17. Read both supplied reviews:
+
+- [Union Alpha review](~/prompts/movenotes-v3-performance-review-union-alpha.md),
+  sections 1–6, including its proposed code, estimates and correctness gates.
+- [Grok 4.6 review](~/prompts/movenotes-v3-performance-review-grok4.6.md),
+  both overlapping finding lists; deduplicate repeated claims without losing
+  findings unique to either review.
+- [Existing measured performance review](PERFORMANCE_REVIEW.md) provides prior
+  Python baselines and rejected settings, not a baseline for the Notrios producer.
+
+**Identify the measured executable first.** The 382,206-document timings were
+`/tmp/movenotes-s28b-notriosctl import joplin-raw` (7,245.65 s) and
+`... import obsidian` (17,142.24 s), both recipe batch size 500 and pinned producer
+revision `7662fdd5b55d6f34f14874f70ba6db9f9e7676ac`. The observed vault/RAW ratio is
+about 2.37, with a 9,896.59 s wall-time gap. These are Go Notrios ingestion
+measurements, not runs of `joplin2sql.py` or `obsidian2sql.py`. The supplied reviews
+primarily concern the latter Python paths. Investigate both tracks, but attribute
+improvements to the executable/stage actually tested. Equal document counts do
+not imply equal source bytes, metadata, links, SQL work or filesystem operations.
+Historical runs are observations, not controlled speedup baselines.
+
+| Slice / planned owner | Work and owned output | Depends on | Acceptance |
+|---|---|---|---|
+| P7a / Main | Audit every review claim against pinned/current code; trace the actual producer and Python paths, profile representative imports, freeze benchmark protocol and candidate handoffs in a sanitized performance evidence document. | C7c | Each finding classified with source and measurement evidence; dominant contributors to the observed gap identified or explicitly unresolved; baseline and candidate scope separated by executable. |
+| P7b / Terra | Implement isolated, profile-supported candidates approved by P7a, with focused correctness/performance regressions. Own only explicitly handed-off importer/helpers/tests; use a separate bounded candidate per experiment. | P7a | Each candidate preserves invariants and has a reproducible baseline comparison; ineffective/regressing candidates are rejected, not bundled into production. Main reviews before promotion. |
+| P7c / Luna | Execute the frozen sequential benchmark matrix, monitored full-corpus confirmation and final regression/recovery commands; prepare aggregate findings dispositions and reproducible scripts. | P7b | Repeatable performance improvement demonstrated for each adopted change; paired route times, gap/ratio, resources and correctness evidence reported. Main decides adoption and reviews any unmet target before resumed 7c. |
+
+P7a/P7b/P7c retain the existing Codex model/effort assignments and unknown runtime
+billing metadata. Their data-heavy work uses the same mandatory auxiliary Luna
+monitor, OS completion waits and long parent notification waits as C7a–C7c.
+No costly repeated imports should require main-model progress polling.
+
+**Review findings register (all are hypotheses until P7a verifies them):**
+
+| ID / source | Finding to investigate | Required applicability and correctness checks |
+|---|---|---|
+| F01 / both | Obsidian adaptive fingerprint preload versus input-scoped queries; in-run duplicate/digest tracking | Measure fresh, unchanged full reimport and tiny merges separately; preserve fallback hashes and identical/different-ID collision semantics within/across batches and preserved/native routes. A whole-input map is O(N), not constant memory. Verify Alpha's claimed redundant re-query actually occurs. |
+| F02 / Grok | Scope folder fallback UPDATE to newly inserted rows; avoid unnecessary native-folder fallback | Count touched rows/queries, inspect query plans and validate missing parents/folders and existing-row preservation. |
+| F03 / both | Frontmatter byte accounting, duplicate head/full parsing, regex dispatch; Grok's JSON-exception scalar parsing | Preserve exact byte cap, UTF-8/BOM/CRLF behavior, complete delimiter recognition and supported YAML semantics. Character counts cannot replace UTF-8 byte limits; a prefix search for `---` is not a complete fence parser. Measure parsing/open counts before caching; no whole-vault body/frontmatter retention disguised as bounded streaming. Python re caching means repeated calls are not necessarily repeated compilation. |
+| F04 / both | Cache relative paths/stat metadata and reduce inventory work | Measure syscall/path work; validate symlinks, normalized IDs, ordering and source mutation handling. Do not assume os.walk supplies reusable stat results. Prior site-generator speedups do not predict import speedups. |
+| F05 / Grok | Reuse resource-ID set; skip link regexes when no relevant syntax | Prove actual hot path, preserve every supported Markdown/wiki/escape case and internal-link accounting; measure link-dense and link-free workloads. |
+| F06 / Alpha | Faster shared row-tuple construction with itemgetter | Preserve absent-key → NULL semantics; audit all callers including Twitter and Notrios. Compare row values and SQL statement counts, not just tuple microbenchmarks. |
+| F07 / both | Joplin tail-only property parsing instead of whole-body splitting/joining | Differential-check exact raw/body/properties/hash/title over synthetic edge cases and the real RAW corpus. Preserve CR, LF, CRLF, unknown ordered properties, OCR controls, bodyless items and trailing boundaries; never use str.splitlines(). Do not adopt the review's sample regex without proving equivalent semantics and bounded worst-case work. |
+| F08 / both | Preserved Obsidian overlay: avoid unchanged BLOB writes, batch updates | Measure native versus preserved paths separately; compare raw snapshot bytes, digests, metadata envelopes, rename mappings and all needed column updates. Preserve changed-content detection. |
+| F09 / both, conflicting claims | Resource double reads, digest reuse/hash-while-copy, validation-before-copy and collision handling | Reconcile Alpha's double-comparison claim with Grok's denial against the exact revision. Preserve all-resources validation/rollback guarantees and exact bytes; the proposed one-pass copy changes that barrier. Validate copied bytes and source mutation handling; a faster digest shortcut must not silently replace required byte comparison. Check alleged preservation overwrite behavior with a reproducer. Recipe corpora have no resources, so attachment wins cannot explain their timing gap. |
+| F10 / Grok | Optional lower zlib compression level | Retain complete namespaced application_data and exact restoration; measure CPU versus database/disk growth and output compatibility. Never remove duplication required for lossless round trips. |
+| F11 / Alpha; Grok conditional | Opt-in process parsing or bounded thread I/O overlap | Only after profiles justify it: measure startup, pickling/IPC, HDD contention and total child RSS; bound queued work and retain deterministic ordering, a single SQLite writer, cancellation and rollback. Default serial behavior must remain correct. No assumed 2–4× speedup. |
+| F12 / Alpha | Optional non-lookup index drop/rebuild for large incremental imports | Low priority; first verify actual lookup needs and DDL/transaction recovery. Keep collision indexes and required schema state. Do not confuse existing fresh-import index deferral with missing optimization. |
+| F13 / both | Progress symmetry and missing Obsidian structural performance regressions | Profile progress overhead before optimizing it; add meaningful query/row/read-count or bounded-allocation regressions for adopted changes, not fragile fixed-time CI assertions. Preserve monotonic phase reporting. |
+| F14 / Grok | image_resources._existing_content_matches whole-file read | Check whether this is invoked by either measured route; classify out-of-path if not. Address only with a scoped, measured workload and unchanged byte/collision semantics. |
+| F15 / both | Shared transaction/batching, WAL settings, hashes and existing index optimizations | Verify they already exist rather than reimplement them. Reject synchronous=OFF, globally forced huge caches/temp_store=MEMORY and speculative mmap. Preserve transaction/rollback and durability guarantees. |
+
+P7a must mark each F01–F15 as confirmed-hot, confirmed-not-hot, already addressed,
+incorrect, out-of-path or deferred with evidence and reason. Record disagreements
+explicitly. Review percentages are hypotheses, not accepted performance claims.
+A confirmed correctness defect must be recorded separately; fixing it is not
+justified or rejected solely by its speed, and it cannot be advertised as a
+performance win without measurements.
+
+**Two-track profiling and experiment protocol:**
+
+1. For Notrios producer ingestion, inspect the pinned code through the local
+   `~/projects/notrios` checkout/history. Record the current checkout
+   separately; do not silently substitute it for the pinned binary. Profile the
+   actual Go importers using supported CPU/allocation/trace facilities or a
+   narrowly instrumented disposable build. Attribute directory discovery,
+   source read/decode/frontmatter/links, hashing, SQL queries/writes/indexes,
+   batch commits/fsync/WAL/checkpoints and finalization; include CPU versus wait
+   time and host I/O contention. Do not assume Python transaction rules describe
+   the Go producer. Use read-only inspection first; any Notrios source change
+   needs an explicit file/checkout handoff and required external-write approval.
+   Keep schema compatibility and producer pin changes explicit in the plan.
+2. For movenotes Python ingestion, independently benchmark the reviewed
+   `joplin2sql.py`/`obsidian2sql.py` paths, using cProfile/allocation or operation
+   counters where useful. Check the reviews' claimed revision/line references
+   against the actual tree. Never attribute Python-only savings to the measured
+   Go ingestion gap. Test potentially transferable ideas in Go only after a
+   measured corresponding bottleneck is demonstrated there.
+3. Freeze baseline and candidate source hashes, tools, flags, batch sizes,
+   storage location, free space, input inventories and machine/load conditions.
+   Correctness/compatibility changes from C7a–C7c are held constant during each
+   performance A/B pair. Use separate fresh outputs for every fresh import;
+   unchanged and incremental runs use identically prepared copies of the same
+   initial database/assets. Do not reuse a completed output as a fresh baseline.
+4. Use deterministic representative subsets before costly full runs: multiple
+   note sizes, frontmatter/link densities, deep paths, native/preserved vaults,
+   fresh/unchanged/full and small-merge scenarios, and a separate attachment
+   corpus. Count bytes/files/notes/tags/relations as well as documents. Capture
+   wall/user/system time, docs/s, bytes/s, per-stage time, peak process-tree RSS,
+   I/O bytes/syscalls, SQL counts/plans where available, and disk/WAL growth.
+   Keep instrumentation runs separate from uninstrumented timing trials.
+5. Run at least three paired unprofiled baseline/candidate subset trials,
+   alternating order; report individual results, median and variability. Record
+   warm/cold-cache conditions without silently flushing shared host caches.
+   No simultaneous imports or synthetic jobs on the benchmark disk. Use stdlib
+   harnesses and existing tools; optional hyperfine/strace are not prerequisites.
+6. Promote only credible subset winners to full 382,206-document confirmation
+   for the affected route(s). Budget and checkpoint these multi-hour runs; one
+   controlled full baseline/candidate pair per affected route is the initial
+   minimum, with repeat trials only when variability or near-threshold results
+   require them. Measure RAW and vault under matched conditions, even when a
+   change targets just one. Historical 7c times alone cannot establish a speedup.
+   Reuse a matching controlled full result for later acceptance where all input,
+   implementation and gate fingerprints agree; do not repeat it needlessly.
+
+**Adoption and gap-reduction gates:** The objective is to substantially reduce
+both import times and close the Obsidian/RAW gap. Planning targets are at least
+30% lower wall time for each producer route and vault/RAW ≤1.5 under matched
+conditions (versus the observed ~2.37); these are goals to test, not promises or
+permission to cut content. Report absolute seconds saved, per-route speedups,
+absolute gap and ratio so slowing RAW cannot masquerade as closing the gap.
+Revise unmet targets only with explicit user review of the measured limits.
+
+Adopt a candidate only when representative end-to-end improvement exceeds
+observed measurement noise (target ≥5% median for a meaningful candidate), with
+no unexplained material regression on the other route, small merges, memory,
+disk usage or recovery. Phase/microbenchmark wins alone do not qualify. Record
+individual and combined effects; a combined result cannot hide a harmful member.
+Hold ambiguous results for more evidence and reject candidates with no measured
+benefit. Preserve before/after patches, logs and adopted/rejected/deferred status
+in the findings register; retain only demonstrated winners in the final change.
+
+All adopted changes must preserve exact source/snapshot bytes and unknown
+properties, collision errors, tag/link/attachment semantics, exclusion/receipt
+rules and interrupted-import recovery. Require independent corpus inventories,
+normalized semantic checks frozen by C7a, RAW differential parsing where relevant,
+small end-to-end fixtures and the five-module regression suite; include producer
+tests for changed Go code. Performance success never waives compatibility gates.
+P7c reports partial results honestly if the objective is unmet. Main reviews the
+full evidence before resuming 7c and keeps 7d blocked until 7c acceptance completes.
 
 ### Corpus and measurement procedure
 
@@ -608,6 +871,15 @@ assigned-worker takeover after confirmation; the focused failures were unresolve
 ## Per-slice execution provenance
 
 Generated from the structured ledger; expand a slice to inspect its attribution.
+
+C7a completed on 2026-09-17: parent froze compatibility decisions; Luna executed
+the streaming audit (138.46 s corrected run, 35,864 KiB peak RSS) with OS completion
+notification. Three producer libraries and 3,000 bounded publication bodies were
+audited; 100 snapshot/path pairs matched source bytes and documented recipe-body
+transformations. Downstream synthetic probes preserved non-NUL C0 through vault
+and Hugo; search whitespace normalization is documented. No new runtime changes
+in C7a. Existing reference/unsupported syntax and tag differences remain 7c gates.
+See NOTRIOS_COMPATIBILITY_REVIEW.md for limits, independent C7b cases and evidence.
 
 <!-- NOTRIOS-EXECUTION:START -->
 <details><summary>1a — complete; planned parent</summary>
@@ -1338,7 +1610,7 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 
 </details>
 
-<details><summary>7c — pending; planned parent</summary>
+<details><summary>C7a — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -1346,7 +1618,33 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Planned worker | parent |
 | Planned configured model | not exposed |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
+| Assignment confirmation | User authorized C7a on 2026-09-17; unchanged Codex assignments and long notification monitoring confirmed. |
+| Actual worker | luna_worker (audit execution/monitoring and evidence housekeeping) |
+| Child thread | /root/notrios_c7a_monitor; /root/c7a_evidence_resume |
+| Actual model | not exposed — configured gpt-5.6-luna is not execution evidence |
+| Reasoning effort | not exposed independently — configured fixed max |
+| Worker contribution | Executed parent-written streaming diagnostic with blocking completion; retained failed setup attempt and reused completed producer scan. Corrected audit completed in 138.46s with 35864 KiB peak RSS. Resumed child verified terminal metadata and owner-only script/result copies without rerunning scans. |
+| Parent | Codex; exact model not exposed |
+| Parent underlying model family | GPT-6 (runtime-reported) |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Authored audit/probes, fixed verification work-directory setup, inspected pinned producer frontmatter/identity behavior, traced source controls and 100 preserved snapshot/path pairs, measured tag associations, exercised synthetic downstream control preservation, froze contract/comparison/fixture/version decisions, updated design/plan/provenance, validated docs and committed prior receipt-test correction separately. |
+| Validation | Three producer libraries audited (103349/382206/382206 documents) and three bounded publications (1000 each). Source-control trace: all eight Joplin after RAW-title removal, 20 samples per recipe route; bounded publication control counts agree with producers. 100 source snapshots and recipe bodies match after documented prefix/frontmatter/LF transformations; producer titles match 98/100, remaining comparison C7c. Synthetic non-NUL C0 storage/RAW/vault/site/Hugo probe passed; search whitespace projection documented. Focused receipt test passed in 2.403s; prior corrected full 262 suite passed in 139.150s. Document links, diff and generated attribution checks pass. No C7a runtime implementation or claim of full 7c acceptance. |
+| Delegation failure or reassignment | Audit attempt1 failed due missing verifier work directory; parent fixed harness and worker resumed without repeating completed scan. Usage limit removed worker threads before final housekeeping; user requested liveness check, then parent spawned same Luna role /root/c7a_evidence_resume. No silent model/owner substitution. |
+| Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md compatibility prerequisites added 2026-09-17 |
+| Execution evidence | User: revise the plan to address these compatibility gaps before resuming 7c; User explicitly required the same long-notification monitoring for data-heavy updated slices.; Native spawn /root/notrios_c7a_monitor; /tmp/movenotes-c7a-audit.py; NOTRIOS_COMPATIBILITY_REVIEW.md; Private /media/$USER/HD2/movenotes-c7a-20260917/notification.json and execution-time.log; User resumed C7a after usage limit and requested checking agent liveness before waits; Native spawn /root/c7a_evidence_resume; final evidence housekeeping handoff |
+| Commit | Git commit containing this completion record: docs: freeze Notrios corpus compatibility decisions |
+
+</details>
+
+<details><summary>C7b — pending; planned terra_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | terra_worker |
+| Planned configured model | gpt-5.6-terra |
+| Planned reasoning effort | medium |
+| Assignment confirmation | Existing Codex role/model/effort and billing suitability confirmed for unchanged session; user authorized compatibility plan revision, implementation pending slice authorization. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -1357,10 +1655,140 @@ Generated from the structured ledger; expand a slice to inspect its attribution.
 | Parent reasoning effort | pending |
 | Parent contribution | pending |
 | Validation | pending |
-| Delegation failure or reassignment | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md compatibility prerequisites added 2026-09-17 |
+| Execution evidence | User: revise the plan to address these compatibility gaps before resuming 7c; User explicitly required the same long-notification monitoring for data-heavy updated slices. |
+| Commit | none — pending |
+
+</details>
+
+<details><summary>C7c — pending; planned luna_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | luna_worker |
+| Planned configured model | gpt-5.6-luna |
+| Planned reasoning effort | max |
+| Assignment confirmation | Existing Codex role/model/effort and billing suitability confirmed for unchanged session; user authorized compatibility plan revision, implementation pending slice authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md compatibility prerequisites added 2026-09-17 |
+| Execution evidence | User: revise the plan to address these compatibility gaps before resuming 7c; User explicitly required the same long-notification monitoring for data-heavy updated slices. |
+| Commit | none — pending |
+
+</details>
+
+<details><summary>P7a — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Existing Codex assignments and billing suitability confirmed for unchanged session; performance plan revision authorized, implementation pending slice authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17 |
+| Execution evidence | User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement. |
+| Commit | none — pending |
+
+</details>
+
+<details><summary>P7b — pending; planned terra_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | terra_worker |
+| Planned configured model | gpt-5.6-terra |
+| Planned reasoning effort | medium |
+| Assignment confirmation | Existing Codex assignments and billing suitability confirmed for unchanged session; performance plan revision authorized, implementation pending slice authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17 |
+| Execution evidence | User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement. |
+| Commit | none — pending |
+
+</details>
+
+<details><summary>P7c — pending; planned luna_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | luna_worker |
+| Planned configured model | gpt-5.6-luna |
+| Planned reasoning effort | max |
+| Assignment confirmation | Existing Codex assignments and billing suitability confirmed for unchanged session; performance plan revision authorized, implementation pending slice authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17 |
+| Execution evidence | User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement. |
+| Commit | none — pending |
+
+</details>
+
+<details><summary>7c — in progress; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | parent |
+| Planned configured model | not exposed |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Confirmed unchanged Codex session; user explicitly authorized 7c. |
+| Actual worker | luna_worker (harness/monitoring only) |
+| Child thread | /root/notrios_7c_monitor |
+| Actual model | not exposed — configured worker model is not execution evidence |
+| Reasoning effort | not exposed — configured max is not execution evidence |
+| Worker contribution | Completed durable checkpointed harness, corrected pinned-CLI batch limit to 500, monitored imports with OS completion notifications, ran bounded routes, synthetic full pipeline, recovery, semantic comparison and regressions; retained failures and skipped dependent full trials. Proved historical test hashes are row permutations and ran corrected 262-test regression gate successfully. |
+| Parent | Codex; exact model not exposed |
+| Parent underlying model family | GPT-6 (runtime-reported) |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Inspected producer pin and source sizes, prepared initial harness and isolated measurements, investigated Joplin lexical refusal, reviewed terminal evidence and recorded partial acceptance; used 25-minute native notification waits with occasional fallback checks. Corrected nondeterministic receipt-test search row comparison; sampled control characters and embedded frontmatter differences; retained 7c as incomplete. |
+| Validation | Partial corpus acceptance: both 382,206-document recipe imports succeeded; three bounded real publications passed both verifiers but conversion refused. Full real tiers skipped. Synthetic 10,000 pipeline and recovery passed. Initial semantic multisets differ and include embedded frontmatter; refined semantic audit pending. Corrected full regression passed all 262 tests in 139.150s. Historical failure proven to be JSONL row permutation. See NOTRIOS_CORPUS_TRIALS.md. |
+| Delegation failure or reassignment | User explicitly added Luna harness/monitoring delegation to parent-owned 7c to reduce model usage; no silent substitution. |
 | Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Proceed with 7c; User request for Luna monitoring with long notification waits; native spawn /root/notrios_7c_monitor; NOTRIOS_CORPUS_TRIALS.md; Private /media/$USER/HD2/movenotes-7c-20260916/notification.json and resume/final-regressions.log; 2ea17ca: committed receipt-test ordering correction; 7c remains incomplete |
+| Commit | none — uncommitted |
 
 </details>
 

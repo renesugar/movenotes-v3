@@ -195,7 +195,9 @@ the limits do not promise an unmeasured exact RSS. Resources retain the registry
 Only semantic `text/markdown` bodies are convertible, with no parameters or
 sole `charset=utf-8` parameter (charset token case-insensitive). Canonical MIME
 comparison with the reference is still required before this narrower check.
-Strict UTF-8 decode; refuse BOM, NUL and C0 controls other than TAB/CR/LF. Preserve
+C7a revision (implementation pending C7b): strict UTF-8 decode; refuse a
+leading BOM and NUL, but preserve non-NUL C0 body characters byte-for-byte.
+Destination, fragment, identity and filename control restrictions remain intact. Preserve
 line endings and trailing whitespace in the database. Do not convert HTML,
 plain text, binary or another charset implicitly. No query evaluation, network
 fetch, sanitizing HTML renderer or source-library lookup is part of conversion.
@@ -245,6 +247,15 @@ in the auxiliary table but generate one link. The fixture adds only
 `- [related.bin](:/<mapped res_sidecar>)` to the main note; shared PNG bytes
 are exported once and both inline embeds refer to them.
 
+## C7a admission and comparison revision
+
+The [C7a compatibility review](NOTRIOS_COMPATIBILITY_REVIEW.md) freezes the
+admission-only extension, reference/prose boundary, independent acceptance cases
+and recipe comparison contract. Implement it in C7b/C7c; current runtime has not
+yet adopted it. Retain mapper/reader/receipt versions and deterministic IDs only
+while all previously admitted outputs remain identical. Remaining reference and
+unsupported-link refusals are real 7c blockers, not waived acceptance gates.
+
 ## Admitted links and refusal boundary
 
 This is a deliberately narrow Markdown projection, not a complete CommonMark
@@ -259,7 +270,7 @@ recognition. These are lexical protection rules, not inferred rendered block
 structure. Ambiguous nested container/fence syntax containing internal targets
 refuses rather than guessing its context.
 
-Active accepted syntax is `[label](destination)` or `![label](destination)` on
+Active accepted link syntax is `[label](destination)` or `![label](destination)` on
 one line, with no optional title, nested brackets, backslash escapes in label or
 destination, angle destination or whitespace in destination. Empty labels are
 allowed. Destination may not contain parentheses; percent-encoded bytes remain
@@ -309,6 +320,15 @@ of recognized internal schemes; they do not constitute an arbitrary HTML or
 privacy audit. Protected code bytes, withheld prose and redaction remain inert
 and unchanged. Do not claim that archive integrity detects every skipped
 producer rewrite or hidden private reference.
+
+C7a additionally admits only flat, nonempty, single-line literal bracket prose
+without nested brackets, backslashes, backticks, image prefix or an adjoining
+reference/destination suffix. First scan the complete protected-byte projection
+for possible reference definitions/uses; any active such form still refuses,
+including a definition following a shortcut. Internal schemes/IDs inside apparent
+prose must still be accounted for and cannot be hidden by skipping the literal.
+A retained record over literal prose refuses. See the linked review for the
+precise conservative boundaries and negative acceptance cases.
 
 Apply replacements in a single left-to-right byte pass using validated spans;
 never reuse original offsets after editing. Only destination bytes change;
