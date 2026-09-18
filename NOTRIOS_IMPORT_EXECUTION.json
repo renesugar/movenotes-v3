@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "plan": "NOTRIOS_IMPORT_PLAN.md",
-  "updated": "2026-09-17",
+  "updated": "2026-09-18",
   "session": {
     "coding_agent": "codex",
     "product_role": "Codex",
@@ -11,19 +11,24 @@
     "model_provider": "not exposed",
     "product_client_version": "not exposed",
     "billing_route": "not exposed; suitability confirmed by user for this session",
-    "confirmation": "pending availability confirmation before new delegation",
-    "confirmation_evidence": "2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c. C7b implementation and data-heavy validation used the confirmed assignments. After the usage-limit resume on 2026-09-17, runtime capacity changed to one total active agent; future delegated work requires restored availability confirmation or an explicitly approved reassignment.",
+    "confirmation": "confirmed",
+    "confirmation_evidence": "2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c. C7b implementation and data-heavy validation used the confirmed assignments. After the usage-limit resume on 2026-09-17, runtime capacity changed to one total active agent; future delegated work requires restored availability confirmation or an explicitly approved reassignment. 2026-09-17 user updated concurrency and asked: Is there enough worker capacity to proceed with C7c? If so, proceed. Runtime now exposes two total slots; parent confirmed capacity and unchanged Luna/max assignment, then spawned /root/c7c_harness. Prior billing suitability confirmation retained; no provider/model/effort substitution.",
     "notes": [
       "Worker model/effort values are runtime configuration, not proof of child execution.",
       "Historical parent aliases/efforts were not recorded per slice; do not infer gpt-6-astra from the user's Astra label.",
       "Future Luna assignments use fixed max effort, confirmed by the user for this session; historical medium assignments remain unchanged.",
-      "C7b completed under its prior confirmed assignments. Resumed one-active-agent concurrency leaves no child slot; C7c remains assigned Luna/max and cannot silently fall back to parent implementation."
+      "Runtime capacity restored to two total active agents, allowing parent plus one assigned worker. C7c delegated to Luna/max after explicit conditional authorization and capacity verification."
     ],
     "confirmation_history": [
       {
         "status": "confirmed",
         "evidence": "2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c.",
         "scope": "Completed C7b execution before resumed concurrency limitation"
+      },
+      {
+        "status": "pending availability confirmation before new delegation",
+        "evidence": "2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c. C7b implementation and data-heavy validation used the confirmed assignments. After the usage-limit resume on 2026-09-17, runtime capacity changed to one total active agent; future delegated work requires restored availability confirmation or an explicitly approved reassignment.",
+        "scope": "Temporary one-slot runtime after C7b; superseded by restored capacity and explicit C7c authorization."
       }
     ]
   },
@@ -41,7 +46,7 @@
       "owner": "luna_worker",
       "model": "gpt-5.6-luna",
       "reasoning_effort": "max",
-      "availability": "Configured fixed role; no child slot under resumed one-active-agent concurrency limit. Delegation previously succeeded for C7b.",
+      "availability": "Configured fixed role; two total active-agent slots permit parent plus one worker. Luna delegation succeeded for C7c.",
       "billing_route": "not exposed; suitability confirmed by user for this session"
     },
     {
@@ -49,7 +54,7 @@
       "owner": "terra_worker",
       "model": "gpt-5.6-terra",
       "reasoning_effort": "medium",
-      "availability": "Configured fixed role; no child slot under resumed one-active-agent concurrency limit. Delegation previously succeeded for C7b.",
+      "availability": "Configured fixed role; two total active-agent slots permit parent plus one worker. Luna delegation succeeded for C7c.",
       "billing_route": "not exposed; suitability confirmed by user for this session"
     }
   ],
@@ -944,31 +949,34 @@
       }
     },
     {
-      "actual_worker": "pending",
-      "child_thread": "pending",
-      "actual_model": "pending",
-      "reasoning_effort": "pending",
-      "worker_contribution": "pending",
-      "parent": "pending",
-      "parent_underlying_model_family": "pending",
-      "parent_reasoning_effort": "pending",
-      "parent_contribution": "pending",
-      "validation": "pending",
+      "actual_worker": "luna_worker",
+      "child_thread": "/root/c7c_harness",
+      "actual_model": "not exposed",
+      "reasoning_effort": "not exposed",
+      "worker_contribution": "Implemented notrios_c7c.py, paired source smoke, PIDFD monitor/durable child receipts and 26 focused tests. Corrected source grammar, route rules, privacy projections, duplicate joins, full-input/dependency fingerprinting and disk/query bounds after parent review. Executed existing regression suite, scaled tests, bounded probes and final monitored corpus comparison; retained failed attempts and sanitized evidence.",
+      "parent": "Codex",
+      "parent_underlying_model_family": "GPT-6",
+      "parent_reasoning_effort": "not exposed",
+      "parent_contribution": "Verified restored capacity, delegated assigned Luna, reviewed implementation and requested concrete corrections for stale results, duplicate accounting, source integrity, publication cohorts/privacy transforms, parser rules, quadratic joins and checkpoint dependencies. Reviewed final aggregate results and source fingerprint, updated plan/provenance/evidence and performed final checks/commit. No worker-owned implementation substituted.",
+      "validation": "264 existing tests passed (180.404s); final 26 focused tests passed (19.851s), including 20k scaled query execution, checkpoint/resume/reconnect, dependency/blob mutation and disk/query bounds. Accepted v6 corpus: 382,206 source records per route, all identities/bodies match, vault metadata matches, 3,682 titles explained, zero unexplained source-to-route differences with explicitly separate tag channels. Three 1,000-document publications verified; Joplin 987 exact + 13 privacy projections. Runtime 5,174s, RSS 336,784 KiB; semantic_equal false, full 7c not accepted. Final checkpoint-only changes tested without repeating unchanged semantic corpus rules.",
       "id": "C7c",
       "coding_agent": "codex",
-      "status": "pending",
+      "status": "complete",
       "planned_worker": "luna_worker",
       "configured_model": "gpt-5.6-luna",
       "configured_reasoning_effort": "max",
-      "assignment_confirmation": "Prior Codex role/model/effort and billing suitability confirmation preserved historically. New delegation pending: resumed runtime has one total active-agent slot; restore capacity and confirm availability before implementing C7c, or obtain explicit reassignment.",
+      "assignment_confirmation": "User authorized C7c conditional on sufficient capacity; runtime reports two total slots and Luna spawn succeeded on 2026-09-17. Existing Codex model/effort and billing suitability confirmation retained.",
       "delegation_required": true,
       "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md compatibility prerequisites added 2026-09-17",
-      "delegation_failure_or_reassignment": "none recorded",
+      "delegation_failure_or_reassignment": "No reassignment. Previous one-slot capacity limitation resolved; native Luna spawn succeeded.",
       "evidence": [
-        "User: revise the plan to address these compatibility gaps before resuming 7c",
-        "User explicitly required the same long-notification monitoring for data-heavy updated slices."
+        "Native worker /root/c7c_harness; configured Luna/max; execution backend model/effort not independently exposed.",
+        "NOTRIOS_C7C_EVIDENCE.md",
+        "Historical completed run /tmp/movenotes-c7c-20260918-final; failed attempts /tmp/movenotes-c7c-20260917-corrected and /tmp/movenotes-c7c-20260918-indexed.",
+        "Accepted v6 attempt /tmp/movenotes-c7c-20260918-rules-v6b-final: launch.json, comparison/result.json, checkpoint.json, comparison-progress.json, monitor receipt and terminal-notification.json. Run 652f8054ca8f2cef29879813; monitor 9560ea9c593e43309e14a700ae460a00.",
+        "Final comparator semantic corpus fingerprint 8304857a5e1fa79b3f8cbac61a323abb3e52498f1f56d45314e7db2f06ee3ea0; later fingerprint/disk-only hardening has 26 passing focused tests."
       ],
-      "commit": "none — pending",
+      "commit": "this commit",
       "planned_work": "Semantic comparison and checkpointed notification harness",
       "billing_route": "not exposed; existing role suitability confirmed for unchanged session",
       "monitoring_assignment": {
