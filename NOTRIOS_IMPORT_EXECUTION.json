@@ -11,12 +11,20 @@
     "model_provider": "not exposed",
     "product_client_version": "not exposed",
     "billing_route": "not exposed; suitability confirmed by user for this session",
-    "confirmation": "confirmed",
-    "confirmation_evidence": "2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c.",
+    "confirmation": "pending availability confirmation before new delegation",
+    "confirmation_evidence": "2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c. C7b implementation and data-heavy validation used the confirmed assignments. After the usage-limit resume on 2026-09-17, runtime capacity changed to one total active agent; future delegated work requires restored availability confirmation or an explicitly approved reassignment.",
     "notes": [
       "Worker model/effort values are runtime configuration, not proof of child execution.",
       "Historical parent aliases/efforts were not recorded per slice; do not infer gpt-6-astra from the user's Astra label.",
-      "Future Luna assignments use fixed max effort, confirmed by the user for this session; historical medium assignments remain unchanged."
+      "Future Luna assignments use fixed max effort, confirmed by the user for this session; historical medium assignments remain unchanged.",
+      "C7b completed under its prior confirmed assignments. Resumed one-active-agent concurrency leaves no child slot; C7c remains assigned Luna/max and cannot silently fall back to parent implementation."
+    ],
+    "confirmation_history": [
+      {
+        "status": "confirmed",
+        "evidence": "2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c.",
+        "scope": "Completed C7b execution before resumed concurrency limitation"
+      }
     ]
   },
   "assignments": [
@@ -33,7 +41,7 @@
       "owner": "luna_worker",
       "model": "gpt-5.6-luna",
       "reasoning_effort": "max",
-      "availability": "Available fixed role; update from historical medium confirmed",
+      "availability": "Configured fixed role; no child slot under resumed one-active-agent concurrency limit. Delegation previously succeeded for C7b.",
       "billing_route": "not exposed; suitability confirmed by user for this session"
     },
     {
@@ -41,7 +49,7 @@
       "owner": "terra_worker",
       "model": "gpt-5.6-terra",
       "reasoning_effort": "medium",
-      "availability": "Available fixed role",
+      "availability": "Configured fixed role; no child slot under resumed one-active-agent concurrency limit. Delegation previously succeeded for C7b.",
       "billing_route": "not exposed; suitability confirmed by user for this session"
     }
   ],
@@ -885,31 +893,39 @@
       }
     },
     {
-      "actual_worker": "pending",
-      "child_thread": "pending",
-      "actual_model": "pending",
-      "reasoning_effort": "pending",
-      "worker_contribution": "pending",
-      "parent": "pending",
-      "parent_underlying_model_family": "pending",
-      "parent_reasoning_effort": "pending",
-      "parent_contribution": "pending",
-      "validation": "pending",
+      "actual_worker": "terra_worker (implementation); luna_worker (validation)",
+      "child_thread": "/root/notrios_c7b; /root/c7b_validation",
+      "actual_model": "not exposed — configured worker models are not execution evidence",
+      "reasoning_effort": "not exposed independently — configured Terra medium and Luna max",
+      "worker_contribution": "Terra implemented non-NUL C0 body admission, conservative flat literal brackets and independent positive/adversarial regressions; corrected masked-escape/backtick acceptance and C0/Unicode suffix handling after parent review. Luna ran baseline/candidate fixtures, the full five-module suite, original bounded corpus conversions and initial live builds using blocking completion notifications.",
+      "parent": "Codex; exact model not exposed",
+      "parent_underlying_model_family": "GPT-6 (runtime-reported)",
+      "parent_reasoning_effort": "not exposed",
+      "parent_contribution": "Scoped Terra delegation and reviewed the implementation; requested original-byte and suffix-validation corrections. Prepared frozen baseline and independent validation harnesses, repaired checkpoint/output path collision and distinguished minified HTML whitespace from exact preserved bytes. After usage-limit registry confirmed no children and a one-time process check found no active validation, finished only the remaining three-note unminified-Hugo/Bluge check in one blocking invocation. Reviewed evidence/source fingerprints, updated design/plan/provenance and committed C7b.",
+      "validation": "Worker focused tests passed. All 264 five-module regressions passed in 145.292s with both bytecode controls. Three immutable fixture payloads match baseline 5b2a7e2 exactly (15 files / 376112 bytes); imports and unchanged reruns pass. Independent three-note CLI/vault/Hugo/Bluge passes, including exact non-NUL C0 preservation in SQLite/RAW/vault/unminified HTML and documented HTML/search whitespace projections. All three original 1000-document conversions still refuse unsupported link syntax: retained 7c blockers, not acceptance passes. Final runtime source fingerprints match the passing suite. Diff, document links and generated attribution checked.",
       "id": "C7b",
       "coding_agent": "codex",
-      "status": "pending",
+      "status": "complete",
       "planned_worker": "terra_worker",
       "configured_model": "gpt-5.6-terra",
       "configured_reasoning_effort": "medium",
-      "assignment_confirmation": "Existing Codex role/model/effort and billing suitability confirmed for unchanged session; user authorized compatibility plan revision, implementation pending slice authorization.",
+      "assignment_confirmation": "User: Proceed with C7b; unchanged confirmed Codex assignments and long notification monitoring.",
       "delegation_required": true,
       "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md compatibility prerequisites added 2026-09-17",
-      "delegation_failure_or_reassignment": "none recorded",
+      "delegation_failure_or_reassignment": "No implementation reassignment. Initial live harness output/checkpoint collision and overstrict minified-HTML assertion were corrected with historical failures retained. Usage limit removed completed worker threads; no agents survived on registry check. Parent performed remaining small final validation within its existing review/validation scope, without repeating data-heavy runs. Resumed runtime now has one active-agent slot; future delegation requires restored capacity or approved reassignment.",
       "evidence": [
         "User: revise the plan to address these compatibility gaps before resuming 7c",
-        "User explicitly required the same long-notification monitoring for data-heavy updated slices."
+        "User explicitly required the same long-notification monitoring for data-heavy updated slices.",
+        "User: Proceed with C7b",
+        "Native spawn /root/notrios_c7b and /root/c7b_validation",
+        "Baseline 5b2a7e2; /tmp/movenotes-c7b-validate.py and /tmp/movenotes-c7b-live.py",
+        "NOTRIOS_COMPATIBILITY_REVIEW.md C7b implementation and validation",
+        "Private /media/$USER/HD2/movenotes-c7b-20260917 baseline/candidate/live notifications and regression log",
+        "Worker final handoff /root/notrios_c7b; monitor handoffs /root/c7b_validation",
+        "User resumed C7b after usage limit and required liveness check; registry returned only parent",
+        "Parent final live script exit 0; runtime hashes match passing regression checkpoint"
       ],
-      "commit": "none — pending",
+      "commit": "Git commit containing this completion record: feat: admit preserved Notrios controls and literal brackets",
       "planned_work": "Approved body/link compatibility implementation and regression fixtures",
       "billing_route": "not exposed; existing role suitability confirmed for unchanged session",
       "monitoring_assignment": {
@@ -920,10 +936,11 @@
         "scope": "Any data-heavy audit, comparison or validation; primary implementation owner unchanged",
         "authorization": "User: Use the same monitoring with long notification waits for slices that process large amounts of data in the updated plan slices",
         "wait_policy": "Blocking OS completion/PIDFD; final notification; parent 25-minute notification waits; estimated-duration/stall-threshold diagnostic fallback only; no frequent polling",
-        "actual_worker": "pending",
-        "child_thread": "pending",
-        "execution_model": "pending",
-        "execution_effort": "pending"
+        "actual_worker": "luna_worker",
+        "child_thread": "/root/c7b_validation",
+        "execution_model": "not exposed",
+        "execution_effort": "not exposed",
+        "worker_contribution": "Completed all data-heavy C7b validation with blocking completion notifications; parent completed only the small final Hugo/Bluge follow-up after the usage limit."
       }
     },
     {
@@ -943,7 +960,7 @@
       "planned_worker": "luna_worker",
       "configured_model": "gpt-5.6-luna",
       "configured_reasoning_effort": "max",
-      "assignment_confirmation": "Existing Codex role/model/effort and billing suitability confirmed for unchanged session; user authorized compatibility plan revision, implementation pending slice authorization.",
+      "assignment_confirmation": "Prior Codex role/model/effort and billing suitability confirmation preserved historically. New delegation pending: resumed runtime has one total active-agent slot; restore capacity and confirm availability before implementing C7c, or obtain explicit reassignment.",
       "delegation_required": true,
       "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md compatibility prerequisites added 2026-09-17",
       "delegation_failure_or_reassignment": "none recorded",
@@ -966,7 +983,8 @@
         "child_thread": "pending",
         "execution_model": "pending",
         "execution_effort": "pending"
-      }
+      },
+      "availability_constraint": "No child slot under resumed one-active-agent limit; no implementation started."
     },
     {
       "actual_worker": "pending",

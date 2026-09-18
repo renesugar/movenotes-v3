@@ -2480,7 +2480,7 @@ class NotriosNoteIntegrationTest(unittest.TestCase):
                     self.import_notes()
                 self.assertEqual(caught.exception.code, "conversion")
                 build.assert_not_called()
-        for body in (b"\xff", b"\xef\xbb\xbftext", b"text\x00", b"text\x0b", b"text\x1f",
+        for body in (b"\xff", b"\xef\xbb\xbftext", b"text\x00",
                      {**self.bodies, "doc_duplicate": b"late invalid body\x00"}):
             make_text_publication(self.fixture, body)
             with self.subTest(body=body), mock.patch.object(importer, "_build_payload") as build:
@@ -2490,6 +2490,41 @@ class NotriosNoteIntegrationTest(unittest.TestCase):
                 build.assert_not_called()
         self.assertFalse(self.destination.exists())
         self.assertFalse(list(self.root.glob(".movenotes-notrios-*")))
+
+    def test_non_nul_c0_body_bytes_import_and_vault_export_exactly(self):
+        controls = bytes(value for value in range(1, 32) if value not in (9, 10, 13))
+        body = b"prefix [sic], [00:01-00:03]; cafe \xc3\xa9 " + controls + b"\ntrailer [x]."
+        make_text_publication(self.fixture, {**self.bodies, "doc_public": body})
+        self.import_notes()
+        row = next(row for row in self.rows() if row["joplin_id"] == self.ids["document"]["doc_public"])
+        self.assertEqual(row["note_data"].encode("utf-8"), body)
+        self.assertEqual(row["note_hash"], hashlib.sha512(body).hexdigest())
+        vault = self.export("control-vault")
+        self.assertEqual(self.vault_notes(vault)[self.ids["document"]["doc_public"]][2].encode("utf-8"),
+                         body + b"\n")
+        manifest = load_json(vault / ".movenotes" / "manifest.json")
+        raw_item = next(item for item in manifest["items"] if item["id"] == self.ids["document"]["doc_public"])
+        self.assertIn(body, (vault / ".movenotes" / raw_item["raw_path"]).read_bytes())
+        restored = self.root / "control-restored"
+        restored.mkdir()
+        run = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "joplin2sql.py"),
+                              "--input", str(vault / ".movenotes" / "joplin-raw"), "--output", str(restored),
+                              "--progress-every", "0"], env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+                             capture_output=True, text=True, timeout=60)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        with sqlite3.connect(restored / "notesdb.sqlite") as connection:
+            connection.row_factory = sqlite3.Row
+            restored_row = dict(connection.execute("SELECT * FROM notes WHERE joplin_id=?",
+                                                    (self.ids["document"]["doc_public"],)).fetchone())
+        self.assertTrue(links.is_generated_note(restored_row))
+        self.assertEqual(links.projected_note_body(restored_row).encode(), body + b"\n")
+        site = self.root / "control-site"
+        run = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "obsidian2site.py"),
+                              "--input", str(vault), "--output", str(site), "--progress-every", "0"],
+                             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, capture_output=True, text=True, timeout=60)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        records = [json.loads(line) for line in (site / "server" / "search-source.jsonl").read_text().splitlines()]
+        self.assertTrue(records)  # JSONL remained valid despite every admitted C0 value.
 
     def test_body_size_bound_is_checked_before_blob_allocation(self):
         for field in ("max_body_bytes", "max_projected_body_bytes"):
@@ -2599,13 +2634,42 @@ class NotriosLinkProjectionTest(unittest.TestCase):
             body = b"[label](" + destination + b")"
             with self.subTest(destination=destination), self.assertRaises(archive_v2.NotriosError):
                 self.project(body, [retained_link(body, body)])
-        for body in (b"[[Local]]", b"![[Local]]", b"[ref]: ./local.md", b"[ref]", b"[text][ref]",
+        for body in (b"[[Local]]", b"![[Local]]", b"[ref]: ./local.md", b"[text][ref]",
                      b'[label](https://example.test "title")', b"[nested [label]](https://example.test)",
                      b"[escaped\\!](https://example.test)", b"[label](<https://example.test>)",
                      b"<a href='document://default/documents/doc_child'>", b"DOCUMENT://default/documents/doc_child",
                      b"bare :/"+b"a"*32, b"![embed](document://default/documents/doc_child)"):
             with self.subTest(body=body), self.assertRaises(archive_v2.NotriosError):
                 self.project(body)
+
+    def test_flat_literal_brackets_are_unrecorded_and_reference_forms_refuse(self):
+        link = b"[Web](https://example.test/x)"
+        body = b"[sic], [x]; [00:01-00:03]. " + link
+        self.assertEqual(self.project(body).encode(), body)
+        valid_record = retained_link(body, link)
+        literal_record = archive_v2.Record("link", valid_record.key, {**valid_record.payload,
+            "source_start_byte": body.index(b"[sic]"), "source_end_byte": body.index(b"[sic]") + len(b"[sic]")})
+        with self.assertRaises(archive_v2.NotriosError):
+            self.project(body, [literal_record])
+        definitions = (b"[Ref] : https://example.test", b"[REF]: https://example.test",
+                       b"> [ref]: https://example.test", b"- [ref]: https://example.test",
+                       b"1. [ref]: https://example.test", b"[text][ref]\n[ref]: https://example.test",
+                       b"[text] [ref]", b"[text][]")
+        for suffix in definitions:
+            with self.subTest(suffix=suffix), self.assertRaises(archive_v2.NotriosError):
+                self.project(b"[sic]\n" + suffix)
+        # A reference-looking definition in protected code cannot activate an
+        # outside literal shortcut.
+        self.assertEqual(self.project(b"```md\n[ref]: https://example.test\n```\n[sic]").encode(),
+                         b"```md\n[ref]: https://example.test\n```\n[sic]")
+        for malformed in (b"[unclosed", b"[nested [x]]", b"![x]", b"[x](bad)", b"[x] (bad)",
+                          b"[x] [y]", b"[document://default/documents/doc_child]",
+                          b"[resource://default/resources/res]", b"[notrios://doc]", b"[:/" + b"a" * 32 + b"]",
+                          b"[x](https://example.test/\x1f)", b"[x](#part\x0b)", b"[a\\]b]", b"[a\\*b]",
+                          b"[a`code`b]", b"[a`document://default/documents/doc_child`b]",
+                          b"[x]\x0b(bad)", b"[x]\xc2\xa0(bad)", b"[x]\x0c[y]"):
+            with self.subTest(malformed=malformed), self.assertRaises(archive_v2.NotriosError):
+                self.project(malformed)
 
     def test_self_and_external_record_agreement(self):
         for body in (b"[self](#part)", b"[web](https://example.test/#part)"):

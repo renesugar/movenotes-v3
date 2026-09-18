@@ -195,7 +195,7 @@ the limits do not promise an unmeasured exact RSS. Resources retain the registry
 Only semantic `text/markdown` bodies are convertible, with no parameters or
 sole `charset=utf-8` parameter (charset token case-insensitive). Canonical MIME
 comparison with the reference is still required before this narrower check.
-C7a revision (implementation pending C7b): strict UTF-8 decode; refuse a
+C7a revision (implemented in C7b): strict UTF-8 decode; refuse a
 leading BOM and NUL, but preserve non-NUL C0 body characters byte-for-byte.
 Destination, fragment, identity and filename control restrictions remain intact. Preserve
 line endings and trailing whitespace in the database. Do not convert HTML,
@@ -251,9 +251,9 @@ are exported once and both inline embeds refer to them.
 
 The [C7a compatibility review](NOTRIOS_COMPATIBILITY_REVIEW.md) freezes the
 admission-only extension, reference/prose boundary, independent acceptance cases
-and recipe comparison contract. Implement it in C7b/C7c; current runtime has not
-yet adopted it. Retain mapper/reader/receipt versions and deterministic IDs only
-while all previously admitted outputs remain identical. Remaining reference and
+and recipe comparison contract. C7b implements the body/literal admission
+revision; C7c still owns the refined whole-corpus comparison. Retain
+mapper/reader/receipt versions and deterministic IDs only while all previously admitted outputs remain identical. Remaining reference and
 unsupported-link refusals are real 7c blockers, not waived acceptance gates.
 
 ## Admitted links and refusal boundary

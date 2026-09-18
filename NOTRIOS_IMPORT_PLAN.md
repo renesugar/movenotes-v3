@@ -19,10 +19,13 @@ Slice **6d is complete**: CLI help explains output and exit codes, bounded phase
 progress reports aggregate counts, and failure tests prevent premature success.
 Slice **7a is complete**: current schema-28 and historical schema-27 publications
 pass the offline importer CLI → SQLite → vault acceptance tests. All **262 tests**
-now pass. Slice **7b is complete**: real Hugo/Ledger, Bluge and Pagefind
+passed at that milestone. Slice **7b is complete**: real Hugo/Ledger, Bluge and Pagefind
 acceptance passed after a Ledger subpath fix (`85ac1b0`). See the
-[live acceptance report](NOTRIOS_SITE_ACCEPTANCE.md). Next is **C7b**, implementation of the completed C7a compatibility decisions, before
-resuming large-corpus acceptance. Slice **7c remains incomplete**; isolated work
+[live acceptance report](NOTRIOS_SITE_ACCEPTANCE.md). C7a and C7b are complete:
+the frozen body/literal admission extension is implemented, all 264 regressions pass, old accepted outputs are byte-identical,
+and the new three-note Hugo/Bluge flow passes. Next is **C7c**, the refined
+semantic comparison and resume harness, before resuming large-corpus acceptance.
+Slice **7c remains incomplete**; isolated work
 and checkpoints are under `/media/$USER/HD2/movenotes-7c-20260916/`.
 Both recipe imports succeeded (382,206 documents each), but bounded real
 conversions refused input and semantic comparison differed. Full real trials
@@ -240,42 +243,46 @@ use another provider, model, effort or parent fallback.
 
 The following table is generated from
 [NOTRIOS_IMPORT_EXECUTION.json](NOTRIOS_IMPORT_EXECUTION.json). These are
-current Codex assignments confirmed for this session. Historical Luna assignments
-retain their originally planned `medium` effort in the per-slice records;
-future Luna work uses the available role's confirmed fixed `max` effort.
+recorded Codex assignments; the generated session status below distinguishes
+completed-work confirmation from availability required for new delegation.
+Historical Luna assignments retain their originally planned `medium` effort in
+the per-slice records; future Luna assignments retain configured fixed `max`
+effort, subject to the availability gate below.
 
 <!-- NOTRIOS-ASSIGNMENTS:START -->
-Session confirmation: **confirmed**.
+Session confirmation: **pending availability confirmation before new delegation**.
 
-2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c.
+2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c. C7b implementation and data-heavy validation used the confirmed assignments. After the usage-limit resume on 2026-09-17, runtime capacity changed to one total active agent; future delegated work requires restored availability confirmation or an explicitly approved reassignment.
 
 | Coding agent | Execution owner | Configured model | Reasoning effort | Availability | Billing route |
 |---|---|---|---|---|---|
 | codex | parent | not exposed | not exposed | Current parent runtime reports GPT-6 family only | not exposed; suitability confirmed by user for this session |
-| codex | luna_worker | gpt-5.6-luna | max | Available fixed role; update from historical medium confirmed | not exposed; suitability confirmed by user for this session |
-| codex | terra_worker | gpt-5.6-terra | medium | Available fixed role | not exposed; suitability confirmed by user for this session |
+| codex | luna_worker | gpt-5.6-luna | max | Configured fixed role; no child slot under resumed one-active-agent concurrency limit. Delegation previously succeeded for C7b. | not exposed; suitability confirmed by user for this session |
+| codex | terra_worker | gpt-5.6-terra | medium | Configured fixed role; no child slot under resumed one-active-agent concurrency limit. Delegation previously succeeded for C7b. | not exposed; suitability confirmed by user for this session |
 
 Runtime-reported parent family: **GPT-6**. Product/client version: not exposed; model provider: not exposed.
 
 - Worker model/effort values are runtime configuration, not proof of child execution.
 - Historical parent aliases/efforts were not recorded per slice; do not infer gpt-6-astra from the user's Astra label.
 - Future Luna assignments use fixed max effort, confirmed by the user for this session; historical medium assignments remain unchanged.
+- C7b completed under its prior confirmed assignments. Resumed one-active-agent concurrency leaves no child slot; C7c remains assigned Luna/max and cannot silently fall back to parent implementation.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **C7b — approved body/link compatibility changes**, assigned to
-Codex **`terra_worker`**, configured **`gpt-5.6-terra` / fixed `medium`**. C7a
-is complete: [decisions and evidence](NOTRIOS_COMPATIBILITY_REVIEW.md). Actual
-worker model/effort will be recorded only from execution evidence. Parent runtime
-family is GPT-6; exact parent alias/effort and billing metadata are not exposed.
-Existing session role/effort and billing suitability confirmation remains valid.
-C7b implementation still requires the user's next-slice instruction.
+Next slice: **C7c — semantic comparison and checkpoint/resume harness**, assigned
+to Codex **`luna_worker`**, configured **`gpt-5.6-luna` / fixed `max`**. C7b is
+complete: [decisions and validation](NOTRIOS_COMPATIBILITY_REVIEW.md). Parent
+runtime family is GPT-6; exact parent alias/effort and billing metadata are not
+exposed. The resumed runtime advertises one active agent total, so no child slot
+is currently available. Restore capacity and confirm availability before starting
+C7c, or obtain an explicit approved reassignment; do not substitute parent work.
+This does not change the recorded, previously confirmed C7b execution.
 
-Remaining sequence: C7b → C7c → P7a → P7b → P7c → resumed 7c. C7c/P7c use
-Luna / fixed max; P7a uses Main and P7b uses Terra / fixed medium. Every data-heavy
-run uses the user-required auxiliary Luna monitor and long notification waits.
-C7a does not waive the remaining real reference-link refusals or the producer tag
-difference; they must be reported and resolved or explicitly reviewed before full
-7c acceptance. Existing 7c ownership/history and Ledger `85ac1b0` remain unchanged.
+Remaining sequence: C7c → P7a → P7b → P7c → resumed 7c. P7a uses Main, P7b
+uses Terra / fixed medium and P7c uses Luna / fixed max. Every data-heavy run uses
+the user-required auxiliary Luna monitor and long notification waits. C7b does
+not waive remaining real reference-link refusals or the producer tag difference;
+all three original bounded publications still refuse unsupported link syntax.
+Existing 7c ownership/history and Ledger `85ac1b0` remain unchanged.
 
 ## Execution and agent handoff rules
 
@@ -521,7 +528,7 @@ binding until C7a explicitly revises it. No new producer/schema pin is implied.
 | Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
 | C7a / Main — complete | Diagnose real-body refusals and source/import differences; amend NOTRIOS_IMPORT_DESIGN.md and specify independent sanitized fixtures, comparison rules and mapper/version consequences. | Partial 7c evidence | Completed in NOTRIOS_COMPATIBILITY_REVIEW.md and the amended design: non-NUL body controls, narrow literal brackets, unchanged mapper/receipts conditional on identical old outputs, source-path comparison and explicit retained refusals. |
-| C7b / Terra | Implement only the C7a-approved body/link compatibility changes in notrios2sql.py, notrios_links.py and focused test_notrios2sql.py fixtures/tests; dependent serializer/exporter changes require Main's explicit scoped handoff. | C7a | Implement only the C7a decisions; positive/adversarial synthetic importer → SQL → vault → site checks and old-output equivalence pass. Retest original bounded publications and record remaining intentional refusals; Main reviews. No filtering to force success. |
+| C7b / Terra — complete | Implemented only the C7a-approved body/link compatibility changes in notrios2sql.py, notrios_links.py and focused test_notrios2sql.py fixtures/tests; dependent serializer/exporter changes require Main's explicit scoped handoff. | C7a | 264 regressions pass; immutable fixture payloads and reruns are byte-identical to baseline; independent three-note CLI/vault/Hugo/Bluge validation passes. Original bounded conversions still refuse unsupported link syntax; no notes filtered. Main reviewed. |
 | C7c / Luna | Implement the frozen semantic comparison and checkpoint/resume harness rules; retain generic scripts and sanitized aggregate evidence, keeping source data and per-note diagnostics private. | C7b | Duplicate-safe semantic comparison explains every category of difference; no title-only pairing or arbitrary YAML stripping; corrected checkpoint invalidation and one final notification demonstrated; Main reviews. |
 
 **Monitoring assignment for every data-heavy slice:** The user explicitly
@@ -880,6 +887,16 @@ transformations. Downstream synthetic probes preserved non-NUL C0 through vault
 and Hugo; search whitespace normalization is documented. No new runtime changes
 in C7a. Existing reference/unsupported syntax and tag differences remain 7c gates.
 See NOTRIOS_COMPATIBILITY_REVIEW.md for limits, independent C7b cases and evidence.
+
+C7b completed on 2026-09-17: assigned Terra implemented non-NUL C0 body
+preservation and narrow literal brackets, including parent-requested original-byte
+and conservative whitespace suffix checks. Luna ran baseline/candidate fixtures,
+264 regressions (145.292 s), bounded corpus retries and live checks with completion
+notifications. After the usage limit removed children, parent finished the small
+unminified-Hugo/Bluge follow-up without repeating completed runs. Three old fixture
+payloads match baseline exactly; the new three-note flow passes. Three real
+bounded conversions still refuse unsupported link syntax, so 7c remains incomplete.
+Next: C7c (Luna / max), pending restored worker capacity and slice authorization.
 
 <!-- NOTRIOS-EXECUTION:START -->
 <details><summary>1a — complete; planned parent</summary>
@@ -1636,7 +1653,7 @@ See NOTRIOS_COMPATIBILITY_REVIEW.md for limits, independent C7b cases and eviden
 
 </details>
 
-<details><summary>C7b — pending; planned terra_worker</summary>
+<details><summary>C7b — complete; planned terra_worker</summary>
 
 | Property | Value |
 |---|---|
@@ -1644,21 +1661,21 @@ See NOTRIOS_COMPATIBILITY_REVIEW.md for limits, independent C7b cases and eviden
 | Planned worker | terra_worker |
 | Planned configured model | gpt-5.6-terra |
 | Planned reasoning effort | medium |
-| Assignment confirmation | Existing Codex role/model/effort and billing suitability confirmed for unchanged session; user authorized compatibility plan revision, implementation pending slice authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
-| Delegation failure or reassignment | none recorded |
+| Assignment confirmation | User: Proceed with C7b; unchanged confirmed Codex assignments and long notification monitoring. |
+| Actual worker | terra_worker (implementation); luna_worker (validation) |
+| Child thread | /root/notrios_c7b; /root/c7b_validation |
+| Actual model | not exposed — configured worker models are not execution evidence |
+| Reasoning effort | not exposed independently — configured Terra medium and Luna max |
+| Worker contribution | Terra implemented non-NUL C0 body admission, conservative flat literal brackets and independent positive/adversarial regressions; corrected masked-escape/backtick acceptance and C0/Unicode suffix handling after parent review. Luna ran baseline/candidate fixtures, the full five-module suite, original bounded corpus conversions and initial live builds using blocking completion notifications. |
+| Parent | Codex; exact model not exposed |
+| Parent underlying model family | GPT-6 (runtime-reported) |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Scoped Terra delegation and reviewed the implementation; requested original-byte and suffix-validation corrections. Prepared frozen baseline and independent validation harnesses, repaired checkpoint/output path collision and distinguished minified HTML whitespace from exact preserved bytes. After usage-limit registry confirmed no children and a one-time process check found no active validation, finished only the remaining three-note unminified-Hugo/Bluge check in one blocking invocation. Reviewed evidence/source fingerprints, updated design/plan/provenance and committed C7b. |
+| Validation | Worker focused tests passed. All 264 five-module regressions passed in 145.292s with both bytecode controls. Three immutable fixture payloads match baseline 5b2a7e2 exactly (15 files / 376112 bytes); imports and unchanged reruns pass. Independent three-note CLI/vault/Hugo/Bluge passes, including exact non-NUL C0 preservation in SQLite/RAW/vault/unminified HTML and documented HTML/search whitespace projections. All three original 1000-document conversions still refuse unsupported link syntax: retained 7c blockers, not acceptance passes. Final runtime source fingerprints match the passing suite. Diff, document links and generated attribution checked. |
+| Delegation failure or reassignment | No implementation reassignment. Initial live harness output/checkpoint collision and overstrict minified-HTML assertion were corrected with historical failures retained. Usage limit removed completed worker threads; no agents survived on registry check. Parent performed remaining small final validation within its existing review/validation scope, without repeating data-heavy runs. Resumed runtime now has one active-agent slot; future delegation requires restored capacity or approved reassignment. |
 | Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md compatibility prerequisites added 2026-09-17 |
-| Execution evidence | User: revise the plan to address these compatibility gaps before resuming 7c; User explicitly required the same long-notification monitoring for data-heavy updated slices. |
-| Commit | none — pending |
+| Execution evidence | User: revise the plan to address these compatibility gaps before resuming 7c; User explicitly required the same long-notification monitoring for data-heavy updated slices.; User: Proceed with C7b; Native spawn /root/notrios_c7b and /root/c7b_validation; Baseline 5b2a7e2; /tmp/movenotes-c7b-validate.py and /tmp/movenotes-c7b-live.py; NOTRIOS_COMPATIBILITY_REVIEW.md C7b implementation and validation; Private /media/$USER/HD2/movenotes-c7b-20260917 baseline/candidate/live notifications and regression log; Worker final handoff /root/notrios_c7b; monitor handoffs /root/c7b_validation; User resumed C7b after usage limit and required liveness check; registry returned only parent; Parent final live script exit 0; runtime hashes match passing regression checkpoint |
+| Commit | Git commit containing this completion record: feat: admit preserved Notrios controls and literal brackets |
 
 </details>
 
@@ -1670,7 +1687,7 @@ See NOTRIOS_COMPATIBILITY_REVIEW.md for limits, independent C7b cases and eviden
 | Planned worker | luna_worker |
 | Planned configured model | gpt-5.6-luna |
 | Planned reasoning effort | max |
-| Assignment confirmation | Existing Codex role/model/effort and billing suitability confirmed for unchanged session; user authorized compatibility plan revision, implementation pending slice authorization. |
+| Assignment confirmation | Prior Codex role/model/effort and billing suitability confirmation preserved historically. New delegation pending: resumed runtime has one total active-agent slot; restore capacity and confirm availability before implementing C7c, or obtain explicit reassignment. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |

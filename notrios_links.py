@@ -133,19 +133,101 @@ def _protected_body(body):
     return visible
 
 
+_REFERENCE_DEFINITION = re.compile(
+    rb"(?m)^[ \t]*(?:(?:>[ \t]*)|(?:[-+*][ \t]+)|(?:[0-9]+[.)][ \t]+))*"
+    rb"\[[^][\r\n]+\][ \t]*:")
+
+
+def _has_reference_ambiguity(visible):
+    """Reject reference syntax before treating any bracket pair as prose.
+
+    A shortcut use is indistinguishable from a literal pair without resolving
+    the complete note, so a possible definition anywhere makes every proposed
+    literal pair ambiguous. The visible buffer excludes protected code/fences
+    and escaped punctuation.
+    """
+    return _REFERENCE_DEFINITION.search(visible) is not None
+
+
+def _space_width(value, position):
+    """Return one UTF-8 whitespace width, treating C0 separators cautiously."""
+    first = value[position]
+    if first < 0x20:
+        # The importer admits body controls, but they cannot hide a suffix that
+        # would otherwise make a bracket pair active Markdown syntax.
+        return 1
+    if first < 0x80:
+        return 1 if first == 0x20 else 0
+    width = 2 if first & 0xe0 == 0xc0 else 3 if first & 0xf0 == 0xe0 else 4 if first & 0xf8 == 0xf0 else 0
+    if not width or position + width > len(value):
+        return 0
+    try:
+        return width if value[position:position + width].decode("utf-8").isspace() else 0
+    except UnicodeDecodeError:
+        return 0
+
+
+def _literal_end(visible, original, start):
+    """Classify one deliberately flat literal bracket pair, or refuse."""
+    if start and visible[start - 1:start] == b"!":
+        _refuse("unsupported or unaccounted active link syntax")
+    end = start + 1
+    while end < len(visible) and visible[end:end + 1] not in (b"]", b"\r", b"\n"):
+        char = visible[end]
+        if char in (ord("["), ord("\\"), ord("`")):
+            _refuse("unsupported or unaccounted active link syntax")
+        end += 1
+    if end == start + 1 or end == len(visible) or visible[end] != ord("]"):
+        _refuse("unsupported or unaccounted active link syntax")
+    end += 1
+    # Protection can mask escaped punctuation or inline code. Such a pair is
+    # never literal prose; compare its original bytes before accepting it.
+    if visible[start:end] != original[start:end]:
+        _refuse("unsupported or unaccounted active link syntax")
+    # A reference use or malformed inline destination can be separated from its
+    # label by whitespace. Do not let the literal exception swallow either.
+    suffix = end
+    while suffix < len(visible):
+        width = _space_width(visible, suffix)
+        if not width:
+            break
+        suffix += width
+    if suffix < len(visible) and visible[suffix] in (ord("["), ord("(")):
+        _refuse("unsupported or unaccounted active link syntax")
+    return end
+
+
 def scan_markdown(body: bytes):
-    """Yield complete active tokens with authoritative UTF-8 byte offsets."""
+    """Yield complete active tokens with authoritative UTF-8 byte offsets.
+
+    Flat bracket prose is admitted only after a whole-note check rules out
+    active reference definitions. It remains invisible to link accounting.
+    """
     visible = _protected_body(body)
     position = 0
+    checked_references = False
     while found := _INTERESTING.search(visible, position):
-        token = _INLINE.match(visible, found.start())
-        if token is None or visible[token.start():token.end()] != body[token.start():token.end()]:
+        start = found.start()
+        token = _INLINE.match(visible, start)
+        if token is not None and visible[token.start():token.end()] == body[token.start():token.end()]:
+            destination = token[3]
+            base, separator, fragment = destination.partition(b"#")
+            yield Token(token.start(), token.end(), bool(token[1]), token[2], destination,
+                        base, fragment if separator else None, token.start(3), token.end(3))
+            position = token.end()
+            continue
+        if visible[start:start + 1] != b"[":
             _refuse("unsupported or unaccounted active link syntax")
-        destination = token[3]
-        base, separator, fragment = destination.partition(b"#")
-        yield Token(token.start(), token.end(), bool(token[1]), token[2], destination,
-                    base, fragment if separator else None, token.start(3), token.end(3))
-        position = token.end()
+        if not checked_references:
+            checked_references = True
+            if _has_reference_ambiguity(visible):
+                _refuse("unsupported or unaccounted active link syntax")
+        end = _literal_end(visible, body, start)
+        # Do not advance over an apparent literal pair and hide an internal
+        # target from the normal accounting path.
+        if re.search(_INTERNAL, visible[start:end], re.I):
+            _refuse("unsupported or unaccounted active link syntax")
+        position = end
 
 
 def _fragment(fragment, limits):

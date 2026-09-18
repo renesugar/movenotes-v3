@@ -1,8 +1,9 @@
 # C7a compatibility decisions and evidence
 
 C7a is a design/diagnosis slice, completed on 2026-09-17. Its implementation is
-C7b; refined whole-corpus comparison is C7c. Existing runtime still refuses these
-newly admitted cases. This report does not mark 7c complete or waive its gates.
+C7b; refined whole-corpus comparison is C7c. At C7a completion, runtime still
+refused these newly admitted cases; C7b implementation evidence is recorded
+below. This report does not mark 7c complete or waive its gates.
 
 Codex parent owns these decisions (runtime family GPT-6; exact model/effort not
 exposed). User-authorized `luna_worker`, configured `gpt-5.6-luna` / fixed `max`,
@@ -211,3 +212,59 @@ join/frontmatter tests for duplicate titles, duplicate identities, renamed/missi
 paths, altered snapshots, unsupported YAML, quoted titles, mismatched tags and
 unexplained body changes. Full runtime regression and live affected-path gates
 belong to C7b/C7c; this documentation slice does not claim those future tests pass.
+
+## C7b implementation and validation
+
+Terra (`/root/notrios_c7b`, configured `gpt-5.6-terra` / fixed `medium`)
+implemented the C7b body guard, conservative literal scanner and two new
+regression methods; the slice completed on 2026-09-17. Parent reviewed the original-byte/protected-byte distinction and
+requested escape/backtick and C0/Unicode-whitespace suffix regressions. Literal
+spans must be identical in the original and protected projections; every C0
+separator and Unicode whitespace is handled conservatively before a potential
+reference/destination suffix. Previously valid active link checks are unchanged.
+No mapper, receipt, source schema, tag projection or immutable fixture changed.
+
+Luna (`/root/c7b_validation`, configured `gpt-5.6-luna` / fixed `max`) ran the
+prepared scripts using blocking completion and terminal notifications. Actual
+child models/efforts are not independently exposed. Private results are under
+`/media/$USER/HD2/movenotes-c7b-20260917/`.
+
+- Baseline is the frozen `5b2a7e2` checkout. All three committed publication
+  fixtures imported and reran unchanged. Candidate payload inventories match
+  baseline exactly: 15 files / 376,112 bytes across schema-27/schema-28 resource
+  publications and the schema-28 text publication. Candidate no-ops also retain
+  exact payload inventories, IDs and receipts.
+- Full five-module regression: **264 tests passed in 145.292 seconds**, with
+  `PYTHONDONTWRITEBYTECODE=1` and `python3 -B`. Focused worker tests passed before
+  final validation. Source fingerprints bind candidate checkpoints to tested code.
+- Each original 1,000-document real publication was retried using its reviewed
+  selection digest. All three still refuse unsupported/unaccounted active link
+  syntax. No notes were filtered and no full corpus ingestion was repeated.
+  These remain failures for 7c, not passing integrations.
+- Independent live synthetic CLI/vault/Hugo/Bluge validation passed: three
+  notes imported and reran unchanged, exact body bytes survived SQLite/RAW/vault,
+  literal brackets remained prose, Hugo builds succeeded, and Bluge indexed all
+  three notes. All 28 tested non-NUL C0 values survived unminified HTML; minified
+  HTML normalized U+000C, and search normalized U+000B/U+000C/U+001C–U+001F as
+  documented whitespace projections.
+  The first site attempt exposed a harness log/output directory collision;
+  fresh vault/site output paths now separate artifacts from checkpoint logs.
+  A subsequent assertion identified form-feed normalization by Hugo minification;
+  the harness now checks exact unminified HTML separately and records minified
+  HTML whitespace normalization, without relaxing storage/vault preservation.
+  Failed attempts are retained, with no force-overwrite or runtime workaround.
+
+After the usage limit, the agent registry showed no surviving children. The
+parent verified that no validation script was running and completed only the
+remaining three-note unminified-Hugo/Bluge steps in one blocking invocation
+(about 1.6 seconds), as final parent validation. Completed regressions, fixture
+imports and corpus trials were reused; runtime source fingerprints still match
+the passing 264-test checkpoint. No implementation ownership changed.
+
+Canonical evidence: `baseline-notification.json`, `candidate-notification.json`,
+`regressions/stderr.log`, per-fixture inventory files, per-route bounded refusal
+logs, and `live/result.json` / `live-notification.json`. Final replay scripts
+are `movenotes-c7b-validate-final-20260917.py` and
+`movenotes-c7b-live-final-20260917.py` in that private work directory. The
+existing reference/unclosed/unsupported syntax policy and source-to-route tag differences still block complete 7c
+acceptance; C7c must quantify comparison differences without hiding those limits.

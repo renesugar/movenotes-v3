@@ -167,7 +167,10 @@ def _body(archive, revision, limits):
         text = data.decode("utf-8")
     except UnicodeDecodeError:
         raise NotriosError("conversion", "current body is not UTF-8") from None
-    if text.startswith("\ufeff") or any(ord(c) < 32 and c not in "\t\r\n" for c in text):
+    # Body text is opaque UTF-8 Markdown. Non-NUL C0 bytes are preserved exactly;
+    # link destinations, fragments, identities, and filenames retain their own
+    # stricter validation in their respective parsers.
+    if text.startswith("\ufeff") or "\x00" in text:
         raise NotriosError("conversion", "current body contains unsupported control characters")
     return text
 
