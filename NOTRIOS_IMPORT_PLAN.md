@@ -27,8 +27,8 @@ and the new three-note Hugo/Bluge flow passes. **C7c is complete**: the
 [comparison and resume harness](NOTRIOS_C7C_EVIDENCE.md) accounts for all
 382,206 source identities per recipe route, with zero unexplained source-to-route
 body/metadata/title differences. Tag channels remain separate; route equivalence
-and full 7c acceptance are not claimed. Next is **P7a**, the parent-owned
-performance investigation, before resuming large-corpus acceptance.
+and full 7c acceptance are not claimed. **P7a is complete**; see [performance evidence](NOTRIOS_PERFORMANCE_EVIDENCE.md).
+Next is **P7b**, isolated measured candidates, before large-corpus acceptance.
 Slice **7c remains incomplete**; isolated work
 and checkpoints are under `/media/$USER/HD2/movenotes-7c-20260916/`.
 Both recipe imports succeeded (382,206 documents each), but bounded real
@@ -272,16 +272,16 @@ Runtime-reported parent family: **GPT-6**. Product/client version: not exposed; 
 - Runtime capacity restored to two total active agents, allowing parent plus one assigned worker. C7c delegated to Luna/max after explicit conditional authorization and capacity verification.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **P7a — performance findings audit and profiling**, assigned to
-Codex **parent (Main)**. Runtime family is **GPT-6**; exact parent model alias,
-reasoning effort and billing metadata are not exposed. Data-heavy execution and
-monitoring remain assigned to **`luna_worker` / `gpt-5.6-luna` / fixed `max`**.
-Two runtime slots permit the parent plus one worker; no reassignment is needed.
-C7c used `/root/c7c_harness` and is complete as a comparison/harness slice,
-not as approval of route equivalence or full 7c acceptance.
+Next slice: **P7b — isolated performance candidates**, assigned to Codex
+**`terra_worker` / `gpt-5.6-terra` / fixed `medium`**. Parent runtime family is
+GPT-6; exact parent alias/effort and billing route are not exposed. Existing
+session suitability confirmation remains in force. P7a's
+[findings, ownership handoff and benchmark protocol](NOTRIOS_PERFORMANCE_EVIDENCE.md)
+are binding. Data-heavy execution uses `luna_worker` / `gpt-5.6-luna` / fixed
+`max`; with two total slots, stage Terra implementation and Luna execution.
+P7a investigated all three reviews without adopting production optimizations.
 
-Remaining sequence: P7a → P7b → P7c → resumed 7c. P7b uses Terra / fixed
-medium and P7c uses Luna / fixed max. Every data-heavy run uses long completion
+Remaining sequence: P7b → P7c → resumed 7c. Every data-heavy run uses long completion
 notification waits. Preserve C7c's documented differences: RAW's 842,813 tag
 associations versus vault zero, RAW metadata projection omission, and 3,682
 pinned title representations. The original bounded publications still encounter
@@ -671,7 +671,19 @@ billing metadata. Their data-heavy work uses the same mandatory auxiliary Luna
 monitor, OS completion waits and long parent notification waits as C7a–C7c.
 No costly repeated imports should require main-model progress polling.
 
-**Review findings register (all are hypotheses until P7a verifies them):**
+**P7a completed audit:** [performance evidence](NOTRIOS_PERFORMANCE_EVIDENCE.md)
+classifies F01–F15 and the additional Notrios review G01–G10, records separate
+correctness defects C01/C02, and freezes the P7b handoff. The Notrios review at
+`~/projects/notrios/performance-code-review.md` is a required third
+input. Current Notrios batching is already implemented; its independent newer
+full-corpus timings cannot substitute for controlled acceptance-pin comparisons.
+The historical Go gap remains quantitatively unresolved. Python preserved import
+has a reproduced unindexed folder-parent lookup bottleneck. Candidate gains remain
+unproven until P7c. Every long batch must retain per-case outputs, terminal status
+and an artifact manifest with directory purposes/sizes for future cleanup decisions;
+use `scripts/notrios_p7a_artifacts.py` or the equivalent for that harness.
+
+**Original review findings register (dispositions now in the evidence report):**
 
 | ID / source | Finding to investigate | Required applicability and correctness checks |
 |---|---|---|
@@ -867,6 +879,7 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-16 | 7b complete | Codex parent ran the real current-schema fixture through the CLI/vault and Hugo/Ledger with separate Bluge and Pagefind builds, then Chromium at /archive/ on desktop/mobile. Found Bluge result URLs missing the prefix; fixed the theme adapter with a regression in Ledger `85ac1b0` (approved external-checkout write), rebuilt both sites and reran checks. Both builds have 24 HTML pages; Pagefind indexed 3 notes/74 words. Tag/taxonomy counts agree (3/1/1/1), links/attachments/receipts and backend isolation pass, all ten excluded sentinels and two receipt digests return no search results, and browser console/HTTP checks are clean. Sixteen theme JS tests and all 262 Python regressions passed (150.295s). Initial Hugo sandbox cache failure resolved with approved cache access. Reusable fixture-only harnesses and NOTRIOS_SITE_ACCEPTANCE.md capture tools, pins, commands, limits and evidence. User resumed after usage limit; no worker/reassignment. No scale claims. Next: ask to proceed to 7c (Main). |
 
 | 2026-09-18 | C7c complete | Delegated to Codex luna_worker /root/c7c_harness (configured gpt-5.6-luna / fixed max; actual model/effort not independently exposed). Added semantic comparator, paired smoke, durable child receipts and PIDFD monitor. Parent review found stale-result, duplicate, publication, parser and quadratic-query issues; worker corrected them with targeted and 20k scale tests, preserving failed attempts. Final v6 comparison covered 382,206 source records per route: all identities/bodies match, vault metadata matches, 3,682 title representations explained, zero unexplained source-to-route differences. RAW 842,813 / vault 0 tag associations remain separate; semantic_equal remains false. All three bounded publications verify (Joplin 987 exact + 13 privacy projections). Runtime 5,174s, peak RSS 336,784 KiB; no full 7c acceptance. Existing 264 tests passed; final focused validation and reproduction details in NOTRIOS_C7C_EVIDENCE.md. Next: ask to proceed to P7a (Main; Luna/max monitoring). |
+| 2026-09-18 | P7a complete | Parent audited all three reviews and wrote profiling/probe/inventory scripts; Luna /root/p7a_monitor executed sequential batches with long completion waits. Synthetic 2,000-note Python/Go profiling and unprofiled sanity runs complete; Python preserved fresh 249.098s unprofiled, with unindexed folder lookup dominating its profile. Current Notrios already batches imports; old Go gap remains quantitatively unresolved. Two inventory tests and baseline probes passed. See NOTRIOS_PERFORMANCE_EVIDENCE.md for dispositions, manifests and frozen candidate handoff. No production optimization adopted. Next: ask to proceed P7b, Terra/fixed medium; Luna/fixed max for staged large-run monitoring. |
 
 ## Attribution amendment — 2026-09-14
 
@@ -1712,7 +1725,7 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 </details>
 
-<details><summary>P7a — pending; planned parent</summary>
+<details><summary>P7a — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -1720,21 +1733,21 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Planned worker | parent |
 | Planned configured model | not exposed |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Existing Codex assignments and billing suitability confirmed for unchanged session; performance plan revision authorized, implementation pending slice authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
-| Delegation failure or reassignment | none recorded |
+| Assignment confirmation | User: Proceed with P7a. Existing confirmed Codex roles/efforts/billing suitability retained; two slots permit parent and auxiliary Luna monitor. |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Codex |
+| Parent underlying model family | GPT-6 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Audited three reviews, pinned/current sources and profiles; authored sequential profile/timing harness, probes, artifact inventories, tests and evidence report; froze candidate ownership and benchmark protocol. No production importer edits. |
+| Validation | 30-note smoke; completed 2000-note Python/pinned-Go multi-route profiling; three unprofiled fresh imports; five baseline probes; two artifact-inventory tests. See NOTRIOS_PERFORMANCE_EVIDENCE.md. |
+| Delegation failure or reassignment | No reassignment. Parent owns P7a investigation; auxiliary Luna owns data-heavy execution and monitoring. |
 | Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17 |
-| Execution evidence | User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement. |
-| Commit | none — pending |
+| Execution evidence | User authorization: Proceed with P7a; additional requested Notrios review ~/projects/notrios/performance-code-review.md.; Native monitor /root/p7a_monitor; scripts/notrios_p7a_profile.py and scripts/notrios_p7a_probes.py.; NOTRIOS_PERFORMANCE_EVIDENCE.md; Private completed monitor and unprofiled roots under /media/$USER/HD2/movenotes-p7a-20260918-*: manifests, notification.json, profiles/results and ARTIFACT_MANIFEST.json. |
+| Commit | P7a completion commit (contains this ledger) |
 
 </details>
 
