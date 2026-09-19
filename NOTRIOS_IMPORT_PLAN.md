@@ -29,7 +29,9 @@ and the new three-note Hugo/Bluge flow passes. **C7c is complete**: the
 body/metadata/title differences. Tag channels remain separate; route equivalence
 and full 7c acceptance are not claimed. **P7a is complete**; see [performance evidence](NOTRIOS_PERFORMANCE_EVIDENCE.md).
 **P7b is complete**; see [candidate evidence](NOTRIOS_P7B_EVIDENCE.md).
-Next is **P7c**, broader candidate validation, before large-corpus acceptance.
+**P7c is partially validated but blocked** by fresh-import ID lookups that scan
+the growing table. Next is **P7b2**, a bounded lookup fix, before P7c resumes.
+See [P7c evidence](NOTRIOS_P7C_EVIDENCE.md).
 Slice **7c remains incomplete**; isolated work
 and checkpoints are under `/media/$USER/HD2/movenotes-7c-20260916/`.
 Both recipe imports succeeded (382,206 documents each), but bounded real
@@ -273,19 +275,21 @@ Runtime-reported parent family: **GPT-6**. Product/client version: not exposed; 
 - Runtime capacity restored to two total active agents, allowing parent plus one assigned worker. C7c delegated to Luna/max after explicit conditional authorization and capacity verification.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **P7c — broader candidate validation**, assigned to Codex
-**`luna_worker` / `gpt-5.6-luna` / fixed `max`**. Parent runtime family is GPT-6;
-exact parent alias/effort and billing route are not exposed. Existing session
-suitability confirmation remains in force. P7b's
-[candidate evidence and limitations](NOTRIOS_P7B_EVIDENCE.md) guide execution.
-Validate isolated Python F02/F04, unchanged/small-merge and resource/memory cases
-before route-specific full confirmation. Reuse the completed matching subsets.
-The Go G08 experiment is rejected for regressions; it must not enter full-corpus
-acceptance. No Go candidate is currently approved for full performance trials.
-Deferred producer implementations require a new explicit Terra handoff; P7c's
-Luna assignment does not authorize silent implementation substitution.
+Next slice: **P7b2 — bound fresh-import ID lookup**, assigned to Codex
+**`terra_worker` / `gpt-5.6-terra` / fixed `medium`**, pending slice authorization.
+P7c remains incomplete: its full Python native baseline was interrupted at
+17,943.11s while executing unindexed batch-ID lookups. See
+[P7c evidence and bounded handoff](NOTRIOS_P7C_EVIDENCE.md). Preserve C01/C02 and
+measure index maintenance, fresh/unchanged/tiny merges and rollback. Parent review
+precedes resumed **P7c / `luna_worker` / `gpt-5.6-luna` / fixed `max`** validation.
+Parent family GPT-6; exact parent alias/effort and billing route are not exposed.
+The existing session suitability confirmation remains in force.
 
-Remaining sequence: P7c → resumed 7c, subject to the unresolved performance and
+F02/F04 subset gains and exact output comparisons are retained, but full-corpus
+adoption is not claimed. Rejected Go G08 stays out of full trials; no Go candidate
+is approved. Deferred producer implementation needs an explicit Terra handoff.
+
+Remaining sequence: P7b2 → resumed P7c → resumed 7c, subject to the unresolved performance and
 compatibility gates. Every data-heavy run uses long completion
 notification waits. Preserve C7c's documented differences: RAW's 842,813 tag
 associations versus vault zero, RAW metadata projection omission, and 3,682
@@ -669,7 +673,8 @@ Historical runs are observations, not controlled speedup baselines.
 |---|---|---|---|
 | P7a / Main | Audit every review claim against pinned/current code; trace the actual producer and Python paths, profile representative imports, freeze benchmark protocol and candidate handoffs in a sanitized performance evidence document. | C7c | Each finding classified with source and measurement evidence; dominant contributors to the observed gap identified or explicitly unresolved; baseline and candidate scope separated by executable. |
 | P7b / Terra | Implement isolated, profile-supported candidates approved by P7a, with focused correctness/performance regressions. Own only explicitly handed-off importer/helpers/tests; use a separate bounded candidate per experiment. | P7a | Each candidate preserves invariants and has a reproducible baseline comparison; ineffective/regressing candidates are rejected, not bundled into production. Main reviews before promotion. |
-| P7c / Luna | Execute the frozen sequential benchmark matrix, monitored full-corpus confirmation and final regression/recovery commands; prepare aggregate findings dispositions and reproducible scripts. | P7b | Repeatable performance improvement demonstrated for each adopted change; paired route times, gap/ratio, resources and correctness evidence reported. Main decides adoption and reviews any unmet target before resumed 7c. |
+| P7b2 / Terra | Bound fresh-import ID lookups before each batch; preserve collision/rollback semantics and compare complete import cost. Own Python importer, narrowly needed database helper, tests and candidate harness only. | P7c scale finding | Representative fresh/unchanged/merge checks pass; no growing-table scan per batch; measured candidate ready for resumed P7c. |
+| P7c / Luna | Execute the frozen sequential benchmark matrix, monitored full-corpus confirmation and final regression/recovery commands; prepare aggregate findings dispositions and reproducible scripts. | P7b; P7b2 for scale-blocker resume | Repeatable performance improvement demonstrated for each adopted change; paired route times, gap/ratio, resources and correctness evidence reported. Main decides adoption and reviews any unmet target before resumed 7c. |
 
 P7a/P7b/P7c retain the existing Codex model/effort assignments and unknown runtime
 billing metadata. Their data-heavy work uses the same mandatory auxiliary Luna
@@ -880,6 +885,7 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-18 | C7c complete | Delegated to Codex luna_worker /root/c7c_harness (configured gpt-5.6-luna / fixed max; actual model/effort not independently exposed). Added semantic comparator, paired smoke, durable child receipts and PIDFD monitor. Parent review found stale-result, duplicate, publication, parser and quadratic-query issues; worker corrected them with targeted and 20k scale tests, preserving failed attempts. Final v6 comparison covered 382,206 source records per route: all identities/bodies match, vault metadata matches, 3,682 title representations explained, zero unexplained source-to-route differences. RAW 842,813 / vault 0 tag associations remain separate; semantic_equal remains false. All three bounded publications verify (Joplin 987 exact + 13 privacy projections). Runtime 5,174s, peak RSS 336,784 KiB; no full 7c acceptance. Existing 264 tests passed; final focused validation and reproduction details in NOTRIOS_C7C_EVIDENCE.md. Next: ask to proceed to P7a (Main; Luna/max monitoring). |
 | 2026-09-18 | P7a complete | Parent audited all three reviews and wrote profiling/probe/inventory scripts; Luna /root/p7a_monitor executed sequential batches with long completion waits. Synthetic 2,000-note Python/Go profiling and unprofiled sanity runs complete; Python preserved fresh 249.098s unprofiled, with unindexed folder lookup dominating its profile. Current Notrios already batches imports; old Go gap remains quantitatively unresolved. Two inventory tests and baseline probes passed. See NOTRIOS_PERFORMANCE_EVIDENCE.md for dispositions, manifests and frozen candidate handoff. No production optimization adopted. Next: ask to proceed P7b, Terra/fixed medium; Luna/fixed max for staged large-run monitoring. |
 | 2026-09-18 | P7b complete | Terra /root/p7b_candidates implemented F02/F04 Python candidates, C01/C02 collision fixes, comparison/long-batch scripts and disposable Go G08 experiment. Luna monitored sequential validation; 299 Python tests passed, all 18 completed imports match after narrowly correcting generated timestamp comparison. Native/preserved median subset times fall 15.1%/94.6%; RAW control median is 2.9% higher within observed variability. Both Go suites pass, but G08 regresses no-link/long-line benchmarks and is rejected. Usage interruption was recovered after registry checks; /root/p7b_monitor_resume ran only remaining stages. See NOTRIOS_P7B_EVIDENCE.md; full-corpus adoption remains P7c, Luna/fixed max. |
+| 2026-09-19 | P7c partial — blocked | Luna authored isolated variants/harness and ran synthetic matrices; parent reviewed and ran final real-data validation after worker tool approval stalls. Isolated F02 preserved subset improves94.4%; F04 real10k fresh/unchanged improves26.3%/35.7%, all outputs match. Full native baseline interrupted at17,943.11s in unindexed batch-ID lookup; candidate not run. No full acceptance or Go goal claim. P7b2 Terra/medium is the next prerequisite; retain failed/complete evidence and long notification monitoring. |
 
 ## Attribution amendment — 2026-09-14
 
@@ -1777,15 +1783,15 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 </details>
 
-<details><summary>P7c — pending; planned luna_worker</summary>
+<details><summary>P7b2 — pending; planned terra_worker</summary>
 
 | Property | Value |
 |---|---|
 | Coding agent | codex |
-| Planned worker | luna_worker |
-| Planned configured model | gpt-5.6-luna |
-| Planned reasoning effort | max |
-| Assignment confirmation | Existing Codex assignments and billing suitability confirmed for unchanged session; performance plan revision authorized, implementation pending slice authorization. |
+| Planned worker | terra_worker |
+| Planned configured model | gpt-5.6-terra |
+| Planned reasoning effort | medium |
+| Assignment confirmation | Existing Codex role/effort/billing suitability applies; new slice implementation requires authorization. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -1797,9 +1803,35 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Parent contribution | pending |
 | Validation | pending |
 | Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | P7c full-scale finding; NOTRIOS_P7C_EVIDENCE.md |
+| Execution evidence | P7c stopped full baseline in _existing_import_hashes; EXPLAIN SCAN notes before index. |
+| Commit | pending |
+
+</details>
+
+<details><summary>P7c — in progress; planned luna_worker</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | codex |
+| Planned worker | luna_worker |
+| Planned configured model | gpt-5.6-luna |
+| Planned reasoning effort | max |
+| Assignment confirmation | User: Proceed with P7c. Existing Codex roles, efforts and billing suitability confirmed for unchanged session. |
+| Actual worker | luna_worker |
+| Child thread | /root/p7c_validation |
+| Actual model | not exposed |
+| Reasoning effort | not exposed |
+| Worker contribution | Authored variants, matrix/long-batch/subset/merge harnesses and tests; executed synthetic isolated F02/F04 and RAW control matrices. Prepared remaining final-validation commands. |
+| Parent | Codex |
+| Parent underlying model family | GPT-6 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Reviewed resume/input/metric correctness; launched real10k and fullnative/final prepared tests after worker external-tool approval stalls; long tool-side waits. Interrupted full baseline at17,943.11s, traced unindexed batch lookup and confirmed EXPLAIN/VM scaling. Added P7b2 prerequisite; no production edits. |
+| Validation | Isolated synthetic and real10k comparisons match. Corrected prepared-seed5pairs match; smallmerge slower/noisy remains unresolved. Fullbaseline interrupted17943.11s in unindexed lookup, candidate not run. Ten focused harness tests pass. Full acceptance blocked; NOTRIOS_P7C_EVIDENCE.md. |
+| Delegation failure or reassignment | Worker external ps/approval calls stalled; parent final-validation launches and long tool waits used after confirming no active process. Worker could not access parent terminal session. No implementation reassignment. |
 | Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17 |
-| Execution evidence | User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement. |
-| Commit | none — pending |
+| Execution evidence | User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement.; User: Proceed with P7c; native spawn /root/p7c_validation; NOTRIOS_P7C_EVIDENCE.md; Private movenotes-p7c-* HD2 manifests, source hashes, results, failed full trial and child traceback. |
+| Commit | P7c partial-evidence checkpoint (contains this ledger) |
 
 </details>
 

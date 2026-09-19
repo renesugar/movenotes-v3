@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "plan": "NOTRIOS_IMPORT_PLAN.md",
-  "updated": "2026-09-18",
+  "updated": "2026-09-19",
   "session": {
     "coding_agent": "codex",
     "product_role": "Codex",
@@ -1118,20 +1118,51 @@
       "parent_reasoning_effort": "pending",
       "parent_contribution": "pending",
       "validation": "pending",
-      "id": "P7c",
+      "id": "P7b2",
       "coding_agent": "codex",
       "status": "pending",
+      "planned_worker": "terra_worker",
+      "configured_model": "gpt-5.6-terra",
+      "configured_reasoning_effort": "medium",
+      "assignment_confirmation": "Existing Codex role/effort/billing suitability applies; new slice implementation requires authorization.",
+      "delegation_required": true,
+      "planned_assignment_evidence": "P7c full-scale finding; NOTRIOS_P7C_EVIDENCE.md",
+      "delegation_failure_or_reassignment": "none recorded",
+      "evidence": [
+        "P7c stopped full baseline in _existing_import_hashes; EXPLAIN SCAN notes before index."
+      ],
+      "commit": "pending",
+      "planned_work": "Bound fresh-import ID lookup, preserve collision/rollback semantics, measure total import cost before resumed P7c.",
+      "billing_route": "not exposed; existing session suitability confirmed"
+    },
+    {
+      "actual_worker": "luna_worker",
+      "child_thread": "/root/p7c_validation",
+      "actual_model": "not exposed",
+      "reasoning_effort": "not exposed",
+      "worker_contribution": "Authored variants, matrix/long-batch/subset/merge harnesses and tests; executed synthetic isolated F02/F04 and RAW control matrices. Prepared remaining final-validation commands.",
+      "parent": "Codex",
+      "parent_underlying_model_family": "GPT-6",
+      "parent_reasoning_effort": "not exposed",
+      "parent_contribution": "Reviewed resume/input/metric correctness; launched real10k and fullnative/final prepared tests after worker external-tool approval stalls; long tool-side waits. Interrupted full baseline at17,943.11s, traced unindexed batch lookup and confirmed EXPLAIN/VM scaling. Added P7b2 prerequisite; no production edits.",
+      "validation": "Isolated synthetic and real10k comparisons match. Corrected prepared-seed5pairs match; smallmerge slower/noisy remains unresolved. Fullbaseline interrupted17943.11s in unindexed lookup, candidate not run. Ten focused harness tests pass. Full acceptance blocked; NOTRIOS_P7C_EVIDENCE.md.",
+      "id": "P7c",
+      "coding_agent": "codex",
+      "status": "in progress",
       "planned_worker": "luna_worker",
       "configured_model": "gpt-5.6-luna",
       "configured_reasoning_effort": "max",
-      "assignment_confirmation": "Existing Codex assignments and billing suitability confirmed for unchanged session; performance plan revision authorized, implementation pending slice authorization.",
+      "assignment_confirmation": "User: Proceed with P7c. Existing Codex roles, efforts and billing suitability confirmed for unchanged session.",
       "delegation_required": true,
       "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17",
-      "delegation_failure_or_reassignment": "none recorded",
+      "delegation_failure_or_reassignment": "Worker external ps/approval calls stalled; parent final-validation launches and long tool waits used after confirming no active process. Worker could not access parent terminal session. No implementation reassignment.",
       "evidence": [
-        "User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement."
+        "User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement.",
+        "User: Proceed with P7c; native spawn /root/p7c_validation",
+        "NOTRIOS_P7C_EVIDENCE.md",
+        "Private movenotes-p7c-* HD2 manifests, source hashes, results, failed full trial and child traceback."
       ],
-      "commit": "none — pending",
+      "commit": "P7c partial-evidence checkpoint (contains this ledger)",
       "planned_work": "Run paired benchmarks and full-corpus confirmation using notification monitoring; record adoption evidence",
       "billing_route": "not exposed; existing role suitability confirmed for unchanged session",
       "monitoring_assignment": {
@@ -1142,10 +1173,10 @@
         "scope": "All large profiling, benchmark and validation runs; implementation owner unchanged",
         "authorization": "User required same long-notification monitoring for data-heavy updated slices",
         "wait_policy": "Blocking OS completion/PIDFD; terminal notification; parent 25-minute waits; estimated-duration/stall-threshold fallback diagnostic only; no frequent polling",
-        "actual_worker": "pending",
-        "child_thread": "pending",
-        "execution_model": "pending",
-        "execution_effort": "pending"
+        "actual_worker": "luna_worker (initial synthetic execution); parent final validation after tool stalls",
+        "child_thread": "/root/p7c_validation",
+        "execution_model": "not exposed",
+        "execution_effort": "not exposed"
       }
     },
     {
