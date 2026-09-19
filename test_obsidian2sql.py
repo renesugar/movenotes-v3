@@ -12,7 +12,9 @@ import unittest
 from pathlib import Path
 
 import constants
+import common
 import notesdb
+import obsidian2sql
 
 PROJECT_DIR = Path(__file__).resolve().parent
 
@@ -27,6 +29,114 @@ def run(script: str, *args: str, check: bool = True) -> subprocess.CompletedProc
 
 
 class ObsidianRoundTripTest(unittest.TestCase):
+    def test_same_batch_item_id_collision_is_rejected_before_insert(self) -> None:
+        """A batch must not bypass the exact-source identity collision rule."""
+        with tempfile.TemporaryDirectory(prefix="obsidian-batch-collision-") as temporary:
+            database = Path(temporary) / notesdb.DATABASE_FILENAME
+            conn = notesdb.connect(database)
+            self.addCleanup(conn.close)
+            notesdb.create_database(conn)
+            item_id = "a" * 32
+            first = {
+                "joplin_id": item_id,
+                "note_uuid": item_id,
+                "note_obsidian_sha256": b"a" * 32,
+            }
+            second = {**first, "note_obsidian_sha256": b"b" * 32}
+            with self.assertRaisesRegex(SystemExit, "item id collision"):
+                obsidian2sql._insert_rows(conn, [first, second], 500)
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM notes").fetchone()[0], 0
+            )
+            inserted, skipped = obsidian2sql._insert_rows(conn, [first, first], 500)
+            self.assertEqual((inserted, skipped), (1, 1))
+
+    def test_cross_batch_collision_can_rollback_the_import_transaction(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="obsidian-cross-batch-collision-") as temporary:
+            conn = notesdb.connect(Path(temporary) / notesdb.DATABASE_FILENAME)
+            self.addCleanup(conn.close)
+            notesdb.create_database(conn)
+            item_id = "c" * 32
+            first = {"joplin_id": item_id, "note_uuid": item_id, "note_obsidian_sha256": b"a" * 32}
+            second = {**first, "note_obsidian_sha256": b"b" * 32}
+            conn.execute("BEGIN")
+            obsidian2sql._insert_rows(conn, [first], 1)
+            with self.assertRaisesRegex(SystemExit, "item id collision"):
+                obsidian2sql._insert_rows(conn, [second], 1)
+            conn.rollback()
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM notes").fetchone()[0], 0)
+
+    def test_preservation_resource_collision_keeps_existing_bytes(self) -> None:
+        """Preservation must never replace a resource with the same name."""
+        with tempfile.TemporaryDirectory(prefix="obsidian-resource-collision-") as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            destination = root / "destination"
+            source.mkdir()
+            destination.mkdir()
+            name = "a" * 32 + ".bin"
+            (source / name).write_bytes(b"preserved source")
+            existing = destination / name
+            existing.write_bytes(b"existing destination")
+            with self.assertRaisesRegex(SystemExit, "resource collision"):
+                common.copy_resources(source, destination, reject_collisions=True)
+            self.assertEqual(existing.read_bytes(), b"existing destination")
+
+    def test_preservation_resource_prevalidation_avoids_partial_copy_and_rows(self) -> None:
+        """A later resource collision leaves no earlier resource or row behind."""
+        with tempfile.TemporaryDirectory(prefix="obsidian-resource-barrier-") as temporary:
+            root = Path(temporary)
+            raw = root / "raw"
+            sqlite1 = root / "sqlite1"
+            vault = root / "vault"
+            sqlite2 = root / "sqlite2"
+            for path in (raw / "resources", sqlite1, vault, sqlite2 / "resources"):
+                path.mkdir(parents=True, exist_ok=True)
+            first_id = "a" * 32
+            colliding_id = "b" * 32
+            for resource_id, payload in ((first_id, b"first"), (colliding_id, b"source")):
+                (raw / f"{resource_id}.md").write_text(
+                    f"{resource_id}.bin\n\nid: {resource_id}\nfilename: {resource_id}.bin\n"
+                    "file_extension: bin\nmime: application/octet-stream\n"
+                    f"size: {len(payload)}\ntype_: 4\n",
+                    encoding="utf-8",
+                )
+                (raw / "resources" / f"{resource_id}.bin").write_bytes(payload)
+            run("joplin2sql.py", "--input", str(raw), "--output", str(sqlite1), "--progress-every", "0")
+            run("sql2obsidian.py", "--input", str(sqlite1), "--output", str(vault), "--progress-every", "0")
+            existing = sqlite2 / "resources" / f"{colliding_id}.bin"
+            existing.write_bytes(b"destination")
+            result = run(
+                "obsidian2sql.py", "--input", str(vault), "--output", str(sqlite2),
+                "--progress-every", "0", check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("resource collision", result.stderr)
+            self.assertFalse((sqlite2 / "resources" / f"{first_id}.bin").exists())
+            self.assertEqual(existing.read_bytes(), b"destination")
+            conn = sqlite3.connect(sqlite2 / notesdb.DATABASE_FILENAME)
+            try:
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM notes").fetchone()[0], 0)
+            finally:
+                conn.close()
+
+    def test_folder_parent_lookup_uses_existing_import_time_index(self) -> None:
+        """The fresh-import folder repair does not make a parent table scan."""
+        with tempfile.TemporaryDirectory(prefix="obsidian-folder-index-") as temporary:
+            conn = notesdb.connect(Path(temporary) / notesdb.DATABASE_FILENAME)
+            self.addCleanup(conn.close)
+            notesdb.create_database(conn, create_indexes=False)
+            notesdb.ensure_joplin_id_index(conn)
+            plan = conn.execute(
+                "EXPLAIN QUERY PLAN SELECT parent.note_title FROM notes AS parent "
+                "WHERE parent.joplin_id = ? AND parent.joplin_type_ = ? "
+                "ORDER BY parent.note_id LIMIT 1",
+                ("f" * 32, int(constants.JoplinType.FOLDER)),
+            ).fetchall()
+            self.assertTrue(
+                any("joplinididx" in str(row[-1]) for row in plan), plan
+            )
+
     def test_native_obsidian_survives_joplin_round_trip_exactly(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-native-") as temporary:
             root = Path(temporary)

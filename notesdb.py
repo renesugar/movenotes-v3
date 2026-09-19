@@ -177,6 +177,17 @@ def ensure_indexes(sqlconn: sqlite3.Connection) -> None:
         sqlconn.execute(statement)
 
 
+def ensure_joplin_id_index(sqlconn: sqlite3.Connection) -> None:
+    """Make the importer folder repair's parent lookup bounded.
+
+    This is the existing shared lookup index, created early only for the
+    import path that needs it before the usual final index pass.
+    """
+    sqlconn.execute(
+        'CREATE INDEX IF NOT EXISTS "joplinididx" ON "notes" ("joplin_id");'
+    )
+
+
 def create_database(
     sqlconn: sqlite3.Connection, *, create_indexes: bool = True
 ) -> None:

@@ -432,6 +432,11 @@ def _insert_rows(sqlconn: sqlite3.Connection, rows: list[dict], batch_size: int)
             sqlconn, [str(row.get("joplin_id") or row.get("note_uuid")) for row in batch]
         )
         pending: list[dict] = []
+        # ``existing`` describes the database before this batch.  Keep the
+        # incoming identities too: SQLite's primary key is note_id, so two
+        # distinct rows with the same Joplin item ID would otherwise both be
+        # inserted when they occur in one executemany call.
+        pending_hashes: dict[str, set[bytes | None]] = {}
         for row in batch:
             item_id = str(row.get("joplin_id") or row.get("note_uuid"))
             incoming = row.get("note_obsidian_sha256")
@@ -443,7 +448,14 @@ def _insert_rows(sqlconn: sqlite3.Connection, rows: list[dict], batch_size: int)
                     skipped += 1
                     continue
                 common.error(f"item id collision for '{item_id}' while importing Obsidian vault")
+            pending_current = pending_hashes.get(item_id)
+            if pending_current is not None:
+                if incoming in pending_current:
+                    skipped += 1
+                    continue
+                common.error(f"item id collision for '{item_id}' while importing Obsidian vault")
             pending.append(row)
+            pending_hashes.setdefault(item_id, set()).add(incoming)
         if pending:
             notesdb.add_joplin_notes(sqlconn, pending)
             inserted += len(pending)
@@ -544,7 +556,9 @@ def _import_preserved_joplin(
         / "resources"
     )
     if raw_resources.is_dir():
-        common.copy_resources(raw_resources, output_path / "resources")
+        common.copy_resources(
+            raw_resources, output_path / "resources", reject_collisions=True
+        )
 
     # Joplin RAW has no place for Notrios' resource-association bookkeeping.
     # Retain only the in-scope resource identities in SQLite so a later vault
@@ -775,8 +789,11 @@ def _native_rows(
     known_directories = known_directories or set()
     external_path_ids = external_path_ids or {}
     folder_id_overrides = folder_id_overrides or {}
-    markdown_files: list[Path] = []
-    resource_files: list[Path] = []
+    # Retain the normalized relative path discovered during the inventory
+    # walk.  Reconstructing it with Path.relative_to() at every later stage
+    # dominated native fresh profiling while adding no semantic information.
+    markdown_files: list[tuple[Path, str]] = []
+    resource_files: list[tuple[Path, str]] = []
     vault_directories: set[str] = set()
     for root, dirs, files in os.walk(vault_path):
         root_path = Path(root)
@@ -802,13 +819,12 @@ def _native_rows(
             if relative_text in exclude_paths:
                 continue
             if path.suffix.lower() == ".md":
-                markdown_files.append(path)
+                markdown_files.append((path, relative_text))
             else:
-                resource_files.append(path)
+                resource_files.append((path, relative_text))
 
     frontmatter_identity: dict[str, tuple[str | None, str | None]] = {}
-    for path in markdown_files:
-        relative = path.relative_to(vault_path).as_posix()
+    for path, relative in markdown_files:
         properties = _property_pairs(
             _frontmatter_summary(path).get("joplin-properties")
         )
@@ -818,19 +834,19 @@ def _native_rows(
         frontmatter_identity[relative] = (item_id, parent_id)
 
     note_ids = {
-        path.relative_to(vault_path).as_posix(): (
-            frontmatter_identity[path.relative_to(vault_path).as_posix()][0]
+        relative: (
+            frontmatter_identity[relative][0]
             or obsidianmeta.deterministic_id(
-                "note", path.relative_to(vault_path).as_posix()
+                "note", relative
             )
         )
-        for path in markdown_files
+        for _path, relative in markdown_files
     }
     resource_ids = {
-        path.relative_to(vault_path).as_posix(): obsidianmeta.deterministic_id(
-            "resource", path.relative_to(vault_path).as_posix()
+        relative: obsidianmeta.deterministic_id(
+            "resource", relative
         )
-        for path in resource_files
+        for _path, relative in resource_files
     }
     all_path_ids = {**external_path_ids, **note_ids, **resource_ids}
     basename_paths: dict[str, list[str]] = defaultdict(list)
@@ -900,8 +916,7 @@ def _native_rows(
                 application_data_override=app_data,
             )
 
-        for source in resource_files:
-            relative = source.relative_to(vault_path).as_posix()
+        for source, relative in resource_files:
             resource_id = resource_ids[relative]
             content_digest = _file_sha256(source)
             content_size = source.stat().st_size
@@ -940,8 +955,7 @@ def _native_rows(
             row["note_source_filename"] = destination.name
             yield row
 
-        for source in markdown_files:
-            relative = source.relative_to(vault_path).as_posix()
+        for source, relative in markdown_files:
             raw = source.read_bytes()
             try:
                 text = raw.decode("utf-8-sig")
@@ -1170,6 +1184,7 @@ def main(argv: list[str]) -> int:
             rows, file_count = _native_rows(vault_path, output_path)
             inserted, skipped = import_native_rows(rows, file_count)
             source_description = f"native Obsidian vault ({file_count:,} file(s))"
+        notesdb.ensure_joplin_id_index(sqlconn)
         notesdb.populate_missing_note_folders(sqlconn)
         notesdb.ensure_indexes(sqlconn)
         sqlconn.commit()

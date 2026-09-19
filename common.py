@@ -143,13 +143,28 @@ def copy_file_if_changed(src: Path, dst_dir: Path, dst_name: str | None = None) 
     return True
 
 
-def copy_resources(src_dir: Path, dst_dir: Path) -> tuple[int, int]:
+def copy_resources(
+    src_dir: Path, dst_dir: Path, *, reject_collisions: bool = False
+) -> tuple[int, int]:
     """Copy attachment files from *src_dir* to *dst_dir*, skipping unchanged
     files. Returns ``(copied, skipped)`` counts.
     """
     copied = skipped = 0
     if src_dir.is_dir():
-        for file_path in src_dir.iterdir():
+        if reject_collisions:
+            files = [file_path for file_path in src_dir.iterdir() if file_path.is_file()]
+            # Validate the whole set before writing any attachment.  The
+            # SQLite transaction can roll back rows, but not a partial file
+            # copy made before a later collision is discovered.
+            for file_path in files:
+                destination = dst_dir / file_path.name
+                if destination.is_symlink() or (destination.exists() and not destination.is_file()):
+                    error(f"resource collision at '{destination}'")
+                if destination.is_file() and not files_identical(file_path, destination):
+                    error(f"resource collision at '{destination}'")
+        else:
+            files = (file_path for file_path in src_dir.iterdir() if file_path.is_file())
+        for file_path in files:
             if file_path.is_file():
                 if copy_file_if_changed(file_path, dst_dir):
                     copied += 1
