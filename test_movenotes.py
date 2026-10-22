@@ -27,7 +27,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from datetime import timedelta, timezone
 
 import joplin2sql
@@ -330,6 +330,91 @@ class MovenotesEndToEnd(unittest.TestCase):
             migrated.close()
             self.assertEqual(value, hashlib.sha256(raw).digest())
             self.assertEqual(version, "5")
+
+
+class LinkTitleTest(unittest.TestCase):
+    """An optional Markdown link title survives the generic tools (S43c)."""
+
+    RESOURCE = "a" * 32
+
+    def test_resource_links_with_titles_are_found_and_others_are_not(self) -> None:
+        import common
+        r = self.RESOURCE
+        text = (f'![a](:/{r} "Photo") [b](:/{r}) [c](:/{r}\t(Paper) ) '
+                f"[d](:/{r} junk) [e](:/{r} \"esc\\\"aped\") [f](:/{r} \"two\" \"titles\")")
+        self.assertEqual([link for link, _, _ in common.get_resource_links(text)],
+                         [f'![a](:/{r} "Photo")', f"[b](:/{r})", f"[c](:/{r}\t(Paper) )"])
+
+    def test_cleanres_keeps_a_resource_referenced_only_by_a_titled_link(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="movenotes-titled-") as temporary:
+            root = Path(temporary)
+            (root / "resources").mkdir()
+            kept, orphan = "b" * 32, "c" * 32
+            for ident in (kept, orphan):
+                (root / "resources" / f"{ident}.png").write_bytes(b"png")
+            conn = notesdb.connect(root / notesdb.DATABASE_FILENAME)
+            notesdb.create_database(conn)
+            notesdb.add_joplin_note(conn, {"joplin_id": "d" * 32, "joplin_type_": 1, "note_title": "N",
+                                           "note_data": f'N\n\n![shot](:/{kept} "Photo title")'})
+            conn.commit()
+            conn.close()
+            result = run("cleanres.py", "--input", str(root))
+            self.assertIn("deleted 1 unused resource file(s)", result.stdout)
+            self.assertEqual(sorted(p.name for p in (root / "resources").iterdir()), [f"{kept}.png"])
+
+    def test_vault_resource_links_keep_titles_and_untitled_output_is_unchanged(self) -> None:
+        image, paper = "e" * 32, "f" * 32
+
+        class Attachments:
+            def vault_name(self, ident):
+                return {image: "Photo é.png", paper: "Paper.pdf"}.get(ident)
+
+            def is_image(self, ident):
+                return ident == image
+
+        body = (f'![Shot](:/{image} "Photo") [P](:/{paper}\t(Paper)) ![](:/{image}) '
+                f"[P](:/{paper}) [x](:/{'0' * 32} \"Unknown\")")
+        self.assertEqual(
+            sql2obsidian.rewrite_resource_links(body, PurePosixPath("Deep"), Attachments()),
+            '![Shot](../attachments/Photo%20%C3%A9.png "Photo") [P](../attachments/Paper.pdf\t(Paper)) '
+            f'![[Photo é.png]] [P](../attachments/Paper.pdf) [x](:/{"0" * 32} "Unknown")')
+
+    def test_native_vault_reimport_resolves_titled_links_and_keeps_titles(self) -> None:
+        import obsidian2sql
+        note, same, shot = "n" * 32, "s" * 32, "r" * 32
+        paths = {"Other/Note.md": note, "Deep/Same.md": same, "attachments/shot.png": shot,
+                 "Deep/Note (1).md": "p" * 32}
+        basenames: dict[str, list[str]] = {}
+        for path in paths:
+            basenames.setdefault(PurePosixPath(path).name.casefold(), []).append(path)
+
+        def rewrite(body):
+            return obsidian2sql.rewrite_obsidian_links(body, PurePosixPath("Deep/Source.md"), paths,
+                                                       basenames, {"attachments/shot.png"})
+
+        cases = {
+            '[A](../Other/Note.md "T")': f'[A](:/{note} "T")',
+            "[A](./Same.md 'T')": f"[A](:/{same} 'T')",
+            "[A](Same.md (T))": f"[A](:/{same} (T))",
+            '[A](<Same.md>\t"T" )': f'[A](:/{same}\t"T" )',
+            '[A](../Other/Note.md#h "T")': f'[A](:/{note} "T")',
+            '[A](Same.md "Titre é [x] (y)")': f'[A](:/{same} "Titre é [x] (y)")',
+            '![p](../attachments/shot.png "P")': f'![p](:/{shot} "P")',
+            '[](../attachments/shot.png "P")': f'![](:/{shot} "P")',
+            '[A](Missing.md "T")': '[A](Missing.md "T")',
+            # Untitled and non-title forms keep today's output exactly.
+            "[A](../Other/Note.md)": f"[A](:/{note})",
+            "[A](<Same.md>)": f"[A](:/{same})",
+            "[A](Same.md#h)": f"[A](:/{same})",
+            '[A](Same.md "T" x)': '[A](Same.md "T" x)',
+            "[A](Note (1).md)": "[A](Note (1).md)",
+            "[A](Same.md junk)": "[A](Same.md junk)",
+            '[A](Same.md "unterminated)': '[A](Same.md "unterminated)',
+            '[A](Same.md "esc\\"x")': f"[A](:/{same})",
+        }
+        for body, expected in cases.items():
+            with self.subTest(body=body):
+                self.assertEqual(rewrite(body), expected)
 
 
 class NumericOrderPropertyTest(unittest.TestCase):

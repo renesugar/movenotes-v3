@@ -399,7 +399,11 @@ on resolved note and attachment links. Native `obsidian2sql` reimport drops a
 title when it resolves the link. It leaves a titled `./` or `../` link
 unresolved, because its title split skips those prefixes. Preservation-bundle
 reimport keeps the exact vault bytes. All three are existing behaviour that S43a
-does not change.
+does not change. *S43c (2026-10-22) fixed the first two.* Resolved site note and
+asset links keep exactly one delimited title. Native reimport resolves titled
+`./`, `../` and bare links as it resolves untitled ones, and writes the title
+after `:/id`. `cleanres.py` now counts titled resource references; it had been
+deleting files referenced only by a titled link.
 
 1. Keep the existing loop's note order, folder paths and filename reservations.
    Write notes normally to determine the **returned** path from

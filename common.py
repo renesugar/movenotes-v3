@@ -42,7 +42,14 @@ import constants
 # Used by the export scripts to find attachments referenced by a note.
 # The display text must not contain ']' so that two links on one line are
 # not merged into a single greedy match.
-RESOURCE_LINK_RE = re.compile(r"!?\[([^\]]*)\]\(:/([a-fA-F0-9]{32})\)")
+#
+# An optional Markdown link title, e.g. ``(:/id "Photo")``: separating spaces
+# or tabs, then one "…", '…' or (…) on a single line holding no backslash,
+# backtick or closing delimiter, then optional spaces or tabs. It is the same
+# grammar notrios_links.py admits, so a title is copied rather than parsed.
+LINK_TITLE = r"""[ \t]+(?:"[^"\\`\r\n]*"|'[^'\\`\r\n]*'|\([^()\\`\r\n]*\))[ \t]*"""
+LINK_TITLE_RE = re.compile(LINK_TITLE)
+RESOURCE_LINK_RE = re.compile(r"!?\[([^\]]*)\]\(:/([a-fA-F0-9]{32})(" + LINK_TITLE + r")?\)")
 RESOURCE_ID_RE = re.compile(r":/([a-fA-F0-9]{32})")
 
 # Characters treated as line breaks (or vertical whitespace) that must not
@@ -177,7 +184,8 @@ def get_resource_links(text: str) -> list[tuple[str, str, str]]:
     """Find Joplin resource links in note text.
 
     Returns a list of ``(link, filename, resource_id)`` tuples for every
-    ``[filename](:/resource_id)`` or ``![filename](:/resource_id)`` link.
+    ``[filename](:/resource_id)`` or ``![filename](:/resource_id)`` link,
+    including one with a title, so a titled reference still counts.
     """
     return [(m.group(0), m.group(1), m.group(2)) for m in RESOURCE_LINK_RE.finditer(text)]
 

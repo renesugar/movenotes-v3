@@ -2682,6 +2682,14 @@ class NotriosLinkProjectionTest(unittest.TestCase):
         with self.assertRaises(archive_v2.NotriosError):
             self.project(token, [short])
 
+    def test_title_grammar_agrees_with_the_generic_tools(self):
+        import common
+        for suffix in (' "T"', " 'T'", " (T)", '\t"T" ', ' ""', ' "é [x] (y)"', ' "esc\\"x"', ' "a`b`"',
+                       ' "T" x', " junk", '"T"', ' "a\nb"', " (a (b))", ' "two" "titles"', ""):
+            with self.subTest(suffix=suffix):
+                self.assertEqual(bool(re.fullmatch(links._TITLE, suffix.encode())),
+                                 bool(common.LINK_TITLE_RE.fullmatch(suffix)))
+
     def test_title_admission_is_narrow_and_other_destinations_still_refuse(self):
         uri = b"document://default/documents/doc_child"
         for suffix in (b' "unterminated', b' "esc\\"aped"', b' "code `x`"', b' "two" "titles"',

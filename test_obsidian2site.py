@@ -755,6 +755,35 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertIn("```text\n@fenced_name\n```", body)
             self.assertIn("@abcdefghijklmnop", body)
 
+    def test_resolved_links_keep_one_delimited_title_and_drop_other_suffixes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-titles-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            site = root / "site"
+            (vault / "Deep").mkdir(parents=True)
+            (vault / "assets").mkdir()
+            (vault / "assets" / "picture.png").write_bytes(b"\x89PNG\r\n\x1a\nimage")
+            (vault / "Other.md").write_text("# Other\n\n## Part\n\nText.\n", encoding="utf-8")
+            (vault / "Deep" / "Note.md").write_text(
+                "# Note\n\n"
+                "U [A](../Other.md) T [A](../Other.md \"Title\")\n"
+                "F [A](../Other.md#part) T [A](../Other.md#part 'Single')\n"
+                "P ![P](../assets/picture.png) T ![P](../assets/picture.png (Paren))\n"
+                "X [A](../Other.md junk) W [W](https://example.test/x \"Web\")\n",
+                encoding="utf-8",
+            )
+            run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+            _metadata, body = read_json_frontmatter(site / "content" / "notes" / "deep" / "note.md")
+            links = re.findall(r"!?\[[^\]]*\]\([^\n]*?\)(?= [A-Z]|\n|$)", body)
+            untitled, titled = links[0::2], links[1::2]
+            self.assertEqual(len(links), 8, body)
+            # Each titled link is its untitled counterpart plus the exact title.
+            for plain, suffix, actual in zip(untitled[:3], (' "Title"', " 'Single'", " (Paren)"), titled[:3]):
+                self.assertEqual(actual, plain[:-1] + suffix + ")")
+            # An undelimited suffix is dropped, as before; external titles stay.
+            self.assertEqual(untitled[3], untitled[0])
+            self.assertEqual(titled[3], '[W](https://example.test/x "Web")')
+
     def test_repairs_malformed_external_urls_without_losing_visible_text(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-url-") as temporary:
             root = Path(temporary)

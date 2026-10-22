@@ -421,17 +421,20 @@ def rewrite_resource_links(
 
     def replace(match: re.Match) -> str:
         link, display, resource_id = match.group(0), match.group(1), match.group(2)
+        title = match.group(3) or ""
         name = attachments.vault_name(resource_id)
         if name is None:
             return link  # Unknown resource: leave the link unchanged.
-        if link.startswith("!") and attachments.is_image(resource_id):
-            return f"![[{name}]]"
         relative_dir = PurePosixPath(
             *([".."] * len(note_dir.parts))
         ) / ATTACHMENTS_DIR_NAME
         href = urllib.parse.quote(str(relative_dir / name))
+        if link.startswith("!") and attachments.is_image(resource_id):
+            # A wiki embed has nowhere to keep a title, so only a titled
+            # image becomes a Markdown image; untitled output is unchanged.
+            return f"![{display}]({href}{title})" if title else f"![[{name}]]"
         display = display or name
-        return f"[{display}]({href})"
+        return f"[{display}]({href}{title})"
 
     return common.RESOURCE_LINK_RE.sub(replace, body)
 

@@ -32,14 +32,14 @@ and full 7c acceptance are not claimed. **P7a is complete**; see [performance ev
 **P7c is partially validated but blocked** by fresh-import ID lookups that scan
 the growing table. **P7b2**, a bounded lookup fix, must come before P7c resumes.
 See [P7c evidence](NOTRIOS_P7C_EVIDENCE.md). The producer link-syntax
-prerequisites come first: **S43a and S43b are complete**, and next is **S43c**. S43a found two
+prerequisites come first: **S43a, S43b and S43c are complete**, and next is **E1**. S43a found two
 downstream fixes, now planned as **S43c** and **E1**.
 Plan revised on **2026-10-22**: all remaining work is assigned to the Claude Code
 main model (**Main**), and the user confirmed this for the session. No Codex
 worker or monitor remains in the plan. See
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 S43b and resumed 7c pin the released Notrios **`v1.0.0`** (`2aab9a8`). The
-remaining order is S43c → E1 → P7b2 → resumed P7c → resumed 7c → 7d → 7e.
+remaining order is E1 → P7b2 → resumed P7c → resumed 7c → 7d → 7e.
 Slice **7c remains incomplete**; isolated work
 and checkpoints are under `/media/$USER/HD2/movenotes-7c-20260916/`.
 Both recipe imports succeeded (382,206 documents each), but bounded real
@@ -288,8 +288,8 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - Completed slices keep their recorded Codex attribution. The earlier Codex session is under previous_sessions and its assignments under assignment_history.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **S43c — carry link titles through native reimport and site
-links**, assigned to the Claude Code parent (**Main**). Session assignments are confirmed. Slice
+Next slice: **E1 — stop exporters modifying the database they read**,
+assigned to the Claude Code parent (**Main**). Session assignments are confirmed. Slice
 authorization is pending.
 
 P7c remains incomplete: its full Python native baseline was interrupted at
@@ -304,7 +304,7 @@ adoption is not claimed. Rejected Go G08 stays out of full trials; no Go candida
 is approved. Any producer implementation needs an explicit handoff naming its
 files and checkout, plus the user's approval to write to the Notrios checkout.
 
-Remaining sequence: S43c → E1 → P7b2 → resumed P7c → resumed 7c → 7d → 7e,
+Remaining sequence: E1 → P7b2 → resumed P7c → resumed 7c → 7d → 7e,
 subject to the unresolved performance and compatibility gates. Every data-heavy
 run follows the background-run rule under
 [Execution and handoff rules](#execution-and-handoff-rules). Preserve C7c's documented differences: RAW's 842,813 tag
@@ -615,8 +615,46 @@ recorded findings. Each needs its design frozen here before implementation.
 
 | Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| S43c / Main | Carry link titles through the downstream tools that S43a does not own. `obsidian2sql._normalise_target` splits a title only when the target does not start with `./` or `../`. The vault exporter writes `../` for notes in other folders, so a titled cross-folder link from a Notrios export stays unresolved on native reimport, where the untitled link resolves. When it does resolve a link, it writes `[display](:/id)` and drops the title. `obsidian2site` keeps titles on external links but drops them on resolved note and asset links. Fix both to split exactly one delimited title the way S43a's grammar does, and write it back after the rewritten destination. Owns `obsidian2sql.py`, `obsidian2site.py` and their tests. | S43b | Titled `./`, `../` and bare relative note and attachment links resolve on native reimport exactly as their untitled forms do, with the title bytes kept after the `:/id` destination. Site output keeps titles on resolved note and asset links. Untitled links and all canonical URLs, path maps and theme layouts are byte-identical; prove the URL maps unchanged over a real vault, as AGENTS.md requires. Undelimited suffixes are left as they are today. Focused tests plus all five regression modules. |
+| S43c / Main — complete | Carry link titles through the downstream tools that S43a does not own (scope extended by the frozen design below to `common.py`, `cleanres.py` and `sql2obsidian.py`). `obsidian2sql._normalise_target` splits a title only when the target does not start with `./` or `../`. The vault exporter writes `../` for notes in other folders, so a titled cross-folder link from a Notrios export stays unresolved on native reimport, where the untitled link resolves. When it does resolve a link, it writes `[display](:/id)` and drops the title. `obsidian2site` keeps titles on external links but drops them on resolved note and asset links. Fix both to split exactly one delimited title the way S43a's grammar does, and write it back after the rewritten destination. Owns `obsidian2sql.py`, `obsidian2site.py` and their tests. | S43b | Titled `./`, `../` and bare relative note and attachment links resolve on native reimport exactly as their untitled forms do, with the title bytes kept after the `:/id` destination. Site output keeps titles on resolved note and asset links. Untitled links and all canonical URLs, path maps and theme layouts are byte-identical; prove the URL maps unchanged over a real vault, as AGENTS.md requires. Undelimited suffixes are left as they are today. Focused tests plus all five regression modules. |
 | E1 / Main | Stop exporters modifying the database they read. `notesdb.connect()` runs `PRAGMA journal_mode=WAL`, so `sql2obsidian.py` or `sql2joplin.py` run on a completed Notrios import rewrites `notesdb.sqlite`: header bytes 18–19 change from `01 01` to `02 02` and the change counter advances. A later identical `notrios2sql.py` rerun then refuses with `completed payload inventory differs`, and the documented import → vault recipe cannot be repeated. Before implementation, decide between opening read-only when no migration is needed and an explicit read-only flag; migrating an older database in place must stay as it is for other workflows. Owns `notesdb.py` (a narrow read-only open path), the two exporters' open calls and tests. | S43a finding | After a vault export and a Joplin export of a completed import, the import directory is byte-identical, an identical rerun reports `unchanged`, and no `-wal` or `-shm` file is left behind. Older databases that need migration still migrate, with that existing behaviour covered by a regression test. Exporter output is unchanged. Focused tests plus all five regression modules. |
+
+**S43c design, frozen 2026-10-22 before implementation.** Reading the code
+found a third consumer that the original S43c row did not name.
+`common.RESOURCE_LINK_RE` admits no title, and `cleanres.py` builds its set of
+referenced resources from it. So `cleanres.py` deletes a resource file whose only
+references are titled, such as `![x](:/id "Photo")`. That is data loss. S43a made
+it reachable for Notrios imports, which now keep titled image embeds, and it was
+already possible for Joplin notes. The same regex is why `sql2obsidian.py`
+leaves a titled resource link in an ordinary note unconverted. S43c therefore
+owns `common.py`, `cleanres.py` and `sql2obsidian.py` as well. Decisions:
+
+1. **One title grammar.** Use the grammar S43a froze for `notrios_links.py`, as a
+   `str` pattern in `common.py`: spaces or tabs, then one `"…"`, `'…'` or
+   `(…)` on one line with no backslash, backtick or closing delimiter inside,
+   then optional spaces or tabs. Anything else is not a title.
+2. **`common.RESOURCE_LINK_RE`** accepts that optional title after `:/<id>`, and
+   `get_resource_links` keeps its return shape. `cleanres.py` then counts
+   titled references. `sql2obsidian.rewrite_resource_links` writes the title
+   back after the rebuilt path. Following S43a's exporter rule, a titled image
+   becomes a Markdown image rather than an `![[name]]` wiki embed; untitled
+   output is unchanged.
+3. **`obsidian2sql` native reimport.** The Markdown link pattern tries a titled
+   form first: a destination without spaces or parentheses, or an `<…>`
+   destination, followed by a title. It falls back to today's pattern
+   unchanged. A resolved titled link becomes `[display](:/id<title>)`; an
+   unresolved one keeps its bytes. Untitled links take today's path, so their
+   output cannot change, and that includes the existing quoted-title stripping
+   in `_normalise_target`.
+4. **`obsidian2site`.** For a resolved note or asset link, append the existing
+   `_split_markdown_destination` suffix only when it is exactly one title under
+   decision 1. Otherwise keep today's output, which drops the suffix. External
+   links already keep theirs. No path map, canonical URL, template or theme
+   change is involved.
+5. **Proof that nothing else moves.** Generate the site from a deterministic,
+   bounded subset of the real recipe vault before and after the change; the
+   whole vault has no titled links, so the outputs must be byte-identical. Also
+   compare `sql2obsidian` and `obsidian2site` output for the S43b vault, where
+   only titled links may differ.
 
 **No other remaining producer work affects this importer.** The producer's open
 items at the time of writing are a reimport skip (J39), a reader affordance for
@@ -699,7 +737,7 @@ Target refusal is mandatory in 2a, not deferred to this step.
 | 7a / Terra — complete | Small offline publication-fixture → SQLite → vault regression with independent expectations. | 6d | Notes/tags/links, exact attachments, absence of excluded sentinels and receipt assertions pass. |
 | 7b / Main — complete | Actual local Hugo/Ledger + Bluge build and bounded Pagefind fixture; test search/subpath URLs. | 7a | Canonical URLs, links, attachments, explicit tag counts and backend isolation correct; excluded sentinel absent from publishable files/index sources. |
 | 7c / Main | Resume after C7a–C7c and P7a–P7c; large-corpus trials below; record time/RSS/disk/counts/hashes and failure recovery. Partial Codex execution is retained; remaining work is Claude Code Main. Resumed trials use the Notrios `v1.0.0` pin. | P7c, S43b, E1 | Importer bounds demonstrated; stage bottlenecks separated; no unmeasured whole-pipeline memory claim. |
-| 7d / Main | README script list/usage and CHANGELOG from measured accepted commands. Reassigned from Codex Luna on 2026-10-22. | 7c, S43b, S43c, E1 | Reproducible publication → import → vault → site recipe; loose/fresh-output limitations; no private content in public examples. |
+| 7d / Main | README script list/usage and CHANGELOG from measured accepted commands. The CHANGELOG also records S43c's generic fixes: `cleanres.py` no longer deletes resources referenced only by titled links, and native vault reimport no longer leaves a stray `)` or an unresolved titled link. Reassigned from Codex Luna on 2026-10-22. | 7c, S43b, S43c, E1 | Reproducible publication → import → vault → site recipe; loose/fresh-output limitations; no private content in public examples. |
 | 7e / Main | Full regression gate, evidence/diff review, final status and commit. | 7d | Every required method passes; skipped integrations not counted as acceptance. |
 
 ### Compatibility prerequisites added after partial 7c trials
@@ -1068,6 +1106,7 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-10-22 | Decisions recorded | In the restarted session the shell works and the renderer `--check` passes. The user confirmed the Claude Code assignments for this session. Verified the Notrios release against the local checkout and GitHub: `v1.0.0` is at `2aab9a8`, is published, and contains J43. The schema is still 28, and the archive contract and format are unchanged since `7662fdd`. Decided the order S43a → S43b → P7b2 → resumed P7c → resumed 7c → 7d → 7e. Added S43b as a dependency of 7c and 7d. Resumed 7c re-imports with the release into fresh libraries and keeps the old evidence. Re-evaluation of the P7 targets, the small-merge noise and 7c's acceptance scope is deferred until those slices need it, as the user directed. Documentation and provenance only. Next: ask to proceed to S43a. |
 | 2026-10-22 | S43a complete | The Claude Code parent read the producer's J43 `TitleSuffix` code at `v1.0.0`. It then added one optional delimited title to the protected link grammar (`Token.title_suffix`), copied byte for byte. Titles that hold controls or internal targets refuse. Vault note and attachment links keep titles; a titled image becomes a Markdown image, and untitled output is byte-identical. Undelimited suffixes, escaped or multi-line titles and spaces, parentheses or angle brackets in destinations still refuse. The design and contract declarations are updated; mapper, receipt, reader profile, fixtures and identity vectors are unchanged. The link projection and integration classes pass all 21 tests. All 273 tests in the five required modules pass (168.108s) with both bytecode-suppression controls. Two pre-existing downstream defects were found and added as fix slices rather than only logged, at the user's direction: S43c (titled `./`/`../` links stay unresolved on native reimport, and titles are dropped there and on site note/asset links) and E1 (`notesdb.connect()` switches the input to WAL, so exporting a completed import changes `notesdb.sqlite` and a later identical rerun refuses). No worker was used. Next: ask to proceed to S43b. |
 | 2026-10-22 | S43b complete | The Claude Code parent built a clean Notrios `v1.0.0` binary (`b4f368a9…`) from a temporary clone; the default module mode is required, because `-mod=mod` rewrites the release's `go.mod`. It added a synthetic titled-link Obsidian vault and `generate_v1_titled.py`, which drives real `import obsidian`, `tags add` and publish commands. The resulting publication has commit `7f093e27…` and selection `a8537bb0…`: 3 notes, 3 tags, 1 resource and 11 links. It covers every title form, a titled embed, an angle-bracket destination the producer resolved, and a withheld titled link rewritten to its label. The generator checks titled tokens and absent sentinels against raw archive bytes. The differential audit's injected references are now declared per fixture (older fixtures keep `doc_public`/`res_image`), and all 56 cases matched against the release binary: 9 shared acceptances, 30 shared refusals and 17 consumer-only refusals. `NotriosV1TitledTest` passes 3 tests covering conversion, unchanged reruns, byte-for-byte titles in the database and vault, tags, attachment bytes and bundle hashes. All 276 tests in the five required modules pass (193.270s) with both bytecode-suppression controls; the schema-27 and schema-28 fixtures still verify and convert unchanged. No new movenotes defect was found. No worker was used. Next: ask to proceed to S43c. |
+| 2026-10-22 | S43c complete | The Claude Code parent froze the design first, because reading the code found a third consumer: `cleanres.py` built its referenced set from a title-blind regex, so it deleted resources referenced only by titled links. That is data loss, made reachable for Notrios imports by S43a's titled embeds. `common.LINK_TITLE` now carries S43a's grammar. `RESOURCE_LINK_RE` accepts it, so `cleanres.py` counts titled references and `sql2obsidian.py` keeps resource titles (a titled image becomes a Markdown image). `obsidian2sql.py` tries a titled form first and keeps the title after `:/id`; everything else takes the unchanged untitled pattern. `obsidian2site.py` keeps exactly one delimited title on resolved note and asset links. A baseline-versus-new harness shows a 3,000-note subset of the real recipe vault unchanged: 7,426 site files are identical after normalising generation-time values, and 7,736 reimported items are identical. For the S43b titled vault only the titled notes change, with site URLs unchanged; reimport previously left a stray `)` and an unresolved titled image. The new regression tests fail on the baseline and pass now. All 282 tests in the five required modules pass (194.732s) with both bytecode-suppression controls. 7d's CHANGELOG entry now must record these generic fixes. No worker was used. Next: ask to proceed to E1. |
 
 ## Assignment amendment — 2026-10-22
 
@@ -2184,7 +2223,7 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 </details>
 
-<details><summary>S43c — pending; planned parent</summary>
+<details><summary>S43c — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -2192,21 +2231,21 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; user authorized: Proceed (S43c). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code |
+| Parent underlying model family | Claude Opus 5.5 (runtime-reported model ID claude-opus-5-5) |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Froze the S43c design in the plan after finding that cleanres deletes resources referenced only by titled links. Added common.LINK_TITLE (the S43a grammar) and let RESOURCE_LINK_RE accept it; sql2obsidian keeps resource titles (titled images become Markdown images); obsidian2sql tries a titled link form first and keeps the title after :/id, falling back to the unchanged untitled pattern; obsidian2site keeps exactly one delimited title on resolved note and asset links. Added regression tests and a baseline-versus-new comparison harness. |
+| Validation | Baseline (a82487c export) versus new: a deterministic 3,000-note subset of the real recipe vault gives a site whose 7,426 files are identical after normalising generation-time values, and a native reimport whose 7,736 items are identical. For the S43b titled vault, only the two titled notes change: site URLs are unchanged with titles added, and reimport now resolves every titled link (fixing a stray parenthesis and an unresolved titled image). The new tests fail on the baseline (cleanres there deleted the titled-referenced file) and pass now. All 282 tests in the five required modules passed (194.732s) with PYTHONDONTWRITEBYTECODE=1 and -B. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | S43a finding, 2026-10-22; user: Update the plan if you find items that need to be fixed instead of just logging their existence. |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Proceed; Local harness /tmp/movenotes-s43c/pipeline.sh, compare_site.py, compare_db.py; outputs /tmp/movenotes-s43c/out-base and out-new; Local log /tmp/movenotes-s43c/s43c-tests.log |
+| Commit | Git commit containing this completion record: fix: keep Markdown link titles in reimport, site and cleanres (S43c) |
 
 </details>
 

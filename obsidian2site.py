@@ -1124,6 +1124,9 @@ def _convert_body(
         if target_value.startswith(("mailto:", "data:", "#")):
             return match.group(0)
         target, fragment = _normalise_target(target_value)
+        # Keep exactly one delimited title on a resolved link; any other
+        # suffix is dropped, as it always was.
+        title = title_suffix if common.LINK_TITLE_RE.fullmatch(title_suffix) else ""
         resolved_note = _resolve_target(target, source_relative, note_exact, note_basenames)
         if resolved_note is not None and resolved_note in note_map:
             link = _relative_link(output_relative, note_map[resolved_note])
@@ -1131,11 +1134,11 @@ def _convert_body(
                 anchor = _hugo_heading_fragment(fragment)
                 if anchor:
                     link += "#" + urllib.parse.quote(anchor)
-            return f"{prefix}[{label}]({link})"
+            return f"{prefix}[{label}]({link}{title})"
         resolved_asset = _resolve_target(target, source_relative, asset_exact, asset_basenames)
         if resolved_asset is not None and resolved_asset in asset_map:
             link = _asset_link(output_relative, asset_map[resolved_asset])
-            return f"{prefix}[{label}]({link})"
+            return f"{prefix}[{label}]({link}{title})"
         return match.group(0)
 
     def transform_segment(segment: str) -> str:

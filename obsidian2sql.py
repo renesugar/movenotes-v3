@@ -37,7 +37,12 @@ __version__ = "3.20"
 _PRESERVATION_DIR = ".movenotes"
 _MANIFEST_NAME = "manifest.json"
 _WIKI_LINK_RE = re.compile(r"(!?)\[\[([^\]]+)\]\]")
-_MARKDOWN_LINK_RE = re.compile(r"(!?)\[([^\]]*)\]\(([^)]+)\)")
+# A titled link is tried first: a destination with no spaces or parentheses,
+# or an <...> destination, then one title (common.LINK_TITLE). Anything else
+# takes the original untitled pattern, so its output is unchanged.
+_MARKDOWN_LINK_RE = re.compile(
+    r"(!?)\[([^\]]*)\]\((?:(<[^<>\r\n]*>|[^\s()<>]+)(" + common.LINK_TITLE + r")|([^)]+))\)"
+)
 _IMAGE_EXTENSIONS = frozenset(
     {"png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "avif", "tif", "tiff", "ico", "heic"}
 )
@@ -364,14 +369,17 @@ def rewrite_obsidian_links(
         return f"[{display}](:/{item_id})"
 
     def markdown_replace(match: re.Match[str]) -> str:
-        embed, display, target = match.group(1), match.group(2), match.group(3)
+        embed, display = match.group(1), match.group(2)
+        # A title is copied after the mapped destination, never parsed.
+        title = match.group(4) or ""
+        target = match.group(3) if match.group(3) is not None else match.group(5)
         resolved = _resolve_vault_target(target, note_path, path_to_id, basename_paths)
         if resolved is None:
             return match.group(0)
         item_id = path_to_id[resolved]
         if resolved in resource_paths and (embed or PurePosixPath(resolved).suffix.lower().lstrip(".") in _IMAGE_EXTENSIONS):
-            return f"![{display}](:/{item_id})"
-        return f"[{display or PurePosixPath(resolved).name}](:/{item_id})"
+            return f"![{display}](:/{item_id}{title})"
+        return f"[{display or PurePosixPath(resolved).name}](:/{item_id}{title})"
 
     return _MARKDOWN_LINK_RE.sub(markdown_replace, _WIKI_LINK_RE.sub(wiki_replace, body))
 
