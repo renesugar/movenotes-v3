@@ -4,12 +4,15 @@
 from __future__ import annotations
 
 import configparser
+import contextlib
+import io
 import sqlite3
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import constants
 import common
@@ -136,6 +139,42 @@ class ObsidianRoundTripTest(unittest.TestCase):
             self.assertTrue(
                 any("joplinididx" in str(row[-1]) for row in plan), plan
             )
+
+    def test_fresh_import_batch_id_lookups_use_the_index(self) -> None:
+        """No batch of a fresh import scans the rows imported before it."""
+        with tempfile.TemporaryDirectory(prefix="obsidian-batch-index-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            output = root / "sqlite"
+            (vault / "folder").mkdir(parents=True)
+            output.mkdir()
+            for index in range(4):
+                (vault / "folder" / f"note {index}.md").write_text(
+                    f"# Note {index}\n\nbody {index}\n", encoding="utf-8"
+                )
+            plans: list[str] = []
+            original = obsidian2sql._existing_import_hashes
+
+            def recording(sqlconn: sqlite3.Connection, item_ids: list[str]):
+                plans.append(" ".join(
+                    str(row[-1]) for row in sqlconn.execute(
+                        "EXPLAIN QUERY PLAN SELECT joplin_id, note_obsidian_sha256, "
+                        "note_source_sha256 FROM notes WHERE joplin_id IN (?)",
+                        item_ids[:1],
+                    )
+                ))
+                return original(sqlconn, item_ids)
+
+            with mock.patch.object(obsidian2sql, "_existing_import_hashes", recording), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                obsidian2sql.main([
+                    "--input", str(vault), "--output", str(output),
+                    "--progress-every", "0", "--batch-size", "1",
+                ])
+            self.assertGreater(len(plans), 4)
+            for plan in plans:
+                self.assertIn("joplinididx", plan)
+                self.assertNotIn("SCAN", plan)
 
     def test_native_obsidian_survives_joplin_round_trip_exactly(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-native-") as temporary:

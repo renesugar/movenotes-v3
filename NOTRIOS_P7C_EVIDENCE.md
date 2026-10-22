@@ -198,3 +198,46 @@ conditions after its correctness and subset gates pass.
 Final harness review added unique attempt paths for replay logs and time files,
 refusing orphan-file collisions instead of overwriting prior evidence. This did
 not rerun or change any recorded benchmark.
+
+## P7b2 resolution — bounded fresh-import ID lookups
+
+P7b2 (Claude Code parent, 2026-10-22) creates the existing `joplinididx` when
+`obsidian2sql.py` creates a new database, before the first batch. The batch
+query, C01/C02 collision checks and all ID/digest semantics are unchanged;
+existing databases already had the index from `open_database`, so merges and
+reruns take the same path as before. The other indexes still wait for the final
+pass. A regression test records every batch lookup's query plan during a fresh
+import and requires `joplinididx` with no `SCAN`; it fails on the previous code.
+
+Two treatments were measured against the previous code on deterministic recipe
+subsets, with `--batch-size 500`. Outputs were fingerprint-identical across all
+runs in each case.
+
+| Case | Previous | Index at creation | In-memory run map |
+|---|---:|---:|---:|
+| 10,000 files fresh (2 runs) | 42.39, 37.87 s | 32.07, 29.95 s | 31.02, 33.01 s |
+| 10,000 files unchanged (2 runs) | 25.65, 26.44 s | 25.72, 26.76 s | 26.38, 27.84 s |
+| 40,000 files fresh | 330.45 s, 120,231 KiB | 130.08 s, 120,531 KiB | 136.81 s, 170,859 KiB |
+| Ten-note merge into 10,000 (3 runs) | 0.50, 0.48, 0.53 s | 0.48, 0.53, 0.51 s | — |
+
+The in-memory map was no faster and added memory proportional to the vault, so
+the index treatment was adopted. From 10,000 to 40,000 files the previous fresh
+import grew 8.3× and the adopted one 4.2×.
+
+A single full-corpus scale check of the adopted code (not a paired benchmark)
+imported all 382,206 files, 1,237,552 items, in **1,628.36 s** (user 1,397.00 s,
+system 174.60 s, peak RSS 774,844 KiB). The interrupted P7c baseline had run
+17,943.11 s without finishing. An identical rerun skipped all 1,237,552 items in
+1,388.56 s (peak RSS 767,804 KiB). Private root:
+`/run/media/$USER/HD2/movenotes-p7b2-20261022-full-native` (`P7B2_SCALE_CHECK.json`,
+logs, times and the source tree used).
+
+Consequences for resumed P7c:
+
+- F02 is subsumed. The index now exists before any batch, so
+  `notrios_p7c_prepare.py`'s F02 removal no longer changes behaviour, and every
+  variant holds the P7b2 treatment constant, as this handoff required. Earlier
+  F02 measurements stay historical evidence.
+- The full corpus's peak RSS (about 757 MiB) and the unchanged rerun costing
+  85% of a fresh import are new observations for P7c's memory and
+  unchanged-path review; P7b2 does not address them.

@@ -1107,6 +1107,11 @@ def main(argv: list[str]) -> int:
     if new_database:
         sqlconn = notesdb.connect(database_path)
         notesdb.create_database(sqlconn, create_indexes=False)
+        # Every batch looks up its item IDs before inserting; without this
+        # index each lookup scans the rows already imported, which is
+        # quadratic over a large vault.  The other indexes still wait for the
+        # final pass.
+        notesdb.ensure_joplin_id_index(sqlconn)
     else:
         sqlconn = notesdb.open_database(database_path, __program_name__)
     output_path.joinpath("resources").mkdir(parents=True, exist_ok=True)

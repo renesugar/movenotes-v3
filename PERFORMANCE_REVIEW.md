@@ -124,6 +124,16 @@ compared in chunks, copied to `resources/`, and are not duplicated as SQLite
 BLOBs. Native note raw bytes are retained because they are required for exact
 frontmatter and Markdown restoration; only one configured batch is resident.
 
+Each batch checks its item IDs against the rows already stored before
+inserting. A new database therefore gets `joplinididx` when it is created,
+while the other indexes still wait for the final pass; without it every batch
+lookup scanned the rows imported so far, which is quadratic over a fresh
+import. On the 382,206-file recipe vault the unindexed import was stopped after
+17,943 s without finishing; with the index it completes in 1,628 s. At 40,000
+files the fresh import drops from 330 s to 130 s with unchanged output and peak
+memory. Keeping this run's IDs in memory instead was slightly slower and added
+memory proportional to the vault, so it was not adopted.
+
 The resulting complexity is O(vault files + links) for inventory and link
 resolution, plus indexed/batched SQLite insertion. Memory is O(path index +
 batch note bytes + tags), rather than O(total vault bytes).
