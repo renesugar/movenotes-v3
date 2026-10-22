@@ -107,8 +107,10 @@ complete existing-ID preload.
 ## Deliberately rejected settings
 
 `PRAGMA synchronous=OFF` is not used because interruption or power loss can
-leave the interchange database corrupt. Connections retain WAL journalling and
-`synchronous=NORMAL`. A large forced SQLite cache was also not adopted; the
+leave the interchange database corrupt. Connections that write retain WAL
+journalling and `synchronous=NORMAL`. The exporters, which only read, leave the
+journal mode as they find it (`notesdb.open_database_for_reading`), so an export
+does not rewrite the database it reads. A large forced SQLite cache was also not adopted; the
 principal import scans are sequential and measurements did not justify a
 project-wide memory reservation.
 

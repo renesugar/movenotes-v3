@@ -417,6 +417,53 @@ class LinkTitleTest(unittest.TestCase):
                 self.assertEqual(rewrite(body), expected)
 
 
+class ReadOnlyExportOpenTest(unittest.TestCase):
+    """Exporters read a current database without changing it (E1)."""
+
+    def make_database(self, root: Path, journal_mode: str) -> Path:
+        path = root / notesdb.DATABASE_FILENAME
+        conn = sqlite3.connect(path)
+        conn.execute(f"PRAGMA journal_mode={journal_mode};")
+        notesdb.create_database(conn)
+        notesdb.add_joplin_note(conn, {"joplin_id": "a" * 32, "joplin_type_": 1, "note_title": "N",
+                                       "note_data": "N\n\nBody"})
+        conn.commit()
+        conn.close()
+        return path
+
+    def test_current_database_opens_unwritable_and_unchanged_in_either_journal_mode(self) -> None:
+        for mode, header in (("delete", b"\x01"), ("wal", b"\x02")):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory(prefix="movenotes-ro-") as temporary:
+                root = Path(temporary)
+                path = self.make_database(root, mode)
+                self.assertEqual(path.read_bytes()[18:19], header)
+                before = path.read_bytes()
+                conn = notesdb.open_database_for_reading(path, "test")
+                self.assertEqual(conn.execute("SELECT note_title FROM notes").fetchone()["note_title"], "N")
+                with self.assertRaises(sqlite3.OperationalError):
+                    conn.execute("UPDATE notes SET note_title = 'changed'")
+                conn.close()
+                self.assertEqual(path.read_bytes(), before)
+                self.assertEqual(sorted(p.name for p in root.iterdir()), [notesdb.DATABASE_FILENAME])
+
+    def test_a_database_needing_migration_is_still_migrated(self) -> None:
+        for change in ("DROP INDEX obsidianpathidx", "UPDATE settings SET value = '4' WHERE name = 'db_version'"):
+            with self.subTest(change=change), tempfile.TemporaryDirectory(prefix="movenotes-ro-") as temporary:
+                path = self.make_database(Path(temporary), "delete")
+                conn = sqlite3.connect(path)
+                conn.execute(change)
+                conn.commit()
+                conn.close()
+                conn = notesdb.open_database_for_reading(path, "test")
+                conn.close()
+                conn = sqlite3.connect(path)
+                indexes = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'index'")}
+                version = conn.execute("SELECT value FROM settings WHERE name = 'db_version'").fetchone()[0]
+                conn.close()
+                self.assertIn("obsidianpathidx", indexes)
+                self.assertEqual(version, notesdb.DB_SCHEMA_VERSION)
+
+
 class NumericOrderPropertyTest(unittest.TestCase):
     """Joplin's numeric order property accepts scientific notation."""
 

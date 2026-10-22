@@ -3524,6 +3524,21 @@ class NotriosV1TitledTest(unittest.TestCase):
             if item["type"] == 1:
                 self.assertEqual(hashlib.sha256((vault / item["obsidian_path"]).read_bytes()).hexdigest(), item["obsidian_sha256"])
 
+    def test_exports_leave_the_completed_import_unchanged_and_rerunnable(self):
+        result = importer.import_publication(self.FIXTURE / "archive", self.destination)
+        self.assertEqual(result.status, "created")
+        before = fixture_inventory(self.destination)
+        self.export()
+        joplin = self.root / "joplin"
+        joplin.mkdir()
+        subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "sql2joplin.py"),
+                        "--input", str(self.destination), "--output", str(joplin)],
+                       env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, check=True,
+                       capture_output=True, text=True, timeout=60)
+        self.assertEqual(fixture_inventory(self.destination), before)
+        self.assertFalse([p.name for p in self.destination.iterdir() if p.name.endswith(("-wal", "-shm", "-journal"))])
+        self.assertEqual(importer.import_publication(self.FIXTURE / "archive", self.destination).status, "unchanged")
+
     def test_release_producer_differential_cases(self):
         specs = load_json(FIXTURE_ROOT / "schema28-audit-cases.json")
         report = load_json(FIXTURE_ROOT / "v1.0.0" / "verifier-audit.json")

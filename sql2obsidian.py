@@ -870,7 +870,7 @@ def main(argv: list[str]) -> int:
     if not database_path.is_file():
         common.error("database not found")
 
-    sqlconn = notesdb.open_database(database_path, __program_name__)
+    sqlconn = notesdb.open_database_for_reading(database_path, __program_name__)
     sqlcur = sqlconn.cursor()
 
     try:
