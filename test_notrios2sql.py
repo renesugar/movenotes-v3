@@ -1469,6 +1469,9 @@ class NotriosObjectSpoolTest(unittest.TestCase):
             self.write_manifest()
             return
         records = self.envelopes()
+        # Injected references must name records the fixture contains. Older
+        # fixtures keep their original targets; a newer one declares its own.
+        targets = getattr(self, "audit_targets", None) or {"document": "doc_public", "resource": "res_image"}
         def first(kind):
             return next(r["payload"] for r in records if r["type"] == kind)
         if action in ("set", "delete"):
@@ -1515,13 +1518,13 @@ class NotriosObjectSpoolTest(unittest.TestCase):
             if action == "external_file":
                 p.update(resolution_status="external", raw_target="file:///withheld")
             else:
-                p.update(resolution_status="resolved", target_document_id="doc_public", target_resource_id="res_image")
+                p.update(resolution_status="resolved", target_document_id=targets["document"], target_resource_id=targets["resource"])
         elif action == "forbidden":
             timestamp = "2026-01-01T00:00:00Z"
             payload = {
                 "search_notebook": {"id": "search_test", "name": "Search", "query": "all", "builtin": False,
                                     "sort_anchor": "normal", "created_at": timestamp},
-                "provenance": {"document_id": "doc_public", "source_system": "test", "metadata_json": {},
+                "provenance": {"document_id": targets["document"], "source_system": "test", "metadata_json": {},
                                "created_at": timestamp, "updated_at": timestamp},
                 "source_bundle": {"source_system": "test", "source_key_sha256": "a" * 64,
                                   "collection_id": first("collection")["id"], "item_key_sha256": "b" * 64,
@@ -3399,6 +3402,132 @@ class NotriosSchema28Test(unittest.TestCase):
         self.assertEqual([r["name"] for r in report["results"]], [s["name"] for s in specs])
         case = NotriosObjectSpoolTest()
         case.fixture_source = fixture / "archive"
+        case.setUp()
+        self.addCleanup(case.doCleanups)
+        for spec, result in zip(specs, report["results"]):
+            with self.subTest(case=spec["name"]):
+                self.assertTrue(result["matched"])
+                self.assertEqual(result["go_accepted"], spec["expect_go"])
+                self.assertEqual(result["python_result"], spec["expect_python"])
+                case.fresh_archive()
+                case.apply_audit_case(spec)
+                if spec["expect_python"] == "accepted":
+                    with case.verify():
+                        pass
+                else:
+                    case.assert_verification_refused(spec["expect_python"], spec["message"])
+                self.assertEqual(list(case.work.iterdir()), [])
+
+
+class NotriosV1TitledTest(unittest.TestCase):
+    """S43b: a real Notrios v1.0.0 publication whose links carry titles (J43)."""
+
+    rows = NotriosNoteIntegrationTest.rows
+    export = NotriosNoteIntegrationTest.export
+    vault_notes = NotriosNoteIntegrationTest.vault_notes
+    FIXTURE = FIXTURE_ROOT / "v1.0.0" / "publication-titled"
+    DOCUMENTS = ("doc_obsidian_public_home", "doc_obsidian_public_deep_child", "doc_obsidian_public_other_note")
+    RESOURCE = "res_obsidian_public_shot"
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="movenotes-v1-titled-")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.destination = self.root / "publication"
+        self.expected = load_json(self.FIXTURE / "expected.json")
+
+    def published_bodies(self):
+        with archive_v2.verify_archive(self.FIXTURE / "archive", work_dir=self.root) as verified:
+            revisions = {r.payload["document_id"]: r.payload for r in verified.iter_records("revision")}
+            bodies = {}
+            for ident, revision in revisions.items():
+                with verified.open_blob(archive_v2.BlobRef(revision["body"]["sha256"], revision["body"]["size_bytes"],
+                                                           revision["body"]["media_type"])) as stream:
+                    bodies[ident] = stream.read().decode("utf-8")
+        return bodies
+
+    def test_release_fixture_is_immutable_and_fully_verified(self):
+        before = fixture_inventory(self.FIXTURE / "archive")
+        self.assertEqual(before, self.expected["archive_files"])
+        with archive_v2.verify_archive(self.FIXTURE / "archive", work_dir=self.root) as verified:
+            self.assertEqual(verified.manifest.compatibility["source_schema_version"], 28)
+            self.assertEqual(dict(verified.counts), self.expected["counts"])
+            self.assertEqual(verified.manifest.commit_sha256, self.expected["commit_sha256"])
+        self.assertEqual(fixture_inventory(self.FIXTURE / "archive"), before)
+        generation = load_json(self.FIXTURE / "generation.json")
+        self.assertEqual((generation["producer_commit"], generation["producer_tag"]),
+                         ("2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a", "v1.0.0"))
+        for name in ("verify", "publish-run"):
+            report = load_json(self.FIXTURE / "reports" / (name + ".json"))
+            self.assertEqual(report.get("report", report)["commit_sha256"], self.expected["commit_sha256"])
+        self.assertEqual(load_json(self.FIXTURE / "reports/compatibility.json")["decision"], "accept")
+        joined = "".join(self.published_bodies().values())
+        for token in self.expected["titled_tokens"]:
+            self.assertEqual(joined.count(token), 1, token)
+        for sentinel in self.expected["absent"]:
+            self.assertNotIn(sentinel, joined)
+
+    def test_titled_release_converts_reruns_and_exports_with_titles(self):
+        import posixpath
+        from urllib.parse import quote
+        result = importer.import_publication(self.FIXTURE / "archive", self.destination,
+                    expected_selection_sha256=self.expected["selection_manifest_sha256"])
+        self.assertEqual((result.status, result.resource_count), ("created", 1))
+        before = fixture_inventory(self.destination)
+        self.assertEqual(importer.import_publication(self.FIXTURE / "archive", self.destination).status, "unchanged")
+        self.assertEqual(fixture_inventory(self.destination), before)
+        database = self.expected["database_id"]
+        ids = {ident: mapping.mapped_id(database, "document", (ident,)) for ident in self.DOCUMENTS}
+        resource = mapping.mapped_id(database, "resource", (self.RESOURCE,))
+        uris = {**{"document://default/documents/" + k: v for k, v in ids.items()},
+                "resource://default/resources/" + self.RESOURCE: resource}
+        bodies = self.published_bodies()
+        rows = {r["joplin_id"]: r for r in self.rows() if r["joplin_type_"] == 1}
+        self.assertEqual(set(rows), set(ids.values()))
+        projected = {}
+        for ident, body in bodies.items():
+            for uri, item_id in uris.items():
+                body = body.replace(uri, ":/" + item_id)
+            projected[ident] = body
+            self.assertEqual(rows[ids[ident]]["note_data"], body)
+        # The titles reach the database unchanged, after the mapped destination.
+        home = projected["doc_obsidian_public_home"]
+        for title in ('"Child title")', "'Other title')", "#details (Section title))", '\t"Tab title")',
+                      '"Titre é 東京 [x] (y)")', ' "")', '"Photo title")', '"Self title")'):
+            self.assertIn(title, home)
+        vault = self.export()
+        notes = self.vault_notes(vault)
+        self.assertEqual(set(notes), set(ids.values()))
+        tags = {"doc_obsidian_public_home": ["café", "titled"], "doc_obsidian_public_deep_child": ["titled"],
+                "doc_obsidian_public_other_note": ["東京"]}
+        for ident, body in projected.items():
+            path, metadata, actual = notes[ids[ident]]
+            self.assertEqual(metadata.get("tags", []), tags[ident])
+            for target, item_id in ids.items():
+                relative = posixpath.relpath(notes[item_id][0], posixpath.dirname(path))
+                body = body.replace(":/" + item_id, quote(relative, safe="/-._~"))
+            image = posixpath.relpath("attachments/shot.png", posixpath.dirname(path))
+            body = body.replace("![shot](:/" + resource + ' "Photo title")', "![shot](" + image + ' "Photo title")')
+            self.assertEqual(actual, body)
+        self.assertIn('![shot](../attachments/shot.png "Photo title")', notes[ids["doc_obsidian_public_home"]][2])
+        self.assertEqual((vault / "attachments/shot.png").read_bytes(),
+                         (FIXTURE_ROOT / "vault-titled-v1/Public/shot.png").read_bytes())
+        for item in load_json(vault / ".movenotes/manifest.json")["items"]:
+            if item["type"] == 1:
+                self.assertEqual(hashlib.sha256((vault / item["obsidian_path"]).read_bytes()).hexdigest(), item["obsidian_sha256"])
+
+    def test_release_producer_differential_cases(self):
+        specs = load_json(FIXTURE_ROOT / "schema28-audit-cases.json")
+        report = load_json(FIXTURE_ROOT / "v1.0.0" / "verifier-audit.json")
+        generation = load_json(self.FIXTURE / "generation.json")
+        for field in ("producer_commit", "cli_sha256"):
+            self.assertEqual(report[field], generation[field])
+        self.assertEqual(report["fixture_commit_sha256"], self.expected["commit_sha256"])
+        self.assertEqual(report["case_spec_sha256"], hashlib.sha256((FIXTURE_ROOT / "schema28-audit-cases.json").read_bytes()).hexdigest())
+        self.assertEqual([r["name"] for r in report["results"]], [s["name"] for s in specs])
+        case = NotriosObjectSpoolTest()
+        case.fixture_source = self.FIXTURE / "archive"
+        case.audit_targets = self.expected["audit_targets"]
         case.setUp()
         self.addCleanup(case.doCleanups)
         for spec, result in zip(specs, report["results"]):

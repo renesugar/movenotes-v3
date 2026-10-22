@@ -105,6 +105,7 @@ def main():
     for spec in load_json(specs):
         case = NotriosObjectSpoolTest()
         case.fixture_source = args.fixture / 'archive'
+        case.audit_targets = load_json(args.fixture / 'expected.json').get('audit_targets')
         case.setUp()
         try:
             case.apply_audit_case(spec)

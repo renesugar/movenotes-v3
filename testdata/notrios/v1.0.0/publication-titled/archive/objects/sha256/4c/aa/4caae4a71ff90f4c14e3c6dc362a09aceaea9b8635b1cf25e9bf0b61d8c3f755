@@ -1,0 +1,13 @@
+---
+source_system: obsidian
+obsidian_path: "Public/Home.md"
+obsidian_folder: "Public"
+---
+# Home
+
+Double [Child](document://default/documents/doc_obsidian_public_deep_child "Child title") and single [Other](document://default/documents/doc_obsidian_public_other_note 'Other title').
+Paren [Again](document://default/documents/doc_obsidian_public_deep_child#details (Section title)) and tab [Tabbed](document://default/documents/doc_obsidian_public_deep_child	"Tab title").
+Unicode [Café](document://default/documents/doc_obsidian_public_deep_child "Titre é 東京 [x] (y)") and empty [Blank](document://default/documents/doc_obsidian_public_deep_child "").
+Embed ![shot](resource://default/resources/res_obsidian_public_shot "Photo title") and web [Web](https://example.test/x "Web title").
+Untitled [Plain](document://default/documents/doc_obsidian_public_deep_child) and self [Here](#home "Self title").
+Withheld Secret.

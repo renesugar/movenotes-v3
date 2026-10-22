@@ -1,0 +1,58 @@
+{
+  "destination": "<work>/archive",
+  "profile": "fixture",
+  "report": {
+    "target": "publication_handoff",
+    "full_backup": false,
+    "snapshot_id": "snap_7p6wtq3kjnn5yduk4admmee45i",
+    "database_id": "db_wlp3r535emca2lwjeln4ytayw4",
+    "source_replica_id": "replica_xkr73tyz66co722hevqnzbjfvy",
+    "created_at": "2026-10-22T20:17:24Z",
+    "commit_sha256": "7f093e27d5d7ab18cac5d97324ae08c8509f4467954220911df7f9c799b206d9",
+    "selection_manifest_sha256": "a8537bb0582b7bcd9f01c0074923175ad04380930db66e7dafd23a32717b6dc2",
+    "collection_ids": [
+      "default"
+    ],
+    "counts": {
+      "collections": 1,
+      "notebooks": 2,
+      "search_notebooks": 0,
+      "tags": 3,
+      "documents": 3,
+      "revisions": 3,
+      "document_tags": 4,
+      "resources": 1,
+      "document_resources": 1,
+      "links": 11,
+      "provenance": 0,
+      "source_bundles": 0
+    },
+    "index_objects": 1,
+    "pack_objects": 0,
+    "objects": 5,
+    "record_objects": 1,
+    "blob_objects": 4,
+    "deduplicated_objects": 0,
+    "reused_objects": 0,
+    "bytes": 10356,
+    "bytes_written": 11929,
+    "selected_documents": 3,
+    "excluded_documents": 0,
+    "reachable_resources": 1,
+    "cleared_link_targets": 0,
+    "rewritten_links": 1,
+    "rewritten_documents": 1,
+    "skipped_rewrites": 0,
+    "stripped_metadata": 0,
+    "verified": true,
+    "warnings": [
+      "query-backed search notebooks are omitted from a scoped archive because their queries describe the whole library",
+      "this archive is a scoped snapshot, not a complete database backup",
+      "this is a publication projection: current notes only, no revision history, no provenance, and no exact source bundles",
+      "link syntax pointing at withheld or unresolved targets was rewritten, so published bodies differ from the canonical notes",
+      "1 links target notes outside the selected public/subset manifest",
+      "detail arrays are truncated; counts and manifest_sha256 cover the complete bounded plan"
+    ],
+    "elapsed_seconds": 0.059612572
+  }
+}

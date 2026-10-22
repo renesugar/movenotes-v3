@@ -1,0 +1,225 @@
+{
+  "next_step": "after reviewing, publish with `--reviewed-plan a8537bb0582b7bcd9f01c0074923175ad04380930db66e7dafd23a32717b6dc2`",
+  "plan": {
+    "version": 1,
+    "target": "publication_handoff",
+    "policy": {
+      "exclude_tags": [
+        "confidential",
+        "draft",
+        "private"
+      ],
+      "private_tags": [
+        "confidential",
+        "draft",
+        "private"
+      ],
+      "link_action": "plain_text",
+      "include_source_bundles": false,
+      "include_provenance": false,
+      "include_private_metadata": false,
+      "include_trashed": false,
+      "exclude_read_only_notebooks": true
+    },
+    "manifest_sha256": "a8537bb0582b7bcd9f01c0074923175ad04380930db66e7dafd23a32717b6dc2",
+    "counts": {
+      "selected_documents": 3,
+      "excluded_documents": 0,
+      "reachable_resources": 1,
+      "available_source_bundles": 0,
+      "included_source_bundles": 0,
+      "internal_links": 9,
+      "private_links": 1,
+      "broken_links": 0,
+      "external_links": 2,
+      "oversized_resources": 0
+    },
+    "documents": [
+      {
+        "id": "doc_obsidian_public_deep_child",
+        "uri": "document://default/documents/doc_obsidian_public_deep_child",
+        "collection_id": "default",
+        "notebook_id": "nb_obsidian_public_deep",
+        "current_revision_id": "rev_eberkcklb7ko2wdzaktxtob774",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      },
+      {
+        "id": "doc_obsidian_public_home",
+        "uri": "document://default/documents/doc_obsidian_public_home",
+        "collection_id": "default",
+        "notebook_id": "nb_obsidian_public",
+        "current_revision_id": "rev_kdi6d4sbthedymo7phfwpkcywu",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      },
+      {
+        "id": "doc_obsidian_public_other_note",
+        "uri": "document://default/documents/doc_obsidian_public_other_note",
+        "collection_id": "default",
+        "notebook_id": "nb_obsidian_public",
+        "current_revision_id": "rev_x5kk5v576rkqjaxxekyw64fcxa",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      }
+    ],
+    "resources": [
+      {
+        "id": "res_obsidian_public_shot",
+        "uri": "resource://default/resources/res_obsidian_public_shot",
+        "collection_id": "default",
+        "mime_type": "image/png",
+        "size_bytes": 70,
+        "sha256": "c414cd0e204de974f73753c7e28d7638e7b3691bb8b1a2bab6b25bb7fed7ce77"
+      }
+    ],
+    "links": [
+      {
+        "source_document_id": "doc_obsidian_public_deep_child",
+        "target_document_id": "doc_obsidian_public_home",
+        "link_sha256": "b5e7cc984b8bcdd1ef7d6b1ff89a7bbe73c937c992410c1286106d8a72fb0ebb",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_home",
+        "target_document_id": "doc_obsidian_public_deep_child",
+        "link_sha256": "34b2785ff2e8d9c77386bb3f2cd320378951364fdf29a088080b032777ddb6c5",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_home",
+        "target_document_id": "doc_obsidian_public_other_note",
+        "link_sha256": "fe0cb9cdf5dd54d96cf711d13aac97b90d2fd1ea7a851bc4c2eddd18cb3c20ff",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_home",
+        "target_document_id": "doc_obsidian_public_deep_child",
+        "link_sha256": "ed24fab7e8029ae144bd87a2c481936b0da01aa54b55329b63f87483bd4fce3f",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_home",
+        "target_document_id": "doc_obsidian_public_deep_child",
+        "link_sha256": "df3e0a0a21b62614c001f83c82fdcdf9475f7e3c5d947fa9e53d02934b87a766",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_home",
+        "target_document_id": "doc_obsidian_public_deep_child",
+        "link_sha256": "eac251ecab3061e035f134076d133c72c6ce64ac76fcbcb339378a7ad0446020",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_home",
+        "target_document_id": "doc_obsidian_public_deep_child",
+        "link_sha256": "c8bbd4e6262e45a01f186a4eae95a18f13a10f838625448d2c868b3ef8c2f3ae",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_home",
+        "link_sha256": "cab29ae354497ba3791b57bed62bd4b1e8f2fdec9fc04b0ed2022a75cb06620c",
+        "classification": "external",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_home",
+        "link_sha256": "90253797f986f22aa4e560ad3d6e7676cfe5c45f8b4fd9d84644148f47a3c665",
+        "classification": "external",
+        "resolution_status": "external",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_home",
+        "target_document_id": "doc_obsidian_public_deep_child",
+        "link_sha256": "3034d959f0ade82f85638a4226636e7bc3e1e06ec8db284856dc67d34b1fcc9b",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_home",
+        "target_document_id": "doc_obsidian_public_home",
+        "link_sha256": "efe098e960f5ad83c605eaccc26787a176118531d73e09b325355b6f2e4a9554",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_home",
+        "target_document_id": "doc_obsidian_private_secret",
+        "link_sha256": "b9d636d7c433d026d0b40fc39473e5903826bf81251899247af042d91c94c58a",
+        "classification": "private",
+        "resolution_status": "resolved",
+        "action": "plain_text"
+      }
+    ],
+    "source_bundles": [],
+    "exclusions": [],
+    "metadata_decisions": [
+      {
+        "field": "private_tags",
+        "action": "strip",
+        "reason": "target privacy policy",
+        "affected_items": 3
+      },
+      {
+        "field": "source.external_id",
+        "action": "strip",
+        "reason": "source provenance policy",
+        "affected_items": 3
+      },
+      {
+        "field": "source.source_url",
+        "action": "strip",
+        "reason": "source provenance policy",
+        "affected_items": 3
+      },
+      {
+        "field": "source.metadata_json",
+        "action": "strip",
+        "reason": "private source metadata policy",
+        "affected_items": 3
+      },
+      {
+        "field": "source_bundle.items",
+        "action": "exclude",
+        "reason": "exact source bundle policy",
+        "affected_items": 0
+      },
+      {
+        "field": "source_bundle.storage_path",
+        "action": "strip",
+        "reason": "local filesystem paths never cross planner APIs",
+        "affected_items": 0
+      }
+    ],
+    "warnings": [
+      "1 links target notes outside the selected public/subset manifest"
+    ],
+    "truncated": false
+  },
+  "profile": "fixture",
+  "target": "publication_handoff"
+}

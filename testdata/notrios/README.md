@@ -402,6 +402,14 @@ resource-bearing and resource-free publications, a 56-case differential audit,
 and offline conversion/no-op/vault regressions. The original schema-27 archive,
 expected values and audit results above remain historical evidence.
 
+## Titled links from the released producer — S43b
+
+The separately pinned [Notrios v1.0.0 evidence](v1.0.0/README.md) adds a real
+publication whose links carry titles in every form the producer writes, from the
+synthetic [titled-link vault](vault-titled-v1/). It also holds a 56-case
+differential audit against the release binary and offline
+conversion/no-op/vault regressions that check the titles survive byte for byte.
+
 ## Vault-to-site tag semantics — slice 4c
 
 [The tag review](../../NOTRIOS_TAG_REVIEW.md) traces the real schema-28 text
