@@ -1,38 +1,68 @@
 {
   "schema_version": 1,
   "plan": "NOTRIOS_IMPORT_PLAN.md",
-  "updated": "2026-09-19",
+  "updated": "2026-10-22",
   "session": {
-    "coding_agent": "codex",
-    "product_role": "Codex",
-    "underlying_model_family": "GPT-6",
+    "coding_agent": "claude",
+    "product_role": "Claude Code (terminal CLI)",
+    "underlying_model_family": "Claude Opus 5.5 (runtime-reported model ID claude-opus-5-5)",
     "configured_model": "not exposed",
     "configured_reasoning_effort": "not exposed",
-    "model_provider": "not exposed",
+    "model_provider": "Anthropic (runtime-reported)",
     "product_client_version": "not exposed",
-    "billing_route": "not exposed; suitability confirmed by user for this session",
+    "billing_route": "not exposed; user confirmed the stated assignments with billing shown as not exposed",
     "confirmation": "confirmed",
-    "confirmation_evidence": "2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c. C7b implementation and data-heavy validation used the confirmed assignments. After the usage-limit resume on 2026-09-17, runtime capacity changed to one total active agent; future delegated work requires restored availability confirmation or an explicitly approved reassignment. 2026-09-17 user updated concurrency and asked: Is there enough worker capacity to proceed with C7c? If so, proceed. Runtime now exposes two total slots; parent confirmed capacity and unchanged Luna/max assignment, then spawned /root/c7c_harness. Prior billing suitability confirmation retained; no provider/model/effort substitution.",
+    "confirmation_evidence": "2026-10-22 user, in the restarted Claude Code session: Yes, these assignments are current for this session. Answered after being shown the Claude Code parent as the only owner of remaining work, runtime-reported model claude-opus-5-5 from Anthropic, and configured alias, reasoning effort and billing route not exposed. Applies to this unchanged session; each slice still needs its own authorization. Earlier the same day the user directed the reassignment: Rewrite the plan to use the main model for all work. The work-arounds used for codex are not necessary for this terminal CLI.",
     "notes": [
-      "Worker model/effort values are runtime configuration, not proof of child execution.",
-      "Historical parent aliases/efforts were not recorded per slice; do not infer gpt-6-astra from the user's Astra label.",
-      "Future Luna assignments use fixed max effort, confirmed by the user for this session; historical medium assignments remain unchanged.",
-      "Runtime capacity restored to two total active agents, allowing parent plus one assigned worker. C7c delegated to Luna/max after explicit conditional authorization and capacity verification."
+      "All remaining work (S43a, S43b, P7b2, resumed P7c, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.",
+      "Codex luna_worker and terra_worker do not exist in Claude Code and are not replaced by Claude subagents. Spawning one requires an explicit user request and a recorded plan amendment first.",
+      "The Codex auxiliary Luna monitor is retired for remaining work. Main runs long data-heavy commands as harness-tracked background commands, is re-invoked once when they exit, and does not poll.",
+      "The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.",
+      "Completed slices keep their recorded Codex attribution. The earlier Codex session is under previous_sessions and its assignments under assignment_history."
     ],
     "confirmation_history": [
       {
-        "status": "confirmed",
-        "evidence": "2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c.",
-        "scope": "Completed C7b execution before resumed concurrency limitation"
-      },
-      {
-        "status": "pending availability confirmation before new delegation",
-        "evidence": "2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c. C7b implementation and data-heavy validation used the confirmed assignments. After the usage-limit resume on 2026-09-17, runtime capacity changed to one total active agent; future delegated work requires restored availability confirmation or an explicitly approved reassignment.",
-        "scope": "Temporary one-slot runtime after C7b; superseded by restored capacity and explicit C7c authorization."
+        "status": "pending",
+        "evidence": "2026-10-22 user directed reassignment of all remaining work to the Claude Code parent; confirmation not yet given.",
+        "scope": "Previous Claude Code session, superseded by the restarted session's explicit confirmation."
       }
     ]
   },
-  "assignments": [
+  "previous_sessions": [
+    {
+      "coding_agent": "codex",
+      "product_role": "Codex",
+      "underlying_model_family": "GPT-6",
+      "configured_model": "not exposed",
+      "configured_reasoning_effort": "not exposed",
+      "model_provider": "not exposed",
+      "product_client_version": "not exposed",
+      "billing_route": "not exposed; suitability confirmed by user for this session",
+      "confirmation": "confirmed",
+      "confirmation_evidence": "2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c. C7b implementation and data-heavy validation used the confirmed assignments. After the usage-limit resume on 2026-09-17, runtime capacity changed to one total active agent; future delegated work requires restored availability confirmation or an explicitly approved reassignment. 2026-09-17 user updated concurrency and asked: Is there enough worker capacity to proceed with C7c? If so, proceed. Runtime now exposes two total slots; parent confirmed capacity and unchanged Luna/max assignment, then spawned /root/c7c_harness. Prior billing suitability confirmation retained; no provider/model/effort substitution.",
+      "notes": [
+        "Worker model/effort values are runtime configuration, not proof of child execution.",
+        "Historical parent aliases/efforts were not recorded per slice; do not infer gpt-6-astra from the user's Astra label.",
+        "Future Luna assignments use fixed max effort, confirmed by the user for this session; historical medium assignments remain unchanged.",
+        "Runtime capacity restored to two total active agents, allowing parent plus one assigned worker. C7c delegated to Luna/max after explicit conditional authorization and capacity verification."
+      ],
+      "confirmation_history": [
+        {
+          "status": "confirmed",
+          "evidence": "2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c.",
+          "scope": "Completed C7b execution before resumed concurrency limitation"
+        },
+        {
+          "status": "pending availability confirmation before new delegation",
+          "evidence": "2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c. C7b implementation and data-heavy validation used the confirmed assignments. After the usage-limit resume on 2026-09-17, runtime capacity changed to one total active agent; future delegated work requires restored availability confirmation or an explicitly approved reassignment.",
+          "scope": "Temporary one-slot runtime after C7b; superseded by restored capacity and explicit C7c authorization."
+        }
+      ],
+      "superseded": "2026-10-22: user reassigned all remaining work to the Claude Code parent."
+    }
+  ],
+  "assignment_history_note": "Codex assignments in force until 2026-10-22, superseded by the user's reassignment of all remaining work to the Claude Code parent. Completed slices keep these planned owners.",
+  "assignment_history": [
     {
       "coding_agent": "codex",
       "owner": "parent",
@@ -56,6 +86,40 @@
       "reasoning_effort": "medium",
       "availability": "Configured fixed role; two total active-agent slots permit parent plus one worker. Luna delegation succeeded for C7c.",
       "billing_route": "not exposed; suitability confirmed by user for this session"
+    }
+  ],
+  "assignments": [
+    {
+      "coding_agent": "claude",
+      "owner": "parent",
+      "model": "not exposed; runtime reports claude-opus-5-5",
+      "reasoning_effort": "not exposed",
+      "availability": "Main for all remaining slices; no workers planned",
+      "billing_route": "not exposed; assignments confirmed by user for this session"
+    },
+    {
+      "coding_agent": "codex",
+      "owner": "parent",
+      "model": "not exposed",
+      "reasoning_effort": "not exposed",
+      "availability": "Historical: completed slices only; runtime reported GPT-6 family",
+      "billing_route": "not exposed; suitability was confirmed for the earlier Codex session"
+    },
+    {
+      "coding_agent": "codex",
+      "owner": "luna_worker",
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "max",
+      "availability": "Historical: completed slices only; not assigned to remaining work",
+      "billing_route": "not exposed; suitability was confirmed for the earlier Codex session"
+    },
+    {
+      "coding_agent": "codex",
+      "owner": "terra_worker",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "medium",
+      "availability": "Historical: completed slices only; not assigned to remaining work",
+      "billing_route": "not exposed; suitability was confirmed for the earlier Codex session"
     }
   ],
   "slices": [
@@ -1119,21 +1183,31 @@
       "parent_contribution": "pending",
       "validation": "pending",
       "id": "P7b2",
-      "coding_agent": "codex",
+      "coding_agent": "claude",
       "status": "pending",
-      "planned_worker": "terra_worker",
-      "configured_model": "gpt-5.6-terra",
-      "configured_reasoning_effort": "medium",
-      "assignment_confirmation": "Existing Codex role/effort/billing suitability applies; new slice implementation requires authorization.",
-      "delegation_required": true,
-      "planned_assignment_evidence": "P7c full-scale finding; NOTRIOS_P7C_EVIDENCE.md",
-      "delegation_failure_or_reassignment": "none recorded",
+      "planned_worker": "parent",
+      "configured_model": "not exposed; runtime reports claude-opus-5-5",
+      "configured_reasoning_effort": "not exposed",
+      "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization.",
+      "delegation_required": false,
+      "planned_assignment_evidence": "P7c full-scale finding; NOTRIOS_P7C_EVIDENCE.md; 2026-10-22 user reassignment to the Claude Code parent",
+      "delegation_failure_or_reassignment": "2026-10-22 user reassignment from codex terra_worker (gpt-5.6-terra, fixed medium) to the Claude Code parent before any work started; previous assignment kept in assignment_history. Not a delegation failure.",
+      "assignment_history": [
+        {
+          "coding_agent": "codex",
+          "planned_worker": "terra_worker",
+          "configured_model": "gpt-5.6-terra",
+          "configured_reasoning_effort": "medium",
+          "assignment_confirmation": "Existing Codex role/effort/billing suitability applies; new slice implementation requires authorization.",
+          "superseded": "2026-10-22 by user reassignment"
+        }
+      ],
       "evidence": [
         "P7c stopped full baseline in _existing_import_hashes; EXPLAIN SCAN notes before index."
       ],
       "commit": "pending",
       "planned_work": "Bound fresh-import ID lookup, preserve collision/rollback semantics, measure total import cost before resumed P7c.",
-      "billing_route": "not exposed; existing session suitability confirmed"
+      "billing_route": "not exposed"
     },
     {
       "actual_worker": "luna_worker",
@@ -1147,15 +1221,25 @@
       "parent_contribution": "Reviewed resume/input/metric correctness; launched real10k and fullnative/final prepared tests after worker external-tool approval stalls; long tool-side waits. Interrupted full baseline at17,943.11s, traced unindexed batch lookup and confirmed EXPLAIN/VM scaling. Added P7b2 prerequisite; no production edits.",
       "validation": "Isolated synthetic and real10k comparisons match. Corrected prepared-seed5pairs match; smallmerge slower/noisy remains unresolved. Fullbaseline interrupted17943.11s in unindexed lookup, candidate not run. Ten focused harness tests pass. Full acceptance blocked; NOTRIOS_P7C_EVIDENCE.md.",
       "id": "P7c",
-      "coding_agent": "codex",
+      "coding_agent": "codex (partial execution to 2026-09-19); claude (remaining work)",
       "status": "in progress",
-      "planned_worker": "luna_worker",
-      "configured_model": "gpt-5.6-luna",
-      "configured_reasoning_effort": "max",
-      "assignment_confirmation": "User: Proceed with P7c. Existing Codex roles, efforts and billing suitability confirmed for unchanged session.",
-      "delegation_required": true,
-      "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17",
-      "delegation_failure_or_reassignment": "Worker external ps/approval calls stalled; parent final-validation launches and long tool waits used after confirming no active process. Worker could not access parent terminal session. No implementation reassignment.",
+      "planned_worker": "parent",
+      "configured_model": "not exposed; runtime reports claude-opus-5-5",
+      "configured_reasoning_effort": "not exposed",
+      "assignment_confirmation": "Codex partial run: User: Proceed with P7c. Existing Codex roles, efforts and billing suitability confirmed for unchanged session. Remaining work: Claude Code session assignments confirmed by user on 2026-10-22; resume still requires authorization.",
+      "delegation_required": false,
+      "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17; 2026-10-22 user reassignment to the Claude Code parent",
+      "delegation_failure_or_reassignment": "Worker external ps/approval calls stalled; parent final-validation launches and long tool waits used after confirming no active process. Worker could not access parent terminal session. No implementation reassignment. 2026-10-22: user reassigned the remaining P7c work from codex luna_worker (gpt-5.6-luna, fixed max) to the Claude Code parent and retired the Luna monitor; the partial Luna record above is unchanged.",
+      "assignment_history": [
+        {
+          "coding_agent": "codex",
+          "planned_worker": "luna_worker",
+          "configured_model": "gpt-5.6-luna",
+          "configured_reasoning_effort": "max",
+          "assignment_confirmation": "User: Proceed with P7c. Existing Codex roles, efforts and billing suitability confirmed for unchanged session.",
+          "superseded": "2026-10-22 by user reassignment of remaining work"
+        }
+      ],
       "evidence": [
         "User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement.",
         "User: Proceed with P7c; native spawn /root/p7c_validation",
@@ -1164,8 +1248,9 @@
       ],
       "commit": "P7c partial-evidence checkpoint (contains this ledger)",
       "planned_work": "Run paired benchmarks and full-corpus confirmation using notification monitoring; record adoption evidence",
-      "billing_route": "not exposed; existing role suitability confirmed for unchanged session",
+      "billing_route": "Codex partial run: not exposed; existing role suitability confirmed for unchanged session. Remaining work: not exposed.",
       "monitoring_assignment": {
+        "superseded": "2026-10-22: retired for remaining work; Main runs data-heavy commands as harness-tracked background commands.",
         "coding_agent": "codex",
         "authorized_monitor": "luna_worker",
         "configured_model": "gpt-5.6-luna",
@@ -1181,12 +1266,22 @@
     },
     {
       "id": "7c",
-      "coding_agent": "codex",
+      "coding_agent": "codex (partial execution to 2026-09-16); claude (remaining work)",
       "status": "in progress",
       "planned_worker": "parent",
-      "configured_model": "not exposed",
+      "configured_model": "not exposed; runtime reports claude-opus-5-5",
       "configured_reasoning_effort": "not exposed",
-      "assignment_confirmation": "Confirmed unchanged Codex session; user explicitly authorized 7c.",
+      "assignment_confirmation": "Codex partial run: Confirmed unchanged Codex session; user explicitly authorized 7c. Remaining work: Claude Code session assignments confirmed by user on 2026-10-22; resume still requires authorization.",
+      "assignment_history": [
+        {
+          "coding_agent": "codex",
+          "planned_worker": "parent",
+          "configured_model": "not exposed",
+          "configured_reasoning_effort": "not exposed",
+          "assignment_confirmation": "Confirmed unchanged Codex session; user explicitly authorized 7c.",
+          "superseded": "2026-10-22 by user reassignment of remaining work to the Claude Code parent"
+        }
+      ],
       "delegation_required": false,
       "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
       "actual_worker": "luna_worker (harness/monitoring only)",
@@ -1199,7 +1294,7 @@
       "parent_reasoning_effort": "not exposed",
       "parent_contribution": "Inspected producer pin and source sizes, prepared initial harness and isolated measurements, investigated Joplin lexical refusal, reviewed terminal evidence and recorded partial acceptance; used 25-minute native notification waits with occasional fallback checks. Corrected nondeterministic receipt-test search row comparison; sampled control characters and embedded frontmatter differences; retained 7c as incomplete.",
       "validation": "Partial corpus acceptance: both 382,206-document recipe imports succeeded; three bounded real publications passed both verifiers but conversion refused. Full real tiers skipped. Synthetic 10,000 pipeline and recovery passed. Initial semantic multisets differ and include embedded frontmatter; refined semantic audit pending. Corrected full regression passed all 262 tests in 139.150s. Historical failure proven to be JSONL row permutation. See NOTRIOS_CORPUS_TRIALS.md.",
-      "delegation_failure_or_reassignment": "User explicitly added Luna harness/monitoring delegation to parent-owned 7c to reduce model usage; no silent substitution.",
+      "delegation_failure_or_reassignment": "User explicitly added Luna harness/monitoring delegation to parent-owned 7c to reduce model usage; no silent substitution. 2026-10-22: user moved the remaining 7c work to the Claude Code parent and retired the Luna harness/monitoring delegation.",
       "evidence": [
         "User: Proceed with 7c",
         "User request for Luna monitoring with long notification waits; native spawn /root/notrios_7c_monitor",
@@ -1209,6 +1304,7 @@
       ],
       "commit": "none — uncommitted",
       "monitoring_assignment": {
+        "superseded": "2026-10-22: retired for remaining work; Main runs data-heavy commands as harness-tracked background commands.",
         "coding_agent": "codex",
         "planned_worker": "parent",
         "authorized_monitor": "luna_worker",
@@ -1222,14 +1318,24 @@
     },
     {
       "id": "7d",
-      "coding_agent": "codex",
+      "coding_agent": "claude",
       "status": "pending",
-      "planned_worker": "luna_worker",
-      "configured_model": "gpt-5.6-luna",
-      "configured_reasoning_effort": "max",
-      "assignment_confirmation": "confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization",
-      "delegation_required": true,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_worker": "parent",
+      "configured_model": "not exposed; runtime reports claude-opus-5-5",
+      "configured_reasoning_effort": "not exposed",
+      "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization.",
+      "delegation_required": false,
+      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md; 2026-10-22 user reassignment to the Claude Code parent",
+      "assignment_history": [
+        {
+          "coding_agent": "codex",
+          "planned_worker": "luna_worker",
+          "configured_model": "gpt-5.6-luna",
+          "configured_reasoning_effort": "max",
+          "assignment_confirmation": "confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization",
+          "superseded": "2026-10-22 by user reassignment"
+        }
+      ],
       "actual_worker": "pending",
       "child_thread": "pending",
       "actual_model": "pending",
@@ -1240,20 +1346,30 @@
       "parent_reasoning_effort": "pending",
       "parent_contribution": "pending",
       "validation": "pending",
-      "delegation_failure_or_reassignment": "pending",
+      "delegation_failure_or_reassignment": "2026-10-22 user reassignment from codex luna_worker (gpt-5.6-luna, fixed max) to the Claude Code parent before any work started; previous assignment kept in assignment_history. Not a delegation failure.",
       "evidence": [],
       "commit": "pending"
     },
     {
       "id": "7e",
-      "coding_agent": "codex",
+      "coding_agent": "claude",
       "status": "pending",
       "planned_worker": "parent",
-      "configured_model": "not exposed",
+      "configured_model": "not exposed; runtime reports claude-opus-5-5",
       "configured_reasoning_effort": "not exposed",
-      "assignment_confirmation": "confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization",
+      "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization.",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md; 2026-10-22 coding-agent change to Claude Code",
+      "assignment_history": [
+        {
+          "coding_agent": "codex",
+          "planned_worker": "parent",
+          "configured_model": "not exposed",
+          "configured_reasoning_effort": "not exposed",
+          "assignment_confirmation": "confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization",
+          "superseded": "2026-10-22 by user reassignment to the Claude Code parent"
+        }
+      ],
       "actual_worker": "pending",
       "child_thread": "pending",
       "actual_model": "pending",
@@ -1264,9 +1380,61 @@
       "parent_reasoning_effort": "pending",
       "parent_contribution": "pending",
       "validation": "pending",
-      "delegation_failure_or_reassignment": "pending",
+      "delegation_failure_or_reassignment": "2026-10-22: coding agent changed from the Codex parent to the Claude Code parent by user; planned owner unchanged.",
       "evidence": [],
       "commit": "pending"
+    },
+    {
+      "id": "S43a",
+      "coding_agent": "claude",
+      "status": "pending",
+      "planned_worker": "parent",
+      "configured_model": "not exposed; runtime reports claude-opus-5-5",
+      "configured_reasoning_effort": "not exposed",
+      "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization.",
+      "delegation_required": false,
+      "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md producer link-syntax prerequisites added 2026-09-26; 2026-10-22 coding-agent change to Claude Code",
+      "planned_work": "Admit an optional link title after a validated destination and preserve it byte for byte through projection.",
+      "actual_worker": "pending",
+      "child_thread": "pending",
+      "actual_model": "pending",
+      "reasoning_effort": "pending",
+      "worker_contribution": "pending",
+      "parent": "pending",
+      "parent_underlying_model_family": "pending",
+      "parent_reasoning_effort": "pending",
+      "parent_contribution": "pending",
+      "validation": "pending",
+      "delegation_failure_or_reassignment": "2026-10-22: planned as a Codex parent slice; coding agent changed to the Claude Code parent by user before any work started. Planned owner unchanged.",
+      "evidence": [],
+      "commit": "pending",
+      "billing_route": "not exposed"
+    },
+    {
+      "id": "S43b",
+      "coding_agent": "claude",
+      "status": "pending",
+      "planned_worker": "parent",
+      "configured_model": "not exposed; runtime reports claude-opus-5-5",
+      "configured_reasoning_effort": "not exposed",
+      "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization.",
+      "delegation_required": false,
+      "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md producer link-syntax prerequisites added 2026-09-26; 2026-10-22 coding-agent change to Claude Code",
+      "planned_work": "Add a separately pinned publication fixture from Notrios v1.0.0 (2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a) with titled internal links; extend the differential audit and converter/no-op evidence.",
+      "actual_worker": "pending",
+      "child_thread": "pending",
+      "actual_model": "pending",
+      "reasoning_effort": "pending",
+      "worker_contribution": "pending",
+      "parent": "pending",
+      "parent_underlying_model_family": "pending",
+      "parent_reasoning_effort": "pending",
+      "parent_contribution": "pending",
+      "validation": "pending",
+      "delegation_failure_or_reassignment": "2026-10-22: planned as a Codex parent slice; coding agent changed to the Claude Code parent by user before any work started. Planned owner unchanged.",
+      "evidence": [],
+      "commit": "pending",
+      "billing_route": "not exposed"
     }
   ]
 }

@@ -30,8 +30,15 @@ body/metadata/title differences. Tag channels remain separate; route equivalence
 and full 7c acceptance are not claimed. **P7a is complete**; see [performance evidence](NOTRIOS_PERFORMANCE_EVIDENCE.md).
 **P7b is complete**; see [candidate evidence](NOTRIOS_P7B_EVIDENCE.md).
 **P7c is partially validated but blocked** by fresh-import ID lookups that scan
-the growing table. Next is **P7b2**, a bounded lookup fix, before P7c resumes.
-See [P7c evidence](NOTRIOS_P7C_EVIDENCE.md).
+the growing table. **P7b2**, a bounded lookup fix, must come before P7c resumes.
+See [P7c evidence](NOTRIOS_P7C_EVIDENCE.md). The producer link-syntax
+prerequisites **S43a–S43b** (not started) come first: next is **S43a**.
+Plan revised on **2026-10-22**: all remaining work is assigned to the Claude Code
+main model (**Main**), and the user confirmed this for the session. No Codex
+worker or monitor remains in the plan. See
+[Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
+S43b and resumed 7c pin the released Notrios **`v1.0.0`** (`2aab9a8`). The
+remaining order is S43a → S43b → P7b2 → resumed P7c → resumed 7c → 7d → 7e.
 Slice **7c remains incomplete**; isolated work
 and checkpoints are under `/media/$USER/HD2/movenotes-7c-20260916/`.
 Both recipe imports succeeded (382,206 documents each), but bounded real
@@ -225,100 +232,120 @@ integrity verification.
 
 ## Coding-agent assignments and session confirmation
 
-This plan's assignments are scoped to **codex**. `Main` means the parent,
-`Luna` means `codex:luna_worker`, and `Terra` means `codex:terra_worker`.
-The slice tables name **planned** owners; the execution ledger below records
-who actually did the work. Do not replace a planned worker with Main when the
-parent implements a slice. Historical planned owners are restored from
-`e3af032`; scope, dependencies, acceptance criteria and slice order are unchanged.
+**Remaining work is scoped to `claude` (Claude Code, terminal CLI).** On
+2026-10-22 the user reassigned every remaining slice to the main model:
+"Rewrite the plan to use the main model for all work. The work-arounds used for
+codex are not necessary for this terminal CLI." `Main` now means the Claude Code
+parent for every slice that is not complete: S43a, S43b, P7b2, resumed P7c,
+resumed 7c, 7d and 7e. No worker, subagent or auxiliary monitor is planned. A
+Claude subagent is not a substitute for `luna_worker` or `terra_worker`. Use
+one only if the user explicitly asks for it, and record a plan amendment first.
+
+Completed slices keep their Codex history unchanged. In their rows, `Main` is the
+Codex parent, `Luna` is `codex:luna_worker` and `Terra` is `codex:terra_worker`.
+The slice tables name **planned** owners; the execution ledger below records who
+actually did the work. The earlier Codex session, its confirmation evidence and
+the superseded assignments stay in the ledger under `previous_sessions`,
+`assignment_history` and each reassigned slice's own `assignment_history`. Scope,
+dependencies and acceptance criteria are unchanged by this reassignment.
 
 At the beginning of each implementation session, follow
-[Mandatory planned delegation](AGENTS.md#mandatory-planned-delegation): show the
-user the current coding agent and the plan's model/effort assignments, identify
-runtime availability or fixed-effort mismatches, and state the known billing
-route or `not exposed`. Ask whether these assignments are current for this
-session or need updating first. Wait for explicit confirmation before
-implementation or spawning workers. Requested plan/provenance edits and
-read-only inspection can proceed during this check.
+[Mandatory planned delegation](AGENTS.md#mandatory-planned-delegation). Show the
+user the active coding agent and this plan's parent model and effort, mark which
+values are runtime-reported and which are configured, and state the billing route
+or `not exposed`. Then ask whether these assignments are current for the session.
+Wait for an explicit answer before implementation. Requested plan or provenance
+edits and read-only inspection can proceed while confirmation is pending.
 
-Confirmation applies only to the stated session, coding agent, model/worker
-configuration and billing route. Reconfirm when any of those changes; compaction
-alone does not require repeating it. A model name available in Codex may be
-absent in Claude/OpenCode or available there only through higher-cost API
-billing. Never silently transfer assignments, assume subscription coverage, or
-use another provider, model, effort or parent fallback.
+Confirmation applies only to the stated session, coding agent, model
+configuration and billing route. Reconfirm when any of those changes;
+compaction alone does not require repeating it. Never silently switch provider,
+model or effort, or start delegating.
 
 The following table is generated from
-[NOTRIOS_IMPORT_EXECUTION.json](NOTRIOS_IMPORT_EXECUTION.json). These are
-recorded Codex assignments; the generated session status below distinguishes
-completed-work confirmation from availability required for new delegation.
-Historical Luna assignments retain their originally planned `medium` effort in
-the per-slice records; future Luna assignments retain configured fixed `max`
-effort, subject to the availability gate below.
+[NOTRIOS_IMPORT_EXECUTION.json](NOTRIOS_IMPORT_EXECUTION.json). The Claude Code
+row is the current assignment. The Codex rows are history for completed slices.
 
 <!-- NOTRIOS-ASSIGNMENTS:START -->
 Session confirmation: **confirmed**.
 
-2026-09-14 user: These assignments, effort levels and billing arrangements are appropriate for this session. Proceed with 5b. Applies to this unchanged Codex session; 5b implementation authorized at that point. Subsequent user authorization: Proceed with 5c. Subsequent user authorization: Proceed with 5d. Subsequent user authorization: Proceed with 6a; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6b. Subsequent user authorization: Proceed with 6c; continued after usage limit on 2026-09-15. Subsequent user authorization: Proceed with 6d. User resumed 6d after a usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7a. Subsequent user authorization: Proceed with 7b. User resumed 7b after usage limit; unchanged session confirmation retained. Subsequent user authorization: Proceed with 7c. C7b implementation and data-heavy validation used the confirmed assignments. After the usage-limit resume on 2026-09-17, runtime capacity changed to one total active agent; future delegated work requires restored availability confirmation or an explicitly approved reassignment. 2026-09-17 user updated concurrency and asked: Is there enough worker capacity to proceed with C7c? If so, proceed. Runtime now exposes two total slots; parent confirmed capacity and unchanged Luna/max assignment, then spawned /root/c7c_harness. Prior billing suitability confirmation retained; no provider/model/effort substitution.
+2026-10-22 user, in the restarted Claude Code session: Yes, these assignments are current for this session. Answered after being shown the Claude Code parent as the only owner of remaining work, runtime-reported model claude-opus-5-5 from Anthropic, and configured alias, reasoning effort and billing route not exposed. Applies to this unchanged session; each slice still needs its own authorization. Earlier the same day the user directed the reassignment: Rewrite the plan to use the main model for all work. The work-arounds used for codex are not necessary for this terminal CLI.
 
 | Coding agent | Execution owner | Configured model | Reasoning effort | Availability | Billing route |
 |---|---|---|---|---|---|
-| codex | parent | not exposed | not exposed | Current parent runtime reports GPT-6 family only | not exposed; suitability confirmed by user for this session |
-| codex | luna_worker | gpt-5.6-luna | max | Configured fixed role; two total active-agent slots permit parent plus one worker. Luna delegation succeeded for C7c. | not exposed; suitability confirmed by user for this session |
-| codex | terra_worker | gpt-5.6-terra | medium | Configured fixed role; two total active-agent slots permit parent plus one worker. Luna delegation succeeded for C7c. | not exposed; suitability confirmed by user for this session |
+| claude | parent | not exposed; runtime reports claude-opus-5-5 | not exposed | Main for all remaining slices; no workers planned | not exposed; assignments confirmed by user for this session |
+| codex | parent | not exposed | not exposed | Historical: completed slices only; runtime reported GPT-6 family | not exposed; suitability was confirmed for the earlier Codex session |
+| codex | luna_worker | gpt-5.6-luna | max | Historical: completed slices only; not assigned to remaining work | not exposed; suitability was confirmed for the earlier Codex session |
+| codex | terra_worker | gpt-5.6-terra | medium | Historical: completed slices only; not assigned to remaining work | not exposed; suitability was confirmed for the earlier Codex session |
 
-Runtime-reported parent family: **GPT-6**. Product/client version: not exposed; model provider: not exposed.
+Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID claude-opus-5-5)**. Product/client version: not exposed; model provider: Anthropic (runtime-reported).
 
-- Worker model/effort values are runtime configuration, not proof of child execution.
-- Historical parent aliases/efforts were not recorded per slice; do not infer gpt-6-astra from the user's Astra label.
-- Future Luna assignments use fixed max effort, confirmed by the user for this session; historical medium assignments remain unchanged.
-- Runtime capacity restored to two total active agents, allowing parent plus one assigned worker. C7c delegated to Luna/max after explicit conditional authorization and capacity verification.
+- All remaining work (S43a, S43b, P7b2, resumed P7c, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
+- Codex luna_worker and terra_worker do not exist in Claude Code and are not replaced by Claude subagents. Spawning one requires an explicit user request and a recorded plan amendment first.
+- The Codex auxiliary Luna monitor is retired for remaining work. Main runs long data-heavy commands as harness-tracked background commands, is re-invoked once when they exit, and does not poll.
+- The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
+- Completed slices keep their recorded Codex attribution. The earlier Codex session is under previous_sessions and its assignments under assignment_history.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **P7b2 — bound fresh-import ID lookup**, assigned to Codex
-**`terra_worker` / `gpt-5.6-terra` / fixed `medium`**, pending slice authorization.
+Next slice: **S43a — admit an optional link title**, assigned to the Claude Code
+parent (**Main**). Session assignments are confirmed. Slice authorization is
+pending.
+
 P7c remains incomplete: its full Python native baseline was interrupted at
 17,943.11s while executing unindexed batch-ID lookups. See
-[P7c evidence and bounded handoff](NOTRIOS_P7C_EVIDENCE.md). Preserve C01/C02 and
-measure index maintenance, fresh/unchanged/tiny merges and rollback. Parent review
-precedes resumed **P7c / `luna_worker` / `gpt-5.6-luna` / fixed `max`** validation.
-Parent family GPT-6; exact parent alias/effort and billing route are not exposed.
-The existing session suitability confirmation remains in force.
+[P7c evidence and bounded handoff](NOTRIOS_P7C_EVIDENCE.md). **P7b2 / Main**
+bounds those lookups first. It must preserve C01/C02 and measure index
+maintenance, fresh/unchanged/tiny merges and rollback. Resumed **P7c / Main**
+validation follows Main's review of P7b2.
 
 F02/F04 subset gains and exact output comparisons are retained, but full-corpus
 adoption is not claimed. Rejected Go G08 stays out of full trials; no Go candidate
-is approved. Deferred producer implementation needs an explicit Terra handoff.
+is approved. Any producer implementation needs an explicit handoff naming its
+files and checkout, plus the user's approval to write to the Notrios checkout.
 
-Remaining sequence: P7b2 → resumed P7c → resumed 7c, subject to the unresolved performance and
-compatibility gates. Every data-heavy run uses long completion
-notification waits. Preserve C7c's documented differences: RAW's 842,813 tag
+Remaining sequence: S43a → S43b → P7b2 → resumed P7c → resumed 7c → 7d → 7e,
+subject to the unresolved performance and compatibility gates. Every data-heavy
+run follows the background-run rule under
+[Execution and handoff rules](#execution-and-handoff-rules). Preserve C7c's documented differences: RAW's 842,813 tag
 associations versus vault zero, RAW metadata projection omission, and 3,682
 pinned title representations. The original bounded publications still encounter
 unsupported link syntax in consumer conversion; verification/comparison does not
 waive those refusals. Existing 7c ownership/history and Ledger `85ac1b0` remain
 unchanged. See [C7c evidence](NOTRIOS_C7C_EVIDENCE.md).
 
-## Execution and agent handoff rules
+## Execution and handoff rules
 
-Named worker assignments are mandatory once session assignments and the slice
-are approved. Before implementing an assigned slice, Main must spawn that
-worker through the coding agent's native collaboration mechanism. Main may
-decompose, clarify, review, integrate, validate and update the plan; it must not
-silently implement assigned worker work. If delegation is unavailable or fails,
-stop that slice, report the failure and request an explicit reassignment.
-Record the decision before resuming. A historical session restriction explains
-an execution deviation only where evidence records it; it is not retroactive
-reassignment approval.
+Every remaining slice is Main-owned, so no slice needs delegation. Main does the
+design, implementation, review, validation and plan update itself. If the user
+asks for a subagent, first amend this plan and the ledger with that slice's
+planned worker, model and effort, and get the session confirmation again.
+AGENTS.md's mandatory-delegation rules then apply to that slice. Do not spawn a
+subagent only to find material in the workspace or to watch a run. Historical
+worker assignments and their recorded deviations stay as they are. A historical
+session restriction explains a deviation only where evidence records it. It is
+not retroactive approval of a reassignment.
 
-Main freezes the design before worker implementation. In particular, 3d and
-5b follow the link/attachment decisions in 1c. Workers escalate newly discovered
-design decisions to Main. This rule changes delegation and attribution only.
+Freeze a slice's design decisions before implementing it, and record any newly
+discovered design decision in the plan before acting on it. S43a follows the
+link grammar frozen in 1c and amended by C7a; P7b2 follows the P7a/P7c handoff.
 
-Work on **one slice at a time**. Assign inputs, owned files, dependencies,
-excluded files and acceptance commands explicitly. Tell workers they are not
-alone in the codebase and must preserve others' edits. Main reviews every Luna
-or Terra result before the next dependent slice. Do not edit shared helpers/tests from
-multiple simultaneous tasks.
+Work on **one slice at a time**. Before starting, write down the slice's inputs,
+owned files, dependencies, excluded files and acceptance commands. Preserve
+other people's edits in the working tree. Do not run overlapping writers against
+shared data.
+
+**Data-heavy runs.** This replaces the Codex Luna monitor, PIDFD notifier and
+25-minute notification-wait workarounds for all remaining work. Prepare the full
+sequential script, durable checkpoints, expected duration, stall threshold and
+safe resume commands before a large run. Main launches the run as a
+harness-tracked background command and is re-invoked once when it exits. Main
+does not poll the process, re-read logs or start a status check while it runs. A
+single diagnostic is allowed only after the recorded stall threshold has passed.
+Each run still records its run ID, exit status, time, peak RSS, disk use, output
+counts and hashes in its result directory. If the session ends or a usage limit
+interrupts it, the durable result and checkpoints remain the source of truth.
+Resume from them without repeating completed stages. Command output goes to log
+files, so tool output is not needed as evidence.
 
 Each slice ends with focused passing checks, a progress-log update identifying
 the next item, and a coherent Git commit. Record unfinished work and exact
@@ -328,12 +355,12 @@ private data, generated libraries, SQLite databases and bulky evidence out of
 Git. Use sanitized fixtures and aggregate measurements in committed evidence.
 
 After completing and committing an item, ask the user whether to proceed to the
-next item and stop until they answer. This per-item pause was explicitly requested
-by the user on 2026-09-05 and also applies to delegated slices.
+next item and stop until they answer. The user explicitly asked for this
+per-item pause on 2026-09-05. It is unchanged by the 2026-10-22 reassignment.
 
 Proposed files: `notrios_archive.py` for verification, `notrios2sql.py` for
-mapping/CLI, `test_notrios2sql.py`, and `testdata/notrios/`. Main freezes module
-boundaries and helper APIs in 1c before delegating implementation.
+mapping/CLI, `test_notrios2sql.py`, and `testdata/notrios/`. Module boundaries
+and helper APIs were frozen in 1c.
 
 ## Structured execution provenance
 
@@ -364,10 +391,14 @@ child thread, actual worker model/effort, worker contribution, parent identity
 and effort, parent contribution, validation owner/results, and any delegation
 failure or reassignment. For unavailable runtime metadata, record `not exposed`
 and ask the user for client status/configuration or billing confirmation if
-needed; user-supplied configuration remains labeled as such. This runtime
-exposes exact configured Luna/Terra role models and efforts, but only a GPT-6
-family label for the parent; exact parent alias, effort, client version,
-provider field and billing route are not exposed.
+needed; user-supplied configuration remains labeled as such. The historical Codex
+runtime exposed exact configured Luna/Terra role models and efforts, but only a
+GPT-6 family label for the parent. The current Claude Code runtime reports the
+parent model as Opus 5.5 (`claude-opus-5-5`) from Anthropic. It exposes no
+configured alias, reasoning effort, client version or billing route. For a
+Main-only slice, record worker fields as `none`. Record the parent as
+`Claude Code`, with the runtime-reported model and family. Record the parent
+reasoning effort as `not exposed` unless the runtime or the user states it.
 
 ## Step 1 — Freeze contract and fixtures
 
@@ -470,6 +501,134 @@ workflow. If fixture generation or the updated oracle reveals a semantic change
 beyond this comparison, record the discrepancy and revise the affected contract
 before admitting it. Resume 4c only after both prerequisites pass.
 
+## Producer link-syntax prerequisites — titles in projected bodies
+
+**State: not started.** Found 2026-09-26 while reviewing what in Notrios beyond
+the schema-28 change affects this importer. Slices are named for the producer
+item that caused them, `S43`, not for a schema level.
+
+**What changed in the producer.** Notrios v1.0 J43 makes a rewrite carry a
+link's title. Until it, the Obsidian importer built each rewritten link from the
+display text and the resolved URI alone, so `[a](Target.md "A title")` was stored
+as `[a](document://default/documents/doc_x)` and the title was gone from the
+note. It is now stored as `[a](document://default/documents/doc_x "A title")`,
+with the author's own delimiter — `"…"`, `'…'` or `(…)` — copied byte for byte.
+`notriosctl fix` keeps titles for the same reason. The producer change is on
+Notrios `develop` at `f4de470`; at the time of writing it is not yet pushed,
+archived or released, so no pin is recorded here yet.
+
+*Update 2026-10-22, verified against Git and GitHub.* Notrios is released.
+The annotated tag `v1.0.0` points to
+`2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a`. The GitHub release `v1.0.0` was
+published, not as a draft, on 2026-10-22T16:47:30Z. J43's `f4de470` is an
+ancestor of the tag. The clean local checkout's `main` is `5b91019`, the same as
+`origin/main`. Its only commits after the tag are J10 release records and
+performance/release scripts, with no producer source change. At the tag, the
+registry declares `current_schema_version` 28 and the migrations end at
+`0028_fts_rowid_map.sql`. Between the S28 pin `7662fdd` and the tag,
+`contracts/` is unchanged. `internal/archivev2` changes only where the verifier,
+export and restore spools are placed (J22's per-instance temp space); the
+archive format is unchanged. **S43b pins Notrios `v1.0.0` /
+`2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a`,** and resumed 7c uses the same pin.
+
+**Why it blocks consumption.** `_INLINE` in `notrios_links.py` admits no
+whitespace, parentheses, backslash or angle brackets in a destination and
+requires the closing parenthesis immediately after it. A titled link therefore
+does not tokenise; `scan_markdown` then finds an internal URI inside the literal
+span and refuses. Verified against the current module:
+
+| body | result |
+|---|---|
+| `[link](document://default/documents/doc_x "A title")` | **REFUSED** — unsupported or unaccounted active link syntax |
+| `[link](document://default/documents/doc_x 'A title')` | **REFUSED** |
+| `[link](document://default/documents/doc_x (A title))` | **REFUSED** |
+| `![shot](resource://default/resources/res_y "Photo")` | **REFUSED** |
+| `[link](document://default/documents/doc_x)` | 1 token, unchanged |
+
+The refusal is fail-closed, so nothing is mis-projected and no wrong link is
+published — but a handoff containing any titled link cannot be consumed at all.
+`scan_markdown` is the shared chokepoint for conversion-time link accounting
+(`notrios_links.py`), projection (`notrios_links.py`) and the vault projection in
+`sql2obsidian.py`, so the refusal lands at the earliest gate rather than late.
+
+**What needs no change, recorded so it is not re-investigated.** Three other
+producer changes in the same range are neutral or favourable here:
+
+- **J37** stopped the producer emitting `[[document://…]]` inside a Markdown
+  target. That shape tokenised but could not validate, so it reached
+  `unmapped internal link in projected note`. One fewer refusal, and no new
+  syntax to admit.
+- **J41** and **J42** made the producer resolve targets carrying balanced
+  parentheses and angle-bracketed targets containing spaces. Those links now
+  become canonical `document://` or `resource://` URIs, which are free of
+  spaces, parentheses and brackets and tokenise today; before, they stayed as
+  author text and refused. Fewer refusals, again with nothing to admit.
+- **Unresolved** links still keep the author's bytes exactly as before, so a
+  destination holding a space, parenthesis or angle bracket that the producer
+  cannot resolve refuses exactly as it does now. That is pre-existing behaviour
+  of this importer's narrow grammar, is not caused by any producer change, and is
+  **not** admitted by this prerequisite.
+
+**Link rows are unaffected.** The producer records a link's destination alone in
+its stored rows, with a title never reaching the target — asserted in the
+producer's own tests. Mapped identity, projection rules and receipts therefore do
+not move, and no output migration or receipt invalidation is planned.
+
+**Decisions for these slices.** Retain reader profile
+`movenotes-publication-loose-v1`, mapper `movenotes-notrios-v1`, receipt version
+and contract schema version 1. Admit exactly one new thing: an optional title
+after an otherwise validated destination, preserved byte for byte in projected
+output. Keep refusing every other destination character, keep the protected-code
+and reference-ambiguity refusals, and do not change canonical site path rules or
+theme layouts. Preserve the schema-27 and schema-28 fixtures, digest/MIME vectors
+and audit evidence verbatim; add separately named evidence with its own producer
+pin and digests. New producer fixtures must use real publication commands, not a
+hand-edited body.
+
+| Slice / planned owner | Work and owned output | Depends on | Acceptance |
+|---|---|---|---|
+| S43a / Main | Admit an optional title in the link grammar and carry it through projection unchanged. The destination itself keeps today's character set; the title is copied, never parsed or normalised, because the producer copies it and three delimiters are legal. Update the contract/design declarations and the link-grammar tests. | S28b | All four titled forms above tokenise, with the destination and fragment identical to the untitled case and the title preserved byte for byte in projected bodies. A link with no title projects byte for byte as it does today. Destinations containing a space, parenthesis, backslash or angle bracket still refuse when there is no title to explain them. Protected code, reference-ambiguity and unmapped-internal refusals are unchanged. Existing fixtures and identity vectors pass unchanged. |
+| S43b / Main | Add a separately pinned publication fixture whose notes carry titled internal links, produced by a real publication command from the released producer, Notrios `v1.0.0` (`2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a`, contains J43), and record its pin and digests. Extend the differential audit and the converter/no-op regression evidence. | S43a | The new archive verifies and converts through notes/tags/links and the vault pipeline; identical reruns remain no-ops. Titles survive into the vault projection. The schema-27 and schema-28 archives still verify and convert unchanged. Run the focused grammar/boundary tests, the differential audit against the new pin, and all Python regression modules with both bytecode-suppression flags. Record exact commands, producer hash, digests and results. |
+
+**Ordering.** This is a consumption blocker for any handoff produced after J43,
+so it comes before further Step 4 work on a post-J43 producer. A handoff produced
+before J43 is unaffected and needs no change, which is why the existing fixtures
+stay valid and stay pinned.
+
+*Decided 2026-10-22:* the remaining order is S43a → S43b → P7b2 → resumed P7c →
+resumed 7c → 7d → 7e. S43 and P7b2 share no code or data. P7b2 changes the
+movenotes Python importers' ID lookups; S43 changes the Notrios link grammar and
+adds a fixture. S43 goes first because it is small and fixes the producer pin
+that resumed 7c needs. It also lets the bounded real publications be
+regenerated from the release before the multi-hour P7c and 7c runs. Resumed 7c
+and 7d now depend on S43b. A v1.0.0 handoff can carry titled links, which
+refuse without S43a. 7c's trials use that release, as decided below. 7d's
+documented publication → import → vault → site recipe must work with the
+released producer.
+
+**No other remaining producer work affects this importer.** The producer's open
+items at the time of writing are a reimport skip (J39), a reader affordance for
+ambiguous links (J40) and release documentation and the release itself (J9, J10).
+The first two change producer-internal behaviour and a reader UI, not the handoff
+format; the last two move the producer pin without changing it. If J39 ships a
+rule version that invalidates stored import state, that is internal to the
+producer's own reimport path and does not reach a publication handoff.
+
+*Update 2026-10-22 — no producer schema change.* J39 is complete. On
+2026-10-20, before any code was written, its owner decided against the planned
+schema addition. The skip redefines the Obsidian note fingerprint in
+`import_item_states` and adds no column. A schema-29 column would also have broken
+sync with schema-28 builds. So the registry stays at `current_schema_version` 28,
+and the support level, admission bounds, receipts and identity vectors in S28a
+need no change. Even a future source/maximum schema 29 with minimum 12 would
+pass the existing gate, as S28a's acceptance already tests. Items J44–J50
+landed after this review: search sidecar indexers, web dependency advisories,
+preview wiki embeds and attachments, and release-set contents. Their titles
+point to producer-internal, UI or release work. The archive contract and format
+are verified unchanged through `v1.0.0` (see the update above). S43b's
+differential audit and fixture comparison against the release confirm
+handoff-level behaviour, including any body changes from importer work.
+
 ## Step 4 — Tags
 
 | Slice / planned owner | Work and owned output | Depends on | Acceptance |
@@ -518,17 +677,17 @@ Target refusal is mandatory in 2a, not deferred to this step.
 |---|---|---|---|
 | 6a / Luna — complete | Validated the existing versioned settings receipt in staging and added the allowlisted `ImportResult.summary()` API after successful publication. | 5d | Both digests correct; failed imports have no success receipt. |
 | 6b / Main — complete | Finalized `--input`/`--output` CLI, reviewed-selection digest checking, JSON success stdout, stderr diagnostics, identical completed reruns and conflicting-output refusal. | 6a | Digest mismatch/changed source refuse; same import is safe; no unsafe override. |
-| 6c / Main | Specify and implement explicit receipt propagation to vault/site outside notes/indexes. | 6b | Both digests traceable; no claim that settings propagate automatically; no source-path leakage. |
-| 6d / Terra | Help/errors/progress and CLI subprocess tests against Main's finalized CLI contract. | 6c | Consistent `--input`/`--output`, phase/count progress, nonzero errors and no success on partial output. |
+| 6c / Main — complete | Specify and implement explicit receipt propagation to vault/site outside notes/indexes. | 6b | Both digests traceable; no claim that settings propagate automatically; no source-path leakage. |
+| 6d / Terra — complete | Help/errors/progress and CLI subprocess tests against Main's finalized CLI contract. | 6c | Consistent `--input`/`--output`, phase/count progress, nonzero errors and no success on partial output. |
 
 ## Step 7 — End-to-end acceptance and documentation
 
 | Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| 7a / Terra | Small offline publication-fixture → SQLite → vault regression with independent expectations. | 6d | Notes/tags/links, exact attachments, absence of excluded sentinels and receipt assertions pass. |
-| 7b / Main | Actual local Hugo/Ledger + Bluge build and bounded Pagefind fixture; test search/subpath URLs. | 7a | Canonical URLs, links, attachments, explicit tag counts and backend isolation correct; excluded sentinel absent from publishable files/index sources. |
-| 7c / Main | Resume after C7a–C7c and P7a–P7c; large-corpus trials below; record time/RSS/disk/counts/hashes and failure recovery. | P7c | Importer bounds demonstrated; stage bottlenecks separated; no unmeasured whole-pipeline memory claim. |
-| 7d / Luna | README script list/usage and CHANGELOG from measured accepted commands. | 7c | Reproducible publication → import → vault → site recipe; loose/fresh-output limitations; no private content in public examples. |
+| 7a / Terra — complete | Small offline publication-fixture → SQLite → vault regression with independent expectations. | 6d | Notes/tags/links, exact attachments, absence of excluded sentinels and receipt assertions pass. |
+| 7b / Main — complete | Actual local Hugo/Ledger + Bluge build and bounded Pagefind fixture; test search/subpath URLs. | 7a | Canonical URLs, links, attachments, explicit tag counts and backend isolation correct; excluded sentinel absent from publishable files/index sources. |
+| 7c / Main | Resume after C7a–C7c and P7a–P7c; large-corpus trials below; record time/RSS/disk/counts/hashes and failure recovery. Partial Codex execution is retained; remaining work is Claude Code Main. Resumed trials use the Notrios `v1.0.0` pin. | P7c, S43b | Importer bounds demonstrated; stage bottlenecks separated; no unmeasured whole-pipeline memory claim. |
+| 7d / Main | README script list/usage and CHANGELOG from measured accepted commands. Reassigned from Codex Luna on 2026-10-22. | 7c, S43b | Reproducible publication → import → vault → site recipe; loose/fresh-output limitations; no private content in public examples. |
 | 7e / Main | Full regression gate, evidence/diff review, final status and commit. | 7d | Every required method passes; skipped integrations not counted as acceptance. |
 
 ### Compatibility prerequisites added after partial 7c trials
@@ -545,29 +704,22 @@ binding until C7a explicitly revises it. No new producer/schema pin is implied.
 | C7b / Terra — complete | Implemented only the C7a-approved body/link compatibility changes in notrios2sql.py, notrios_links.py and focused test_notrios2sql.py fixtures/tests; dependent serializer/exporter changes require Main's explicit scoped handoff. | C7a | 264 regressions pass; immutable fixture payloads and reruns are byte-identical to baseline; independent three-note CLI/vault/Hugo/Bluge validation passes. Original bounded conversions still refuse unsupported link syntax; no notes filtered. Main reviewed. |
 | C7c / Luna — complete | Implemented disk-backed semantic comparisons, verified publication cohorts, indexed duplicate-sensitive joins, checkpoint/resume and PIDFD notification scripts with bounded query deadlines. | C7b | All 382,206 source identities per route accounted for; zero unexplained source-to-route differences under documented rules; tags remain explicitly separate, route equivalence false. Full corpus terminal notification, measured RSS, focused/scale/recovery checks and Main review recorded in NOTRIOS_C7C_EVIDENCE.md. |
 
-**Monitoring assignment for every data-heavy slice:** The user explicitly
-requires the same low-usage monitoring method for C7a's corpus audit, C7b's
-large validation runs, C7c's semantic comparisons, resumed 7c and any later
-slice processing substantial data. The implementation owner in the table does
-not change. Delegate harness execution/monitoring to Codex `luna_worker`
-(configured `gpt-5.6-luna`, fixed `max`); record this auxiliary assignment and
-actual child execution separately. Reuse the slice's Luna worker when applicable;
-otherwise hand off a bounded monitoring task after its executable commands and
-acceptance criteria are ready. Parent-owned diagnosis and Terra-owned code stay
-with their assigned owners. Do not run overlapping writers against shared data.
+**Monitoring for data-heavy slices.** *Historical, C7a–P7c under Codex:* the
+user required a low-usage method for that work. A Codex `luna_worker`
+(configured `gpt-5.6-luna`, fixed `max`) ran each harness and blocked on OS
+completion or a PIDFD. It notified the parent once, and the parent waited on
+native notifications with a 25-minute timeout. Those runs, and their recorded
+auxiliary assignments, stay in the ledger as they are.
 
-Prepare the full sequential script and durable checkpoints before a large run.
-The monitor waits on OS process completion/PIDFD and notifies the parent once
-with terminal results, or immediately for a blocker requiring intervention.
-Parent uses native notification waits with a 25-minute timeout, extending the
-fallback to the estimated total run duration where the host allows it. A timeout
-alone is not a reason to request worker status: use the predeclared estimate or
-stall threshold for a single diagnostic, then return to notification waiting.
-No frequent process polling, worker-status checks or repeated log reads. Record
-the expected duration, fallback threshold, notification location, current run ID
-and safe reconnect/resume commands. If the notification mechanism fails, retain
-the durable result and report that failure without silently switching to busy
-polling. This requirement also applies across usage-limit resumptions.
+*From 2026-10-22, all remaining work:* that workaround is retired, as the user
+directed, because Claude Code's own background commands supply the completion
+notification. Resumed P7c, resumed 7c and any later data-heavy slice follow the
+background-run rule under [Execution and handoff rules](#execution-and-handoff-rules).
+The low-usage goal still holds: no frequent process polling and no repeated log
+reads. Durable checkpoints, the recorded run ID, the expected duration, the stall
+threshold and safe resume commands are prepared before every large run. They
+survive usage-limit interruptions. Do not run overlapping writers against shared
+data.
 
 **C7a decisions to make before implementation:**
 
@@ -616,6 +768,17 @@ polling. This requirement also applies across usage-limit resumptions.
   overwrite existing acceptance libraries. Recipe
   imports use the pinned CLI maximum batch size 500. Outside those recorded experiments, reingestion is justified only by a
   demonstrated producer/import defect and a recorded pin/input change.
+  *Decided 2026-10-22:* resumed 7c moves to the released Notrios `v1.0.0`
+  (`2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a`). Both conditions hold. The pin
+  change is recorded in the S43 section. The producer defects fixed since
+  `7662fdd` are demonstrated in the producer's own plan: J37, J41 and J42 link
+  resolution, and J43 dropped titles. They change the bodies a handoff carries.
+  So resumed 7c re-imports the three corpora into fresh libraries with the release
+  and regenerates the bounded publications. It then reruns the C7c comparison
+  harness on the new libraries. The `7662fdd` libraries, C7c's accepted v6
+  results and the partial 7c evidence are kept, not overwritten. C7c's
+  documented differences must be re-established, not assumed. Check the release
+  CLI's import flags and batch limit from its own help before reusing 500.
 - Bind each new checkpoint to input inventories/digests, producer and consumer
   revisions (or working-tree hashes), mapper version, arguments and profile
   digest. Reuse only matching successful upstream stages. Preserve old attempts;
@@ -625,11 +788,11 @@ polling. This requirement also applies across usage-limit resumptions.
   from the current attempt and never report an older passing regression as the
   result of a newer failing run.
 - Keep a sequential executable harness with bounded disk checks, stage exit
-  codes, time/RSS, output counts/hashes and conversion phase callbacks. A monitor
-  blocks on child completion (or PIDFD after reconnect), sends one terminal
-  notification, and uses an estimated-run-duration fallback to diagnose a stall.
-  Parent waits for notifications with a 25-minute timeout; avoid repeated process
-  or worker status polling. Notify immediately only for a blocker needing action.
+  codes, time/RSS, output counts/hashes and conversion phase callbacks. Main
+  launches it as a harness-tracked background command and is re-invoked once
+  when it exits. Use the estimated run duration as the stall threshold for a single
+  diagnostic, and avoid repeated process polling. After a reconnect, resume from
+  the durable checkpoints rather than re-attaching to the old process.
 - Rerun all three bounded conversions and downstream gates first, then full real
   trials. Measure producer/Python verification, conversion, vault export, site
   generation, Hugo and Bluge separately. Compare real attachment bytes and exact
@@ -640,7 +803,7 @@ polling. This requirement also applies across usage-limit resumptions.
   deterministic artifacts remain exact. Run the full five-module regression
   gate with both bytecode controls after final changes, plus recovery and small
   live-site checks affected by compatibility changes. Retain old failures.
-- Main records actual worker/thread/model evidence in the structured ledger,
+- Main records actual execution evidence (Main-only for remaining work) in the structured ledger,
   reviews comparisons and stage evidence, and marks 7c complete only when its
   outstanding gates pass. If a refusal remains intentional, explicitly revise
   the acceptance scope with the user; do not count skipped full integrations as
@@ -673,13 +836,13 @@ Historical runs are observations, not controlled speedup baselines.
 |---|---|---|---|
 | P7a / Main | Audit every review claim against pinned/current code; trace the actual producer and Python paths, profile representative imports, freeze benchmark protocol and candidate handoffs in a sanitized performance evidence document. | C7c | Each finding classified with source and measurement evidence; dominant contributors to the observed gap identified or explicitly unresolved; baseline and candidate scope separated by executable. |
 | P7b / Terra | Implement isolated, profile-supported candidates approved by P7a, with focused correctness/performance regressions. Own only explicitly handed-off importer/helpers/tests; use a separate bounded candidate per experiment. | P7a | Each candidate preserves invariants and has a reproducible baseline comparison; ineffective/regressing candidates are rejected, not bundled into production. Main reviews before promotion. |
-| P7b2 / Terra | Bound fresh-import ID lookups before each batch; preserve collision/rollback semantics and compare complete import cost. Own Python importer, narrowly needed database helper, tests and candidate harness only. | P7c scale finding | Representative fresh/unchanged/merge checks pass; no growing-table scan per batch; measured candidate ready for resumed P7c. |
-| P7c / Luna | Execute the frozen sequential benchmark matrix, monitored full-corpus confirmation and final regression/recovery commands; prepare aggregate findings dispositions and reproducible scripts. | P7b; P7b2 for scale-blocker resume | Repeatable performance improvement demonstrated for each adopted change; paired route times, gap/ratio, resources and correctness evidence reported. Main decides adoption and reviews any unmet target before resumed 7c. |
+| P7b2 / Main | Bound fresh-import ID lookups before each batch; preserve collision/rollback semantics and compare complete import cost. Own Python importer, narrowly needed database helper, tests and candidate harness only. Reassigned from Codex Terra on 2026-10-22. | P7c scale finding | Representative fresh/unchanged/merge checks pass; no growing-table scan per batch; measured candidate ready for resumed P7c. |
+| P7c / Main | Execute the frozen sequential benchmark matrix, full-corpus confirmation and final regression/recovery commands; prepare aggregate findings dispositions and reproducible scripts. Partial Codex Luna execution is retained; remaining work reassigned to Main on 2026-10-22. | P7b; P7b2 for scale-blocker resume | Repeatable performance improvement demonstrated for each adopted change; paired route times, gap/ratio, resources and correctness evidence reported. Main decides adoption and reviews any unmet target before resumed 7c. |
 
-P7a/P7b/P7c retain the existing Codex model/effort assignments and unknown runtime
-billing metadata. Their data-heavy work uses the same mandatory auxiliary Luna
-monitor, OS completion waits and long parent notification waits as C7a–C7c.
-No costly repeated imports should require main-model progress polling.
+P7a and P7b are complete under their recorded Codex assignments. P7b2 and the
+remaining P7c work are Claude Code Main slices. Their data-heavy runs follow the
+background-run rule in [Execution and handoff rules](#execution-and-handoff-rules).
+They need no auxiliary monitor, and Main does not poll for progress.
 
 **P7a completed audit:** [performance evidence](NOTRIOS_PERFORMANCE_EVIDENCE.md)
 classifies F01–F15 and the additional Notrios review G01–G10, records separate
@@ -841,8 +1004,10 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 
 ## Deferred work
 
-- Packed publications: Main designs pack/trailer/range verification; Luna adds
-  frozen-vector tests; Main performs differential acceptance before admission.
+- Packed publications: Main designs pack/trailer/range verification, adds
+  frozen-vector tests and performs differential acceptance before admission.
+  Originally Luna was to add the tests; reassigned to Main with the rest of the
+  remaining work on 2026-10-22.
 - Multiple handoffs, changed-note updates and transactional merge recovery.
   Namespace isolation alone does not implement merging.
 - Full/subset archives, lossless Notrios round trips, physical snapshots and sync.
@@ -886,6 +1051,46 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-18 | P7a complete | Parent audited all three reviews and wrote profiling/probe/inventory scripts; Luna /root/p7a_monitor executed sequential batches with long completion waits. Synthetic 2,000-note Python/Go profiling and unprofiled sanity runs complete; Python preserved fresh 249.098s unprofiled, with unindexed folder lookup dominating its profile. Current Notrios already batches imports; old Go gap remains quantitatively unresolved. Two inventory tests and baseline probes passed. See NOTRIOS_PERFORMANCE_EVIDENCE.md for dispositions, manifests and frozen candidate handoff. No production optimization adopted. Next: ask to proceed P7b, Terra/fixed medium; Luna/fixed max for staged large-run monitoring. |
 | 2026-09-18 | P7b complete | Terra /root/p7b_candidates implemented F02/F04 Python candidates, C01/C02 collision fixes, comparison/long-batch scripts and disposable Go G08 experiment. Luna monitored sequential validation; 299 Python tests passed, all 18 completed imports match after narrowly correcting generated timestamp comparison. Native/preserved median subset times fall 15.1%/94.6%; RAW control median is 2.9% higher within observed variability. Both Go suites pass, but G08 regresses no-link/long-line benchmarks and is rejected. Usage interruption was recovered after registry checks; /root/p7b_monitor_resume ran only remaining stages. See NOTRIOS_P7B_EVIDENCE.md; full-corpus adoption remains P7c, Luna/fixed max. |
 | 2026-09-19 | P7c partial — blocked | Luna authored isolated variants/harness and ran synthetic matrices; parent reviewed and ran final real-data validation after worker tool approval stalls. Isolated F02 preserved subset improves94.4%; F04 real10k fresh/unchanged improves26.3%/35.7%, all outputs match. Full native baseline interrupted at17,943.11s in unindexed batch-ID lookup; candidate not run. No full acceptance or Go goal claim. P7b2 Terra/medium is the next prerequisite; retain failed/complete evidence and long notification monitoring. |
+| 2026-09-26 | Producer review | Reviewed Notrios changes beyond schema 28 for effect on this importer. Found one consumption blocker: producer item J43 now carries a link's title through its rewrite, and the link grammar here admits no whitespace in a destination, so every titled internal link refuses with `unsupported or unaccounted active link syntax` at the shared scanner — verified against the current module for double-quoted, single-quoted, parenthesised and embed forms. Fail-closed, so nothing is mis-projected, but a post-J43 handoff cannot be consumed. Recorded as the S43 prerequisites. Producer items J37, J41 and J42 need no change and remove or reduce existing refusals; unresolved links with spaces, parentheses or angle brackets refuse as they already did and are not admitted. Link rows and mapped identity are unaffected. No other open producer item affects the handoff format. No code, fixture or test changed. Next: ask to proceed to S43a. |
+| 2026-10-22 | Assignment amendment | At the user's request, reassigned all remaining work (S43a, S43b, P7b2, resumed P7c, resumed 7c, 7d, 7e) to the Claude Code main model and retired the Codex worker and monitor workarounds. Superseded assignments are kept in the ledger's `assignment_history`. The S43 ledger records were missing and are now added. Completed 6c, 6d, 7a and 7b table rows were marked complete to match the ledger. Added dated notes from the Notrios plan: J39 shipped without a schema change, and J43 and J10 are complete, with the pin to be verified in S43b. Documentation and provenance only, with no code, fixture or test changed. The renderer `--check` was not run, because the session's shell sandbox failed to start. Claude Code session confirmation is pending. Next: confirm assignments, then ask to proceed to S43a. |
+| 2026-10-22 | Decisions recorded | In the restarted session the shell works and the renderer `--check` passes. The user confirmed the Claude Code assignments for this session. Verified the Notrios release against the local checkout and GitHub: `v1.0.0` is at `2aab9a8`, is published, and contains J43. The schema is still 28, and the archive contract and format are unchanged since `7662fdd`. Decided the order S43a → S43b → P7b2 → resumed P7c → resumed 7c → 7d → 7e. Added S43b as a dependency of 7c and 7d. Resumed 7c re-imports with the release into fresh libraries and keeps the old evidence. Re-evaluation of the P7 targets, the small-merge noise and 7c's acceptance scope is deferred until those slices need it, as the user directed. Documentation and provenance only. Next: ask to proceed to S43a. |
+
+## Assignment amendment — 2026-10-22
+
+At the user's request, the remaining slices moved from Codex to Claude Code. The
+user wrote: "Rewrite the plan to use the main model for all work. The
+work-arounds used for codex are not necessary for this terminal CLI." The
+parent made this documentation and provenance update, and no worker was spawned.
+Product role: Claude Code (terminal CLI). Runtime-reported model: Opus 5.5,
+`claude-opus-5-5`, provider Anthropic. Configured alias, reasoning effort, client
+version and billing route: not exposed.
+
+| Slice | Previous planned owner | New planned owner |
+|---|---|---|
+| S43a, S43b | Codex parent (Main) | Claude Code parent (Main) |
+| P7b2 | `codex:terra_worker`, `gpt-5.6-terra`, fixed `medium` | Claude Code parent (Main) |
+| P7c (remaining) | `codex:luna_worker`, `gpt-5.6-luna`, fixed `max` | Claude Code parent (Main) |
+| 7c (remaining) | Codex parent, plus auxiliary Luna monitor | Claude Code parent (Main), no monitor |
+| 7d | `codex:luna_worker`, `gpt-5.6-luna`, fixed `max` | Claude Code parent (Main) |
+| 7e | Codex parent (Main) | Claude Code parent (Main) |
+| Deferred pack tests | Luna | Main |
+
+Retired workarounds for remaining work: the auxiliary Luna monitor, PIDFD
+completion notifiers, 25-minute parent notification waits, and the fallback
+rules for worker approval stalls. The recorded partial P7c and 7c executions,
+including their Luna threads, are unchanged. Scope, acceptance criteria and
+slice dependencies are unchanged. The per-item pause and the commit rules still
+apply.
+
+Later the same day, in the restarted session, the user confirmed the
+assignments: "Yes, these assignments are current for this session." Decisions
+recorded with that confirmation:
+- The order is S43a → S43b → P7b2 → resumed P7c → resumed 7c → 7d → 7e.
+- S43b and resumed 7c pin Notrios `v1.0.0`.
+- 7c and 7d now also depend on S43b. This is the one dependency change, made at
+  the user's direction because it makes sense.
+- Open items about the P7 targets, small-merge noise and 7c's acceptance scope
+  are re-evaluated when those slices need them.
 
 ## Attribution amendment — 2026-09-14
 
@@ -1783,15 +1988,15 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 </details>
 
-<details><summary>P7b2 — pending; planned terra_worker</summary>
+<details><summary>P7b2 — pending; planned parent</summary>
 
 | Property | Value |
 |---|---|
-| Coding agent | codex |
-| Planned worker | terra_worker |
-| Planned configured model | gpt-5.6-terra |
-| Planned reasoning effort | medium |
-| Assignment confirmation | Existing Codex role/effort/billing suitability applies; new slice implementation requires authorization. |
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -1802,22 +2007,22 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Parent reasoning effort | pending |
 | Parent contribution | pending |
 | Validation | pending |
-| Delegation failure or reassignment | none recorded |
-| Planned assignment evidence | P7c full-scale finding; NOTRIOS_P7C_EVIDENCE.md |
+| Delegation failure or reassignment | 2026-10-22 user reassignment from codex terra_worker (gpt-5.6-terra, fixed medium) to the Claude Code parent before any work started; previous assignment kept in assignment_history. Not a delegation failure. |
+| Planned assignment evidence | P7c full-scale finding; NOTRIOS_P7C_EVIDENCE.md; 2026-10-22 user reassignment to the Claude Code parent |
 | Execution evidence | P7c stopped full baseline in _existing_import_hashes; EXPLAIN SCAN notes before index. |
 | Commit | pending |
 
 </details>
 
-<details><summary>P7c — in progress; planned luna_worker</summary>
+<details><summary>P7c — in progress; planned parent</summary>
 
 | Property | Value |
 |---|---|
-| Coding agent | codex |
-| Planned worker | luna_worker |
-| Planned configured model | gpt-5.6-luna |
-| Planned reasoning effort | max |
-| Assignment confirmation | User: Proceed with P7c. Existing Codex roles, efforts and billing suitability confirmed for unchanged session. |
+| Coding agent | codex (partial execution to 2026-09-19); claude (remaining work) |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Codex partial run: User: Proceed with P7c. Existing Codex roles, efforts and billing suitability confirmed for unchanged session. Remaining work: Claude Code session assignments confirmed by user on 2026-10-22; resume still requires authorization. |
 | Actual worker | luna_worker |
 | Child thread | /root/p7c_validation |
 | Actual model | not exposed |
@@ -1828,8 +2033,8 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Parent reasoning effort | not exposed |
 | Parent contribution | Reviewed resume/input/metric correctness; launched real10k and fullnative/final prepared tests after worker external-tool approval stalls; long tool-side waits. Interrupted full baseline at17,943.11s, traced unindexed batch lookup and confirmed EXPLAIN/VM scaling. Added P7b2 prerequisite; no production edits. |
 | Validation | Isolated synthetic and real10k comparisons match. Corrected prepared-seed5pairs match; smallmerge slower/noisy remains unresolved. Fullbaseline interrupted17943.11s in unindexed lookup, candidate not run. Ten focused harness tests pass. Full acceptance blocked; NOTRIOS_P7C_EVIDENCE.md. |
-| Delegation failure or reassignment | Worker external ps/approval calls stalled; parent final-validation launches and long tool waits used after confirming no active process. Worker could not access parent terminal session. No implementation reassignment. |
-| Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17 |
+| Delegation failure or reassignment | Worker external ps/approval calls stalled; parent final-validation launches and long tool waits used after confirming no active process. Worker could not access parent terminal session. No implementation reassignment. 2026-10-22: user reassigned the remaining P7c work from codex luna_worker (gpt-5.6-luna, fixed max) to the Claude Code parent and retired the Luna monitor; the partial Luna record above is unchanged. |
+| Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17; 2026-10-22 user reassignment to the Claude Code parent |
 | Execution evidence | User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement.; User: Proceed with P7c; native spawn /root/p7c_validation; NOTRIOS_P7C_EVIDENCE.md; Private movenotes-p7c-* HD2 manifests, source hashes, results, failed full trial and child traceback. |
 | Commit | P7c partial-evidence checkpoint (contains this ledger) |
 
@@ -1839,11 +2044,11 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 | Property | Value |
 |---|---|
-| Coding agent | codex |
+| Coding agent | codex (partial execution to 2026-09-16); claude (remaining work) |
 | Planned worker | parent |
-| Planned configured model | not exposed |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Confirmed unchanged Codex session; user explicitly authorized 7c. |
+| Assignment confirmation | Codex partial run: Confirmed unchanged Codex session; user explicitly authorized 7c. Remaining work: Claude Code session assignments confirmed by user on 2026-10-22; resume still requires authorization. |
 | Actual worker | luna_worker (harness/monitoring only) |
 | Child thread | /root/notrios_7c_monitor |
 | Actual model | not exposed — configured worker model is not execution evidence |
@@ -1854,22 +2059,22 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Parent reasoning effort | not exposed |
 | Parent contribution | Inspected producer pin and source sizes, prepared initial harness and isolated measurements, investigated Joplin lexical refusal, reviewed terminal evidence and recorded partial acceptance; used 25-minute native notification waits with occasional fallback checks. Corrected nondeterministic receipt-test search row comparison; sampled control characters and embedded frontmatter differences; retained 7c as incomplete. |
 | Validation | Partial corpus acceptance: both 382,206-document recipe imports succeeded; three bounded real publications passed both verifiers but conversion refused. Full real tiers skipped. Synthetic 10,000 pipeline and recovery passed. Initial semantic multisets differ and include embedded frontmatter; refined semantic audit pending. Corrected full regression passed all 262 tests in 139.150s. Historical failure proven to be JSONL row permutation. See NOTRIOS_CORPUS_TRIALS.md. |
-| Delegation failure or reassignment | User explicitly added Luna harness/monitoring delegation to parent-owned 7c to reduce model usage; no silent substitution. |
+| Delegation failure or reassignment | User explicitly added Luna harness/monitoring delegation to parent-owned 7c to reduce model usage; no silent substitution. 2026-10-22: user moved the remaining 7c work to the Claude Code parent and retired the Luna harness/monitoring delegation. |
 | Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
 | Execution evidence | User: Proceed with 7c; User request for Luna monitoring with long notification waits; native spawn /root/notrios_7c_monitor; NOTRIOS_CORPUS_TRIALS.md; Private /media/$USER/HD2/movenotes-7c-20260916/notification.json and resume/final-regressions.log; 2ea17ca: committed receipt-test ordering correction; 7c remains incomplete |
 | Commit | none — uncommitted |
 
 </details>
 
-<details><summary>7d — pending; planned luna_worker</summary>
+<details><summary>7d — pending; planned parent</summary>
 
 | Property | Value |
 |---|---|
-| Coding agent | codex |
-| Planned worker | luna_worker |
-| Planned configured model | gpt-5.6-luna |
-| Planned reasoning effort | max |
-| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -1880,8 +2085,8 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Parent reasoning effort | pending |
 | Parent contribution | pending |
 | Validation | pending |
-| Delegation failure or reassignment | pending |
-| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Delegation failure or reassignment | 2026-10-22 user reassignment from codex luna_worker (gpt-5.6-luna, fixed max) to the Claude Code parent before any work started; previous assignment kept in assignment_history. Not a delegation failure. |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md; 2026-10-22 user reassignment to the Claude Code parent |
 | Execution evidence | none |
 | Commit | pending |
 
@@ -1891,11 +2096,11 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 | Property | Value |
 |---|---|
-| Coding agent | codex |
+| Coding agent | claude |
 | Planned worker | parent |
-| Planned configured model | not exposed |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -1906,8 +2111,60 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Parent reasoning effort | pending |
 | Parent contribution | pending |
 | Validation | pending |
-| Delegation failure or reassignment | pending |
-| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
+| Delegation failure or reassignment | 2026-10-22: coding agent changed from the Codex parent to the Claude Code parent by user; planned owner unchanged. |
+| Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md; 2026-10-22 coding-agent change to Claude Code |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>S43a — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | 2026-10-22: planned as a Codex parent slice; coding agent changed to the Claude Code parent by user before any work started. Planned owner unchanged. |
+| Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md producer link-syntax prerequisites added 2026-09-26; 2026-10-22 coding-agent change to Claude Code |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>S43b — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | 2026-10-22: planned as a Codex parent slice; coding agent changed to the Claude Code parent by user before any work started. Planned owner unchanged. |
+| Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md producer link-syntax prerequisites added 2026-09-26; 2026-10-22 coding-agent change to Claude Code |
 | Execution evidence | none |
 | Commit | pending |
 
