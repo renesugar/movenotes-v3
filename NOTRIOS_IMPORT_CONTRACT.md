@@ -23,6 +23,15 @@ The original pin still identifies existing fixture/vector/audit provenance.
 S28b [producer fixtures and differential evidence](testdata/notrios/schema28/README.md)
 verify the updated producer and retained schema-27 compatibility.
 
+S43a update (2026-10-22): Notrios `v1.0.0`
+(`2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a`) keeps a link's title when it
+rewrites the destination (J43). The [design's link grammar](NOTRIOS_IMPORT_DESIGN.md)
+now admits one optional delimited title, copied byte for byte. Archive admission
+is unchanged: the registry still declares schema 28, the archive contract and
+format are unchanged since the S28 pin, and link records still carry the
+destination alone. S43b adds the separately pinned release fixture and
+differential evidence.
+
 | Reference | Rules used here |
 |---|---|
 | [Registry](../notrios/contracts/archive-v2/contract.json) | Contract version, capabilities, hard limits and separate formats. |

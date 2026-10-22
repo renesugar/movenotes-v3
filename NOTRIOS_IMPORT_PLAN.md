@@ -32,13 +32,14 @@ and full 7c acceptance are not claimed. **P7a is complete**; see [performance ev
 **P7c is partially validated but blocked** by fresh-import ID lookups that scan
 the growing table. **P7b2**, a bounded lookup fix, must come before P7c resumes.
 See [P7c evidence](NOTRIOS_P7C_EVIDENCE.md). The producer link-syntax
-prerequisites **S43a–S43b** (not started) come first: next is **S43a**.
+prerequisites come first: **S43a is complete**, and next is **S43b**. S43a found two
+downstream fixes, now planned as **S43c** and **E1**.
 Plan revised on **2026-10-22**: all remaining work is assigned to the Claude Code
 main model (**Main**), and the user confirmed this for the session. No Codex
 worker or monitor remains in the plan. See
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 S43b and resumed 7c pin the released Notrios **`v1.0.0`** (`2aab9a8`). The
-remaining order is S43a → S43b → P7b2 → resumed P7c → resumed 7c → 7d → 7e.
+remaining order is S43b → S43c → E1 → P7b2 → resumed P7c → resumed 7c → 7d → 7e.
 Slice **7c remains incomplete**; isolated work
 and checkpoints are under `/media/$USER/HD2/movenotes-7c-20260916/`.
 Both recipe imports succeeded (382,206 documents each), but bounded real
@@ -237,7 +238,7 @@ integrity verification.
 "Rewrite the plan to use the main model for all work. The work-arounds used for
 codex are not necessary for this terminal CLI." `Main` now means the Claude Code
 parent for every slice that is not complete: S43a, S43b, P7b2, resumed P7c,
-resumed 7c, 7d and 7e. No worker, subagent or auxiliary monitor is planned. A
+resumed 7c, 7d and 7e, and the later S43c and E1. No worker, subagent or auxiliary monitor is planned. A
 Claude subagent is not a substitute for `luna_worker` or `terra_worker`. Use
 one only if the user explicitly asks for it, and record a plan amendment first.
 
@@ -280,16 +281,16 @@ Session confirmation: **confirmed**.
 
 Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID claude-opus-5-5)**. Product/client version: not exposed; model provider: Anthropic (runtime-reported).
 
-- All remaining work (S43a, S43b, P7b2, resumed P7c, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
+- All remaining work (S43b, S43c, E1, P7b2, resumed P7c, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
 - Codex luna_worker and terra_worker do not exist in Claude Code and are not replaced by Claude subagents. Spawning one requires an explicit user request and a recorded plan amendment first.
 - The Codex auxiliary Luna monitor is retired for remaining work. Main runs long data-heavy commands as harness-tracked background commands, is re-invoked once when they exit, and does not poll.
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 - Completed slices keep their recorded Codex attribution. The earlier Codex session is under previous_sessions and its assignments under assignment_history.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **S43a — admit an optional link title**, assigned to the Claude Code
-parent (**Main**). Session assignments are confirmed. Slice authorization is
-pending.
+Next slice: **S43b — pinned `v1.0.0` titled-link fixture**, assigned to the
+Claude Code parent (**Main**). Session assignments are confirmed. Slice
+authorization is pending.
 
 P7c remains incomplete: its full Python native baseline was interrupted at
 17,943.11s while executing unindexed batch-ID lookups. See
@@ -303,7 +304,7 @@ adoption is not claimed. Rejected Go G08 stays out of full trials; no Go candida
 is approved. Any producer implementation needs an explicit handoff naming its
 files and checkout, plus the user's approval to write to the Notrios checkout.
 
-Remaining sequence: S43a → S43b → P7b2 → resumed P7c → resumed 7c → 7d → 7e,
+Remaining sequence: S43b → S43c → E1 → P7b2 → resumed P7c → resumed 7c → 7d → 7e,
 subject to the unresolved performance and compatibility gates. Every data-heavy
 run follows the background-run rule under
 [Execution and handoff rules](#execution-and-handoff-rules). Preserve C7c's documented differences: RAW's 842,813 tag
@@ -587,7 +588,7 @@ hand-edited body.
 
 | Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| S43a / Main | Admit an optional title in the link grammar and carry it through projection unchanged. The destination itself keeps today's character set; the title is copied, never parsed or normalised, because the producer copies it and three delimiters are legal. Update the contract/design declarations and the link-grammar tests. | S28b | All four titled forms above tokenise, with the destination and fragment identical to the untitled case and the title preserved byte for byte in projected bodies. A link with no title projects byte for byte as it does today. Destinations containing a space, parenthesis, backslash or angle bracket still refuse when there is no title to explain them. Protected code, reference-ambiguity and unmapped-internal refusals are unchanged. Existing fixtures and identity vectors pass unchanged. |
+| S43a / Main — complete | Admit an optional title in the link grammar and carry it through projection unchanged. The destination itself keeps today's character set; the title is copied, never parsed or normalised, because the producer copies it and three delimiters are legal. Update the contract/design declarations and the link-grammar tests. | S28b | All four titled forms above tokenise, with the destination and fragment identical to the untitled case and the title preserved byte for byte in projected bodies. A link with no title projects byte for byte as it does today. Destinations containing a space, parenthesis, backslash or angle bracket still refuse when there is no title to explain them. Protected code, reference-ambiguity and unmapped-internal refusals are unchanged. Existing fixtures and identity vectors pass unchanged. |
 | S43b / Main | Add a separately pinned publication fixture whose notes carry titled internal links, produced by a real publication command from the released producer, Notrios `v1.0.0` (`2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a`, contains J43), and record its pin and digests. Extend the differential audit and the converter/no-op regression evidence. | S43a | The new archive verifies and converts through notes/tags/links and the vault pipeline; identical reruns remain no-ops. Titles survive into the vault projection. The schema-27 and schema-28 archives still verify and convert unchanged. Run the focused grammar/boundary tests, the differential audit against the new pin, and all Python regression modules with both bytecode-suppression flags. Record exact commands, producer hash, digests and results. |
 
 **Ordering.** This is a consumption blocker for any handoff produced after J43,
@@ -596,7 +597,10 @@ before J43 is unaffected and needs no change, which is why the existing fixtures
 stay valid and stay pinned.
 
 *Decided 2026-10-22:* the remaining order is S43a → S43b → P7b2 → resumed P7c →
-resumed 7c → 7d → 7e. S43 and P7b2 share no code or data. P7b2 changes the
+resumed 7c → 7d → 7e. *Amended the same day, after S43a:* S43c and E1 come
+after S43b and before P7b2. S43c changes `obsidian2sql.py`, which P7b2 also
+changes, so P7b2's benchmarks then measure final code. E1 must land before any
+7c rerun or 7d recipe repeats an import after an export. S43 and P7b2 share no code or data. P7b2 changes the
 movenotes Python importers' ID lookups; S43 changes the Notrios link grammar and
 adds a fixture. S43 goes first because it is small and fixes the producer pin
 that resumed 7c needs. It also lets the bounded real publications be
@@ -605,6 +609,14 @@ and 7d now depend on S43b. A v1.0.0 handoff can carry titled links, which
 refuse without S43a. 7c's trials use that release, as decided below. 7d's
 documented publication → import → vault → site recipe must work with the
 released producer.
+
+**Fixes found during S43a (2026-10-22).** Both are planned work, not just
+recorded findings. Each needs its design frozen here before implementation.
+
+| Slice / planned owner | Work and owned output | Depends on | Acceptance |
+|---|---|---|---|
+| S43c / Main | Carry link titles through the downstream tools that S43a does not own. `obsidian2sql._normalise_target` splits a title only when the target does not start with `./` or `../`. The vault exporter writes `../` for notes in other folders, so a titled cross-folder link from a Notrios export stays unresolved on native reimport, where the untitled link resolves. When it does resolve a link, it writes `[display](:/id)` and drops the title. `obsidian2site` keeps titles on external links but drops them on resolved note and asset links. Fix both to split exactly one delimited title the way S43a's grammar does, and write it back after the rewritten destination. Owns `obsidian2sql.py`, `obsidian2site.py` and their tests. | S43b | Titled `./`, `../` and bare relative note and attachment links resolve on native reimport exactly as their untitled forms do, with the title bytes kept after the `:/id` destination. Site output keeps titles on resolved note and asset links. Untitled links and all canonical URLs, path maps and theme layouts are byte-identical; prove the URL maps unchanged over a real vault, as AGENTS.md requires. Undelimited suffixes are left as they are today. Focused tests plus all five regression modules. |
+| E1 / Main | Stop exporters modifying the database they read. `notesdb.connect()` runs `PRAGMA journal_mode=WAL`, so `sql2obsidian.py` or `sql2joplin.py` run on a completed Notrios import rewrites `notesdb.sqlite`: header bytes 18–19 change from `01 01` to `02 02` and the change counter advances. A later identical `notrios2sql.py` rerun then refuses with `completed payload inventory differs`, and the documented import → vault recipe cannot be repeated. Before implementation, decide between opening read-only when no migration is needed and an explicit read-only flag; migrating an older database in place must stay as it is for other workflows. Owns `notesdb.py` (a narrow read-only open path), the two exporters' open calls and tests. | S43a finding | After a vault export and a Joplin export of a completed import, the import directory is byte-identical, an identical rerun reports `unchanged`, and no `-wal` or `-shm` file is left behind. Older databases that need migration still migrate, with that existing behaviour covered by a regression test. Exporter output is unchanged. Focused tests plus all five regression modules. |
 
 **No other remaining producer work affects this importer.** The producer's open
 items at the time of writing are a reimport skip (J39), a reader affordance for
@@ -686,8 +698,8 @@ Target refusal is mandatory in 2a, not deferred to this step.
 |---|---|---|---|
 | 7a / Terra — complete | Small offline publication-fixture → SQLite → vault regression with independent expectations. | 6d | Notes/tags/links, exact attachments, absence of excluded sentinels and receipt assertions pass. |
 | 7b / Main — complete | Actual local Hugo/Ledger + Bluge build and bounded Pagefind fixture; test search/subpath URLs. | 7a | Canonical URLs, links, attachments, explicit tag counts and backend isolation correct; excluded sentinel absent from publishable files/index sources. |
-| 7c / Main | Resume after C7a–C7c and P7a–P7c; large-corpus trials below; record time/RSS/disk/counts/hashes and failure recovery. Partial Codex execution is retained; remaining work is Claude Code Main. Resumed trials use the Notrios `v1.0.0` pin. | P7c, S43b | Importer bounds demonstrated; stage bottlenecks separated; no unmeasured whole-pipeline memory claim. |
-| 7d / Main | README script list/usage and CHANGELOG from measured accepted commands. Reassigned from Codex Luna on 2026-10-22. | 7c, S43b | Reproducible publication → import → vault → site recipe; loose/fresh-output limitations; no private content in public examples. |
+| 7c / Main | Resume after C7a–C7c and P7a–P7c; large-corpus trials below; record time/RSS/disk/counts/hashes and failure recovery. Partial Codex execution is retained; remaining work is Claude Code Main. Resumed trials use the Notrios `v1.0.0` pin. | P7c, S43b, E1 | Importer bounds demonstrated; stage bottlenecks separated; no unmeasured whole-pipeline memory claim. |
+| 7d / Main | README script list/usage and CHANGELOG from measured accepted commands. Reassigned from Codex Luna on 2026-10-22. | 7c, S43b, S43c, E1 | Reproducible publication → import → vault → site recipe; loose/fresh-output limitations; no private content in public examples. |
 | 7e / Main | Full regression gate, evidence/diff review, final status and commit. | 7d | Every required method passes; skipped integrations not counted as acceptance. |
 
 ### Compatibility prerequisites added after partial 7c trials
@@ -1054,6 +1066,7 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-09-26 | Producer review | Reviewed Notrios changes beyond schema 28 for effect on this importer. Found one consumption blocker: producer item J43 now carries a link's title through its rewrite, and the link grammar here admits no whitespace in a destination, so every titled internal link refuses with `unsupported or unaccounted active link syntax` at the shared scanner — verified against the current module for double-quoted, single-quoted, parenthesised and embed forms. Fail-closed, so nothing is mis-projected, but a post-J43 handoff cannot be consumed. Recorded as the S43 prerequisites. Producer items J37, J41 and J42 need no change and remove or reduce existing refusals; unresolved links with spaces, parentheses or angle brackets refuse as they already did and are not admitted. Link rows and mapped identity are unaffected. No other open producer item affects the handoff format. No code, fixture or test changed. Next: ask to proceed to S43a. |
 | 2026-10-22 | Assignment amendment | At the user's request, reassigned all remaining work (S43a, S43b, P7b2, resumed P7c, resumed 7c, 7d, 7e) to the Claude Code main model and retired the Codex worker and monitor workarounds. Superseded assignments are kept in the ledger's `assignment_history`. The S43 ledger records were missing and are now added. Completed 6c, 6d, 7a and 7b table rows were marked complete to match the ledger. Added dated notes from the Notrios plan: J39 shipped without a schema change, and J43 and J10 are complete, with the pin to be verified in S43b. Documentation and provenance only, with no code, fixture or test changed. The renderer `--check` was not run, because the session's shell sandbox failed to start. Claude Code session confirmation is pending. Next: confirm assignments, then ask to proceed to S43a. |
 | 2026-10-22 | Decisions recorded | In the restarted session the shell works and the renderer `--check` passes. The user confirmed the Claude Code assignments for this session. Verified the Notrios release against the local checkout and GitHub: `v1.0.0` is at `2aab9a8`, is published, and contains J43. The schema is still 28, and the archive contract and format are unchanged since `7662fdd`. Decided the order S43a → S43b → P7b2 → resumed P7c → resumed 7c → 7d → 7e. Added S43b as a dependency of 7c and 7d. Resumed 7c re-imports with the release into fresh libraries and keeps the old evidence. Re-evaluation of the P7 targets, the small-merge noise and 7c's acceptance scope is deferred until those slices need it, as the user directed. Documentation and provenance only. Next: ask to proceed to S43a. |
+| 2026-10-22 | S43a complete | The Claude Code parent read the producer's J43 `TitleSuffix` code at `v1.0.0`. It then added one optional delimited title to the protected link grammar (`Token.title_suffix`), copied byte for byte. Titles that hold controls or internal targets refuse. Vault note and attachment links keep titles; a titled image becomes a Markdown image, and untitled output is byte-identical. Undelimited suffixes, escaped or multi-line titles and spaces, parentheses or angle brackets in destinations still refuse. The design and contract declarations are updated; mapper, receipt, reader profile, fixtures and identity vectors are unchanged. The link projection and integration classes pass all 21 tests. All 273 tests in the five required modules pass (168.108s) with both bytecode-suppression controls. Two pre-existing downstream defects were found and added as fix slices rather than only logged, at the user's direction: S43c (titled `./`/`../` links stay unresolved on native reimport, and titles are dropped there and on site note/asset links) and E1 (`notesdb.connect()` switches the input to WAL, so exporting a completed import changes `notesdb.sqlite` and a later identical rerun refuses). No worker was used. Next: ask to proceed to S43b. |
 
 ## Assignment amendment — 2026-10-22
 
@@ -2118,7 +2131,33 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 </details>
 
-<details><summary>S43a — pending; planned parent</summary>
+<details><summary>S43a — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; user authorized: Commit the plan amendment, then proceed with S43a. |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code |
+| Parent underlying model family | Claude Opus 5.5 (runtime-reported model ID claude-opus-5-5) |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Read the producer's J43 TitleSuffix implementation at v1.0.0, added one optional delimited title to the protected link grammar (Token.title_suffix), refused titles holding controls or internal targets, carried titles into vault note and attachment links (titled images become Markdown images; untitled output unchanged), updated design/contract declarations and added link-grammar, vault-rewrite and real import/export tests. |
+| Validation | Link projection and integration classes: 21 tests passed. All 273 tests in the five required modules passed (168.108s) with PYTHONDONTWRITEBYTECODE=1 and -B. Immutable fixtures and identity vectors unchanged. Found two pre-existing downstream defects, planned as S43c (titled links through native reimport and site) and E1 (exporters rewrite their input database). |
+| Delegation failure or reassignment | 2026-10-22: planned as a Codex parent slice; coding agent changed to the Claude Code parent by user before any work started. Planned owner unchanged. |
+| Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md producer link-syntax prerequisites added 2026-09-26; 2026-10-22 coding-agent change to Claude Code |
+| Execution evidence | User: Commit the plan amendment, then proceed with S43a.; Notrios v1.0.0 internal/markdownlinks/parser.go markdownDestination/TitleSuffix and internal/importers/obsidian/obsidian.go rewrite; Local log /tmp/claude-$UID/-home-$USER-projects-movenotes-v3/<session>/scratchpad/s43a-tests.log |
+| Commit | Git commit containing this completion record: feat: admit titled links in Notrios bodies (S43a) |
+
+</details>
+
+<details><summary>S43b — pending; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -2144,7 +2183,7 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 </details>
 
-<details><summary>S43b — pending; planned parent</summary>
+<details><summary>S43c — pending; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -2163,8 +2202,34 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Parent reasoning effort | pending |
 | Parent contribution | pending |
 | Validation | pending |
-| Delegation failure or reassignment | 2026-10-22: planned as a Codex parent slice; coding agent changed to the Claude Code parent by user before any work started. Planned owner unchanged. |
-| Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md producer link-syntax prerequisites added 2026-09-26; 2026-10-22 coding-agent change to Claude Code |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | S43a finding, 2026-10-22; user: Update the plan if you find items that need to be fixed instead of just logging their existence. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>E1 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | S43a finding, 2026-10-22; user: Update the plan if you find items that need to be fixed instead of just logging their existence. |
 | Execution evidence | none |
 | Commit | pending |
 

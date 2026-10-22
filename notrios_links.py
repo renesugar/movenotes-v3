@@ -37,7 +37,13 @@ DEFAULT_CONVERSION_LIMITS = ConversionLimits()
 
 _INTERNAL = rb"document://|resource://|notrios://|:/[0-9a-f]{32}"
 _INTERESTING = re.compile(rb"!?\[|" + _INTERNAL, re.I)
-_INLINE = re.compile(rb"(!?)\[([^\[\]\\\r\n]*)\]\(([^()\\\s<>]+)\)")
+# An optional title after the destination is copied, never parsed (S43a): the
+# producer writes back the author's own bytes, so all three delimiters occur.
+# It stays on one line and excludes backslashes and backticks, so escapes and
+# code spans cannot move its end; an unescaped closing delimiter ends it.
+_TITLE = rb"[ \t]+(?:\"[^\"\\`\r\n]*\"|'[^'\\`\r\n]*'|\([^()\\`\r\n]*\))[ \t]*"
+_INLINE = re.compile(rb"(!?)\[([^\[\]\\\r\n]*)\]\(([^()\\\s<>]+)(" + _TITLE + rb")?\)")
+_TITLE_REFUSED = re.compile(rb"[\x00-\x08\x0b-\x1f\x7f]|" + _INTERNAL, re.I)
 _DOCUMENT = re.compile(rb"document://default/documents/([a-z0-9][a-z0-9_.:-]{1,127})\Z")
 _RESOURCE = re.compile(rb"resource://default/resources/([a-z0-9][a-z0-9_.:-]{1,127})\Z")
 _MAPPED = re.compile(rb":/([0-9a-f]{32})(?:#(.*))?\Z")
@@ -55,6 +61,9 @@ class Token:
     fragment: bytes | None
     destination_start: int
     destination_end: int
+    # Bytes between the destination and the closing parenthesis: separating
+    # whitespace and the delimited title, or empty when there is no title.
+    title_suffix: bytes = b""
 
 
 @dataclass(frozen=True)
@@ -210,10 +219,14 @@ def scan_markdown(body: bytes):
         start = found.start()
         token = _INLINE.match(visible, start)
         if token is not None and visible[token.start():token.end()] == body[token.start():token.end()]:
-            destination = token[3]
+            destination, title_suffix = token[3], token[4] or b""
+            # A title is inert text, so it must not hide an internal target
+            # from link accounting or carry controls into rendered attributes.
+            if _TITLE_REFUSED.search(title_suffix):
+                _refuse("unsupported link title")
             base, separator, fragment = destination.partition(b"#")
             yield Token(token.start(), token.end(), bool(token[1]), token[2], destination,
-                        base, fragment if separator else None, token.start(3), token.end(3))
+                        base, fragment if separator else None, token.start(3), token.end(3), title_suffix)
             position = token.end()
             continue
         if visible[start:start + 1] != b"[":
@@ -450,13 +463,18 @@ def rewrite_projected_links(body: str, *, note_id: str, note_path: PurePosixPath
             name = attachments.vault_name(item_id, required=True)
             if name is None:
                 _refuse("missing mapped resource")
+            relative = quote(posixpath.relpath("attachments/" + name, start=str(note_path.parent)),
+                             safe="/-._~").encode("ascii")
             if token.bang and attachments.is_image(item_id):
-                replacements.append((token.start, token.end, f"![[{name}]]".encode("utf-8")))
+                # A wiki embed has nowhere to keep a title, so only a titled
+                # image becomes a Markdown image; untitled output is unchanged.
+                replacement = (b"![" + token.label + b"](" + relative + token.title_suffix + b")"
+                               if token.title_suffix else f"![[{name}]]".encode("utf-8"))
+                replacements.append((token.start, token.end, replacement))
             else:
-                relative = posixpath.relpath("attachments/" + name, start=str(note_path.parent))
                 label = token.label or _attachment_label(name).encode("utf-8")
                 replacements.append((token.start, token.end,
-                    b"[" + label + b"](" + quote(relative, safe="/-._~").encode("ascii") + b")"))
+                    b"[" + label + b"](" + relative + token.title_suffix + b")"))
             continue
         if item_type != 1 or token.bang:
             _refuse("mapped link has no supported note target")

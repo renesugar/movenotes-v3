@@ -15,6 +15,15 @@ contract schema version and notesdb schema stay unchanged. Existing vectors and
 fixtures retain their original provenance; S28b adds separate
 [current-producer evidence](testdata/notrios/schema28/README.md).
 
+S43a amendment (2026-10-22): the link grammar below admits one optional title
+after an otherwise valid destination, because Notrios J43 (in `v1.0.0`) puts the
+author's title back after a rewritten destination. The title is copied, never
+parsed. Only destination bytes are replaced, so a titled link projects
+byte for byte, title included. Untitled links project exactly as before. Reader
+profile, mapper, receipt and contract schema versions are unchanged, and no ID
+vector moves. This admits only bodies that previously refused, so old completed
+outputs are unaffected.
+
 ## Modules and handoffs
 
 Use Python's standard library only. Public helpers raise `NotriosError`, never
@@ -271,10 +280,22 @@ structure. Ambiguous nested container/fence syntax containing internal targets
 refuses rather than guessing its context.
 
 Active accepted link syntax is `[label](destination)` or `![label](destination)` on
-one line, with no optional title, nested brackets, backslash escapes in label or
-destination, angle destination or whitespace in destination. Empty labels are
-allowed. Destination may not contain parentheses; percent-encoded bytes remain
-encoded. Every archived link must match one complete active token at exactly
+one line, with no nested brackets, backslash escapes in label or destination,
+angle destination or whitespace in destination. Empty labels are allowed.
+Destination may not contain parentheses; percent-encoded bytes remain encoded.
+
+S43a: one optional title may follow the destination. The title is one or more
+spaces or tabs, then `"…"`, `'…'` or `(…)`, then optional spaces or tabs before
+the closing parenthesis. Inside the delimiters, a title may not contain a line
+ending, backslash, backtick or its own closing delimiter; a parenthesised title
+contains no parentheses at all. A title holding any C0 control other than tab,
+DEL, or a recognized internal scheme or `:/` ID refuses as `unsupported link
+title`, so it cannot hide a target from accounting. Every other suffix after a
+destination still refuses: undelimited text, a second title, a title on the next
+line, escaped quotes, or trailing bytes after the delimiter. The archived span
+covers the whole link, title included. `raw_target`, `display_text` and anchor
+fields are compared exactly as for an untitled link, because producer rows never
+carry the title. Every archived link must match one complete active token at exactly
 its half-open byte span; `start < end <= body_size`, both endpoints must be
 UTF-8 boundaries. Sort by `(start,end,id)` and reject any overlap, duplicate
 span, stale span or token inside protected code. The producer currently scans
@@ -366,6 +387,19 @@ guess that every 32-hex ID denotes a resource. Resource tokens alone invoke the
 existing attachment behavior (image bang → wiki embed; other links → encoded
 relative attachment path). Missing mapped resources refuse; a selected-note
 filter must not make a missing resource silently look like a note link.
+
+S43a: titles are carried into the vault byte for byte. A note link keeps its
+title because only its destination changes. A file attachment link is rebuilt
+with the title bytes after the relative path. A wiki embed cannot hold a title,
+so only a *titled* image becomes the Markdown image
+`![label](<relative path> <title>)`; untitled images remain `![[name]]`. A link
+to a filtered-out note becomes its escaped label, as before, and its title goes
+with the link. The site generator keeps titles on external links and drops them
+on resolved note and attachment links. Native `obsidian2sql` reimport drops a
+title when it resolves the link. It leaves a titled `./` or `../` link
+unresolved, because its title split skips those prefixes. Preservation-bundle
+reimport keeps the exact vault bytes. All three are existing behaviour that S43a
+does not change.
 
 1. Keep the existing loop's note order, folder paths and filename reservations.
    Write notes normally to determine the **returned** path from

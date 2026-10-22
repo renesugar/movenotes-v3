@@ -2553,6 +2553,8 @@ def retained_link(body, token, *, ident="lnk_example", source="doc_public"):
     start = body.index(token)
     bang = token.startswith(b"!")
     label, destination = token[2 if bang else 1:-1].split(b"](", 1)
+    # Producer link rows record the destination alone, never a title (J43).
+    destination = re.split(rb"[ \t]", destination, maxsplit=1)[0]
     base, separator, fragment = destination.partition(b"#")
     p = dict(id=ident, source_document_id=source, relation_type="embed" if bang else "link",
              source_format="markdown", raw_target=base.decode(), display_text=label.decode(),
@@ -2635,12 +2637,89 @@ class NotriosLinkProjectionTest(unittest.TestCase):
             with self.subTest(destination=destination), self.assertRaises(archive_v2.NotriosError):
                 self.project(body, [retained_link(body, body)])
         for body in (b"[[Local]]", b"![[Local]]", b"[ref]: ./local.md", b"[text][ref]",
-                     b'[label](https://example.test "title")', b"[nested [label]](https://example.test)",
+                     b"[nested [label]](https://example.test)",
                      b"[escaped\\!](https://example.test)", b"[label](<https://example.test>)",
                      b"<a href='document://default/documents/doc_child'>", b"DOCUMENT://default/documents/doc_child",
                      b"bare :/"+b"a"*32, b"![embed](document://default/documents/doc_child)"):
             with self.subTest(body=body), self.assertRaises(archive_v2.NotriosError):
                 self.project(body)
+
+    def test_titled_links_keep_destination_and_copy_title_bytes(self):
+        uri = b"document://default/documents/doc_child"
+        mapped = b":/" + b"a" * 32
+        titles = (b' "A title"', b" 'A title'", b" (A title)", b'\t"Tab \xc3\xa9 [x] (y)" ', b' ""')
+        for title in titles:
+            for destination in (uri, uri + b"#part"):
+                token = b"[link](" + destination + title + b")"
+                body = "日 ".encode() + token + b" tail"
+                with self.subTest(title=title, destination=destination):
+                    scanned, = links.scan_markdown(body)
+                    untitled, = links.scan_markdown(b"[link](" + destination + b")")
+                    self.assertEqual((scanned.destination, scanned.base, scanned.fragment),
+                                     (untitled.destination, untitled.base, untitled.fragment))
+                    self.assertEqual((scanned.title_suffix, untitled.title_suffix), (title, b""))
+                    self.assertEqual(self.project(body, [retained_link(body, token)]).encode(),
+                                     body.replace(uri, mapped))
+        image = b'![shot](resource://default/resources/res_y "Photo")'
+        scanned, = links.scan_markdown(image)
+        self.assertEqual((scanned.bang, scanned.base, scanned.title_suffix),
+                         (True, b"resource://default/resources/res_y", b' "Photo"'))
+        record = retained_link(image, image)
+        record = archive_v2.Record("link", record.key, {**record.payload, "target_resource_id": "res_y"})
+        self.assertEqual(self.project(image, [record], resource_ids=["a" * 32]).encode(),
+                         b'![shot](:/' + b"a" * 32 + b' "Photo")')
+        for body in (b'[Web](https://example.test/x?q=1#part "Title")', b"[self](#local 'Title')"):
+            records = [] if body.startswith(b"[Web]") else [retained_link(body, body)]
+            self.assertEqual(self.project(body, records).encode(), body)
+        # The archived span covers the whole link, title included.
+        token = b'[link](' + uri + b' "A title")'
+        record = retained_link(token, token)
+        short = archive_v2.Record("link", record.key, {**record.payload,
+            "source_end_byte": token.index(b' "A title"')})
+        with self.assertRaises(archive_v2.NotriosError):
+            self.project(token, [short])
+
+    def test_title_admission_is_narrow_and_other_destinations_still_refuse(self):
+        uri = b"document://default/documents/doc_child"
+        for suffix in (b' "unterminated', b' "esc\\"aped"', b' "code `x`"', b' "two" "titles"',
+                       b' "title"x', b' junk', b'"no space"', b' (nested (p))', b"\n\"next line\"",
+                       b' "' + uri + b'"', b" 'see :/" + b"b" * 32 + b"'", b' "control\x01"', b' "del\x7f"'):
+            token = b"[link](" + uri + suffix + b")"
+            with self.subTest(suffix=suffix), self.assertRaises(archive_v2.NotriosError):
+                self.project(token, [retained_link(token, token)])
+        for destination in (b"doc child", b"doc(child)", b"doc\\child", b"<doc>", b"<document://default/documents/doc_child>"):
+            body = b"[label](" + destination + b")"
+            with self.subTest(destination=destination), self.assertRaises(archive_v2.NotriosError):
+                self.project(body)
+        hidden = b'[Hidden](' + uri + b' "t")'
+        body = b"`" + hidden + b"`\n```\n" + hidden + b"\n```\n"
+        self.assertEqual(self.project(body).encode(), body)
+        with self.assertRaises(archive_v2.NotriosError):
+            self.project(body, [retained_link(body, hidden)])
+        for body in (b'[x](https://example.test "t")\n[ref]: https://example.test\n[sic]',
+                     b'[x](' + uri + b' "t")'):
+            with self.subTest(body=body), self.assertRaises(archive_v2.NotriosError):
+                self.project(body)
+
+    def test_titled_vault_links_keep_titles_and_untitled_output_is_unchanged(self):
+        note, image, other = "a" * 32, "b" * 32, "c" * 32
+        attachments = mock.Mock()
+        attachments.vault_name.side_effect = lambda ident, required: {image: "Photo é.png", other: "Doc.pdf"}[ident]
+        attachments.is_image.side_effect = lambda ident: ident == image
+        def rewrite(body, path="Other/Café.md"):
+            return links.rewrite_projected_links(body, note_id="d" * 32, note_path=PurePosixPath("Deep/Source.md"),
+                lookup_item_type=lambda ident: 1 if ident == note else 4, lookup_note_path=lambda ident: path,
+                attachments=attachments)
+        body = (f'[A](:/{note}#part "Note title") ![Shot](:/{image} \'Photo\') '
+                f'[File](:/{other} (Paper)) ![](:/{image}) [](:/{other}\t"T" )')
+        self.assertEqual(rewrite(body),
+            '[A](../Other/Caf%C3%A9.md#part "Note title") '
+            "![Shot](../attachments/Photo%20%C3%A9.png 'Photo') "
+            "[File](../attachments/Doc.pdf (Paper)) ![[Photo é.png]] "
+            '[Doc.pdf](../attachments/Doc.pdf\t"T" )')
+        self.assertEqual(rewrite(f'[A](:/{note} "Note title")', path=None), "A")
+        self.assertEqual(rewrite(f"[A](:/{note}) ![Shot](:/{image}) [File](:/{other})"),
+                         "[A](../Other/Caf%C3%A9.md) ![[Photo é.png]] [File](../attachments/Doc.pdf)")
 
     def test_flat_literal_brackets_are_unrecorded_and_reference_forms_refuse(self):
         link = b"[Web](https://example.test/x)"
@@ -2718,12 +2797,16 @@ class NotriosLinkIntegrationTest(unittest.TestCase):
     export = NotriosNoteIntegrationTest.export
     vault_notes = NotriosNoteIntegrationTest.vault_notes
 
-    def linked_archive(self):
+    TITLES = (b' "Child title"', b" 'Duplicate title'", b" (Here title)", b'\t"Web title"', b' "Back"')
+
+    def linked_archive(self, titled=False):
+        title = iter(self.TITLES if titled else (b"",) * len(self.TITLES))
         self.tokens = {
-            "doc_public": [b"[Child](document://default/documents/doc_child#details)",
-                           b"[Duplicate](document://default/documents/doc_duplicate)", b"[Here](#local)",
-                           b"[Web](https://example.test/x?q=one#part)"],
-            "doc_child": [b"[Back &amp; Home](document://default/documents/doc_public)"],
+            "doc_public": [b"[Child](document://default/documents/doc_child#details" + next(title) + b")",
+                           b"[Duplicate](document://default/documents/doc_duplicate" + next(title) + b")",
+                           b"[Here](#local" + next(title) + b")",
+                           b"[Web](https://example.test/x?q=one#part" + next(title) + b")"],
+            "doc_child": [b"[Back &amp; Home](document://default/documents/doc_public" + next(title) + b")"],
             "doc_duplicate": [],
         }
         self.bodies = {
@@ -2770,6 +2853,32 @@ class NotriosLinkIntegrationTest(unittest.TestCase):
         for item in manifest["items"]:
             if item["type"] == 1:
                 self.assertEqual(hashlib.sha256((vault / item["obsidian_path"]).read_bytes()).hexdigest(), item["obsidian_sha256"])
+
+    def test_titled_links_import_and_export_with_titles_byte_for_byte(self):
+        self.linked_archive(titled=True)
+        self.import_notes()
+        self.assertEqual(self.import_notes().status, "unchanged")
+        for row in self.rows():
+            if row["joplin_type_"] == 1:
+                source = next(k for k, v in self.ids["document"].items() if v == row["joplin_id"])
+                self.assertEqual(row["note_data"].encode(), self.projected(source))
+        child, duplicate, here, web, back = self.TITLES
+        self.assertIn(b"(:/" + self.ids["document"]["doc_child"].encode() + b"#details" + child + b")",
+                      self.projected("doc_public"))
+        vault = self.export()
+        notes = self.vault_notes(vault)
+        public = self.bodies["doc_public"].decode()
+        public = public.replace(self.tokens["doc_public"][0].decode(),
+            "[Child](%E7%A0%94%E7%A9%B6/Child%20%E6%9D%B1%E4%BA%AC.md#details" + child.decode() + ")")
+        public = public.replace(self.tokens["doc_public"][1].decode(),
+            "[Duplicate](Caf%C3%A9%20%26%20field%20notes%202.md" + duplicate.decode() + ")")
+        self.assertEqual(notes[self.ids["document"]["doc_public"]][2], public)
+        self.assertEqual(notes[self.ids["document"]["doc_child"]][2],
+                         self.bodies["doc_child"].decode().replace(self.tokens["doc_child"][0].decode(),
+                         "[Back &amp; Home](../Caf%C3%A9%20%26%20field%20notes.md" + back.decode() + ")"))
+        filtered = self.export("filtered", "--notebooks", "研究")
+        body = self.vault_notes(filtered)[self.ids["document"]["doc_child"]][2]
+        self.assertEqual(body, self.bodies["doc_child"].decode().replace(self.tokens["doc_child"][0].decode(), "Back \\& Home"))
 
     def test_filtered_links_become_escaped_labels_with_numeric_summary(self):
         self.linked_archive()
