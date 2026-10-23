@@ -34,13 +34,18 @@ that scanned the growing table, is fixed by **P7b2 (complete)**: the full
 382,206-file recipe vault now imports in 1,628 s, where the interrupted baseline
 ran 17,943 s without finishing. See [P7c evidence](NOTRIOS_P7C_EVIDENCE.md). The producer link-syntax
 prerequisites came first: **S43a, S43b, S43c and E1 are complete**. S43a found two
-downstream fixes, now planned as **S43c** and **E1**. Next is **resumed P7c**.
+downstream fixes, now planned as **S43c** and **E1**. **Resumed P7c has run its
+whole frozen matrix** (R1–R6, all outputs identical). It stays open on two user
+decisions: F04's full-scale gate, which one noisy pair could not resolve, and
+the unmet Go producer targets. It found three fixes, planned as **U1**, **I1**
+and **M1**.
 Plan revised on **2026-10-22**: all remaining work is assigned to the Claude Code
 main model (**Main**), and the user confirmed this for the session. No Codex
 worker or monitor remains in the plan. See
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 S43b and resumed 7c pin the released Notrios **`v1.0.0`** (`2aab9a8`). The
-remaining order is resumed P7c → U1 → resumed 7c → 7d → 7e.
+remaining order is resumed P7c → U1 → resumed 7c → 7d → 7e; I1 and M1 are
+proposed between U1 and resumed 7c, pending the user's answer.
 Slice **7c remains incomplete**; isolated work
 and checkpoints are under `/media/$USER/HD2/movenotes-7c-20260916/`.
 Both recipe imports succeeded (382,206 documents each), but bounded real
@@ -282,7 +287,7 @@ Session confirmation: **confirmed**.
 
 Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID claude-opus-5-5)**. Product/client version: not exposed; model provider: Anthropic (runtime-reported).
 
-- All remaining work (S43b, S43c, E1, P7b2, resumed P7c, U1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
+- All remaining work (S43b, S43c, E1, P7b2, resumed P7c, U1, I1, M1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
 - Codex luna_worker and terra_worker do not exist in Claude Code and are not replaced by Claude subagents. Spawning one requires an explicit user request and a recorded plan amendment first.
 - The Codex auxiliary Luna monitor is retired for remaining work. Main runs long data-heavy commands as harness-tracked background commands, is re-invoked once when they exit, and does not poll.
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
@@ -291,7 +296,28 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 
 Next slice: **resumed P7c — benchmark matrix and full-corpus confirmation**,
 assigned to the Claude Code parent (**Main**). Session assignments are
-confirmed. Slice authorization is pending.
+confirmed. The user authorized the resume on 2026-10-22.
+
+**Resumed P7c status (2026-10-23).** R1–R6 have run as frozen below; every
+comparison is fingerprint-identical, and the five required modules and the
+harness tests pass. See [the resumed results](NOTRIOS_P7C_EVIDENCE.md#resumed-p7c--f04-with-p7b2-constant-2026-102223).
+Two decisions remain the user's before P7c can close:
+
+- *F04 at full scale.* F04 meets the adoption gate on the 10,000-file subset in
+  all five alternating pairs (median fresh 0.834, unchanged 0.823, merge 1.000,
+  memory +0.5%). R1's single gated fresh pair shows only 3.1%, against the
+  frozen 5% gate; its unchanged pair shows 14.1% and its ungated fresh setup
+  pair 19.7%. R2's RAW control, with identical code, moved −25% to +31%
+  between single runs, so R1 cannot resolve 5%. Under the frozen gate the
+  result is held as ambiguous. Options: accept F04 on the subset evidence plus
+  three consistently faster full-scale timings; run more alternating
+  full-corpus pairs (about an hour per pair per case); or remove F04 from
+  `HEAD`.
+- *Go producer targets.* Unmet, as expected, since no Go candidate is
+  approved. The Python importer's full-corpus fresh vault/RAW ratio is about
+  1.27 base and 1.13 with F04, within the RAW noise above.
+
+The runs also found three fixes, planned below as U1, I1 and M1.
 
 P7c remains incomplete: its full Python native baseline was interrupted at
 17,943.11s while executing unindexed batch-ID lookups. See
@@ -354,8 +380,8 @@ adoption is not claimed. Rejected Go G08 stays out of full trials; no Go candida
 is approved. Any producer implementation needs an explicit handoff naming its
 files and checkout, plus the user's approval to write to the Notrios checkout.
 
-Remaining sequence: resumed P7c → U1 → resumed 7c → 7d → 7e,
-subject to the unresolved performance and compatibility gates. Every data-heavy
+Remaining sequence: resumed P7c → U1 → resumed 7c → 7d → 7e, with I1 and M1
+proposed after U1, subject to the unresolved performance and compatibility gates. Every data-heavy
 run follows the background-run rule under
 [Execution and handoff rules](#execution-and-handoff-rules). Preserve C7c's documented differences: RAW's 842,813 tag
 associations versus vault zero, RAW metadata projection omission, and 3,682
@@ -980,6 +1006,20 @@ before 7c means 7c's full-corpus trials, which include unchanged reruns,
 measure the final code. 7c and 7d now also depend on U1, and 7d's CHANGELOG
 records it if it is adopted.
 
+**Fixes found by resumed P7c's R4 and R5 (2026-10-23).** Planned work at the
+user's standing direction, with designs frozen here before implementation.
+
+| Slice / planned owner | Work and owned output | Depends on | Acceptance |
+|---|---|---|---|
+| I1 / Main | Defer secondary indexes when importing into an existing library that holds no notes. R5 showed the cost: an interrupted fresh import correctly leaves an empty library, but `open_database` → `migrate_database` → `ensure_indexes` then creates all eight indexes before the rerun's first insert, while a new database defers all but `joplinididx` to the final pass. Fresh imports into an empty existing library took 33.71 and 33.90 s against 28.98 and 28.96 s into a new one at 10,000 files, and 181.23 and 180.50 s against 123.27 and 121.47 s (48% slower) at 40,000 files, with identical fingerprints. When `obsidian2sql.py` finds the notes table empty, it drops the secondary indexes other than `joplinididx` before inserting and rebuilds them in the final pass. An interruption then leaves an index-free empty library, whose next open recreates the indexes as now. Owns `obsidian2sql.py`, at most a narrowly needed `notesdb.py` helper, and tests. `joplin2sql.py`'s same path is measured and extended only with its own evidence. | P7c | A fresh import into an empty existing library, and the rerun after an interrupted fresh import, are fingerprint-identical to a fresh import into a new database and end with the same index set. Non-empty libraries keep today's path unchanged. Measured with alternating pairs at 10,000 and 40,000 files: the empty-library import improves by at least the 5% gate, with no regression for new databases, unchanged reruns or merges. A test checks the index set after an interrupted and recovered import. Focused tests plus all five regression modules. |
+| M1 / Main | Bound the preservation manifest's memory. R4's full-scale round trip peaked at 3,668,096 KiB in `sql2obsidian.py` and 1,936,788 KiB in `obsidian2sql.py`'s preserved import, both from holding the whole `.movenotes/manifest.json` (530 MB, 1,237,553 items): the exporter keeps every item dict and then the complete `json.dumps` string, and the importer `json.loads` the file. The exporter will stream the manifest, writing each item as it is produced, byte-identical to today's output, with no format change. The importer will read version-1 manifests with a stdlib-only incremental decoder (`json.JSONDecoder.raw_decode` over buffered reads), keeping only the compact per-item fields it uses. A malformed or unrecognised manifest keeps today's behaviour: `_load_manifest` ignores it and the vault imports as native. Whether that silent fallback should become an error is a separate question for the user, not part of M1. Owns `sql2obsidian.py`, `obsidian2sql.py`'s manifest reader and tests. | P7c | Exported manifests are byte-identical to the current code's on the existing fixtures and on R4's library. Preserved imports are fingerprint-identical, with the same counts and errors, including for existing manifests. Peak RSS of the full-scale export and preserved import falls measurably, with time not worse beyond the gate's noise. Memory stays O(items) only for compact per-item state the importer needs, which the design documents. Measured on R4's full library plus a paired subset. Focused tests plus all five regression modules. |
+
+*Proposed order (2026-10-23, pending the user's answer):* resumed P7c → U1 →
+I1 → M1 → resumed 7c → 7d → 7e. U1 and I1 both change `obsidian2sql.py`'s
+native path, so they land one at a time, each with its own measurement.
+M1 changes the preserved route, which resumed 7c measures at full scale. All
+three precede 7c so that 7c measures the final code.
+
 **P7a completed audit:** [performance evidence](NOTRIOS_PERFORMANCE_EVIDENCE.md)
 classifies F01–F15 and the additional Notrios review G01–G10, records separate
 correctness defects C01/C02, and freezes the P7b handoff. The Notrios review at
@@ -1196,6 +1236,7 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-10-22 | E1 complete | The Claude Code parent probed SQLite 3.46.1 and refined the user's decision: a `mode=ro` connection to a WAL database leaves `-wal`/`-shm` behind, so `notesdb.open_database_for_reading` uses `mode=ro` for rollback-journal databases and `query_only` for WAL ones. Neither changes the journal mode. A read-only check falls back to `open_database` when migration or recovery is needed. `sql2obsidian.py` and `sql2joplin.py` use it. A completed Notrios import is now byte-identical after both exports, leaves no sidecar files, and reruns as `unchanged`; it previously refused with `completed payload inventory differs`. Exporter output is identical to `HEAD` for the 3,000-note real recipe subset (10,738 vault and 7,736 Joplin files) and for the titled import. New tests cover both journal modes and migration of a database missing an index or at an older version. `PERFORMANCE_REVIEW.md` is updated. All 285 tests in the five required modules pass (197.130s) with both bytecode-suppression controls. No worker was used. Next: ask to proceed to P7b2. |
 | 2026-10-22 | P7b2 complete | The Claude Code parent measured two bounded treatments against the previous code on deterministic recipe subsets: creating `joplinididx` when `obsidian2sql.py` creates a new database, and an in-memory map of this run's IDs. All outputs were fingerprint-identical. At 40,000 files the fresh import took 330.45 s before, 130.08 s with the index and 136.81 s with the map, which also added about 50 MiB of memory. The index treatment was adopted, so the batch query and C01/C02 checks are unchanged and merges and reruns take the same path as before; 10,000-file unchanged reruns and ten-note merges are unchanged in output and time. A full-corpus scale check imported all 382,206 files (1,237,552 items) in 1,628.36 s, where the interrupted P7c baseline ran 17,943.11 s without finishing; an identical rerun skipped every item in 1,388.56 s. A new regression test records each batch lookup's query plan during a fresh import and fails on the previous code. All 286 tests in the five required modules pass, and the P7c harness tests pass. F02 is now subsumed, and the full-corpus memory, unchanged-rerun cost and changed evidence mount path were added to resumed P7c's plan. `PERFORMANCE_REVIEW.md` and the P7c evidence are updated. No worker was used. Next: ask to proceed to resumed P7c. |
 | 2026-10-22 | U1 added | At the user's request, R6's finding became plan slice U1 instead of a note for later: an unchanged native rerun converts every file (frontmatter, links, compressed application data) before `_insert_rows` finds it unchanged, which is why it costs 85% of a fresh import. U1 makes the same `(ID, raw digest)` decision before conversion; its acceptance requires fingerprint-identical results, unchanged collision errors and a measured paired improvement. Ordered after resumed P7c and before resumed 7c; 7c and 7d now depend on U1. Documentation and provenance only, while the R3/R1/R2 batch runs. No worker was used. |
+| 2026-10-23 | Resumed P7c results | The Claude Code parent ran the frozen R1–R6 matrix with P7b2 constant; every comparison is fingerprint-identical. On five alternating 10,000-file pairs F04 is faster in every pair (median fresh 0.834, unchanged 0.823, merge 1.000, memory +0.5%). At full scale R1's single gated fresh pair is 0.969, below the frozen 5% gate, with unchanged 0.859 and the ungated fresh setup 0.803; R2's RAW control, with identical code, moved −25% to +31%, so F04's full-scale adoption is held as ambiguous for the user. R4 exported the full RAW library in 1,406 s and reimported the bundle in 2,256 s, losslessly (only the `note_obsidian_*` snapshot columns differ, on the 382,206 notes), but at 3.5 GiB and 1.8 GiB peak RSS from holding the 530 MB manifest. R5's SIGINT, in the inventory and in a batch insert, left no notes, and both reruns matched the uninterrupted fingerprint; two earlier attempts were invalid because a non-interactive shell's `&` made the child ignore SIGINT. The reruns were slow because an empty existing library builds all eight indexes before inserting. The Go producer targets remain unmet. 286 tests in the five required modules pass (149.366 s) and the 11 harness tests pass. I1 and M1 are added from R5 and R4, with the order I1 → M1 after U1 proposed. P7c stays open. No worker was used. Next: the user's F04 and Go-target decisions and the I1/M1 order, then ask to proceed to U1. |
 
 ## Assignment amendment — 2026-10-22
 
@@ -2164,21 +2205,21 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Codex partial run: User: Proceed with P7c. Existing Codex roles, efforts and billing suitability confirmed for unchanged session. Remaining work: Claude Code session assignments confirmed by user on 2026-10-22; resume still requires authorization. |
+| Assignment confirmation | Codex partial run: User: Proceed with P7c. Existing Codex roles, efforts and billing suitability confirmed for unchanged session. Remaining work: Claude Code session assignments confirmed by user on 2026-10-22; resume authorized by the user on 2026-10-22 (Proceed). |
 | Actual worker | luna_worker |
 | Child thread | /root/p7c_validation |
 | Actual model | not exposed |
 | Reasoning effort | not exposed |
 | Worker contribution | Authored variants, matrix/long-batch/subset/merge harnesses and tests; executed synthetic isolated F02/F04 and RAW control matrices. Prepared remaining final-validation commands. |
-| Parent | Codex |
-| Parent underlying model family | GPT-6 |
+| Parent | Codex (partial run to 2026-09-19); Claude Code parent (remaining work) |
+| Parent underlying model family | GPT-6 (Codex partial run); Claude Opus 5.5, runtime-reported claude-opus-5-5 (remaining work) |
 | Parent reasoning effort | not exposed |
-| Parent contribution | Reviewed resume/input/metric correctness; launched real10k and fullnative/final prepared tests after worker external-tool approval stalls; long tool-side waits. Interrupted full baseline at17,943.11s, traced unindexed batch lookup and confirmed EXPLAIN/VM scaling. Added P7b2 prerequisite; no production edits. |
-| Validation | Isolated synthetic and real10k comparisons match. Corrected prepared-seed5pairs match; smallmerge slower/noisy remains unresolved. Fullbaseline interrupted17943.11s in unindexed lookup, candidate not run. Ten focused harness tests pass. Full acceptance blocked; NOTRIOS_P7C_EVIDENCE.md. |
+| Parent contribution | Reviewed resume/input/metric correctness; launched real10k and fullnative/final prepared tests after worker external-tool approval stalls; long tool-side waits. Interrupted full baseline at17,943.11s, traced unindexed batch lookup and confirmed EXPLAIN/VM scaling. Added P7b2 prerequisite; no production edits. 2026-10-22/23, Claude Code parent: froze the resumed design (R1-R6) before running; fixed notrios_p7c_prepare.py's F02 marker for P7b2 and recorded the P7b2 constant; ran R3 (five alternating 10,000-file pairs), R1 (full native pair), R2 (full RAW control pair), R4 (full sql2obsidian export and preserved import, plus a column comparison with the RAW library), R5 (SIGINT recovery at 40,000 files, plus new-versus-empty-library checks) and R6 (cProfile of an unchanged rerun); recorded the results in NOTRIOS_P7C_EVIDENCE.md; planned U1, I1 and M1 from R6, R5 and R4. |
+| Validation | Isolated synthetic and real10k comparisons match. Corrected prepared-seed5pairs match; smallmerge slower/noisy remains unresolved. Fullbaseline interrupted17943.11s in unindexed lookup, candidate not run. Ten focused harness tests pass. Full acceptance blocked; NOTRIOS_P7C_EVIDENCE.md. 2026-10-23 resumed P7c: every comparison fingerprint-identical. R3 10,000 files, five alternating pairs, f04/base medians fresh 0.834, unchanged 0.823, merge 1.000; RSS +0.5%. R1 full native single pair: fresh 0.969, unchanged 0.859, ungated fresh setup 0.803; RSS +2.4-3.4%. R2 RAW control (identical joplin2sql.py): 1.307, 0.755, 0.933, so single-pair noise reaches 31%. F04 meets the subset gate; its full-scale gate (R1 >=5%) is unresolved and held as ambiguous for the user. R4: export 1,406 s at 3,668,096 KiB, preserved import 2,256 s at 1,936,788 KiB; all 1,237,553 items present and 69 of 75 columns identical, only the note_obsidian_* snapshot columns differ on the 382,206 notes. R5: SIGINT in inventory and in batch insert both leave 0 notes, and both reruns match the uninterrupted fingerprint. Go producer targets unmet, as expected. 286 tests in the five required modules pass (149.366 s) with PYTHONDONTWRITEBYTECODE=1 and -B; test_notrios_p7c.py 11 tests pass. |
 | Delegation failure or reassignment | Worker external ps/approval calls stalled; parent final-validation launches and long tool waits used after confirming no active process. Worker could not access parent terminal session. No implementation reassignment. 2026-10-22: user reassigned the remaining P7c work from codex luna_worker (gpt-5.6-luna, fixed max) to the Claude Code parent and retired the Luna monitor; the partial Luna record above is unchanged. |
 | Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17; 2026-10-22 user reassignment to the Claude Code parent |
-| Execution evidence | User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement.; User: Proceed with P7c; native spawn /root/p7c_validation; NOTRIOS_P7C_EVIDENCE.md; Private movenotes-p7c-* HD2 manifests, source hashes, results, failed full trial and child traceback. |
-| Commit | P7c partial-evidence checkpoint (contains this ledger) |
+| Execution evidence | User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement.; User: Proceed with P7c; native spawn /root/p7c_validation; NOTRIOS_P7C_EVIDENCE.md; Private movenotes-p7c-* HD2 manifests, source hashes, results, failed full trial and child traceback.; User: Proceed (resumed P7c, 2026-10-22); Private /run/media/$USER/HD2/movenotes-p7c-20261022-{sources,variants,r3-subset,r1r2-full,r4-preserved,r5-recovery}; NOTRIOS_P7C_EVIDENCE.md, Resumed P7c — F04 with P7b2 constant |
+| Commit | P7c partial-evidence checkpoint; resumed-P7c results checkpoint (contains this ledger) |
 
 </details>
 
@@ -2204,6 +2245,58 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | Resumed P7c R6 profile, 2026-10-22; user: Add a plan item to fix this. |
 | Execution evidence | Scratch profile /tmp/claude-$UID/-home-$USER-projects-movenotes-v3/<session>/scratchpad/p7c-r6/unchanged.prof |
+| Commit | pending |
+
+</details>
+
+<details><summary>I1 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | Resumed P7c R5 recovery check, 2026-10-23; user directive: Update the plan if you find items that need to be fixed instead of just logging their existence. |
+| Execution evidence | NOTRIOS_P7C_EVIDENCE.md, Resumed P7c — F04 with P7b2 constant |
+| Commit | pending |
+
+</details>
+
+<details><summary>M1 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | Resumed P7c R4 full preserved route, 2026-10-23; user directive: Update the plan if you find items that need to be fixed instead of just logging their existence. |
+| Execution evidence | NOTRIOS_P7C_EVIDENCE.md, Resumed P7c — F04 with P7b2 constant |
 | Commit | pending |
 
 </details>

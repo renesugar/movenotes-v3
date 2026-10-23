@@ -241,3 +241,126 @@ Consequences for resumed P7c:
 - The full corpus's peak RSS (about 757 MiB) and the unchanged rerun costing
   85% of a fresh import are new observations for P7c's memory and
   unchanged-path review; P7b2 does not address them.
+
+## Resumed P7c — F04 with P7b2 constant (2026-10-22/23)
+
+Claude Code Main ran the design frozen in the plan before any run. Variants
+came from `scripts/notrios_p7c_prepare.py` at `HEAD` (`105027a`) with the
+`f0b218a` reference; base and f04 differ only in F04's `_native_rows` change,
+and both keep P7b2 and C01/C02. Runs were sequential, batch size 500, with
+nothing else on the disk except one incremental `zg index` refresh at
+2026-10-23T00:52:27Z, which ran on the home disk during R3 (recorded in
+`HOST_EVENTS.txt`). Every comparison below had identical database fingerprints
+and database sizes on both sides.
+
+**R3, 10,000-file recipe subset, five alternating pairs** (ratio is f04 ÷ base):
+
+| Case | Base (s) | F04 (s) | Pair ratios | Median |
+|---|---|---|---|---:|
+| Fresh | 43.36, 40.51, 35.22, 42.28, 41.06 | 35.19, 33.78, 32.94, 36.58, 32.80 | 0.812, 0.834, 0.935, 0.865, 0.799 | **0.834** |
+| Unchanged rerun | 34.84, 32.66, 38.65, 29.94, 29.36 | 26.18, 28.17, 25.39, 24.64, 27.73 | 0.751, 0.863, 0.657, 0.823, 0.944 | **0.823** |
+| Ten-note merge | 0.65, 0.53, 0.55, 0.50, 0.49 | 0.65, 0.52, 0.50, 0.52, 0.56 | 1.000, 0.981, 0.909, 1.040, 1.143 | 1.000 |
+
+The `zg index` refresh overlapped only unchanged pairs 3 and 4 (pair 3's base
+rerun and pair 4's f04 runs); excluding pair 3 the unchanged median is 0.843,
+excluding both it is 0.863. The fresh case finished before it started. Median
+peak RSS is 54,120 KiB base against 54,396 KiB f04 for fresh imports. The merge
+is unchanged within 0.07 s, so the earlier small-merge noise does not recur with
+P7b2 constant.
+
+**R1, full native vault (382,206 files, 1,237,552 items), one pair:**
+
+| Case | Base | F04 | Ratio |
+|---|---|---|---:|
+| Fresh | 1,911.79 s, 756,696 KiB | 1,853.15 s, 775,064 KiB | 0.969 |
+| Unchanged rerun | 1,067.94 s, 742,328 KiB | 917.68 s, 767,324 KiB | 0.859 |
+| Fresh setup for the unchanged case | 1,636.07 s, 750,692 KiB | 1,313.34 s, 776,308 KiB | 0.803 |
+
+The third row is the fresh import the harness runs before each unchanged rerun;
+it is not a gated measurement but is the same code on the same input. Both
+databases are 4,968,349,696 bytes. F04's peak RSS is 2.4–3.4% higher, which is
+the retained relative path per inventoried file (O(files), about 18–25 MiB here).
+
+**R2, full RAW control (1,237,553 files), one pair:** `joplin2sql.py` is
+byte-identical in both variants, so any difference is host noise.
+
+| Case | Base | F04 | Ratio |
+|---|---|---|---:|
+| Fresh | 1,086.26 s, 1,845,848 KiB | 1,419.82 s, 1,847,524 KiB | 1.307 |
+| Unchanged rerun | 993.95 s, 2,278,212 KiB | 750.47 s, 2,278,216 KiB | 0.755 |
+| Fresh setup for the unchanged case | 1,482.25 s | 1,383.35 s | 0.933 |
+
+The same code moved by −25% to +31% between single full-corpus runs, so one
+full-corpus pair cannot resolve a 5% effect. Both RAW databases are
+5,618,405,376 bytes. In both R1 and R2 the base side ran first in every
+full-corpus pair; R2 shows no consistent first-run bias.
+
+**R4, full preserved route.** `sql2obsidian.py` at `HEAD` exported R2's base
+library (1,237,553 items) in 1,406.14 s at **3,668,096 KiB** peak RSS: 382,206
+notes, 768 native directories and a 1,619,761-file, 2.56 GB vault whose
+`.movenotes/manifest.json` is 530,428,800 bytes. `obsidian2sql.py` at `HEAD`
+then imported the bundle in **2,255.54 s** at **1,936,788 KiB** peak RSS
+(7,314,034,688-byte database); the round trip used 14.8 GB of disk. The first
+attempt failed in under a second because `sql2obsidian.py` requires an existing
+`--output` directory; it is kept as `attempt-1-missing-dir`. Against the RAW
+library, every one of the 1,237,553 items is present and 69 of 75 compared
+columns are identical on every row; the six `note_obsidian_*` snapshot columns
+differ on exactly the 382,206 notes, because the reimport records the exported
+vault's bytes. So the preserved route is lossless at full scale and no longer
+quadratic. Both peaks hold the whole manifest: the exporter builds every item
+dict and the complete `json.dumps` string, and the importer `json.loads` the
+530 MB file. That is O(items) memory on a path the invariants require to be
+bounded; it is planned as slice M1.
+
+**R5, interrupted fresh import, 40,000 files.** Valid attempts used a Python
+driver that restores default SIGINT handling in the child:
+
+| Attempt | Interrupt landed in | Exit | Notes left | Rerun | Rerun fingerprint |
+|---|---|---|---:|---|---|
+| 3, SIGINT at 20 s | `_native_rows` inventory | `KeyboardInterrupt` | 0 | 181.07 s | `38edc15c…`, matches |
+| 4, SIGINT at 60 s | batch insert (`notesdb` row tuple) | `KeyboardInterrupt` | 0 | 182.30 s | `38edc15c…`, matches |
+
+`38edc15c96f2…` is the uninterrupted P7b2 40,000-file import. Two earlier
+attempts were invalid and are kept: both started the import with a
+non-interactive shell's `&`, whose child inherits SIGINT as ignored, so both ran
+to completion. (Attempt 1 was first misread as finishing before its 60 s
+signal; its timestamps show it ran about 3 minutes.) Recovery is correct, but
+slow: the interrupted run leaves an empty library, and an import into an
+existing library creates all eight indexes before its first insert, where a
+new database defers all but `joplinididx`. Alternating runs into a new library
+and into an empty existing one, all fingerprint-identical:
+
+| Files | New library | Empty existing library | Slower by |
+|---:|---|---|---:|
+| 10,000 | 28.98, 28.96 s | 33.71, 33.90 s | 16.7% |
+| 40,000 | 123.27, 121.47 s | 181.23, 180.50 s | 47.8% |
+
+Peak RSS is the same on both sides. That is planned as slice I1.
+
+**R6, attribution.** One cProfile run of an unchanged 10,000-file rerun (58.3 s
+under the profiler) spent 24.8 s in the `_native_rows` inventory and 31.6 s
+building rows that `_insert_rows` then skips: `parse_frontmatter` (20,000 calls)
+13.1 s, `_frontmatter_summary` 11.5 s, link rewriting 3.2 s, compressed
+application data 3.1 s. ID lookups and indexing were negligible. That is
+planned as slice U1.
+
+**F04 gates.** On the subset F04 meets the adoption gate in every pair: fresh
+16.6% and unchanged 17.7% median improvement, merge unchanged, memory +0.5%,
+outputs identical. At full scale the frozen gate asks R1 for at least a 5%
+median improvement; its one gated fresh pair shows 3.1% and its unchanged pair
+14.1%, and the ungated fresh setup pair 19.7%. All three full-scale F04 timings
+are faster, but R2 shows single-pair noise of up to 31%, so R1 neither confirms
+nor refutes 5%. Under the frozen gate F04's full-scale adoption is therefore
+**held as ambiguous**, not claimed; the decision is the user's.
+
+**Go producer targets.** Unchanged and unmet, as expected: they require both
+Go routes at least 30% faster and vault/RAW at most 1.5, and no Go candidate is
+approved. For reference, the Python importer's fresh vault/RAW ratio in this
+batch, from medians of all full-corpus fresh timings, is about 1.27 base and
+1.13 with F04 (1,774 and 1,583 s against 1,402 s), with the RAW noise above.
+
+Private roots under `/run/media/$USER/HD2/`: `movenotes-p7c-20261022-sources`
+(source trees, harness copies, run scripts, logs, `HOST_EVENTS.txt`),
+`movenotes-p7c-20261022-variants`, `movenotes-p7c-20261022-r3-subset`,
+`movenotes-p7c-20261022-r1r2-full`, `movenotes-p7c-20261022-r4-preserved` and
+`movenotes-p7c-20261022-r5-recovery` (attempts, `empty-existing-check`).
