@@ -478,17 +478,194 @@ class _UnchangedNote(NamedTuple):
     path: str
 
 
-def _load_manifest(vault_path: Path) -> dict | None:
+class _ManifestNote(NamedTuple):
+    """The fields of a manifest note item the importer uses."""
+
+    id: str
+    obsidian_path: str | None
+    obsidian_sha256: str | None
+
+
+class _Manifest(NamedTuple):
+    """A version-1 preservation manifest, reduced to what the importer uses.
+
+    A full-library manifest holds over a million items; decoded whole it took
+    1.8 GiB.  Only these compact per-item fields are kept: every item's RAW
+    path in order, resource IDs, and the note items' paths and digests.
+    """
+
+    item_count: int | None  # items that are objects; None if "items" is not a list
+    raw_paths: list[str]
+    resource_ids: list[str]
+    notes: list[_ManifestNote]
+    raw_directory: object
+    attachments: object
+
+
+_JSON_WHITESPACE = frozenset(" \t\n\r")
+_JSON_NUMBER_CHARACTERS = "0123456789.eE+-"
+
+
+class _JsonReader:
+    """Read one JSON document a value at a time from a text stream.
+
+    Each value is decoded by the standard decoder, so the result is what
+    json.loads would give; only the enclosing object and the item array are
+    walked here.  A value that does not fit in the buffer is retried with
+    twice the data, so the cost stays linear in its size.
+    """
+
+    _CHUNK = 1 << 20
+
+    def __init__(self, stream) -> None:  # noqa: ANN001
+        self._stream = stream
+        self._decoder = json.JSONDecoder()
+        self._buffer = ""
+        self._position = 0
+        self._eof = False
+
+    def _fill(self, wanted: int) -> bool:
+        if self._eof:
+            return False
+        chunk = self._stream.read(max(wanted, self._CHUNK))
+        if not chunk:
+            self._eof = True
+            return False
+        self._buffer = self._buffer[self._position:] + chunk
+        self._position = 0
+        return True
+
+    def peek(self) -> str:
+        """Skip whitespace and return the next character, or "" at the end."""
+        while True:
+            buffer, position = self._buffer, self._position
+            while position < len(buffer) and buffer[position] in _JSON_WHITESPACE:
+                position += 1
+            self._position = position
+            if position < len(buffer):
+                return buffer[position]
+            if not self._fill(0):
+                return ""
+
+    def expect(self, character: str) -> None:
+        if self.peek() != character:
+            raise ValueError(f"expected {character!r} in the manifest")
+        self._position += 1
+
+    def value(self) -> object:
+        self.peek()
+        while True:
+            try:
+                value, end = self._decoder.raw_decode(self._buffer, self._position)
+            except json.JSONDecodeError:
+                if not self._fill(len(self._buffer) - self._position):
+                    raise
+                continue
+            # A number cut by the end of the buffer ("12" of "123", or "1" of
+            # "1.5") decodes early; only what follows it shows that it ended.
+            if (
+                isinstance(value, (int, float))
+                and not self._buffer[end:].strip(_JSON_NUMBER_CHARACTERS)
+                and self._fill(len(self._buffer) - self._position)
+            ):
+                continue
+            self._position = end
+            return value
+
+
+def _load_manifest(vault_path: Path) -> _Manifest | None:
     path = vault_path / _PRESERVATION_DIR / _MANIFEST_NAME
     if not path.is_file():
         return None
     try:
-        manifest = json.loads(path.read_text(encoding="utf-8"))
+        with path.open(encoding="utf-8") as stream:
+            manifest = _read_manifest(_JsonReader(stream))
     except (OSError, ValueError, json.JSONDecodeError):
         return None
-    if not isinstance(manifest, dict) or manifest.get("format") != "movenotes-lossless-joplin-preservation":
-        return None
     return manifest
+
+
+def _read_manifest(reader: _JsonReader) -> _Manifest | None:
+    """Return the manifest's compact form, or None if it is not a manifest.
+
+    Malformed JSON raises ValueError, as json.loads would.  The whole document
+    is read before anything is decided, so a later error still means the vault
+    is imported as native rather than half as a preserved bundle.
+    """
+    if reader.peek() != "{":
+        return None
+    reader.expect("{")
+    members: dict[str, object] = {}
+    items: tuple[int | None, list[str], list[str], list[_ManifestNote]] = (0, [], [], [])
+    if reader.peek() == "}":
+        reader.expect("}")
+    else:
+        while True:
+            if reader.peek() != '"':
+                raise ValueError("expected a key in the manifest")
+            key = reader.value()
+            reader.expect(":")
+            if key == "items" and reader.peek() == "[":
+                items = _read_manifest_items(reader)
+            elif key == "items":
+                reader.value()
+                items = (None, [], [], [])
+            else:
+                members[key] = reader.value()
+            if reader.peek() == ",":
+                reader.expect(",")
+                continue
+            reader.expect("}")
+            break
+    if reader.peek() != "":
+        raise ValueError("extra data after the manifest")
+    if members.get("format") != "movenotes-lossless-joplin-preservation":
+        return None
+    return _Manifest(
+        *items,
+        raw_directory=members.get("raw_directory", "joplin-raw"),
+        attachments=members.get("attachments", {}),
+    )
+
+
+def _read_manifest_items(
+    reader: _JsonReader,
+) -> tuple[int, list[str], list[str], list[_ManifestNote]]:
+    count = 0
+    raw_paths: list[str] = []
+    resource_ids: list[str] = []
+    notes: list[_ManifestNote] = []
+    note_type = int(constants.JoplinType.NOTE)
+    resource_type = int(constants.JoplinType.RESOURCE)
+    reader.expect("[")
+    if reader.peek() == "]":
+        reader.expect("]")
+        return count, raw_paths, resource_ids, notes
+    while True:
+        item = reader.value()
+        if isinstance(item, dict):
+            count += 1
+            raw_path = item.get("raw_path")
+            if isinstance(raw_path, str):
+                raw_paths.append(raw_path)
+            item_id = item.get("id")
+            if isinstance(item_id, str):
+                item_type = item.get("type")
+                if item_type == resource_type:
+                    resource_ids.append(item_id)
+                elif item_type == note_type:
+                    path = item.get("obsidian_path")
+                    digest = item.get("obsidian_sha256")
+                    notes.append(_ManifestNote(
+                        item_id,
+                        path if isinstance(path, str) else None,
+                        digest if isinstance(digest, str) else None,
+                    ))
+        if reader.peek() == ",":
+            reader.expect(",")
+            continue
+        reader.expect("]")
+        return count, raw_paths, resource_ids, notes
 
 
 def _ancestor_directories(paths: set[str]) -> set[str]:
@@ -505,18 +682,16 @@ def _import_preserved_joplin(
     vault_path: Path,
     output_path: Path,
     sqlconn: sqlite3.Connection,
-    manifest: dict,
+    manifest: _Manifest,
     batch_size: int,
     progress_every: int = 1000,
     verbose: bool = False,
 ) -> tuple[int, int, dict[str, object]]:
     """Import a preservation bundle with bounded parsing and indexed overlays."""
     preservation_root = vault_path / _PRESERVATION_DIR
-    manifest_items = manifest.get("items", [])
-    if not isinstance(manifest_items, list):
+    item_count = manifest.item_count
+    if item_count is None:
         common.error("invalid .movenotes manifest: items is not a list")
-
-    valid_items = [item for item in manifest_items if isinstance(item, dict)]
     inserted = skipped = processed = 0
     batch: list[dict] = []
 
@@ -529,10 +704,7 @@ def _import_preserved_joplin(
         skipped += repeated
         batch.clear()
 
-    for item in valid_items:
-        raw_path = item.get("raw_path")
-        if not isinstance(raw_path, str):
-            continue
+    for raw_path in manifest.raw_paths:
         source = preservation_root / raw_path
         if not source.is_file():
             common.error(f"preserved Joplin RAW item not found: '{source}'")
@@ -551,7 +723,7 @@ def _import_preserved_joplin(
             and processed % progress_every == 0
         ):
             print(
-                f"processed {processed:,} of {len(valid_items):,} "
+                f"processed {processed:,} of {item_count:,} "
                 "preserved Joplin item(s)"
             )
     flush()
@@ -562,13 +734,13 @@ def _import_preserved_joplin(
         and processed % progress_every
     ):
         print(
-            f"processed {processed:,} of {len(valid_items):,} "
+            f"processed {processed:,} of {item_count:,} "
             "preserved Joplin item(s)"
         )
 
     raw_resources = (
         preservation_root
-        / str(manifest.get("raw_directory", "joplin-raw"))
+        / str(manifest.raw_directory)
         / "resources"
     )
     if raw_resources.is_dir():
@@ -591,14 +763,12 @@ def _import_preserved_joplin(
         )
         sqlconn.executemany(
             "INSERT OR IGNORE INTO notrios_preserved_resources(resource_id) VALUES (?)",
-            ((str(item["id"]),) for item in valid_items
-             if item.get("type") == int(constants.JoplinType.RESOURCE)
-             and isinstance(item.get("id"), str)),
+            ((resource_id,) for resource_id in manifest.resource_ids),
         )
 
     # Resolve attachment paths from the manifest and from native-Obsidian
     # metadata carried by resource items.
-    attachment_map = manifest.get("attachments", {})
+    attachment_map = manifest.attachments
     if not isinstance(attachment_map, dict):
         attachment_map = {}
     path_to_id = {
@@ -633,24 +803,18 @@ def _import_preserved_joplin(
     external_path_ids: dict[str, str] = dict(path_to_id)
     folder_id_overrides: dict[str, str] = {}
 
-    note_items = [
-        item
-        for item in valid_items
-        if item.get("type") == int(constants.JoplinType.NOTE)
-        and isinstance(item.get("id"), str)
-    ]
+    note_items = manifest.notes
 
     # A user may rename an Obsidian file. Only scan frontmatter identities when
     # at least one manifest path is missing; ordinary unmodified imports avoid
     # this extra vault pass.
     missing_ids = {
-        str(item["id"])
+        item.id
         for item in note_items
-        if not isinstance(item.get("obsidian_path"), str)
-        or obsidianmeta.safe_relative_path(str(item.get("obsidian_path"))) is None
+        if item.obsidian_path is None
+        or obsidianmeta.safe_relative_path(item.obsidian_path) is None
         or not (
-            vault_path
-            / obsidianmeta.safe_relative_path(str(item.get("obsidian_path")))
+            vault_path / obsidianmeta.safe_relative_path(item.obsidian_path)
         ).is_file()
     }
     renamed_by_id: dict[str, PurePosixPath] = {}
@@ -681,7 +845,7 @@ def _import_preserved_joplin(
 
     for offset in range(0, len(note_items), batch_size):
         chunk = note_items[offset : offset + batch_size]
-        item_ids = [str(item["id"]) for item in chunk]
+        item_ids = [item.id for item in chunk]
         placeholders = ",".join("?" for _ in item_ids)
         rows_by_id = {
             str(row["joplin_id"]): row
@@ -693,14 +857,13 @@ def _import_preserved_joplin(
             )
         }
         for item in chunk:
-            item_id = str(item["id"])
+            item_id = item.id
             row = rows_by_id.get(item_id)
             if row is None:
                 continue
-            relative_value = item.get("obsidian_path")
             safe = (
-                obsidianmeta.safe_relative_path(relative_value)
-                if isinstance(relative_value, str)
+                obsidianmeta.safe_relative_path(item.obsidian_path)
+                if item.obsidian_path is not None
                 else None
             )
             if safe is None or not (vault_path / safe).is_file():
@@ -722,9 +885,9 @@ def _import_preserved_joplin(
             frontmatter, obsidian_body = split_frontmatter(text)
             parsed_frontmatter = parse_frontmatter(frontmatter)
             generated_body = row["note_data"] or ""
-            expected_sha = item.get("obsidian_sha256")
+            expected_sha = item.obsidian_sha256
             edited = (
-                isinstance(expected_sha, str)
+                expected_sha is not None
                 and hashlib.sha256(raw).hexdigest() != expected_sha
             )
             application_data = row["joplin_application_data"] or ""

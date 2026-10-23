@@ -42,13 +42,16 @@ an unchanged rerun now takes 0.47 (subset) and 0.52 (full vault) of the time it
 did before. The user then added **V1** after M1: a damaged preservation bundle
 becomes an error that prints the commands to run next. **I1 is complete**: an
 import into an empty existing library takes 0.80 (10,000 files) and 0.67
-(40,000 files) of the time it did. Next is **M1**.
+(40,000 files) of the time it did. **M1 is complete**: the preservation
+manifest is streamed both ways, so the full library's export peaks at 0.8 GiB
+instead of 3.5 GiB and its preserved import at 0.5 GiB instead of 1.8 GiB,
+with identical output. Next is **V1**.
 Plan revised on **2026-10-22**: all remaining work is assigned to the Claude Code
 main model (**Main**), and the user confirmed this for the session. No Codex
 worker or monitor remains in the plan. See
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 S43b and resumed 7c pin the released Notrios **`v1.0.0`** (`2aab9a8`). The
-remaining order is M1 → V1 → resumed 7c → 7d → 7e.
+remaining order is V1 → resumed 7c → 7d → 7e.
 Slice **7c remains incomplete**; isolated work
 and checkpoints are under `/media/$USER/HD2/movenotes-7c-20260916/`.
 Both recipe imports succeeded (382,206 documents each), but bounded real
@@ -297,7 +300,7 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - Completed slices keep their recorded Codex attribution. The earlier Codex session is under previous_sessions and its assignments under assignment_history.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **M1 — bound the preservation manifest's memory**, assigned to the
+Next slice: **V1 — refuse a damaged preservation bundle**, assigned to the
 Claude Code parent (**Main**). Session assignments are confirmed. Slice
 authorization is pending.
 
@@ -391,7 +394,7 @@ at full scale by the user's decision; F02 is subsumed by P7b2. Rejected Go G08
 stays out of full trials; no Go candidate is approved. Any producer implementation needs an explicit handoff naming its
 files and checkout, plus the user's approval to write to the Notrios checkout.
 
-Remaining sequence (U1 and I1 complete): M1 → V1 → resumed 7c → 7d → 7e, subject to the
+Remaining sequence (U1, I1 and M1 complete): V1 → resumed 7c → 7d → 7e, subject to the
 unresolved compatibility gates. Every data-heavy
 run follows the background-run rule under
 [Execution and handoff rules](#execution-and-handoff-rules). Preserve C7c's documented differences: RAW's 842,813 tag
@@ -1038,7 +1041,7 @@ user's standing direction, with designs frozen here before implementation.
 | Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
 | I1 / Main — complete | Defer secondary indexes when importing into an existing library that holds no notes. R5 showed the cost: an interrupted fresh import correctly leaves an empty library, but `open_database` → `migrate_database` → `ensure_indexes` then creates all eight indexes before the rerun's first insert, while a new database defers all but `joplinididx` to the final pass. Fresh imports into an empty existing library took 33.71 and 33.90 s against 28.98 and 28.96 s into a new one at 10,000 files, and 181.23 and 180.50 s against 123.27 and 121.47 s (48% slower) at 40,000 files, with identical fingerprints. When `obsidian2sql.py` finds the notes table empty, it drops the secondary indexes other than `joplinididx` before inserting and rebuilds them in the final pass. An interruption then leaves an index-free empty library, whose next open recreates the indexes as now. Owns `obsidian2sql.py`, at most a narrowly needed `notesdb.py` helper, and tests. `joplin2sql.py`'s same path is measured and extended only with its own evidence. | P7c | A fresh import into an empty existing library, and the rerun after an interrupted fresh import, are fingerprint-identical to a fresh import into a new database and end with the same index set. Non-empty libraries keep today's path unchanged. Measured with alternating pairs at 10,000 and 40,000 files: the empty-library import improves by at least the 5% gate, with no regression for new databases, unchanged reruns or merges. A test checks the index set after an interrupted and recovered import. Focused tests plus all five regression modules. |
-| M1 / Main | Bound the preservation manifest's memory. R4's full-scale round trip peaked at 3,668,096 KiB in `sql2obsidian.py` and 1,936,788 KiB in `obsidian2sql.py`'s preserved import, both from holding the whole `.movenotes/manifest.json` (530 MB, 1,237,553 items): the exporter keeps every item dict and then the complete `json.dumps` string, and the importer `json.loads` the file. The exporter will stream the manifest, writing each item as it is produced, byte-identical to today's output, with no format change. The importer will read version-1 manifests with a stdlib-only incremental decoder (`json.JSONDecoder.raw_decode` over buffered reads), keeping only the compact per-item fields it uses. A malformed or unrecognised manifest keeps today's behaviour: `_load_manifest` ignores it and the vault imports as native. Whether that silent fallback should become an error is a separate question for the user, not part of M1. Owns `sql2obsidian.py`, `obsidian2sql.py`'s manifest reader and tests. | P7c | Exported manifests are byte-identical to the current code's on the existing fixtures and on R4's library. Preserved imports are fingerprint-identical, with the same counts and errors, including for existing manifests. Peak RSS of the full-scale export and preserved import falls measurably, with time not worse beyond the gate's noise. Memory stays O(items) only for compact per-item state the importer needs, which the design documents. Measured on R4's full library plus a paired subset. Focused tests plus all five regression modules. |
+| M1 / Main — complete | Bound the preservation manifest's memory. R4's full-scale round trip peaked at 3,668,096 KiB in `sql2obsidian.py` and 1,936,788 KiB in `obsidian2sql.py`'s preserved import, both from holding the whole `.movenotes/manifest.json` (530 MB, 1,237,553 items): the exporter keeps every item dict and then the complete `json.dumps` string, and the importer `json.loads` the file. The exporter will stream the manifest, writing each item as it is produced, byte-identical to today's output, with no format change. The importer will read version-1 manifests with a stdlib-only incremental decoder (`json.JSONDecoder.raw_decode` over buffered reads), keeping only the compact per-item fields it uses. A malformed or unrecognised manifest keeps today's behaviour: `_load_manifest` ignores it and the vault imports as native. Whether that silent fallback should become an error is a separate question for the user, not part of M1. Owns `sql2obsidian.py`, `obsidian2sql.py`'s manifest reader and tests. | P7c | Exported manifests are byte-identical to the current code's on the existing fixtures and on R4's library. Preserved imports are fingerprint-identical, with the same counts and errors, including for existing manifests. Peak RSS of the full-scale export and preserved import falls measurably, with time not worse beyond the gate's noise. Memory stays O(items) only for compact per-item state the importer needs, which the design documents. Measured on R4's full library plus a paired subset. Focused tests plus all five regression modules. |
 
 *I1 result (2026-10-23).* Adopted. `obsidian2sql.py` drops every index but
 `joplinididx` when the library it opens holds no rows (new helper
@@ -1055,6 +1058,24 @@ spread (0.966–1.041, 0.991–1.029, 0.908–1.101, 0.889–1.000). I1 runs the
 statements there plus one `SELECT 1 FROM notes LIMIT 1`, so these are noise,
 not a regression. Peak RSS is unchanged. `joplin2sql.py` is not changed. Details
 in the [P7c evidence](NOTRIOS_P7C_EVIDENCE.md#i1--empty-existing-library-imported-like-a-new-one-2026-10-23).
+
+*M1 result (2026-10-23).* Adopted. `sql2obsidian.py` writes the manifest
+through `_ManifestWriter`, 1,024 items per encode, byte-identical to the
+previous `json.dumps`. An encode per item rebuilt the indenting encoder each
+time and cost 8 s on R4's manifest, so batches replaced it. `obsidian2sql.py`
+reads it with `_JsonReader` (`raw_decode` per value over 1 MiB reads) into a
+compact `_Manifest`: item count, RAW paths, resource IDs, and each note's ID,
+vault path and digest. A malformed manifest still means a native import until
+V1. Against `4dec69b`, every output is identical: manifests, whole vaults,
+import fingerprints and summary lines, and R4's old-code manifest imports to
+R4's fingerprint. Peak RSS falls to 0.279 (40,000-file export), 0.393 (its
+preserved import), 0.225 (full export, 3,637,316 → 816,632 KiB) and 0.266
+(full preserved import, 1,936,876 → 515,968 KiB). Paired times move both ways
+(0.932–1.099), inside the gate's noise. Timed alone on R4's manifest, the final
+writer is not slower than `json.dumps` (24.9 against 26.2 s), and the reader
+costs about 4 s more than `json.loads` (25.4 against 21.7 s), 0.2% of the
+import. The reader matched a `json.loads` reference in 140,000 fuzzed
+comparisons. Details in the [P7c evidence](NOTRIOS_P7C_EVIDENCE.md#m1--preservation-manifest-streamed-both-ways-2026-10-23).
 
 *Order (proposed 2026-10-23; the user answered "Yes to the I1 and M1 order"
 the same day):* resumed P7c → U1 → I1 → M1 → resumed 7c → 7d → 7e. U1 and I1 both change `obsidian2sql.py`'s
@@ -1311,6 +1332,7 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-10-23 | V1 revised | The user decided: "the absolute path recorded in the exporter should use the `$HOME` environment variable or `~` instead of writing user names in absolute paths ; update plan to record the source database's path in the bundle so step 4 needs no placeholder." V1's exporter now writes `.movenotes/export.json` first, recording the source database (as `~/…` when it is under the home directory) and the export options; the re-export step prints them as an exact command. A placeholder remains only for vaults exported before V1, or with an unreadable record. The manifest's format is unchanged. Documentation and provenance only. No worker was used. Next: I1, authorized ("Then, start I1"). |
 | 2026-10-23 | V1 revised again | The user decided: "The `$USER` environment variable is available for other paths containing a user name. Update the plan to replace other instances of paths containing user names." Outside the home directory, V1's export record writes each path segment equal to the user name as `$USER` (as in `/run/media/$USER/HD2/…`), and the importer expands it with its own user name. The record lists the substitutions it applied, so literal `~` or `$USER` in a real path is kept. Documentation and provenance only, while I1's measurements run. No worker was used. |
 | 2026-10-23 | I1 complete | The Claude Code parent made `obsidian2sql.py` drop every index but `joplinididx` when it opens a library with no rows, through a new `notesdb.drop_deferred_indexes`; the final pass, or the next open after an interruption, rebuilds them. Three tests added; two fail on the previous code. All 292 tests in the five required modules pass (181.434 s). Alternating pairs against `902bad2`, all outputs fingerprint-identical: empty-library import 0.799 (10,000 files, five pairs) and 0.667 (40,000 files, three pairs); a real SIGINT at 40,000 files left no rows and the rerun matched a new-database import, indexes included. New-database, unchanged and merge medians (1.020, 1.025, 1.041, 0.930) fall inside their pair spreads, on code I1 does not change. No worker was used. Next: ask to proceed to M1. |
+| 2026-10-23 | M1 complete | The Claude Code parent made `sql2obsidian.py` stream the preservation manifest in batches of 1,024 items, byte-identical to the previous output, and `obsidian2sql.py` read it one value at a time into compact per-item state. Two tests were added, and all 294 tests in the five required modules pass (138.691 s). A fuzz of 140,000 comparisons against `json.loads` found no mismatch. Alternating pairs against `4dec69b`, all outputs identical, including R4's existing manifest and import fingerprint: peak RSS 0.28 (40,000-file export), 0.39 (its import), 0.22 (full export) and 0.27 (full preserved import); times within noise, and isolated read and write costs measured on R4's manifest. A per-item encoder was 8 s slower and was replaced by batches; a regex reader fast path measured no better and was reverted. No worker was used. Next: ask to proceed to V1. |
 
 ## Assignment amendment — 2026-10-22
 
@@ -2349,7 +2371,7 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 </details>
 
-<details><summary>M1 — pending; planned parent</summary>
+<details><summary>M1 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -2357,21 +2379,21 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; M1 authorized by the user on 2026-10-23 (Proceed with M1.). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Added sql2obsidian._ManifestWriter, which writes the preservation manifest as items are produced, 1,024 items per encode, byte-identical to the previous json.dumps; the first per-item version was 8 s slower on R4's manifest and was replaced by batches. Replaced obsidian2sql._load_manifest with an incremental _JsonReader over json.JSONDecoder.raw_decode and 1 MiB reads, keeping a compact _Manifest (item count, RAW paths, resource IDs, note ID/path/digest), with a number cut by the buffer end retried; _import_preserved_joplin uses it. A regex separator fast path measured no better and was reverted. Added test_streamed_manifest_matches_one_json_dump and test_manifest_reader_matches_json_loads. Wrote m1_pairs.py, run_m1.sh, micro.py and fuzz.py; ran the paired, isolated and fuzz measurements and recorded them. |
+| Validation | All 294 tests in the five required modules pass (138.691 s) with PYTHONDONTWRITEBYTECODE=1 and -B. fuzz.py: 140,000 comparisons of the reader with a json.loads reference, read sizes 1 character to 1 MiB, damaged documents included, 0 mismatches. Alternating pairs against 4dec69b, every exit zero and every output identical: 40,000-file export (132,775 items) manifest 5a315af0... and vault 30f45283..., final writer median time 0.986 and peak RSS 0.279 (384,852 -> 107,500 KiB); its preserved import fingerprint a6f1f307... with the same summary, time 1.063 (1.018-1.121) and RSS 0.393; synthetic bundle fresh 1.038 (0.962-1.087), unchanged 0.999. Full library (1,237,553 items), one pair: export manifest 61daef6c..., byte-identical to R4's, vault b7770fad..., RSS 3,637,316 -> 816,632 KiB, time 1.099 with the per-item writer; preserved import of R4's old-code vault fingerprint 8c0991bf... (R4's) with the same summary, RSS 1,936,876 -> 515,968 KiB, time 0.932. Isolated on R4's manifest: read 25.4 s against json.loads 21.7 s (302,700 against 1,933,600 KiB); final write 24.9 s against json.dumps 26.2 s, same bytes. Paired time changes are within the gate's noise (R2 control up to 31%). |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | Resumed P7c R4 full preserved route, 2026-10-23; user directive: Update the plan if you find items that need to be fixed instead of just logging their existence. |
-| Execution evidence | NOTRIOS_P7C_EVIDENCE.md, Resumed P7c — F04 with P7b2 constant |
-| Commit | pending |
+| Execution evidence | NOTRIOS_P7C_EVIDENCE.md, section M1 — preservation manifest streamed both ways; /run/media/$USER/HD2/movenotes-m1-20261023-sources (SOURCES.txt, SOURCES-m1b.txt, m1_pairs.py, m1b_pairs.py, run_m1.sh, run_m1.log, micro.py, micro-results.txt, fuzz.py, harness copies); /run/media/$USER/HD2/movenotes-m1-20261023-runs (export-40k, export-40k-m1b, import-40k, harness-preserved, export-full, import-full, full-manifests.txt) |
+| Commit | Git commit containing this completion record: perf: stream the preservation manifest both ways (M1) |
 
 </details>
 

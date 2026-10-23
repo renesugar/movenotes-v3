@@ -6,6 +6,7 @@ from __future__ import annotations
 import configparser
 import contextlib
 import io
+import json
 import sqlite3
 import subprocess
 import sys
@@ -175,6 +176,83 @@ class ObsidianRoundTripTest(unittest.TestCase):
             for plan in plans:
                 self.assertIn("joplinididx", plan)
                 self.assertNotIn("SCAN", plan)
+
+    def test_manifest_reader_matches_json_loads(self) -> None:
+        """M1: the incremental reader keeps exactly what json.loads would give.
+
+        Tiny reads split every key, string and number across buffers; "1.5"
+        cut after "1." is the case a naive reader decodes as 1.
+        """
+        note, resource = int(constants.JoplinType.NOTE), int(constants.JoplinType.RESOURCE)
+        fmt = '"format": "movenotes-lossless-joplin-preservation"'
+        items = (
+            f'[{{"id": "n1", "type": {note}, "raw_path": "joplin-raw/é 1.md", '
+            f'"obsidian_path": "A/😀.md", "obsidian_sha256": "{"ab" * 32}"}}, 7, '
+            f'{{"id": "r1", "type": {resource}, "raw_path": "joplin-raw/r.md"}}, '
+            f'{{"id": 5, "type": {note}, "raw_path": 3}}, '
+            f'{{"id": "n2", "type": true, "obsidian_path": ["x"], "raw_path": "joplin-raw/n2.md"}}]'
+        )
+        documents = [
+            f'{{{fmt}, "version": 1, "raw_directory": "joplin-raw", "items": {items}, '
+            '"resource_files": 1.5e+10, "attachments": {"r1": "a/r.png"}}\n',
+            f'{{"items": [], "version": 12345678901234567890, {fmt}, "items": {items}}}',
+            f'{{{fmt}, "items": {{}}}}',
+            f'{{{fmt}}}',
+            '{"format": "other", "items": []}',
+            f'{{{fmt}, "items": [1,]}}',
+            f'{{{fmt}, "items":[ {{"id": "r2", "type": {resource}}} \n,\t7\r\n ,{{}}]}}',
+            f'{{{fmt}, "items": [{{}} {{}}]}}',
+            f'{{{fmt}, "items": []}} extra',
+            f'﻿{{{fmt}}}',
+            f'{{{fmt}, "items": [{{"id": "n1"',
+            '[]',
+            '',
+        ]
+
+        def reference(text: str) -> object:
+            try:
+                manifest = json.loads(text)
+            except ValueError:
+                return None
+            if not isinstance(manifest, dict) or manifest.get("format") != (
+                "movenotes-lossless-joplin-preservation"
+            ):
+                return None
+            values = manifest.get("items", [])
+            objects = [value for value in values if isinstance(value, dict)] \
+                if isinstance(values, list) else []
+
+            def text_or_none(value: object) -> str | None:
+                return value if isinstance(value, str) else None
+
+            return obsidian2sql._Manifest(
+                len(objects) if isinstance(values, list) else None,
+                [value["raw_path"] for value in objects if isinstance(value.get("raw_path"), str)],
+                [value["id"] for value in objects
+                 if value.get("type") == resource and isinstance(value.get("id"), str)],
+                [obsidian2sql._ManifestNote(
+                    value["id"], text_or_none(value.get("obsidian_path")),
+                    text_or_none(value.get("obsidian_sha256")),
+                ) for value in objects
+                    if value.get("type") == note and isinstance(value.get("id"), str)],
+                manifest.get("raw_directory", "joplin-raw"),
+                manifest.get("attachments", {}),
+            )
+
+        with tempfile.TemporaryDirectory(prefix="obsidian-manifest-reader-") as temporary:
+            vault = Path(temporary)
+            path = vault / ".movenotes" / "manifest.json"
+            path.parent.mkdir()
+            for text in documents:
+                path.write_text(text, encoding="utf-8")
+                expected = reference(text)
+                for chunk in (1, 2, 3, 7, 1 << 20):
+                    with self.subTest(text=text[:40], chunk=chunk), \
+                            mock.patch.object(obsidian2sql._JsonReader, "_CHUNK", chunk):
+                        self.assertEqual(obsidian2sql._load_manifest(vault), expected)
+            self.assertIsNotNone(reference(documents[0]))
+            self.assertEqual(reference(documents[1]).item_count, 4)
+            self.assertIsNone(reference(documents[2]).item_count)
 
     @staticmethod
     def _library_state(output: Path) -> tuple[list, list]:

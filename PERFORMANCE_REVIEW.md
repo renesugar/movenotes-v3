@@ -160,6 +160,17 @@ import's median time fell to 0.799 of the previous code's at 10,000 files and
 40,000 files took 140 s, where an empty-library
 import of the same files had taken about 181 s.
 
+The preservation manifest, `.movenotes/manifest.json` (530 MB for a 1.2
+million-item library), is streamed in both directions. `sql2obsidian.py` writes it
+1,024 items at a time, byte-identical to the previous single `json.dumps`, and
+`obsidian2sql.py` reads it one value at a time with the standard decoder,
+keeping only each item's RAW path, the resource IDs and each note's ID, vault
+path and digest. On that library the export's peak memory fell from 3.5 GiB to
+0.8 GiB and the preserved import's from 1.8 GiB to 0.5 GiB, with identical
+manifests, vaults and imported databases. Writing is not slower than
+`json.dumps`. Reading costs about 4 s more than `json.loads` over 1.2 million
+items, 0.2% of that import.
+
 The resulting complexity is O(vault files + links) for inventory and link
 resolution, plus indexed/batched SQLite insertion. Memory is O(path index +
 batch note bytes + tags), rather than O(total vault bytes).

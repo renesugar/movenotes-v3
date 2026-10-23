@@ -459,3 +459,70 @@ Private roots under `/run/media/$USER/HD2/`: `movenotes-i1-20261023-sources`
 (`SOURCES.txt`, `i1_empty.py`, `run_i1.sh`, `run_i1.log`, harness copies),
 `movenotes-i1-20261023-variants` (`base`, `i1`) and `movenotes-i1-20261023-runs`
 (`empty-10k`, `empty-40k`, `harness-10k`, `harness-40k`, `interrupt-40k`).
+
+## M1 — preservation manifest streamed both ways (2026-10-23)
+
+R4 showed that the preserved round trip peaked at 3.5 GiB in `sql2obsidian.py`
+and 1.8 GiB in `obsidian2sql.py`, from holding the whole 530 MB
+`.movenotes/manifest.json`. The exporter kept every item dict and then the
+complete `json.dumps` string; the importer `json.loads` the file.
+
+`sql2obsidian.py` now writes the manifest as it produces items, through
+`_ManifestWriter`, 1,024 items at a time. The file is byte-for-byte the
+previous `json.dumps(manifest, ensure_ascii=False, indent=2)` output, and the
+format is unchanged. Encoding one item per call rebuilt the indenting encoder
+each time and was 8 s slower than `json.dumps` on R4's manifest; one call per
+batch is not slower. `obsidian2sql.py` reads the manifest with `_JsonReader`,
+which runs the standard decoder's `raw_decode` on one value at a time over 1 MiB
+reads and walks only the enclosing object and item array. It keeps only what
+the import uses: the item count, each RAW path in order, the resource IDs, and
+each note's ID, vault path and digest. It reads the whole document before
+deciding anything, so a malformed manifest still means a native import, as
+before (V1 changes that). A number cut by the end of the buffer is retried
+rather than decoded early.
+
+Base is `4dec69b`. M1 is that tree with the working `sql2obsidian.py` and
+`obsidian2sql.py`. The full-scale export and the first 40,000-file export
+pairs ran the per-item writer (`5945c7d0…`). The final batched writer
+(`974133db…`) was then paired again at 40,000 files; the committed file
+(`f100e2d0…`) differs from it only in a docstring line. The reader
+(`b323a2d1…`) did not change after the runs. Runs alternate, base first in
+pair 1.
+
+| Case | Pairs | Base | M1 | Median time M1/base | Peak RSS base → M1 |
+|---|---:|---:|---:|---:|---:|
+| Export, 40,000-file library (132,775 items), final writer | 3 | 165.37–214.30 s | 164.43–196.10 s | 0.986 (0.915–0.994) | 384,852 → 107,500 KiB (0.279) |
+| Export, 40,000-file library, per-item writer | 3 | 192.46–204.46 s | 181.86–200.75 s | 0.957 (0.917–1.043) | 384,868 → 107,248 KiB (0.279) |
+| Preserved import of that export | 3 | 160.33–182.20 s | 163.19–198.42 s | 1.063 (1.018–1.121) | 211,352 → 82,840 KiB (0.393) |
+| Synthetic preserved bundle, fresh import | 5 | 9.51–10.25 s | 9.59–10.48 s | 1.038 (0.962–1.087) | 43,800 → 42,156 KiB |
+| Synthetic preserved bundle, unchanged rerun | 5 | 6.81–6.93 s | 6.76–6.92 s | 0.999 (0.978–1.003) | 43,668 → 41,536 KiB |
+| Export, full library (1,237,553 items), per-item writer | 1 | 1,463.81 s | 1,608.34 s | 1.099 | 3,637,316 → 816,632 KiB (0.225) |
+| Preserved import of R4's vault (old-code manifest) | 1 | 2,755.18 s | 2,567.24 s | 0.932 | 1,936,876 → 515,968 KiB (0.266) |
+
+**Identity.**
+- Every export in a case has one manifest digest and one whole-vault digest:
+  - at 40,000 files, `5a315af0…` and `30f45283…` (172,777 files);
+  - at full scale, `61daef6c…` and `b7770fad…` (1,619,761 files).
+- The full-scale manifests from both base and M1 are byte-identical to R4's own (`61daef6c…`).
+- Every preserved import in a case has one fingerprint, with the same summary line:
+  - 40,000 files: `a6f1f307…`, "imported 132,775 item(s) from Joplin preservation bundle; 0 unchanged item(s) skipped";
+  - R4's vault: `8c0991bf…`, which is R4's import fingerprint, with 1,237,553 items.
+- Every exit status is zero.
+
+**Time, isolated.** The paired totals move either way, by up to 12% across 3 pairs and 10% on the single full-scale pair. R2's RAW control showed up to 31% for identical code. To measure M1's own cost, `micro.py` timed only the manifest read and write on R4's manifest, alternating three times each.
+- **Read:** median 25.4 s against `json.loads` plus the old derivation at 21.7 s. That is about 4 s, or 3 µs per item, in Python around `raw_decode`, 0.2% of the full preserved import. A regex fast path for the separators measured no better and was reverted.
+- **Write:** the final batched writer took 24.9 s (23.26–26.25 s) against `json.dumps` at 26.2 s (24.93–28.76 s). The per-item writer took 36.1 s.
+
+All outputs were byte-identical. The full-scale export's 1.099 includes the per-item writer's roughly 8 s; the remainder is within the single-pair noise.
+
+**Memory.** The importer now keeps O(items) only for the compact state above: 302,700 KiB for R4's 1,237,553 items, against 1,933,600 KiB for `json.loads`. The exporter holds at most 1,024 item dicts. The remaining 816,632 KiB full-scale export peak was not attributed further, but the manifest now contributes at most one batch to it.
+
+**Equivalence.**
+- `test_streamed_manifest_matches_one_json_dump` checks the writer's bytes against `json.dumps` for zero, one and three items at batch sizes 1, 2 and 1,024.
+- `test_manifest_reader_matches_json_loads` checks the reader against a `json.loads` reference over 13 documents (malformed, duplicate keys, odd whitespace, a missing separator, numbers cut by the buffer) at read sizes from 1 character to 1 MiB.
+- `fuzz.py` made 140,000 random comparisons with that reference, including damaged documents, at seven read sizes. There were no mismatches.
+
+Private roots under `/run/media/$USER/HD2/`:
+- `movenotes-m1-20261023-sources`: `SOURCES.txt`, `SOURCES-m1b.txt`, `m1_pairs.py`, `m1b_pairs.py`, `run_m1.sh`, `run_m1.log`, `micro.py`, `micro-results.txt`, `fuzz.py`, harness copies;
+- `movenotes-m1-20261023-variants`: `base`, `m1`, `m1b`;
+- `movenotes-m1-20261023-runs`: `export-40k`, `export-40k-m1b`, `import-40k`, `harness-preserved`, `export-full`, `import-full`, `full-manifests.txt`.

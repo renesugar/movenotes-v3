@@ -1052,6 +1052,48 @@ class LosslessPreservationTest(unittest.TestCase):
             self.assertEqual(len(manifest["items"]), len(raw_items))
             self.assertTrue(all(item["sha256"] for item in manifest["items"]))
 
+    def test_streamed_manifest_matches_one_json_dump(self) -> None:
+        """M1: the manifest is written in batches, with the bytes of json.dumps."""
+        from unittest import mock
+
+        leading = {
+            "format": "movenotes-lossless-joplin-preservation",
+            "version": 1,
+            "raw_directory": "joplin-raw",
+            "scope": "full",
+        }
+        item = {
+            "id": "a" * 32,
+            "type": 1,
+            "raw_path": "joplin-raw/é \"quoted\" \\ name .md",
+            "original_filename": None,
+            "obsidian_path": "Folder/😀 note.md",
+            "obsidian_sha256": None,
+            "exact_source_bytes": True,
+            "sha256": "0" * 64,
+        }
+        three = [item, {**item, "type": 4, "exact_source_bytes": False}, {**item, "id": "d" * 32}]
+        cases = (
+            ([], {}),
+            ([item], {}),
+            (three, {"b" * 32: "_resources/x.png", "c" * 32: "é.pdf"}),
+        )
+        for items, attachments in cases:
+            for batch in (1, 2, 1024):
+                with self.subTest(items=len(items), attachments=len(attachments), batch=batch), \
+                        mock.patch.object(sql2obsidian._ManifestWriter, "_BATCH", batch), \
+                        tempfile.TemporaryDirectory() as temporary:
+                    path = Path(temporary) / "manifest.json"
+                    trailing = {"resource_files": len(attachments), "attachments": attachments}
+                    with sql2obsidian._ManifestWriter(path, leading) as manifest:
+                        for value in items:
+                            manifest.add_item(value)
+                        manifest.finish(trailing)
+                    expected = json.dumps(
+                        {**leading, "items": items, **trailing}, ensure_ascii=False, indent=2
+                    ) + "\n"
+                    self.assertEqual(path.read_bytes(), expected.encode("utf-8"))
+
     def test_preservation_bundle_reports_its_phases(self) -> None:
         """Step 44: the bundle runs after the last `exported N` line.
 

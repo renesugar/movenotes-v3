@@ -619,6 +619,68 @@ def _select_preserved_rows(
     return [row for index, row in enumerate(rows) if index in included_indexes]
 
 
+class _ManifestWriter:
+    """Write the preservation manifest as its items are produced.
+
+    The file is byte-for-byte ``json.dumps(manifest, ensure_ascii=False,
+    indent=2) + "\\n"`` of a manifest holding the leading keys, then ``items``,
+    then the trailing keys. Encoded JSON never contains a raw newline, so
+    nesting a value is a matter of indenting its continuation lines.
+
+    Items are encoded a batch at a time: the indenting encoder is rebuilt on
+    every call, which item by item cost as much again as the encoding.
+    """
+
+    _BATCH = 1024
+
+    def __init__(self, path: Path, leading: dict[str, object]) -> None:
+        self._encoder = json.JSONEncoder(ensure_ascii=False, indent=2)
+        self._items = 0
+        self._pending: list[dict[str, object]] = []
+        self._stream = path.open("w", encoding="utf-8")
+        self._stream.write(
+            "{\n"
+            + "".join(f"  {self._member(key, value)},\n" for key, value in leading.items())
+            + '  "items": ['
+        )
+
+    def _value(self, value: object, indent: str) -> str:
+        return self._encoder.encode(value).replace("\n", "\n" + indent)
+
+    def _member(self, key: str, value: object) -> str:
+        return f"{self._encoder.encode(key)}: {self._value(value, '  ')}"
+
+    def add_item(self, item: dict[str, object]) -> None:
+        self._pending.append(item)
+        if len(self._pending) >= self._BATCH:
+            self._flush()
+
+    def _flush(self) -> None:
+        if not self._pending:
+            return
+        # The batch encodes as "[\n  A,\n  B\n]"; its elements, one level
+        # deeper, are the items.
+        text = self._encoder.encode(self._pending)[2:-2].replace("\n", "\n  ")
+        self._stream.write(("," if self._items else "") + "\n  " + text)
+        self._items += len(self._pending)
+        self._pending.clear()
+
+    def finish(self, trailing: dict[str, object]) -> None:
+        self._flush()
+        self._stream.write(
+            ("\n  ]" if self._items else "]")
+            + "".join(f",\n  {self._member(key, value)}" for key, value in trailing.items())
+            + "\n}\n"
+        )
+        self._stream.close()
+
+    def __enter__(self) -> _ManifestWriter:
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self._stream.close()
+
+
 def write_preservation_bundle(
     sqlconn: sqlite3.Connection,
     input_resources_path: Path,
@@ -682,71 +744,76 @@ def write_preservation_bundle(
         )
 
     report("writing preserved Joplin item(s)...")
-    manifest_items = []
-    raw_name_dedup = NameDeduplicator()
-    included_resource_ids: set[str] = set()
-    row_count = 0
-    for row in rows:
-        row_count += 1
-        if progress_every and row_count % progress_every == 0:
-            print(f"preserved {row_count:,} Joplin item(s)", flush=True)
-        item_id = row["joplin_id"] or row["note_uuid"] or f"row-{row['note_id']}"
-        source_name = Path(row["note_source_filename"] or f"{item_id}.md").name
-        if not source_name.lower().endswith(".md"):
-            source_name += ".md"
-        source_path = Path(source_name)
-        name = raw_name_dedup.reserve(
-            str(raw_root), source_path.stem, source_path.suffix, separator="--"
-        )
+    # The manifest is written as the items are produced, so neither the item
+    # list nor the serialized document is held; on a 1.2 million-item library
+    # the two dominated a 3.5 GiB peak.  The bytes are unchanged; see
+    # _ManifestWriter.
+    with _ManifestWriter(
+        preservation_root / "manifest.json",
+        {
+            "format": "movenotes-lossless-joplin-preservation",
+            "version": 1,
+            "raw_directory": PRESERVED_RAW_DIR_NAME,
+            "scope": "full" if selected_folders is None else "selected-notebooks",
+        },
+    ) as manifest:
+        raw_name_dedup = NameDeduplicator()
+        included_resource_ids: set[str] = set()
+        row_count = 0
+        for row in rows:
+            row_count += 1
+            if progress_every and row_count % progress_every == 0:
+                print(f"preserved {row_count:,} Joplin item(s)", flush=True)
+            item_id = row["joplin_id"] or row["note_uuid"] or f"row-{row['note_id']}"
+            source_name = Path(row["note_source_filename"] or f"{item_id}.md").name
+            if not source_name.lower().endswith(".md"):
+                source_name += ".md"
+            source_path = Path(source_name)
+            name = raw_name_dedup.reserve(
+                str(raw_root), source_path.stem, source_path.suffix, separator="--"
+            )
 
-        data = notesdb.exact_source_bytes(row)
-        exact = data is not None and notesdb.source_row_unchanged(row)
-        if not exact:
-            data = notesdb.serialize_joplin_item(row)
-        (raw_root / name).write_bytes(data)
-        digest = hashlib.sha256(data).hexdigest()
-        manifest_items.append(
+            data = notesdb.exact_source_bytes(row)
+            exact = data is not None and notesdb.source_row_unchanged(row)
+            if not exact:
+                data = notesdb.serialize_joplin_item(row)
+            (raw_root / name).write_bytes(data)
+            digest = hashlib.sha256(data).hexdigest()
+            manifest.add_item(
+                {
+                    "id": item_id,
+                    "type": row["joplin_type_"],
+                    "raw_path": f"{PRESERVED_RAW_DIR_NAME}/{name}",
+                    "original_filename": row["note_source_filename"],
+                    "obsidian_path": obsidian_paths.get(item_id),
+                    "obsidian_sha256": obsidian_hashes.get(item_id),
+                    "exact_source_bytes": exact,
+                    "sha256": digest,
+                }
+            )
+            if row["joplin_type_"] == int(constants.JoplinType.RESOURCE):
+                included_resource_ids.add(item_id)
+
+        raw_resources = raw_root / "resources"
+        copied_resources = 0
+        if input_resources_path.is_dir():
+            report("copying raw resource file(s)...")
+            for resource_path in sorted(input_resources_path.iterdir()):
+                if not resource_path.is_file():
+                    continue
+                if selected_folders is not None and resource_path.stem not in included_resource_ids:
+                    continue
+                raw_resources.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(resource_path, raw_resources / resource_path.name)
+                copied_resources += 1
+
+        report(f"writing the preservation manifest for {row_count:,} item(s)...")
+        manifest.finish(
             {
-                "id": item_id,
-                "type": row["joplin_type_"],
-                "raw_path": f"{PRESERVED_RAW_DIR_NAME}/{name}",
-                "original_filename": row["note_source_filename"],
-                "obsidian_path": obsidian_paths.get(item_id),
-                "obsidian_sha256": obsidian_hashes.get(item_id),
-                "exact_source_bytes": exact,
-                "sha256": digest,
+                "resource_files": copied_resources,
+                "attachments": dict(sorted(attachment_paths.items())),
             }
         )
-        if row["joplin_type_"] == int(constants.JoplinType.RESOURCE):
-            included_resource_ids.add(item_id)
-
-    raw_resources = raw_root / "resources"
-    copied_resources = 0
-    if input_resources_path.is_dir():
-        report("copying raw resource file(s)...")
-        for resource_path in sorted(input_resources_path.iterdir()):
-            if not resource_path.is_file():
-                continue
-            if selected_folders is not None and resource_path.stem not in included_resource_ids:
-                continue
-            raw_resources.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(resource_path, raw_resources / resource_path.name)
-            copied_resources += 1
-
-    report(f"writing the preservation manifest for {len(manifest_items):,} item(s)...")
-    manifest = {
-        "format": "movenotes-lossless-joplin-preservation",
-        "version": 1,
-        "raw_directory": PRESERVED_RAW_DIR_NAME,
-        "scope": "full" if selected_folders is None else "selected-notebooks",
-        "items": manifest_items,
-        "resource_files": copied_resources,
-        "attachments": dict(sorted(attachment_paths.items())),
-    }
-    (preservation_root / "manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
     (preservation_root / "README.md").write_text(
         "# movenotes preservation data\n\n"
         "`joplin-raw/` is a lossless Joplin RAW export retained alongside the "
