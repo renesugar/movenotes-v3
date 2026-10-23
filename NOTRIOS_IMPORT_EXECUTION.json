@@ -14,7 +14,7 @@
     "confirmation": "confirmed",
     "confirmation_evidence": "2026-10-22 user, in the restarted Claude Code session: Yes, these assignments are current for this session. Answered after being shown the Claude Code parent as the only owner of remaining work, runtime-reported model claude-opus-5-5 from Anthropic, and configured alias, reasoning effort and billing route not exposed. Applies to this unchanged session; each slice still needs its own authorization. Earlier the same day the user directed the reassignment: Rewrite the plan to use the main model for all work. The work-arounds used for codex are not necessary for this terminal CLI.",
     "notes": [
-      "All remaining work (I1, M1, V1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.",
+      "All remaining work (M1, V1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.",
       "Codex luna_worker and terra_worker do not exist in Claude Code and are not replaced by Claude subagents. Spawning one requires an explicit user request and a recorded plan amendment first.",
       "The Codex auxiliary Luna monitor is retired for remaining work. Main runs long data-heavy commands as harness-tracked background commands, is re-invoked once when they exit, and does not poll.",
       "The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.",
@@ -1306,7 +1306,7 @@
     {
       "id": "I1",
       "coding_agent": "claude",
-      "status": "in progress",
+      "status": "complete",
       "planned_worker": "parent",
       "configured_model": "not exposed; runtime reports claude-opus-5-5",
       "configured_reasoning_effort": "not exposed",
@@ -1314,21 +1314,23 @@
       "delegation_required": false,
       "planned_assignment_evidence": "Resumed P7c R5 recovery check, 2026-10-23; user directive: Update the plan if you find items that need to be fixed instead of just logging their existence.",
       "planned_work": "Defer secondary indexes when importing into an existing library that holds no notes, as for a new database, with fingerprint-identical results and a measured paired improvement.",
-      "actual_worker": "pending",
-      "child_thread": "pending",
-      "actual_model": "pending",
-      "reasoning_effort": "pending",
-      "worker_contribution": "pending",
-      "parent": "pending",
-      "parent_underlying_model_family": "pending",
-      "parent_reasoning_effort": "pending",
-      "parent_contribution": "pending",
-      "validation": "pending",
+      "actual_worker": "none",
+      "child_thread": "none",
+      "actual_model": "none",
+      "reasoning_effort": "none",
+      "worker_contribution": "none",
+      "parent": "Claude Code parent",
+      "parent_underlying_model_family": "Claude Opus 5.5, runtime-reported claude-opus-5-5",
+      "parent_reasoning_effort": "not exposed",
+      "parent_contribution": "Added notesdb.drop_deferred_indexes and made obsidian2sql.py call it when the library it opens holds no rows, so the import inserts with only joplinididx and the final pass rebuilds the rest. Added three tests to test_obsidian2sql.py. Wrote an alternating empty-library driver (i1_empty.py) and ran it with scripts/notrios_p7c_benchmark.py and a real SIGINT recovery at 10,000 and 40,000 files; recorded the results.",
+      "validation": "All 292 tests in the five required modules pass (181.434 s) with PYTHONDONTWRITEBYTECODE=1 and -B, including test_import_into_empty_library_defers_indexes and test_interrupted_imports_recover_with_the_same_indexes (both fail on the previous code) and test_import_into_non_empty_library_keeps_its_indexes. Alternating pairs, base 902bad2 against I1, every output fingerprint-identical: empty-library import median I1/base 0.799 at 10,000 files (five pairs, 0.761-0.874) and 0.667 at 40,000 files (three pairs, 0.533-0.670), same fingerprint and index set as a new-database import. SIGINT 60 s into a 40,000-file I1 import left 0 rows and only joplinididx; the rerun took 140.41 s at 126,140 KiB and matched the new-database fingerprint, ending with all nine indexes. Regression cases on code I1 does not change (one added SELECT): fresh 1.020 (10,000, 0.966-1.041) and 1.025 (40,000, 0.991-1.029), unchanged 1.041 (0.908-1.101), merge 0.930 (0.889-1.000); peak RSS unchanged. joplin2sql.py not changed.",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "NOTRIOS_P7C_EVIDENCE.md, Resumed P7c — F04 with P7b2 constant"
+        "NOTRIOS_P7C_EVIDENCE.md, section I1 — empty existing library imported like a new one",
+        "/run/media/$USER/HD2/movenotes-i1-20261023-sources (SOURCES.txt, i1_empty.py, run_i1.sh, run_i1.log, harness copies)",
+        "/run/media/$USER/HD2/movenotes-i1-20261023-runs (empty-10k, empty-40k, harness-10k, harness-40k, interrupt-40k)"
       ],
-      "commit": "pending",
+      "commit": "Git commit containing this completion record: perf: import into an empty library like a new one (I1)",
       "billing_route": "not exposed"
     },
     {

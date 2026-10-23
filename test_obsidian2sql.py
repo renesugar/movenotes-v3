@@ -176,6 +176,122 @@ class ObsidianRoundTripTest(unittest.TestCase):
                 self.assertIn("joplinididx", plan)
                 self.assertNotIn("SCAN", plan)
 
+    @staticmethod
+    def _library_state(output: Path) -> tuple[list, list]:
+        with contextlib.closing(sqlite3.connect(output / notesdb.DATABASE_FILENAME)) as conn:
+            rows = conn.execute("SELECT * FROM notes ORDER BY note_id").fetchall()
+            indexes = conn.execute(
+                "SELECT name, sql FROM sqlite_master WHERE type = 'index' ORDER BY name"
+            ).fetchall()
+        return rows, indexes
+
+    @staticmethod
+    def _fixed_clock():  # noqa: ANN205
+        """Give tag rows, which are stamped with the import time, a fixed one."""
+        class FixedDatetime(obsidian2sql.datetime):
+            @classmethod
+            def now(cls, tz=None):  # noqa: ANN001, ANN206
+                return obsidian2sql.datetime(2026, 1, 1, tzinfo=tz)
+
+        return mock.patch.object(obsidian2sql, "datetime", FixedDatetime)
+
+    def _write_index_vault(self, vault: Path) -> None:
+        (vault / "folder").mkdir(parents=True)
+        for index in range(4):
+            (vault / "folder" / f"note {index}.md").write_text(
+                f"---\ntags:\n  - tag{index}\n---\n# Note {index}\n\nbody {index}\n",
+                encoding="utf-8",
+            )
+
+    def _indexes_seen_by_batches(self, vault: Path, output: Path) -> list[set[str]]:
+        seen: list[set[str]] = []
+        original = obsidian2sql._existing_import_hashes
+
+        def recording(sqlconn: sqlite3.Connection, item_ids: list[str]):
+            seen.append({
+                row[0] for row in sqlconn.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'index' "
+                    "AND name NOT LIKE 'sqlite_autoindex_%'"
+                )
+            })
+            return original(sqlconn, item_ids)
+
+        with mock.patch.object(obsidian2sql, "_existing_import_hashes", recording):
+            self._import_quietly(vault, output, "--batch-size", "1")
+        return seen
+
+    def test_import_into_empty_library_defers_indexes(self) -> None:
+        """A library with no rows inserts with only joplinididx, like a new one."""
+        with tempfile.TemporaryDirectory(prefix="obsidian-empty-library-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            new = root / "new"
+            empty = root / "empty"
+            self._write_index_vault(vault)
+            new.mkdir()
+            empty.mkdir()
+            with self._fixed_clock():
+                self._import_quietly(vault, new)
+            with contextlib.closing(notesdb.connect(empty / notesdb.DATABASE_FILENAME)) as conn, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                notesdb.create_database(conn)
+            with self._fixed_clock():
+                seen = self._indexes_seen_by_batches(vault, empty)
+            self.assertGreater(len(seen), 4)
+            for names in seen:
+                self.assertEqual(names, {"joplinididx"})
+            self.assertEqual(self._library_state(empty), self._library_state(new))
+
+    def test_import_into_non_empty_library_keeps_its_indexes(self) -> None:
+        """A library that already holds rows keeps every index while merging."""
+        with tempfile.TemporaryDirectory(prefix="obsidian-non-empty-library-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            output = root / "sqlite"
+            self._write_index_vault(vault)
+            output.mkdir()
+            self._import_quietly(vault, output)
+            (vault / "folder" / "added.md").write_text("# Added\n\nnew\n", encoding="utf-8")
+            seen = self._indexes_seen_by_batches(vault, output)
+            self.assertTrue(seen)
+            for names in seen:
+                self.assertEqual(names, set(notesdb._INDEX_NAMES))
+
+    def test_interrupted_imports_recover_with_the_same_indexes(self) -> None:
+        """Interrupted fresh and empty-library imports leave no rows, and recover."""
+        with tempfile.TemporaryDirectory(prefix="obsidian-interrupted-index-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            new = root / "new"
+            output = root / "sqlite"
+            self._write_index_vault(vault)
+            new.mkdir()
+            output.mkdir()
+            with self._fixed_clock():
+                self._import_quietly(vault, new)
+            expected = self._library_state(new)
+            original = obsidian2sql._insert_rows
+            for attempt in ("fresh", "empty library"):
+                calls = 0
+
+                def interrupting(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+                    nonlocal calls
+                    calls += 1
+                    if calls == 3:
+                        raise KeyboardInterrupt
+                    return original(*args, **kwargs)
+
+                with self.subTest(attempt=attempt), \
+                        mock.patch.object(obsidian2sql, "_insert_rows", interrupting), \
+                        self.assertRaises(KeyboardInterrupt):
+                    self._import_quietly(vault, output, "--batch-size", "1")
+                rows, indexes = self._library_state(output)
+                self.assertEqual(rows, [])
+                self.assertNotIn("hashidx", {name for name, _ in indexes})
+            with self._fixed_clock():
+                self._import_quietly(vault, output, "--batch-size", "1")
+            self.assertEqual(self._library_state(output), expected)
+
     def _import_quietly(self, vault: Path, output: Path, *extra: str) -> str:
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):

@@ -1172,6 +1172,12 @@ def main(argv: list[str]) -> int:
         notesdb.ensure_joplin_id_index(sqlconn)
     else:
         sqlconn = notesdb.open_database(database_path, __program_name__)
+        if sqlconn.execute("SELECT 1 FROM notes LIMIT 1").fetchone() is None:
+            # A library with no rows, such as an interrupted fresh import
+            # leaves, is imported like a new database: maintaining the other
+            # indexes row by row made it up to 48% slower.  The final pass
+            # rebuilds them, and so does the next open if this run stops.
+            notesdb.drop_deferred_indexes(sqlconn)
     output_path.joinpath("resources").mkdir(parents=True, exist_ok=True)
 
     manifest = _load_manifest(vault_path)

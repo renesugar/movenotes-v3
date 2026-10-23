@@ -152,6 +152,14 @@ full-vault pair from 983 s to 515 s, with identical output. Fresh imports are
 not slower; their peak memory rises by the read-ahead batch, about 2 MB at
 10,000 files and 6 MB over the full vault, which does not grow with the vault.
 
+An existing library with no rows, such as an interrupted fresh import leaves,
+used to keep every index during the rerun and update them row by row. It is now
+imported like a new database, with only `joplinididx` until the final pass. That
+import's median time fell to 0.799 of the previous code's at 10,000 files and
+0.667 at 40,000, with identical output and indexes; a recovery after SIGINT at
+40,000 files took 140 s, where an empty-library
+import of the same files had taken about 181 s.
+
 The resulting complexity is O(vault files + links) for inventory and link
 resolution, plus indexed/batched SQLite insertion. Memory is O(path index +
 batch note bytes + tags), rather than O(total vault bytes).

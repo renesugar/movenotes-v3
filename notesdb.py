@@ -189,6 +189,17 @@ def ensure_joplin_id_index(sqlconn: sqlite3.Connection) -> None:
     )
 
 
+def drop_deferred_indexes(sqlconn: sqlite3.Connection) -> None:
+    """Drop the shared indexes a new database defers, keeping ``joplinididx``.
+
+    For a bulk import into a library that holds no rows, so that it inserts
+    as fast as into a new database. ``ensure_indexes`` recreates them.
+    """
+    for name in _INDEX_NAMES:
+        if name != "joplinididx":
+            sqlconn.execute(f'DROP INDEX IF EXISTS "{name}";')
+
+
 def create_database(
     sqlconn: sqlite3.Connection, *, create_indexes: bool = True
 ) -> None:

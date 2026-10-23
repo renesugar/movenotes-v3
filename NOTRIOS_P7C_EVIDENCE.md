@@ -415,3 +415,47 @@ Private roots under `/run/media/$USER/HD2/`: `movenotes-u1-20261023-sources`
 (`SOURCES.txt` with hashes, harness copies, `run_u1.sh`, `run_u1.log`),
 `movenotes-u1-20261023-variants` (`base`, `u1`), `movenotes-u1-20261023-subset`
 and `movenotes-u1-20261023-full`.
+
+## I1 — empty existing library imported like a new one (2026-10-23)
+
+R5 showed that an import into an existing library with no rows, which is what
+an interrupted fresh import leaves, kept all eight indexes and updated them row
+by row, while a new database defers all but `joplinididx`. `obsidian2sql.py`
+now checks the library it opens; when it holds no rows, it drops the other
+indexes with `notesdb.drop_deferred_indexes`, and the final pass rebuilds them.
+If that run stops too, the next open recreates them, which on an empty table is
+immediate. A library holding any row takes the previous path, and
+`joplin2sql.py` is unchanged.
+
+Base is `902bad2`; I1 is that tree plus the working `obsidian2sql.py`
+(`9aeb1f1f…5db`) and `notesdb.py` (`d7e857a0…94c`), the committed files.
+Runs alternate, base first in pair 1.
+
+| Case | Pairs | Base | I1 | Median I1/base | Pair range |
+|---|---:|---:|---:|---:|---:|
+| Empty existing library, 10,000 files | 5 | 38.25–41.18 s | 30.31–33.44 s | **0.799** | 0.761–0.874 |
+| Empty existing library, 40,000 files | 3 | 194.62–258.40 s | 129.84–145.37 s | **0.667** | 0.533–0.670 |
+| New database, 10,000 files | 5 | 30.66–36.07 s | 31.26–35.99 s | 1.020 | 0.966–1.041 |
+| New database, 40,000 files | 3 | 125.80–134.11 s | 126.46–137.48 s | 1.025 | 0.991–1.029 |
+| Unchanged rerun, 10,000 files | 5 | 11.80–13.24 s | 12.02–13.81 s | 1.041 | 0.908–1.101 |
+| Ten-note merge into 10,000 files | 5 | 0.57–0.64 s | 0.53–0.63 s | 0.930 | 0.889–1.000 |
+
+Every output in a case has one fingerprint, and the empty-library imports match
+the new-database imports (`7945a871…` at 10,000 files, `38edc15c…` at 40,000).
+All end with the same nine indexes. Peak RSS is unchanged in every case, within
+0.6 MB.
+
+For new databases, unchanged reruns and merges I1 runs the same statements as
+base plus one `SELECT 1 FROM notes LIMIT 1`, so their medians (all inside the
+pair spread) are measurement noise, not a regression.
+
+**Recovery.** A real SIGINT 60 s into a 40,000-file I1 import (the
+`r5_interrupt.py` driver) left 0 rows with only `joplinididx` and the settings
+key. The rerun took 140.41 s at 126,140 KiB, against 181.23 and 180.50 s for
+an empty-library import of the same files before I1 (R5's check), and matched the new-database fingerprint with
+all nine indexes.
+
+Private roots under `/run/media/$USER/HD2/`: `movenotes-i1-20261023-sources`
+(`SOURCES.txt`, `i1_empty.py`, `run_i1.sh`, `run_i1.log`, harness copies),
+`movenotes-i1-20261023-variants` (`base`, `i1`) and `movenotes-i1-20261023-runs`
+(`empty-10k`, `empty-40k`, `harness-10k`, `harness-40k`, `interrupt-40k`).

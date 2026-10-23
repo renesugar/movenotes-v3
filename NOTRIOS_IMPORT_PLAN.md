@@ -40,13 +40,15 @@ accepted F04 at full scale and removed the Go producer targets from the plan.
 P7c found three fixes, planned as **U1**, **I1** and **M1**. **U1 is complete**:
 an unchanged rerun now takes 0.47 (subset) and 0.52 (full vault) of the time it
 did before. The user then added **V1** after M1: a damaged preservation bundle
-becomes an error that prints the commands to run next. Next is **I1**.
+becomes an error that prints the commands to run next. **I1 is complete**: an
+import into an empty existing library takes 0.80 (10,000 files) and 0.67
+(40,000 files) of the time it did. Next is **M1**.
 Plan revised on **2026-10-22**: all remaining work is assigned to the Claude Code
 main model (**Main**), and the user confirmed this for the session. No Codex
 worker or monitor remains in the plan. See
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 S43b and resumed 7c pin the released Notrios **`v1.0.0`** (`2aab9a8`). The
-remaining order is I1 → M1 → V1 → resumed 7c → 7d → 7e.
+remaining order is M1 → V1 → resumed 7c → 7d → 7e.
 Slice **7c remains incomplete**; isolated work
 and checkpoints are under `/media/$USER/HD2/movenotes-7c-20260916/`.
 Both recipe imports succeeded (382,206 documents each), but bounded real
@@ -288,16 +290,16 @@ Session confirmation: **confirmed**.
 
 Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID claude-opus-5-5)**. Product/client version: not exposed; model provider: Anthropic (runtime-reported).
 
-- All remaining work (I1, M1, V1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
+- All remaining work (M1, V1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
 - Codex luna_worker and terra_worker do not exist in Claude Code and are not replaced by Claude subagents. Spawning one requires an explicit user request and a recorded plan amendment first.
 - The Codex auxiliary Luna monitor is retired for remaining work. Main runs long data-heavy commands as harness-tracked background commands, is re-invoked once when they exit, and does not poll.
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 - Completed slices keep their recorded Codex attribution. The earlier Codex session is under previous_sessions and its assignments under assignment_history.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **I1 — defer secondary indexes when importing into an empty
-existing library**, assigned to the Claude Code parent (**Main**). Session
-assignments are confirmed. Authorized by the user on 2026-10-23; in progress.
+Next slice: **M1 — bound the preservation manifest's memory**, assigned to the
+Claude Code parent (**Main**). Session assignments are confirmed. Slice
+authorization is pending.
 
 **Resumed P7c, complete (2026-10-23).** R1–R6 ran as frozen below; every
 comparison is fingerprint-identical, and the five required modules and the
@@ -389,7 +391,7 @@ at full scale by the user's decision; F02 is subsumed by P7b2. Rejected Go G08
 stays out of full trials; no Go candidate is approved. Any producer implementation needs an explicit handoff naming its
 files and checkout, plus the user's approval to write to the Notrios checkout.
 
-Remaining sequence (U1 complete): I1 → M1 → V1 → resumed 7c → 7d → 7e, subject to the
+Remaining sequence (U1 and I1 complete): M1 → V1 → resumed 7c → 7d → 7e, subject to the
 unresolved compatibility gates. Every data-heavy
 run follows the background-run rule under
 [Execution and handoff rules](#execution-and-handoff-rules). Preserve C7c's documented differences: RAW's 842,813 tag
@@ -1035,8 +1037,24 @@ user's standing direction, with designs frozen here before implementation.
 
 | Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| I1 / Main | Defer secondary indexes when importing into an existing library that holds no notes. R5 showed the cost: an interrupted fresh import correctly leaves an empty library, but `open_database` → `migrate_database` → `ensure_indexes` then creates all eight indexes before the rerun's first insert, while a new database defers all but `joplinididx` to the final pass. Fresh imports into an empty existing library took 33.71 and 33.90 s against 28.98 and 28.96 s into a new one at 10,000 files, and 181.23 and 180.50 s against 123.27 and 121.47 s (48% slower) at 40,000 files, with identical fingerprints. When `obsidian2sql.py` finds the notes table empty, it drops the secondary indexes other than `joplinididx` before inserting and rebuilds them in the final pass. An interruption then leaves an index-free empty library, whose next open recreates the indexes as now. Owns `obsidian2sql.py`, at most a narrowly needed `notesdb.py` helper, and tests. `joplin2sql.py`'s same path is measured and extended only with its own evidence. | P7c | A fresh import into an empty existing library, and the rerun after an interrupted fresh import, are fingerprint-identical to a fresh import into a new database and end with the same index set. Non-empty libraries keep today's path unchanged. Measured with alternating pairs at 10,000 and 40,000 files: the empty-library import improves by at least the 5% gate, with no regression for new databases, unchanged reruns or merges. A test checks the index set after an interrupted and recovered import. Focused tests plus all five regression modules. |
+| I1 / Main — complete | Defer secondary indexes when importing into an existing library that holds no notes. R5 showed the cost: an interrupted fresh import correctly leaves an empty library, but `open_database` → `migrate_database` → `ensure_indexes` then creates all eight indexes before the rerun's first insert, while a new database defers all but `joplinididx` to the final pass. Fresh imports into an empty existing library took 33.71 and 33.90 s against 28.98 and 28.96 s into a new one at 10,000 files, and 181.23 and 180.50 s against 123.27 and 121.47 s (48% slower) at 40,000 files, with identical fingerprints. When `obsidian2sql.py` finds the notes table empty, it drops the secondary indexes other than `joplinididx` before inserting and rebuilds them in the final pass. An interruption then leaves an index-free empty library, whose next open recreates the indexes as now. Owns `obsidian2sql.py`, at most a narrowly needed `notesdb.py` helper, and tests. `joplin2sql.py`'s same path is measured and extended only with its own evidence. | P7c | A fresh import into an empty existing library, and the rerun after an interrupted fresh import, are fingerprint-identical to a fresh import into a new database and end with the same index set. Non-empty libraries keep today's path unchanged. Measured with alternating pairs at 10,000 and 40,000 files: the empty-library import improves by at least the 5% gate, with no regression for new databases, unchanged reruns or merges. A test checks the index set after an interrupted and recovered import. Focused tests plus all five regression modules. |
 | M1 / Main | Bound the preservation manifest's memory. R4's full-scale round trip peaked at 3,668,096 KiB in `sql2obsidian.py` and 1,936,788 KiB in `obsidian2sql.py`'s preserved import, both from holding the whole `.movenotes/manifest.json` (530 MB, 1,237,553 items): the exporter keeps every item dict and then the complete `json.dumps` string, and the importer `json.loads` the file. The exporter will stream the manifest, writing each item as it is produced, byte-identical to today's output, with no format change. The importer will read version-1 manifests with a stdlib-only incremental decoder (`json.JSONDecoder.raw_decode` over buffered reads), keeping only the compact per-item fields it uses. A malformed or unrecognised manifest keeps today's behaviour: `_load_manifest` ignores it and the vault imports as native. Whether that silent fallback should become an error is a separate question for the user, not part of M1. Owns `sql2obsidian.py`, `obsidian2sql.py`'s manifest reader and tests. | P7c | Exported manifests are byte-identical to the current code's on the existing fixtures and on R4's library. Preserved imports are fingerprint-identical, with the same counts and errors, including for existing manifests. Peak RSS of the full-scale export and preserved import falls measurably, with time not worse beyond the gate's noise. Memory stays O(items) only for compact per-item state the importer needs, which the design documents. Measured on R4's full library plus a paired subset. Focused tests plus all five regression modules. |
+
+*I1 result (2026-10-23).* Adopted. `obsidian2sql.py` drops every index but
+`joplinididx` when the library it opens holds no rows (new helper
+`notesdb.drop_deferred_indexes`); the final pass rebuilds them. Alternating
+base/I1 pairs against `902bad2`: the empty-library import's median time is
+0.799 of base at 10,000 files (five pairs, 0.761–0.874) and 0.667 at 40,000
+(three pairs, 0.533–0.670), fingerprint-identical to a fresh import into a new
+database and ending with the same nine indexes. A real SIGINT 60 s into a
+40,000-file import left no rows and only `joplinididx`; the rerun took 140.41 s
+and matched the new-database fingerprint and index set. For new databases,
+unchanged reruns and merges the medians were 1.020 and 1.025 (fresh, 10,000 and
+40,000 files), 1.041 (unchanged) and 0.930 (merge), inside each case's pair
+spread (0.966–1.041, 0.991–1.029, 0.908–1.101, 0.889–1.000). I1 runs the same
+statements there plus one `SELECT 1 FROM notes LIMIT 1`, so these are noise,
+not a regression. Peak RSS is unchanged. `joplin2sql.py` is not changed. Details
+in the [P7c evidence](NOTRIOS_P7C_EVIDENCE.md#i1--empty-existing-library-imported-like-a-new-one-2026-10-23).
 
 *Order (proposed 2026-10-23; the user answered "Yes to the I1 and M1 order"
 the same day):* resumed P7c → U1 → I1 → M1 → resumed 7c → 7d → 7e. U1 and I1 both change `obsidian2sql.py`'s
@@ -1292,6 +1310,7 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-10-23 | V1 added | The user decided: "Yes, make it an error; add the slice after M1". A damaged preservation bundle (invalid manifest JSON, another format, an unknown version, or `joplin-raw/` without a manifest) will be refused before the output database is touched, instead of the vault being silently imported as native. The error prints the next steps as complete commands built from the failing command line; at the user's direction, a path that depends on how the user's files are organised is a labelled suggestion, and a placeholder is used only for the source database, which nothing records. V1 also adds `--ignore-preservation` and writes the manifest atomically. Ordered after M1 and before resumed 7c; 7c and 7d now depend on V1. Documentation and provenance only. No worker was used. Next: ask to proceed to I1. |
 | 2026-10-23 | V1 revised | The user decided: "the absolute path recorded in the exporter should use the `$HOME` environment variable or `~` instead of writing user names in absolute paths ; update plan to record the source database's path in the bundle so step 4 needs no placeholder." V1's exporter now writes `.movenotes/export.json` first, recording the source database (as `~/…` when it is under the home directory) and the export options; the re-export step prints them as an exact command. A placeholder remains only for vaults exported before V1, or with an unreadable record. The manifest's format is unchanged. Documentation and provenance only. No worker was used. Next: I1, authorized ("Then, start I1"). |
 | 2026-10-23 | V1 revised again | The user decided: "The `$USER` environment variable is available for other paths containing a user name. Update the plan to replace other instances of paths containing user names." Outside the home directory, V1's export record writes each path segment equal to the user name as `$USER` (as in `/run/media/$USER/HD2/…`), and the importer expands it with its own user name. The record lists the substitutions it applied, so literal `~` or `$USER` in a real path is kept. Documentation and provenance only, while I1's measurements run. No worker was used. |
+| 2026-10-23 | I1 complete | The Claude Code parent made `obsidian2sql.py` drop every index but `joplinididx` when it opens a library with no rows, through a new `notesdb.drop_deferred_indexes`; the final pass, or the next open after an interruption, rebuilds them. Three tests added; two fail on the previous code. All 292 tests in the five required modules pass (181.434 s). Alternating pairs against `902bad2`, all outputs fingerprint-identical: empty-library import 0.799 (10,000 files, five pairs) and 0.667 (40,000 files, three pairs); a real SIGINT at 40,000 files left no rows and the rerun matched a new-database import, indexes included. New-database, unchanged and merge medians (1.020, 1.025, 1.041, 0.930) fall inside their pair spreads, on code I1 does not change. No worker was used. Next: ask to proceed to M1. |
 
 ## Assignment amendment — 2026-10-22
 
@@ -2304,7 +2323,7 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 </details>
 
-<details><summary>I1 — in progress; planned parent</summary>
+<details><summary>I1 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -2313,20 +2332,20 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
 | Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; I1 authorized by the user on 2026-10-23 (Then, start I1). |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Added notesdb.drop_deferred_indexes and made obsidian2sql.py call it when the library it opens holds no rows, so the import inserts with only joplinididx and the final pass rebuilds the rest. Added three tests to test_obsidian2sql.py. Wrote an alternating empty-library driver (i1_empty.py) and ran it with scripts/notrios_p7c_benchmark.py and a real SIGINT recovery at 10,000 and 40,000 files; recorded the results. |
+| Validation | All 292 tests in the five required modules pass (181.434 s) with PYTHONDONTWRITEBYTECODE=1 and -B, including test_import_into_empty_library_defers_indexes and test_interrupted_imports_recover_with_the_same_indexes (both fail on the previous code) and test_import_into_non_empty_library_keeps_its_indexes. Alternating pairs, base 902bad2 against I1, every output fingerprint-identical: empty-library import median I1/base 0.799 at 10,000 files (five pairs, 0.761-0.874) and 0.667 at 40,000 files (three pairs, 0.533-0.670), same fingerprint and index set as a new-database import. SIGINT 60 s into a 40,000-file I1 import left 0 rows and only joplinididx; the rerun took 140.41 s at 126,140 KiB and matched the new-database fingerprint, ending with all nine indexes. Regression cases on code I1 does not change (one added SELECT): fresh 1.020 (10,000, 0.966-1.041) and 1.025 (40,000, 0.991-1.029), unchanged 1.041 (0.908-1.101), merge 0.930 (0.889-1.000); peak RSS unchanged. joplin2sql.py not changed. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | Resumed P7c R5 recovery check, 2026-10-23; user directive: Update the plan if you find items that need to be fixed instead of just logging their existence. |
-| Execution evidence | NOTRIOS_P7C_EVIDENCE.md, Resumed P7c — F04 with P7b2 constant |
-| Commit | pending |
+| Execution evidence | NOTRIOS_P7C_EVIDENCE.md, section I1 — empty existing library imported like a new one; /run/media/$USER/HD2/movenotes-i1-20261023-sources (SOURCES.txt, i1_empty.py, run_i1.sh, run_i1.log, harness copies); /run/media/$USER/HD2/movenotes-i1-20261023-runs (empty-10k, empty-40k, harness-10k, harness-40k, interrupt-40k) |
+| Commit | Git commit containing this completion record: perf: import into an empty library like a new one (I1) |
 
 </details>
 
