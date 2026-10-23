@@ -40,7 +40,7 @@ main model (**Main**), and the user confirmed this for the session. No Codex
 worker or monitor remains in the plan. See
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 S43b and resumed 7c pin the released Notrios **`v1.0.0`** (`2aab9a8`). The
-remaining order is resumed P7c → resumed 7c → 7d → 7e.
+remaining order is resumed P7c → U1 → resumed 7c → 7d → 7e.
 Slice **7c remains incomplete**; isolated work
 and checkpoints are under `/media/$USER/HD2/movenotes-7c-20260916/`.
 Both recipe imports succeeded (382,206 documents each), but bounded real
@@ -282,7 +282,7 @@ Session confirmation: **confirmed**.
 
 Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID claude-opus-5-5)**. Product/client version: not exposed; model provider: Anthropic (runtime-reported).
 
-- All remaining work (S43b, S43c, E1, P7b2, resumed P7c, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
+- All remaining work (S43b, S43c, E1, P7b2, resumed P7c, U1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
 - Codex luna_worker and terra_worker do not exist in Claude Code and are not replaced by Claude subagents. Spawning one requires an explicit user request and a recorded plan amendment first.
 - The Codex auxiliary Luna monitor is retired for remaining work. Main runs long data-heavy commands as harness-tracked background commands, is re-invoked once when they exit, and does not poll.
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
@@ -309,12 +309,52 @@ lookup is indexed; C01/C02 and merge/rerun paths are unchanged. Resumed
 - The private evidence volume now mounts at `/run/media/$USER/HD2`, not
   `/media/$USER/HD2`. Check recorded absolute paths before any `--resume`.
 
+**Resumed P7c design (frozen 2026-10-22, before any run).** Earlier P7c
+matrices are complete and are not rerun; this finishes the slice with the
+P7b2 treatment held constant.
+
+- *Variants:* `scripts/notrios_p7c_prepare.py` from `HEAD` with the `f0b218a`
+  reference, as before. `_native_rows` is unchanged since `7aa9093`, so its F04
+  inverse is exactly `HEAD` minus F04. Every variant keeps P7b2 and C01/C02;
+  base and f02 now behave identically, as do f04 and both. The script records
+  the P7b2 constant in `SOURCE_VARIANTS.json`. Comparisons are base versus f04.
+- *R1, full native vault:* one alternating base/f04 pair, fresh and unchanged,
+  over all 382,206 files (`f04-real-native`). This is F04's full-corpus
+  confirmation and its full-scale memory check.
+- *R2, full RAW control:* one alternating pair, fresh and unchanged, over the
+  1,237,553-file recipe RAW (`raw-control-f04`). `joplin2sql.py` is identical
+  in both variants, so this is the matched-condition RAW timing, a noise
+  control and the Python vault/RAW ratio.
+- *R3, real-subset small merge:* five alternating pairs over the 10,000-file
+  recipe subset with the disjoint ten-note merge fixture (`f04-native`: fresh,
+  unchanged, small merge). This rechecks the small-merge noise with P7b2 constant.
+- *R4, full preserved route:* export R2's base fresh library with
+  `sql2obsidian.py`, then import that bundle once with `HEAD`. This is a scale
+  confirmation of P7b2 on the route F02 targeted, not a pair; the pre-P7b2
+  baseline is the known quadratic path, and the handoff says not to repeat it.
+- *R5, recovery:* interrupt a 40,000-file fresh import with SIGINT, check it
+  leaves no rows, then rerun it and compare its fingerprint with an
+  uninterrupted import.
+- *R6, attribution:* one cProfile run of an unchanged 10,000-file rerun, kept
+  separate from the timing runs, to explain why an unchanged rerun costs 85%
+  of a fresh import.
+- *Inputs:* synthetic RAW/preserved/media inputs from
+  `movenotes-p7a-20260918-monitor` satisfy the harness's required arguments;
+  the cases above read only the named corpora. Outputs go to new
+  `/run/media/$USER/HD2/movenotes-p7c-20261022-*` roots, run sequentially with
+  nothing else on the disk, batch size 500.
+- *Gates:* the adoption gates below are unchanged. F04 is adopted at full scale
+  only if R1 shows at least a 5% median improvement with no unexplained memory,
+  disk, small-merge or RAW regression. The Go producer targets (both routes
+  ≥30% faster and vault/RAW ≤1.5) cannot be met by Python changes; P7c reports
+  them as unmet and asks the user to re-evaluate them, as the user directed.
+
 F02/F04 subset gains and exact output comparisons are retained, but full-corpus
 adoption is not claimed. Rejected Go G08 stays out of full trials; no Go candidate
 is approved. Any producer implementation needs an explicit handoff naming its
 files and checkout, plus the user's approval to write to the Notrios checkout.
 
-Remaining sequence: resumed P7c → resumed 7c → 7d → 7e,
+Remaining sequence: resumed P7c → U1 → resumed 7c → 7d → 7e,
 subject to the unresolved performance and compatibility gates. Every data-heavy
 run follows the background-run rule under
 [Execution and handoff rules](#execution-and-handoff-rules). Preserve C7c's documented differences: RAW's 842,813 tag
@@ -767,8 +807,8 @@ Target refusal is mandatory in 2a, not deferred to this step.
 |---|---|---|---|
 | 7a / Terra — complete | Small offline publication-fixture → SQLite → vault regression with independent expectations. | 6d | Notes/tags/links, exact attachments, absence of excluded sentinels and receipt assertions pass. |
 | 7b / Main — complete | Actual local Hugo/Ledger + Bluge build and bounded Pagefind fixture; test search/subpath URLs. | 7a | Canonical URLs, links, attachments, explicit tag counts and backend isolation correct; excluded sentinel absent from publishable files/index sources. |
-| 7c / Main | Resume after C7a–C7c and P7a–P7c; large-corpus trials below; record time/RSS/disk/counts/hashes and failure recovery. Partial Codex execution is retained; remaining work is Claude Code Main. Resumed trials use the Notrios `v1.0.0` pin. | P7c, S43b, E1 | Importer bounds demonstrated; stage bottlenecks separated; no unmeasured whole-pipeline memory claim. |
-| 7d / Main | README script list/usage and CHANGELOG from measured accepted commands. The CHANGELOG also records S43c's generic fixes: `cleanres.py` no longer deletes resources referenced only by titled links, and native vault reimport no longer leaves a stray `)` or an unresolved titled link. It also records E1: `sql2obsidian.py` and `sql2joplin.py` no longer rewrite the database they read. Reassigned from Codex Luna on 2026-10-22. | 7c, S43b, S43c, E1 | Reproducible publication → import → vault → site recipe; loose/fresh-output limitations; no private content in public examples. |
+| 7c / Main | Resume after C7a–C7c and P7a–P7c; large-corpus trials below; record time/RSS/disk/counts/hashes and failure recovery. Partial Codex execution is retained; remaining work is Claude Code Main. Resumed trials use the Notrios `v1.0.0` pin. | P7c, S43b, E1, U1 | Importer bounds demonstrated; stage bottlenecks separated; no unmeasured whole-pipeline memory claim. |
+| 7d / Main | README script list/usage and CHANGELOG from measured accepted commands. The CHANGELOG also records S43c's generic fixes: `cleanres.py` no longer deletes resources referenced only by titled links, and native vault reimport no longer leaves a stray `)` or an unresolved titled link. It also records E1: `sql2obsidian.py` and `sql2joplin.py` no longer rewrite the database they read, P7b2's bounded fresh-import lookups and, if adopted, U1's faster unchanged reruns. Reassigned from Codex Luna on 2026-10-22. | 7c, S43b, S43c, E1, U1 | Reproducible publication → import → vault → site recipe; loose/fresh-output limitations; no private content in public examples. |
 | 7e / Main | Full regression gate, evidence/diff review, final status and commit. | 7d | Every required method passes; skipped integrations not counted as acceptance. |
 
 ### Compatibility prerequisites added after partial 7c trials
@@ -924,6 +964,21 @@ P7a and P7b are complete under their recorded Codex assignments. P7b2 is
 complete under Claude Code Main, and the remaining P7c work is a Main slice. Their data-heavy runs follow the
 background-run rule in [Execution and handoff rules](#execution-and-handoff-rules).
 They need no auxiliary monitor, and Main does not poll for progress.
+
+**Fix found during resumed P7c (2026-10-22).** Planned work, not just a
+recorded finding, at the user's direction. Its design is frozen here before
+implementation.
+
+| Slice / planned owner | Work and owned output | Depends on | Acceptance |
+|---|---|---|---|
+| U1 / Main | Skip unchanged native vault files before converting them. R6's profile of an unchanged 10,000-file rerun (58.3 s under cProfile) spends 31.6 s building rows that are then skipped: two frontmatter parses per file (13.1 s), link rewriting (3.2 s), compressed application data (3.1 s) and JSON encoding. That is why an unchanged full-corpus rerun costs 85% of a fresh import. `_insert_rows` decides "unchanged" from the item ID and the SHA-256 of the file's raw bytes alone. The ID is already known after the inventory pass (the frontmatter `joplin-properties` id, or the path-derived ID), so the same decision can be made from a batched lookup of `(ID, raw digest)` before conversion. Owns `obsidian2sql.py`, tests and a candidate harness. | P7c | An identical rerun and a merge into an existing library produce databases fingerprint-identical to the current code, with the same inserted/skipped counts and the same collision errors (changed bytes under an existing ID still refuse). Tag and note-tag rows of skipped notes stay exactly as they are; the design must show they need no regeneration, or regenerate them cheaply. Fresh imports are unaffected. Measured with paired alternating runs: the unchanged rerun improves by at least the 5% adoption gate on the 10,000-file subset and in one full-corpus pair, with no fresh, small-merge or memory regression. The preserved-bundle and RAW unchanged paths are checked against R2 and R4; extending U1 to them needs its own measured evidence. Focused tests plus all five regression modules. |
+
+*Order (decided 2026-10-22, when U1 was added):* U1 comes after resumed P7c
+and before resumed 7c. It changes `obsidian2sql.py`, so landing it during
+P7c's frozen matrix would invalidate that matrix's comparisons. Landing it
+before 7c means 7c's full-corpus trials, which include unchanged reruns,
+measure the final code. 7c and 7d now also depend on U1, and 7d's CHANGELOG
+records it if it is adopted.
 
 **P7a completed audit:** [performance evidence](NOTRIOS_PERFORMANCE_EVIDENCE.md)
 classifies F01–F15 and the additional Notrios review G01–G10, records separate
@@ -1140,6 +1195,7 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-10-22 | S43c complete | The Claude Code parent froze the design first, because reading the code found a third consumer: `cleanres.py` built its referenced set from a title-blind regex, so it deleted resources referenced only by titled links. That is data loss, made reachable for Notrios imports by S43a's titled embeds. `common.LINK_TITLE` now carries S43a's grammar. `RESOURCE_LINK_RE` accepts it, so `cleanres.py` counts titled references and `sql2obsidian.py` keeps resource titles (a titled image becomes a Markdown image). `obsidian2sql.py` tries a titled form first and keeps the title after `:/id`; everything else takes the unchanged untitled pattern. `obsidian2site.py` keeps exactly one delimited title on resolved note and asset links. A baseline-versus-new harness shows a 3,000-note subset of the real recipe vault unchanged: 7,426 site files are identical after normalising generation-time values, and 7,736 reimported items are identical. For the S43b titled vault only the titled notes change, with site URLs unchanged; reimport previously left a stray `)` and an unresolved titled image. The new regression tests fail on the baseline and pass now. All 282 tests in the five required modules pass (194.732s) with both bytecode-suppression controls. 7d's CHANGELOG entry now must record these generic fixes. No worker was used. Next: ask to proceed to E1. |
 | 2026-10-22 | E1 complete | The Claude Code parent probed SQLite 3.46.1 and refined the user's decision: a `mode=ro` connection to a WAL database leaves `-wal`/`-shm` behind, so `notesdb.open_database_for_reading` uses `mode=ro` for rollback-journal databases and `query_only` for WAL ones. Neither changes the journal mode. A read-only check falls back to `open_database` when migration or recovery is needed. `sql2obsidian.py` and `sql2joplin.py` use it. A completed Notrios import is now byte-identical after both exports, leaves no sidecar files, and reruns as `unchanged`; it previously refused with `completed payload inventory differs`. Exporter output is identical to `HEAD` for the 3,000-note real recipe subset (10,738 vault and 7,736 Joplin files) and for the titled import. New tests cover both journal modes and migration of a database missing an index or at an older version. `PERFORMANCE_REVIEW.md` is updated. All 285 tests in the five required modules pass (197.130s) with both bytecode-suppression controls. No worker was used. Next: ask to proceed to P7b2. |
 | 2026-10-22 | P7b2 complete | The Claude Code parent measured two bounded treatments against the previous code on deterministic recipe subsets: creating `joplinididx` when `obsidian2sql.py` creates a new database, and an in-memory map of this run's IDs. All outputs were fingerprint-identical. At 40,000 files the fresh import took 330.45 s before, 130.08 s with the index and 136.81 s with the map, which also added about 50 MiB of memory. The index treatment was adopted, so the batch query and C01/C02 checks are unchanged and merges and reruns take the same path as before; 10,000-file unchanged reruns and ten-note merges are unchanged in output and time. A full-corpus scale check imported all 382,206 files (1,237,552 items) in 1,628.36 s, where the interrupted P7c baseline ran 17,943.11 s without finishing; an identical rerun skipped every item in 1,388.56 s. A new regression test records each batch lookup's query plan during a fresh import and fails on the previous code. All 286 tests in the five required modules pass, and the P7c harness tests pass. F02 is now subsumed, and the full-corpus memory, unchanged-rerun cost and changed evidence mount path were added to resumed P7c's plan. `PERFORMANCE_REVIEW.md` and the P7c evidence are updated. No worker was used. Next: ask to proceed to resumed P7c. |
+| 2026-10-22 | U1 added | At the user's request, R6's finding became plan slice U1 instead of a note for later: an unchanged native rerun converts every file (frontmatter, links, compressed application data) before `_insert_rows` finds it unchanged, which is why it costs 85% of a fresh import. U1 makes the same `(ID, raw digest)` decision before conversion; its acceptance requires fingerprint-identical results, unchanged collision errors and a measured paired improvement. Ordered after resumed P7c and before resumed 7c; 7c and 7d now depend on U1. Documentation and provenance only, while the R3/R1/R2 batch runs. No worker was used. |
 
 ## Assignment amendment — 2026-10-22
 
@@ -2123,6 +2179,32 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17; 2026-10-22 user reassignment to the Claude Code parent |
 | Execution evidence | User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement.; User: Proceed with P7c; native spawn /root/p7c_validation; NOTRIOS_P7C_EVIDENCE.md; Private movenotes-p7c-* HD2 manifests, source hashes, results, failed full trial and child traceback. |
 | Commit | P7c partial-evidence checkpoint (contains this ledger) |
+
+</details>
+
+<details><summary>U1 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | Resumed P7c R6 profile, 2026-10-22; user: Add a plan item to fix this. |
+| Execution evidence | Scratch profile /tmp/claude-$UID/-home-$USER-projects-movenotes-v3/<session>/scratchpad/p7c-r6/unchanged.prof |
+| Commit | pending |
 
 </details>
 

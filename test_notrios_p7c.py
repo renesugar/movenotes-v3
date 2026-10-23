@@ -35,9 +35,15 @@ long_batch = load_script("notrios_p7c_long_batch.py")
 
 class P7cPrepareTests(unittest.TestCase):
     def test_variant_transforms_are_isolated(self) -> None:
-        f02 = "        notesdb.ensure_joplin_id_index(sqlconn)\n"
+        f02 = (
+            "        notesdb.ensure_joplin_id_index(sqlconn)\n"
+            "        notesdb.populate_missing_note_folders(sqlconn)\n"
+        )
+        p7b2 = "        notesdb.ensure_joplin_id_index(sqlconn)\n"
         candidate = (
             "prefix\n"
+            + p7b2
+            + "    else:\n"
             + f02
             + "def _native_rows(\n"
             + "    values: list[tuple[Path, str]]\n"
@@ -56,11 +62,18 @@ class P7cPrepareTests(unittest.TestCase):
         )
         no_f02 = prepare._without_f02(candidate)
         self.assertNotIn(f02, no_f02)
+        self.assertEqual(no_f02.count(p7b2), 1)
+        self.assertIn("        notesdb.populate_missing_note_folders(sqlconn)\n", no_f02)
         no_f04 = prepare._without_f04(candidate, reference)
         self.assertIn("list[Path]", no_f04)
         self.assertNotIn("list[tuple[Path, str]]", no_f04)
         with self.assertRaises(ValueError):
             prepare._without_f02(no_f02)
+
+    def test_p7b2_index_is_detected_in_the_production_importer(self) -> None:
+        production = (ROOT / "obsidian2sql.py").read_text(encoding="utf-8")
+        self.assertTrue(prepare._has_p7b2_index(production))
+        self.assertFalse(prepare._has_p7b2_index("prefix\n"))
 
     def test_recipe_subset_is_deterministic_and_preserves_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

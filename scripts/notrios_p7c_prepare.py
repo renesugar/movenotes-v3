@@ -56,9 +56,23 @@ def _function_block(text: str, start_marker: str, end_marker: str) -> str:
     return text[start:end]
 
 
+_P7B2_MARKER = (
+    "        notesdb.create_database(sqlconn, create_indexes=False)\n"
+    "        # Every batch looks up its item IDs before inserting;"
+)
+
+
+def _has_p7b2_index(obsidian: str) -> bool:
+    """P7b2 creates joplinididx with a new database, which subsumes F02."""
+    return _P7B2_MARKER in obsidian
+
+
 def _without_f02(obsidian: str) -> str:
-    marker = "        notesdb.ensure_joplin_id_index(sqlconn)\n"
-    return _replace_once(obsidian, marker, "", "F02 call")
+    # Anchored to the folder repair it serves: since P7b2 the same call also
+    # appears where a new database is created, and that one must stay.
+    repair = "        notesdb.populate_missing_note_folders(sqlconn)\n"
+    marker = "        notesdb.ensure_joplin_id_index(sqlconn)\n" + repair
+    return _replace_once(obsidian, marker, repair, "F02 call")
 
 
 def _without_f04(candidate: str, reference: str) -> str:
@@ -113,6 +127,7 @@ def prepare(source: Path, reference: Path, output: Path) -> dict[str, object]:
                 "f02_early_joplin_id_index": name in {"f02", "both"},
                 "f04_relative_path_reuse": name in {"f04", "both"},
                 "collision_fixes_retained": True,
+                "p7b2_new_database_joplin_id_index": _has_p7b2_index(candidate_text),
             }
         metadata: dict[str, object] = {
             "format": FORMAT,
@@ -127,6 +142,10 @@ def prepare(source: Path, reference: Path, output: Path) -> dict[str, object]:
                 "f02": "C01/C02 plus early joplin_id index",
                 "f04": "C01/C02 plus retained normalized relative paths",
                 "both": "C01/C02 plus F02 and F04",
+                "p7b2": "Where p7b2_new_database_joplin_id_index is true, every "
+                "variant indexes item IDs before the first batch, so F02's "
+                "removal no longer changes behaviour: base matches f02 and f04 "
+                "matches both.",
             },
         }
         (temporary / "SOURCE_VARIANTS.json").write_text(
