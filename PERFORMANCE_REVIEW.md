@@ -134,6 +134,14 @@ files the fresh import drops from 330 s to 130 s with unchanged output and peak
 memory. Keeping this run's IDs in memory instead was slightly slower and added
 memory proportional to the vault, so it was not adopted.
 
+The inventory walk also keeps each file's normalized relative path instead of
+recomputing it with `Path.relative_to()` at every later stage, which dominated
+the native fresh-import profile. On five alternating 10,000-file pairs the fresh
+import's median time fell to 0.834 of the previous code's and the unchanged
+rerun's to 0.823, with identical output and a ten-note merge unchanged. Over
+the full vault all three paired timings were faster, at 2.4–3.4% more peak memory
+for the retained paths.
+
 The resulting complexity is O(vault files + links) for inventory and link
 resolution, plus indexed/batched SQLite insertion. Memory is O(path index +
 batch note bytes + tags), rather than O(total vault bytes).

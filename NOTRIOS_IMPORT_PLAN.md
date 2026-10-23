@@ -29,16 +29,15 @@ and the new three-note Hugo/Bluge flow passes. **C7c is complete**: the
 body/metadata/title differences. Tag channels remain separate; route equivalence
 and full 7c acceptance are not claimed. **P7a is complete**; see [performance evidence](NOTRIOS_PERFORMANCE_EVIDENCE.md).
 **P7b is complete**; see [candidate evidence](NOTRIOS_P7B_EVIDENCE.md).
-**P7c is partially validated**; its full-scale blocker, fresh-import ID lookups
-that scanned the growing table, is fixed by **P7b2 (complete)**: the full
+**P7c is complete**; its full-scale blocker, fresh-import ID lookups
+that scanned the growing table, was fixed by **P7b2 (complete)**: the full
 382,206-file recipe vault now imports in 1,628 s, where the interrupted baseline
 ran 17,943 s without finishing. See [P7c evidence](NOTRIOS_P7C_EVIDENCE.md). The producer link-syntax
 prerequisites came first: **S43a, S43b, S43c and E1 are complete**. S43a found two
-downstream fixes, now planned as **S43c** and **E1**. **Resumed P7c has run its
-whole frozen matrix** (R1–R6, all outputs identical). It stays open on two user
-decisions: F04's full-scale gate, which one noisy pair could not resolve, and
-the unmet Go producer targets. It found three fixes, planned as **U1**, **I1**
-and **M1**.
+downstream fixes, now planned as **S43c** and **E1**. **Resumed P7c ran its
+whole frozen matrix** (R1–R6, all outputs identical). On 2026-10-23 the user
+accepted F04 at full scale and removed the Go producer targets from the plan.
+P7c found three fixes, planned as **U1**, **I1** and **M1**. Next is **U1**.
 Plan revised on **2026-10-22**: all remaining work is assigned to the Claude Code
 main model (**Main**), and the user confirmed this for the session. No Codex
 worker or monitor remains in the plan. See
@@ -287,21 +286,22 @@ Session confirmation: **confirmed**.
 
 Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID claude-opus-5-5)**. Product/client version: not exposed; model provider: Anthropic (runtime-reported).
 
-- All remaining work (S43b, S43c, E1, P7b2, resumed P7c, U1, I1, M1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
+- All remaining work (U1, I1, M1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
 - Codex luna_worker and terra_worker do not exist in Claude Code and are not replaced by Claude subagents. Spawning one requires an explicit user request and a recorded plan amendment first.
 - The Codex auxiliary Luna monitor is retired for remaining work. Main runs long data-heavy commands as harness-tracked background commands, is re-invoked once when they exit, and does not poll.
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 - Completed slices keep their recorded Codex attribution. The earlier Codex session is under previous_sessions and its assignments under assignment_history.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **resumed P7c — benchmark matrix and full-corpus confirmation**,
+Next slice: **U1 — skip unchanged native vault files before conversion**,
 assigned to the Claude Code parent (**Main**). Session assignments are
-confirmed. The user authorized the resume on 2026-10-22.
+confirmed. Slice authorization is pending.
 
-**Resumed P7c status (2026-10-23).** R1–R6 have run as frozen below; every
+**Resumed P7c, complete (2026-10-23).** R1–R6 ran as frozen below; every
 comparison is fingerprint-identical, and the five required modules and the
 harness tests pass. See [the resumed results](NOTRIOS_P7C_EVIDENCE.md#resumed-p7c--f04-with-p7b2-constant-2026-102223).
-Two decisions remain the user's before P7c can close:
+The user decided the two open questions on 2026-10-23: "Remove the Go targets
+from the plan ; Accept F04 at full scale." What they were decided on:
 
 - *F04 at full scale.* F04 meets the adoption gate on the 10,000-file subset in
   all five alternating pairs (median fresh 0.834, unchanged 0.823, merge 1.000,
@@ -312,14 +312,21 @@ Two decisions remain the user's before P7c can close:
   result is held as ambiguous. Options: accept F04 on the subset evidence plus
   three consistently faster full-scale timings; run more alternating
   full-corpus pairs (about an hour per pair per case); or remove F04 from
-  `HEAD`.
-- *Go producer targets.* Unmet, as expected, since no Go candidate is
-  approved. The Python importer's full-corpus fresh vault/RAW ratio is about
-  1.27 base and 1.13 with F04, within the RAW noise above.
+  `HEAD`. **Decided: accepted at full scale**, on the subset evidence and the
+  three faster full-scale timings, so F04 stays in `HEAD`.
+- *Go producer targets.* They were set against `notriosctl` timings at Notrios
+  `7662fdd`, which is 290 commits before the `v1.0.0` pin and predates Notrios's
+  own J17/J32 performance work. Resumed P7c ran only this repository's Python
+  importers, so the targets were stale and unmeasured, not met or unmet.
+  **Decided: removed from the plan**; see the adoption gates below.
 
-The runs also found three fixes, planned below as U1, I1 and M1.
+The runs also found three fixes, planned below as U1, I1 and M1. U1's design
+and acceptance are frozen in its row under
+[the performance prerequisites](#performance-investigation-and-measured-adoption-before-resuming-7c).
+The order of I1 and M1 after U1 is proposed and awaits the user's answer.
 
-P7c remains incomplete: its full Python native baseline was interrupted at
+*Before the resume (2026-10-22, kept as the frozen record):* P7c was
+incomplete: its full Python native baseline was interrupted at
 17,943.11s while executing unindexed batch-ID lookups. See
 [P7c evidence and bounded handoff](NOTRIOS_P7C_EVIDENCE.md). **P7b2 / Main is
 complete**: a new database gets `joplinididx` before the first batch, so every
@@ -371,17 +378,17 @@ P7b2 treatment held constant.
   nothing else on the disk, batch size 500.
 - *Gates:* the adoption gates below are unchanged. F04 is adopted at full scale
   only if R1 shows at least a 5% median improvement with no unexplained memory,
-  disk, small-merge or RAW regression. The Go producer targets (both routes
-  ≥30% faster and vault/RAW ≤1.5) cannot be met by Python changes; P7c reports
-  them as unmet and asks the user to re-evaluate them, as the user directed.
+  disk, small-merge or RAW regression. *(Frozen text. R1 could not resolve 5%;
+  the user accepted F04 at full scale on 2026-10-23. The Go producer targets
+  this bullet also named were removed from the plan the same day.)*
 
-F02/F04 subset gains and exact output comparisons are retained, but full-corpus
-adoption is not claimed. Rejected Go G08 stays out of full trials; no Go candidate
-is approved. Any producer implementation needs an explicit handoff naming its
+F02/F04 subset gains and exact output comparisons are retained. F04 is adopted
+at full scale by the user's decision; F02 is subsumed by P7b2. Rejected Go G08
+stays out of full trials; no Go candidate is approved. Any producer implementation needs an explicit handoff naming its
 files and checkout, plus the user's approval to write to the Notrios checkout.
 
-Remaining sequence: resumed P7c → U1 → resumed 7c → 7d → 7e, with I1 and M1
-proposed after U1, subject to the unresolved performance and compatibility gates. Every data-heavy
+Remaining sequence: U1 → resumed 7c → 7d → 7e, with I1 and M1 proposed after
+U1, subject to the unresolved compatibility gates. Every data-heavy
 run follows the background-run rule under
 [Execution and handoff rules](#execution-and-handoff-rules). Preserve C7c's documented differences: RAW's 842,813 tag
 associations versus vault zero, RAW metadata projection omission, and 3,682
@@ -978,16 +985,18 @@ primarily concern the latter Python paths. Investigate both tracks, but attribut
 improvements to the executable/stage actually tested. Equal document counts do
 not imply equal source bytes, metadata, links, SQL work or filesystem operations.
 Historical runs are observations, not controlled speedup baselines.
+*These timings no longer set any target: the user removed the Go producer
+targets on 2026-10-23 (see the adoption gates below).*
 
 | Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
 | P7a / Main | Audit every review claim against pinned/current code; trace the actual producer and Python paths, profile representative imports, freeze benchmark protocol and candidate handoffs in a sanitized performance evidence document. | C7c | Each finding classified with source and measurement evidence; dominant contributors to the observed gap identified or explicitly unresolved; baseline and candidate scope separated by executable. |
 | P7b / Terra | Implement isolated, profile-supported candidates approved by P7a, with focused correctness/performance regressions. Own only explicitly handed-off importer/helpers/tests; use a separate bounded candidate per experiment. | P7a | Each candidate preserves invariants and has a reproducible baseline comparison; ineffective/regressing candidates are rejected, not bundled into production. Main reviews before promotion. |
 | P7b2 / Main — complete | Bound fresh-import ID lookups before each batch; preserve collision/rollback semantics and compare complete import cost. Own Python importer, narrowly needed database helper, tests and candidate harness only. Reassigned from Codex Terra on 2026-10-22. | P7c scale finding | Representative fresh/unchanged/merge checks pass; no growing-table scan per batch; measured candidate ready for resumed P7c. |
-| P7c / Main | Execute the frozen sequential benchmark matrix, full-corpus confirmation and final regression/recovery commands; prepare aggregate findings dispositions and reproducible scripts. Partial Codex Luna execution is retained; remaining work reassigned to Main on 2026-10-22. | P7b; P7b2 for scale-blocker resume | Repeatable performance improvement demonstrated for each adopted change; paired route times, gap/ratio, resources and correctness evidence reported. Main decides adoption and reviews any unmet target before resumed 7c. |
+| P7c / Main — complete | Execute the frozen sequential benchmark matrix, full-corpus confirmation and final regression/recovery commands; prepare aggregate findings dispositions and reproducible scripts. Partial Codex Luna execution is retained; remaining work reassigned to Main on 2026-10-22. | P7b; P7b2 for scale-blocker resume | Repeatable performance improvement demonstrated for each adopted change; paired route times, resources and correctness evidence reported. Main proposes adoption; the user decided F04 and removed the Go targets on 2026-10-23. |
 
 P7a and P7b are complete under their recorded Codex assignments. P7b2 is
-complete under Claude Code Main, and the remaining P7c work is a Main slice. Their data-heavy runs follow the
+complete under Claude Code Main, and so is the remaining P7c work. Their data-heavy runs follow the
 background-run rule in [Execution and handoff rules](#execution-and-handoff-rules).
 They need no auxiliary monitor, and Main does not poll for progress.
 
@@ -1105,13 +1114,18 @@ performance win without measurements.
    Reuse a matching controlled full result for later acceptance where all input,
    implementation and gate fingerprints agree; do not repeat it needlessly.
 
-**Adoption and gap-reduction gates:** The objective is to substantially reduce
-both import times and close the Obsidian/RAW gap. Planning targets are at least
-30% lower wall time for each producer route and vault/RAW ≤1.5 under matched
-conditions (versus the observed ~2.37); these are goals to test, not promises or
-permission to cut content. Report absolute seconds saved, per-route speedups,
-absolute gap and ratio so slowing RAW cannot masquerade as closing the gap.
-Revise unmet targets only with explicit user review of the measured limits.
+**Adoption gates:** The objective is to substantially reduce this
+repository's import times without cutting content. Report absolute seconds
+saved and per-route speedups, and measure RAW and vault under matched
+conditions so a change to one route cannot hide a regression on the other.
+
+*Removed 2026-10-23, at the user's direction:* the Go producer targets (at least
+30% lower wall time for each `notriosctl` route and vault/RAW ≤1.5, against the
+observed ~2.37). They were measured on Notrios `7662fdd`, not the `v1.0.0` pin;
+Notrios has since done its own import performance work, and nothing in this
+repository can change them. Notrios's import performance is that project's to
+track. The Go profiling track above remains as the record of how P7a and P7b
+were run.
 
 Adopt a candidate only when representative end-to-end improvement exceeds
 observed measurement noise (target ≥5% median for a meaningful candidate), with
@@ -1237,6 +1251,7 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-10-22 | P7b2 complete | The Claude Code parent measured two bounded treatments against the previous code on deterministic recipe subsets: creating `joplinididx` when `obsidian2sql.py` creates a new database, and an in-memory map of this run's IDs. All outputs were fingerprint-identical. At 40,000 files the fresh import took 330.45 s before, 130.08 s with the index and 136.81 s with the map, which also added about 50 MiB of memory. The index treatment was adopted, so the batch query and C01/C02 checks are unchanged and merges and reruns take the same path as before; 10,000-file unchanged reruns and ten-note merges are unchanged in output and time. A full-corpus scale check imported all 382,206 files (1,237,552 items) in 1,628.36 s, where the interrupted P7c baseline ran 17,943.11 s without finishing; an identical rerun skipped every item in 1,388.56 s. A new regression test records each batch lookup's query plan during a fresh import and fails on the previous code. All 286 tests in the five required modules pass, and the P7c harness tests pass. F02 is now subsumed, and the full-corpus memory, unchanged-rerun cost and changed evidence mount path were added to resumed P7c's plan. `PERFORMANCE_REVIEW.md` and the P7c evidence are updated. No worker was used. Next: ask to proceed to resumed P7c. |
 | 2026-10-22 | U1 added | At the user's request, R6's finding became plan slice U1 instead of a note for later: an unchanged native rerun converts every file (frontmatter, links, compressed application data) before `_insert_rows` finds it unchanged, which is why it costs 85% of a fresh import. U1 makes the same `(ID, raw digest)` decision before conversion; its acceptance requires fingerprint-identical results, unchanged collision errors and a measured paired improvement. Ordered after resumed P7c and before resumed 7c; 7c and 7d now depend on U1. Documentation and provenance only, while the R3/R1/R2 batch runs. No worker was used. |
 | 2026-10-23 | Resumed P7c results | The Claude Code parent ran the frozen R1–R6 matrix with P7b2 constant; every comparison is fingerprint-identical. On five alternating 10,000-file pairs F04 is faster in every pair (median fresh 0.834, unchanged 0.823, merge 1.000, memory +0.5%). At full scale R1's single gated fresh pair is 0.969, below the frozen 5% gate, with unchanged 0.859 and the ungated fresh setup 0.803; R2's RAW control, with identical code, moved −25% to +31%, so F04's full-scale adoption is held as ambiguous for the user. R4 exported the full RAW library in 1,406 s and reimported the bundle in 2,256 s, losslessly (only the `note_obsidian_*` snapshot columns differ, on the 382,206 notes), but at 3.5 GiB and 1.8 GiB peak RSS from holding the 530 MB manifest. R5's SIGINT, in the inventory and in a batch insert, left no notes, and both reruns matched the uninterrupted fingerprint; two earlier attempts were invalid because a non-interactive shell's `&` made the child ignore SIGINT. The reruns were slow because an empty existing library builds all eight indexes before inserting. The Go producer targets remain unmet. 286 tests in the five required modules pass (149.366 s) and the 11 harness tests pass. I1 and M1 are added from R5 and R4, with the order I1 → M1 after U1 proposed. P7c stays open. No worker was used. Next: the user's F04 and Go-target decisions and the I1/M1 order, then ask to proceed to U1. |
+| 2026-10-23 | P7c complete | The user decided: "Remove the Go targets from the plan ; Accept F04 at full scale." F04 is adopted at full scale and stays in `HEAD`; `PERFORMANCE_REVIEW.md` records it. The Go producer targets are removed from the adoption gates and the frozen design, with a dated note. Correction to the row above: they were not "unmet". They were set on `notriosctl` timings at Notrios `7662fdd`, 290 commits before the `v1.0.0` pin and Notrios's own J17/J32 performance work, and P7c never ran Notrios. The P7c evidence and ledger record are corrected to match. Documentation and provenance only. No worker was used. Next: the user's answer on the proposed I1/M1 order, then ask to proceed to U1. |
 
 ## Assignment amendment — 2026-10-22
 
@@ -2197,7 +2212,7 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 </details>
 
-<details><summary>P7c — in progress; planned parent</summary>
+<details><summary>P7c — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -2214,12 +2229,12 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Parent | Codex (partial run to 2026-09-19); Claude Code parent (remaining work) |
 | Parent underlying model family | GPT-6 (Codex partial run); Claude Opus 5.5, runtime-reported claude-opus-5-5 (remaining work) |
 | Parent reasoning effort | not exposed |
-| Parent contribution | Reviewed resume/input/metric correctness; launched real10k and fullnative/final prepared tests after worker external-tool approval stalls; long tool-side waits. Interrupted full baseline at17,943.11s, traced unindexed batch lookup and confirmed EXPLAIN/VM scaling. Added P7b2 prerequisite; no production edits. 2026-10-22/23, Claude Code parent: froze the resumed design (R1-R6) before running; fixed notrios_p7c_prepare.py's F02 marker for P7b2 and recorded the P7b2 constant; ran R3 (five alternating 10,000-file pairs), R1 (full native pair), R2 (full RAW control pair), R4 (full sql2obsidian export and preserved import, plus a column comparison with the RAW library), R5 (SIGINT recovery at 40,000 files, plus new-versus-empty-library checks) and R6 (cProfile of an unchanged rerun); recorded the results in NOTRIOS_P7C_EVIDENCE.md; planned U1, I1 and M1 from R6, R5 and R4. |
-| Validation | Isolated synthetic and real10k comparisons match. Corrected prepared-seed5pairs match; smallmerge slower/noisy remains unresolved. Fullbaseline interrupted17943.11s in unindexed lookup, candidate not run. Ten focused harness tests pass. Full acceptance blocked; NOTRIOS_P7C_EVIDENCE.md. 2026-10-23 resumed P7c: every comparison fingerprint-identical. R3 10,000 files, five alternating pairs, f04/base medians fresh 0.834, unchanged 0.823, merge 1.000; RSS +0.5%. R1 full native single pair: fresh 0.969, unchanged 0.859, ungated fresh setup 0.803; RSS +2.4-3.4%. R2 RAW control (identical joplin2sql.py): 1.307, 0.755, 0.933, so single-pair noise reaches 31%. F04 meets the subset gate; its full-scale gate (R1 >=5%) is unresolved and held as ambiguous for the user. R4: export 1,406 s at 3,668,096 KiB, preserved import 2,256 s at 1,936,788 KiB; all 1,237,553 items present and 69 of 75 columns identical, only the note_obsidian_* snapshot columns differ on the 382,206 notes. R5: SIGINT in inventory and in batch insert both leave 0 notes, and both reruns match the uninterrupted fingerprint. Go producer targets unmet, as expected. 286 tests in the five required modules pass (149.366 s) with PYTHONDONTWRITEBYTECODE=1 and -B; test_notrios_p7c.py 11 tests pass. |
-| Delegation failure or reassignment | Worker external ps/approval calls stalled; parent final-validation launches and long tool waits used after confirming no active process. Worker could not access parent terminal session. No implementation reassignment. 2026-10-22: user reassigned the remaining P7c work from codex luna_worker (gpt-5.6-luna, fixed max) to the Claude Code parent and retired the Luna monitor; the partial Luna record above is unchanged. |
+| Parent contribution | Reviewed resume/input/metric correctness; launched real10k and fullnative/final prepared tests after worker external-tool approval stalls; long tool-side waits. Interrupted full baseline at17,943.11s, traced unindexed batch lookup and confirmed EXPLAIN/VM scaling. Added P7b2 prerequisite; no production edits. 2026-10-22/23, Claude Code parent: froze the resumed design (R1-R6) before running; fixed notrios_p7c_prepare.py's F02 marker for P7b2 and recorded the P7b2 constant; ran R3 (five alternating 10,000-file pairs), R1 (full native pair), R2 (full RAW control pair), R4 (full sql2obsidian export and preserved import, plus a column comparison with the RAW library), R5 (SIGINT recovery at 40,000 files, plus new-versus-empty-library checks) and R6 (cProfile of an unchanged rerun); recorded the results in NOTRIOS_P7C_EVIDENCE.md; planned U1, I1 and M1 from R6, R5 and R4. Corrected the Go-target report (stale, not unmet) and recorded the user's decisions in the plan and evidence. |
+| Validation | Isolated synthetic and real10k comparisons match. Corrected prepared-seed5pairs match; smallmerge slower/noisy remains unresolved. Fullbaseline interrupted17943.11s in unindexed lookup, candidate not run. Ten focused harness tests pass. Full acceptance blocked; NOTRIOS_P7C_EVIDENCE.md. 2026-10-23 resumed P7c: every comparison fingerprint-identical. R3 10,000 files, five alternating pairs, f04/base medians fresh 0.834, unchanged 0.823, merge 1.000; RSS +0.5%. R1 full native single pair: fresh 0.969, unchanged 0.859, ungated fresh setup 0.803; RSS +2.4-3.4%. R2 RAW control (identical joplin2sql.py): 1.307, 0.755, 0.933, so single-pair noise reaches 31%. F04 meets the subset gate; its full-scale gate (R1 >=5%) could not be resolved by one pair, and the user accepted F04 at full scale on 2026-10-23. R4: export 1,406 s at 3,668,096 KiB, preserved import 2,256 s at 1,936,788 KiB; all 1,237,553 items present and 69 of 75 columns identical, only the note_obsidian_* snapshot columns differ on the 382,206 notes. R5: SIGINT in inventory and in batch insert both leave 0 notes, and both reruns match the uninterrupted fingerprint. Go producer targets were stale (set on Notrios 7662fdd, not v1.0.0) and never measured here; the user removed them from the plan on 2026-10-23. 286 tests in the five required modules pass (149.366 s) with PYTHONDONTWRITEBYTECODE=1 and -B; test_notrios_p7c.py 11 tests pass. |
+| Delegation failure or reassignment | Worker external ps/approval calls stalled; parent final-validation launches and long tool waits used after confirming no active process. Worker could not access parent terminal session. No implementation reassignment. 2026-10-22: user reassigned the remaining P7c work from codex luna_worker (gpt-5.6-luna, fixed max) to the Claude Code parent and retired the Luna monitor; the partial Luna record above is unchanged. No worker was used for the remaining work. |
 | Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17; 2026-10-22 user reassignment to the Claude Code parent |
-| Execution evidence | User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement.; User: Proceed with P7c; native spawn /root/p7c_validation; NOTRIOS_P7C_EVIDENCE.md; Private movenotes-p7c-* HD2 manifests, source hashes, results, failed full trial and child traceback.; User: Proceed (resumed P7c, 2026-10-22); Private /run/media/$USER/HD2/movenotes-p7c-20261022-{sources,variants,r3-subset,r1r2-full,r4-preserved,r5-recovery}; NOTRIOS_P7C_EVIDENCE.md, Resumed P7c — F04 with P7b2 constant |
-| Commit | P7c partial-evidence checkpoint; resumed-P7c results checkpoint (contains this ledger) |
+| Execution evidence | User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement.; User: Proceed with P7c; native spawn /root/p7c_validation; NOTRIOS_P7C_EVIDENCE.md; Private movenotes-p7c-* HD2 manifests, source hashes, results, failed full trial and child traceback.; User: Proceed (resumed P7c, 2026-10-22); Private /run/media/$USER/HD2/movenotes-p7c-20261022-{sources,variants,r3-subset,r1r2-full,r4-preserved,r5-recovery}; NOTRIOS_P7C_EVIDENCE.md, Resumed P7c — F04 with P7b2 constant; User, 2026-10-23: Remove the Go targets from the plan ; Accept F04 at full scale. |
+| Commit | P7c partial-evidence checkpoint; 6f010c6 resumed-P7c results; P7c completion commit (contains this ledger) |
 
 </details>
 

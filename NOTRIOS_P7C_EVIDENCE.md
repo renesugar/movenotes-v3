@@ -350,14 +350,19 @@ outputs identical. At full scale the frozen gate asks R1 for at least a 5%
 median improvement; its one gated fresh pair shows 3.1% and its unchanged pair
 14.1%, and the ungated fresh setup pair 19.7%. All three full-scale F04 timings
 are faster, but R2 shows single-pair noise of up to 31%, so R1 neither confirms
-nor refutes 5%. Under the frozen gate F04's full-scale adoption is therefore
-**held as ambiguous**, not claimed; the decision is the user's.
+nor refutes 5%. Under the frozen gate F04's full-scale adoption was therefore
+held as ambiguous and put to the user, who on 2026-10-23 **accepted F04 at full
+scale** on this evidence. F04 stays in `HEAD`.
 
-**Go producer targets.** Unchanged and unmet, as expected: they require both
-Go routes at least 30% faster and vault/RAW at most 1.5, and no Go candidate is
-approved. For reference, the Python importer's fresh vault/RAW ratio in this
-batch, from medians of all full-corpus fresh timings, is about 1.27 base and
-1.13 with F04 (1,774 and 1,583 s against 1,402 s), with the RAW noise above.
+**Go producer targets — correction and removal.** An earlier draft of this
+section called them "unmet". That was wrong: they were set against `notriosctl`
+timings at Notrios `7662fdd` (7,245.65 s RAW, 17,142.24 s vault), 290 commits
+before the `v1.0.0` pin and before Notrios's own J17/J32 import performance
+work, and resumed P7c never ran Notrios. They were stale and unmeasured. On
+2026-10-23 the user removed them from the plan. For this repository's own
+importers, the full-corpus fresh vault/RAW ratio in this batch is about 1.27
+base and 1.13 with F04 (1,774 and 1,583 s against 1,402 s, medians of all fresh
+timings), with the RAW noise above; it is not comparable with the Go timings.
 
 Private roots under `/run/media/$USER/HD2/`: `movenotes-p7c-20261022-sources`
 (source trees, harness copies, run scripts, logs, `HOST_EVENTS.txt`),
