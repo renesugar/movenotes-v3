@@ -39,13 +39,14 @@ whole frozen matrix** (R1–R6, all outputs identical). On 2026-10-23 the user
 accepted F04 at full scale and removed the Go producer targets from the plan.
 P7c found three fixes, planned as **U1**, **I1** and **M1**. **U1 is complete**:
 an unchanged rerun now takes 0.47 (subset) and 0.52 (full vault) of the time it
-did before. Next is **I1**.
+did before. The user then added **V1** after M1: a damaged preservation bundle
+becomes an error that prints the commands to run next. Next is **I1**.
 Plan revised on **2026-10-22**: all remaining work is assigned to the Claude Code
 main model (**Main**), and the user confirmed this for the session. No Codex
 worker or monitor remains in the plan. See
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 S43b and resumed 7c pin the released Notrios **`v1.0.0`** (`2aab9a8`). The
-remaining order is I1 → M1 → resumed 7c → 7d → 7e.
+remaining order is I1 → M1 → V1 → resumed 7c → 7d → 7e.
 Slice **7c remains incomplete**; isolated work
 and checkpoints are under `/media/$USER/HD2/movenotes-7c-20260916/`.
 Both recipe imports succeeded (382,206 documents each), but bounded real
@@ -287,7 +288,7 @@ Session confirmation: **confirmed**.
 
 Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID claude-opus-5-5)**. Product/client version: not exposed; model provider: Anthropic (runtime-reported).
 
-- All remaining work (I1, M1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
+- All remaining work (I1, M1, V1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
 - Codex luna_worker and terra_worker do not exist in Claude Code and are not replaced by Claude subagents. Spawning one requires an explicit user request and a recorded plan amendment first.
 - The Codex auxiliary Luna monitor is retired for remaining work. Main runs long data-heavy commands as harness-tracked background commands, is re-invoked once when they exit, and does not poll.
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
@@ -388,7 +389,7 @@ at full scale by the user's decision; F02 is subsumed by P7b2. Rejected Go G08
 stays out of full trials; no Go candidate is approved. Any producer implementation needs an explicit handoff naming its
 files and checkout, plus the user's approval to write to the Notrios checkout.
 
-Remaining sequence (U1 complete): I1 → M1 → resumed 7c → 7d → 7e, subject to the
+Remaining sequence (U1 complete): I1 → M1 → V1 → resumed 7c → 7d → 7e, subject to the
 unresolved compatibility gates. Every data-heavy
 run follows the background-run rule under
 [Execution and handoff rules](#execution-and-handoff-rules). Preserve C7c's documented differences: RAW's 842,813 tag
@@ -841,8 +842,8 @@ Target refusal is mandatory in 2a, not deferred to this step.
 |---|---|---|---|
 | 7a / Terra — complete | Small offline publication-fixture → SQLite → vault regression with independent expectations. | 6d | Notes/tags/links, exact attachments, absence of excluded sentinels and receipt assertions pass. |
 | 7b / Main — complete | Actual local Hugo/Ledger + Bluge build and bounded Pagefind fixture; test search/subpath URLs. | 7a | Canonical URLs, links, attachments, explicit tag counts and backend isolation correct; excluded sentinel absent from publishable files/index sources. |
-| 7c / Main | Resume after C7a–C7c and P7a–P7c; large-corpus trials below; record time/RSS/disk/counts/hashes and failure recovery. Partial Codex execution is retained; remaining work is Claude Code Main. Resumed trials use the Notrios `v1.0.0` pin. | P7c, S43b, E1, U1, I1, M1 | Importer bounds demonstrated; stage bottlenecks separated; no unmeasured whole-pipeline memory claim. |
-| 7d / Main | README script list/usage and CHANGELOG from measured accepted commands. The CHANGELOG also records S43c's generic fixes: `cleanres.py` no longer deletes resources referenced only by titled links, and native vault reimport no longer leaves a stray `)` or an unresolved titled link. It also records E1: `sql2obsidian.py` and `sql2joplin.py` no longer rewrite the database they read, P7b2's bounded fresh-import lookups, F04's faster native inventory and, if adopted, U1's faster unchanged reruns, I1's faster recovery after an interrupted fresh import and M1's bounded preservation-manifest memory. Reassigned from Codex Luna on 2026-10-22. | 7c, S43b, S43c, E1, U1, I1, M1 | Reproducible publication → import → vault → site recipe; loose/fresh-output limitations; no private content in public examples. |
+| 7c / Main | Resume after C7a–C7c and P7a–P7c; large-corpus trials below; record time/RSS/disk/counts/hashes and failure recovery. Partial Codex execution is retained; remaining work is Claude Code Main. Resumed trials use the Notrios `v1.0.0` pin. | P7c, S43b, E1, U1, I1, M1, V1 | Importer bounds demonstrated; stage bottlenecks separated; no unmeasured whole-pipeline memory claim. |
+| 7d / Main | README script list/usage and CHANGELOG from measured accepted commands. The CHANGELOG also records S43c's generic fixes: `cleanres.py` no longer deletes resources referenced only by titled links, and native vault reimport no longer leaves a stray `)` or an unresolved titled link. It also records E1: `sql2obsidian.py` and `sql2joplin.py` no longer rewrite the database they read, P7b2's bounded fresh-import lookups, F04's faster native inventory and, if adopted, U1's faster unchanged reruns, I1's faster recovery after an interrupted fresh import, M1's bounded preservation-manifest memory and V1's refusal of a damaged preservation bundle, with its recovery commands and `--ignore-preservation`. Reassigned from Codex Luna on 2026-10-22. | 7c, S43b, S43c, E1, U1, I1, M1, V1 | Reproducible publication → import → vault → site recipe; loose/fresh-output limitations; no private content in public examples. |
 | 7e / Main | Full regression gate, evidence/diff review, final status and commit. | 7d | Every required method passes; skipped integrations not counted as acceptance. |
 
 ### Compatibility prerequisites added after partial 7c trials
@@ -1042,6 +1043,21 @@ the same day):* resumed P7c → U1 → I1 → M1 → resumed 7c → 7d → 7e. U
 native path, so they land one at a time, each with its own measurement.
 M1 changes the preserved route, which resumed 7c measures at full scale. All
 three precede 7c so that 7c measures the final code.
+
+**Damaged preservation bundles (added 2026-10-23).** The user decided that a
+malformed manifest becomes an error, that the slice follows M1, and that the
+error's next steps use actual paths wherever they are known, with a labelled
+suggestion where a path depends on how the user's files are organised and a
+placeholder only where nothing better is possible.
+
+| Slice / planned owner | Work and owned output | Depends on | Acceptance |
+|---|---|---|---|
+| V1 / Main | Refuse a damaged preservation bundle instead of importing the vault as native, and print the commands to run next. Today `_load_manifest` returns `None` for invalid JSON, a non-object or a wrong `format`, never checks `version`, and `obsidian2sql.py` then imports the vault as plain Obsidian and reports success, dropping the non-note items, unknown properties and RAW bytes the bundle exists to keep. `sql2obsidian.py` writes the manifest last and not atomically, so an interrupted export leaves a vault that looks complete. **Design.** (1) A bundle is present when `.movenotes/manifest.json` or `.movenotes/joplin-raw/` exists. `obsidian2sql.py` checks it before creating or migrating the output database, so a refusal writes nothing. It refuses: invalid JSON, giving line, column, byte offset and file size, and saying that a file ending mid-document is what an interrupted export leaves; a non-object or another `format`; a `version` other than 1, naming it and saying this release reads version 1 and movenotes needs updating; `items` that is not a list (already an error, now with next steps); and `joplin-raw/` with no manifest. (2) Each refusal exits nonzero, says nothing was imported, and lists the applicable next steps as complete commands: restore `manifest.json` from a backup and rerun the original command; import the RAW copy with `joplin2sql.py --input <vault>/.movenotes/joplin-raw --output <same output>`, lossless for the export but without Obsidian edits made since (offered only when `joplin-raw/` exists); import as a plain vault with the original command plus `--ignore-preservation`, keeping edits but dropping Joplin-only items and properties; or re-export from the source database (`mkdir`, `sql2obsidian.py`, then `obsidian2sql.py` on the new vault with the same output), without edits made since the export. (3) Commands use actual paths and options. The original command is `sys.orig_argv`: interpreter, its flags, the script path as invoked and every option. The other scripts run with the same interpreter and flags, from the running script's directory. Every argument is quoted with `shlex`. A path that depends on how the user's files are organised gets a concrete suggestion labelled as one: the re-export directory is a new sibling `<vault name>-reexport`, with a numeric suffix if that exists, marked "suggested; any new empty directory works". A placeholder is used only where nothing is known: the source database is recorded nowhere the importer can read, so it is a named placeholder with a line saying what it is (the directory given to `sql2obsidian.py --input`, which holds `notesdb.sqlite`). (4) New `obsidian2sql.py --ignore-preservation` imports as a native vault even when a bundle is present, valid or not; `.movenotes/` stays excluded from the native walk, as now. (5) `sql2obsidian.py` writes the manifest to a temporary file in `.movenotes/`, fsyncs it and renames it into place, so an interrupted export leaves no manifest (refused as a bundle without one) instead of a truncated file; output bytes are unchanged. It lands on M1's streamed writer. (6) README documents the refusal, the recovery commands and `--ignore-preservation`. Not in V1: recording the source database path in the bundle, which would fill in the re-export's `--input` but puts an absolute path, including the username, into a vault that may be shared, needs its own user decision; and moving a re-exported bundle into an edited vault, which would need proof that the original export options are reproduced. Owns `obsidian2sql.py`'s bundle check and messages, `sql2obsidian.py`'s manifest write, the README section and tests. | M1 | Every refusal case has a test checking the nonzero exit, that nothing is written to a new or an existing library, and the exact message. The printed commands are run as printed, from a fixture whose paths contain spaces: the RAW-copy and `--ignore-preservation` commands succeed, the original command succeeds after the manifest is restored, and the re-export commands succeed once the placeholder is filled in. Valid version-1 bundles import fingerprint-identically to today, with the same counts and errors; native vaults are unchanged. An export interrupted before the rename leaves no `manifest.json`, and completed manifests are byte-identical to M1's. Focused tests plus all five regression modules. No timing change is expected; the check runs once per import. |
+
+*Order (decided 2026-10-23):* M1 → V1 → resumed 7c. V1 changes the same
+manifest writer and reader as M1, so it builds on M1's streamed versions instead
+of the code M1 replaces. It precedes 7c, which runs the preserved route, and 7d
+records it in the CHANGELOG.
 
 **P7a completed audit:** [performance evidence](NOTRIOS_PERFORMANCE_EVIDENCE.md)
 classifies F01–F15 and the additional Notrios review G01–G10, records separate
@@ -1268,6 +1284,7 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-10-23 | P7c complete | The user decided: "Remove the Go targets from the plan ; Accept F04 at full scale." F04 is adopted at full scale and stays in `HEAD`; `PERFORMANCE_REVIEW.md` records it. The Go producer targets are removed from the adoption gates and the frozen design, with a dated note. Correction to the row above: they were not "unmet". They were set on `notriosctl` timings at Notrios `7662fdd`, 290 commits before the `v1.0.0` pin and Notrios's own J17/J32 performance work, and P7c never ran Notrios. The P7c evidence and ledger record are corrected to match. Documentation and provenance only. No worker was used. Next: the user's answer on the proposed I1/M1 order, then ask to proceed to U1. |
 | 2026-10-23 | Order confirmed | The user answered "Yes to the I1 and M1 order; proceed with U1." The order is U1 → I1 → M1 → resumed 7c → 7d → 7e; 7c and 7d now also depend on I1 and M1, and 7d's CHANGELOG text adds F04, I1 and M1. Documentation only. Next: U1, authorized. |
 | 2026-10-23 | U1 complete | The Claude Code parent made `obsidian2sql.py` read note bytes one batch ahead and look up each batch's `(ID, raw digest)` pairs before conversion; a note stored with the same bytes is counted as skipped without being converted, while its tags are still collected and batch boundaries, collision checks and read-error order stay as before. Three tests added; the unchanged-rerun test fails on the previous code. All 289 tests in the five required modules pass (172.590 s). Paired against `9c25e2a`, all outputs fingerprint-identical: unchanged rerun 0.472 (subset, five pairs) and 0.524 (full vault, 983.03 s to 515.14 s); fresh 0.938; merge 1.038, 0.02 s. Fresh-import peak memory rises by one read-ahead batch, +2.1 MB (+4.0%) on the subset and +5.9 MB (+0.8%) on the full vault; the user accepted U1 as measured. No worker was used. Next: ask to proceed to I1. |
+| 2026-10-23 | V1 added | The user decided: "Yes, make it an error; add the slice after M1". A damaged preservation bundle (invalid manifest JSON, another format, an unknown version, or `joplin-raw/` without a manifest) will be refused before the output database is touched, instead of the vault being silently imported as native. The error prints the next steps as complete commands built from the failing command line; at the user's direction, a path that depends on how the user's files are organised is a labelled suggestion, and a placeholder is used only for the source database, which nothing records. V1 also adds `--ignore-preservation` and writes the manifest atomically. Ordered after M1 and before resumed 7c; 7c and 7d now depend on V1. Documentation and provenance only. No worker was used. Next: ask to proceed to I1. |
 
 ## Assignment amendment — 2026-10-22
 
@@ -2328,6 +2345,32 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | Resumed P7c R4 full preserved route, 2026-10-23; user directive: Update the plan if you find items that need to be fixed instead of just logging their existence. |
 | Execution evidence | NOTRIOS_P7C_EVIDENCE.md, Resumed P7c — F04 with P7b2 constant |
+| Commit | pending |
+
+</details>
+
+<details><summary>V1 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | 2026-10-23 user: Yes, make it an error; add the slice after M1 ; Option 4 should use actual paths if available (eg. command line that caused the error has paths to input files) ; only use placeholders if necessary ; paths that require knowledge of how files are organized aren't readily apparent to user so a suggestion instead of a placeholder would be useful (as long as it is identified as such). |
+| Execution evidence | NOTRIOS_IMPORT_PLAN.md, Damaged preservation bundles (added 2026-10-23) |
 | Commit | pending |
 
 </details>

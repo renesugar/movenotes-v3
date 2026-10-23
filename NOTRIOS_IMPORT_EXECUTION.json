@@ -14,7 +14,7 @@
     "confirmation": "confirmed",
     "confirmation_evidence": "2026-10-22 user, in the restarted Claude Code session: Yes, these assignments are current for this session. Answered after being shown the Claude Code parent as the only owner of remaining work, runtime-reported model claude-opus-5-5 from Anthropic, and configured alias, reasoning effort and billing route not exposed. Applies to this unchanged session; each slice still needs its own authorization. Earlier the same day the user directed the reassignment: Rewrite the plan to use the main model for all work. The work-arounds used for codex are not necessary for this terminal CLI.",
     "notes": [
-      "All remaining work (I1, M1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.",
+      "All remaining work (I1, M1, V1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.",
       "Codex luna_worker and terra_worker do not exist in Claude Code and are not replaced by Claude subagents. Spawning one requires an explicit user request and a recorded plan amendment first.",
       "The Codex auxiliary Luna monitor is retired for remaining work. Main runs long data-heavy commands as harness-tracked background commands, is re-invoked once when they exit, and does not poll.",
       "The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.",
@@ -1355,6 +1355,34 @@
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
         "NOTRIOS_P7C_EVIDENCE.md, Resumed P7c — F04 with P7b2 constant"
+      ],
+      "commit": "pending",
+      "billing_route": "not exposed"
+    },
+    {
+      "id": "V1",
+      "coding_agent": "claude",
+      "status": "pending",
+      "planned_worker": "parent",
+      "configured_model": "not exposed; runtime reports claude-opus-5-5",
+      "configured_reasoning_effort": "not exposed",
+      "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization.",
+      "delegation_required": false,
+      "planned_assignment_evidence": "2026-10-23 user: Yes, make it an error; add the slice after M1 ; Option 4 should use actual paths if available (eg. command line that caused the error has paths to input files) ; only use placeholders if necessary ; paths that require knowledge of how files are organized aren't readily apparent to user so a suggestion instead of a placeholder would be useful (as long as it is identified as such).",
+      "planned_work": "Refuse a damaged .movenotes preservation bundle before touching the output database, instead of silently importing the vault as native; print the next steps as complete commands built from the failing command line, with labelled suggestions where a path depends on file organisation and placeholders only where nothing is known; add --ignore-preservation; write the manifest atomically.",
+      "actual_worker": "pending",
+      "child_thread": "pending",
+      "actual_model": "pending",
+      "reasoning_effort": "pending",
+      "worker_contribution": "pending",
+      "parent": "pending",
+      "parent_underlying_model_family": "pending",
+      "parent_reasoning_effort": "pending",
+      "parent_contribution": "pending",
+      "validation": "pending",
+      "delegation_failure_or_reassignment": "none recorded",
+      "evidence": [
+        "NOTRIOS_IMPORT_PLAN.md, Damaged preservation bundles (added 2026-10-23)"
       ],
       "commit": "pending",
       "billing_route": "not exposed"
