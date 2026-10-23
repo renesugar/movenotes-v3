@@ -10,12 +10,18 @@ Obsidian round trip can restore the original path and bytes.
 from __future__ import annotations
 
 import base64
+import getpass
 import hashlib
 import json
+import os
 import zlib
 from pathlib import Path, PurePosixPath
 
 ENVELOPE_KEY = "movenotes_obsidian_v1"
+# Written by sql2obsidian.py before anything else in .movenotes, so even an
+# interrupted export says where it came from.
+EXPORT_RECORD_NAME = "export.json"
+EXPORT_RECORD_FORMAT = "movenotes-export-record"
 
 
 def sha256_hex(data: bytes) -> str:
@@ -172,3 +178,77 @@ def row_resource_path(row) -> PurePosixPath | None:  # noqa: ANN001
 
 def filesystem_relative(root: Path, path: Path) -> str:
     return path.relative_to(root).as_posix()
+
+
+def _home_directory() -> Path | None:
+    try:
+        home = Path.home()
+    except RuntimeError:
+        return None
+    # A home of "/" would turn every path into "~/...".
+    return home if home.parent != home else None
+
+
+def user_name() -> str | None:
+    """$USER, else whatever getpass finds, else None."""
+    name = os.environ.get("USER")
+    if not name:
+        try:
+            name = getpass.getuser()
+        except Exception:  # noqa: BLE001 - OSError or KeyError, by Python version
+            return None
+    return name or None
+
+
+def portable_path(path: Path) -> dict[str, object]:
+    """Record an absolute path without the user's name in it.
+
+    A path under the home directory becomes ``~/...``; elsewhere each whole
+    segment equal to the user name becomes ``$USER``.  The substitutions are
+    listed, so a path that really starts with ``~`` or has a ``$USER`` segment
+    is not expanded by mistake.
+    """
+    home = _home_directory()
+    if home is not None:
+        for base in dict.fromkeys((home, home.resolve())):
+            try:
+                relative = path.relative_to(base)
+            except ValueError:
+                continue
+            text = "~/" + relative.as_posix() if relative.parts else "~"
+            return {"path": text, "home": True, "user_segments": []}
+    user = user_name()
+    parts = list(path.parts)
+    segments = [index for index, part in enumerate(parts) if user is not None and part == user]
+    for index in segments:
+        parts[index] = "$USER"
+    return {"path": str(Path(*parts)), "home": False, "user_segments": segments}
+
+
+def expand_portable_path(value: object) -> Path | None:
+    """The path portable_path recorded, for the current user; None if malformed."""
+    if not isinstance(value, dict):
+        return None
+    text, home, segments = value.get("path"), value.get("home"), value.get("user_segments")
+    if (
+        not isinstance(text, str)
+        or not isinstance(home, bool)
+        or not isinstance(segments, list)
+        or not all(type(index) is int for index in segments)
+    ):
+        return None
+    if home:
+        directory = _home_directory()
+        if directory is None or segments:
+            return None
+        if text == "~":
+            return directory
+        return directory / text[2:] if text.startswith("~/") else None
+    parts = list(Path(text).parts)
+    user = user_name()
+    for index in segments:
+        if not 0 <= index < len(parts) or parts[index] != "$USER":
+            return None
+        if user is not None:
+            parts[index] = user
+    return Path(*parts) if parts else None

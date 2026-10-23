@@ -42,6 +42,7 @@ import argparse
 import errno
 import hashlib
 import json
+import os
 import re
 import shutil
 import sqlite3
@@ -622,6 +623,10 @@ def _select_preserved_rows(
 class _ManifestWriter:
     """Write the preservation manifest as its items are produced.
 
+    It is written to ``manifest.json.partial``, fsynced and renamed into place
+    by finish(), so an export that stops part way leaves no manifest rather
+    than a truncated one; the importer refuses a bundle without one.
+
     The file is byte-for-byte ``json.dumps(manifest, ensure_ascii=False,
     indent=2) + "\\n"`` of a manifest holding the leading keys, then ``items``,
     then the trailing keys. Encoded JSON never contains a raw newline, so
@@ -637,7 +642,10 @@ class _ManifestWriter:
         self._encoder = json.JSONEncoder(ensure_ascii=False, indent=2)
         self._items = 0
         self._pending: list[dict[str, object]] = []
-        self._stream = path.open("w", encoding="utf-8")
+        self._path = path
+        self._partial = path.with_name(path.name + ".partial")
+        self._finished = False
+        self._stream = self._partial.open("w", encoding="utf-8")
         self._stream.write(
             "{\n"
             + "".join(f"  {self._member(key, value)},\n" for key, value in leading.items())
@@ -672,13 +680,62 @@ class _ManifestWriter:
             + "".join(f",\n  {self._member(key, value)}" for key, value in trailing.items())
             + "\n}\n"
         )
+        self._stream.flush()
+        os.fsync(self._stream.fileno())
         self._stream.close()
+        os.replace(self._partial, self._path)
+        self._finished = True
 
     def __enter__(self) -> _ManifestWriter:
         return self
 
     def __exit__(self, *exc_info: object) -> None:
         self._stream.close()
+        if not self._finished:
+            self._partial.unlink(missing_ok=True)
+
+
+def start_preservation_bundle(
+    vault_path: Path, record: dict[str, object] | None, progress: bool
+) -> None:
+    """Remove the previous bundle, then write the export record if one is given.
+
+    This runs before any note is written.  A re-export that stopped part way
+    must not leave the previous export's bundle, complete and valid, beside
+    notes it does not describe: the importer would take the pair for a
+    finished export whose notes were edited since.
+    """
+    preservation_root = vault_path / PRESERVATION_DIR_NAME
+    if preservation_root.exists():
+        # A filtered re-export must never retain stale private items from a
+        # previous full export.
+        if progress:
+            print("removing the previous preservation bundle...", flush=True)
+        shutil.rmtree(preservation_root)
+    if record is not None:
+        preservation_root.mkdir()
+        (preservation_root / obsidianmeta.EXPORT_RECORD_NAME).write_text(
+            json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+
+
+def export_record(input_path: Path, args: argparse.Namespace) -> dict[str, object]:
+    """What a re-export needs: the source library and the options that shape the vault.
+
+    The library's path is recorded without the user's name; see
+    obsidianmeta.portable_path.
+    """
+    return {
+        "format": obsidianmeta.EXPORT_RECORD_FORMAT,
+        "version": 1,
+        "source_database": obsidianmeta.portable_path(input_path),
+        "options": {
+            "notebooks": args.notebooks,
+            "frontmatter": args.frontmatter,
+            "simplify_urls": args.simplify_urls,
+            "include_notrios_receipt": args.include_notrios_receipt,
+        },
+    }
 
 
 def write_preservation_bundle(
@@ -695,7 +752,8 @@ def write_preservation_bundle(
 ) -> tuple[int, int]:
     """Write an importable Joplin RAW copy and a mapping manifest in the vault.
 
-    Four phases, and on a large library each takes long enough to look like a
+    Three phases, after start_preservation_bundle's removal of the previous
+    bundle, and on a large library each takes long enough to look like a
     hang: a full Joplin archive of 166,654 notes produces 173,290 raw item files
     and an 83 MB manifest, 3.6 GB in all. They run after the last `exported N`
     line, so without the reporting below the export appears to stop just before
@@ -706,11 +764,6 @@ def write_preservation_bundle(
             print(message, flush=True)
 
     preservation_root = vault_path / PRESERVATION_DIR_NAME
-    if preservation_root.exists():
-        # A filtered re-export must never retain stale private items from a
-        # previous full export.
-        report("removing the previous preservation bundle...")
-        shutil.rmtree(preservation_root)
     raw_root = preservation_root / PRESERVED_RAW_DIR_NAME
     raw_root.mkdir(parents=True, exist_ok=True)
 
@@ -818,7 +871,9 @@ def write_preservation_bundle(
         "# movenotes preservation data\n\n"
         "`joplin-raw/` is a lossless Joplin RAW export retained alongside the "
         "Obsidian-friendly notes. `manifest.json` maps Joplin item IDs to "
-        "their Obsidian paths and includes SHA-256 checksums.\n",
+        "their Obsidian paths and includes SHA-256 checksums. `export.json` "
+        "records the source library and the options of the export, so "
+        "`obsidian2sql.py` can print the commands to export it again.\n",
         encoding="utf-8",
     )
     return row_count, copied_resources
@@ -946,6 +1001,11 @@ def main(argv: list[str]) -> int:
     except (ValueError, OSError, sqlite3.Error) as exc:
         sqlconn.close()
         common.error(f"cannot prepare Notrios receipt: {exc}")
+    start_preservation_bundle(
+        vault_path,
+        export_record(input_path, args) if args.preserve_joplin else None,
+        progress=bool(args.progress_every) and not args.verbose,
+    )
 
     dedup = NameDeduplicator()
     # Reserve the attachments directory name at the vault root so a notebook

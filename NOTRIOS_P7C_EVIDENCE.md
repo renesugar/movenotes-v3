@@ -526,3 +526,90 @@ Private roots under `/run/media/$USER/HD2/`:
 - `movenotes-m1-20261023-sources`: `SOURCES.txt`, `SOURCES-m1b.txt`, `m1_pairs.py`, `m1b_pairs.py`, `run_m1.sh`, `run_m1.log`, `micro.py`, `micro-results.txt`, `fuzz.py`, harness copies;
 - `movenotes-m1-20261023-variants`: `base`, `m1`, `m1b`;
 - `movenotes-m1-20261023-runs`: `export-40k`, `export-40k-m1b`, `import-40k`, `harness-preserved`, `export-full`, `import-full`, `full-manifests.txt`.
+
+## V1 — damaged preservation bundles refused (2026-10-23)
+
+`obsidian2sql.py` used to import a vault as native whenever its manifest could
+not be read, and report success, silently dropping what the bundle preserves.
+It now checks the bundle before it touches the output. A bundle is present when
+`.movenotes` holds a manifest, a `joplin-raw/` copy or an export record, and
+the importer refuses it when:
+- the manifest is invalid JSON (with line, column and byte, and the
+  interrupted-export hint when the file ends mid-document), empty, or not
+  UTF-8;
+- the manifest is not a preservation manifest, is of another version, or has
+  `items` that is not a list;
+- the manifest cannot be read;
+- `joplin-raw/` or the record is present with no manifest.
+
+The error says nothing was imported and prints the applicable next steps as
+complete commands, built from `sys.orig_argv` and quoted with `shlex`:
+- restore the manifest from a backup, or update movenotes, then rerun;
+- import the RAW copy with `joplin2sql.py`;
+- rerun with the new `--ignore-preservation`;
+- re-export into a suggested, labelled new directory, then import that.
+
+`sql2obsidian.py` now removes any previous bundle and writes
+`.movenotes/export.json` before the first note, and writes the manifest through
+a `.partial` file, fsynced and renamed. The record holds:
+- the source library, as `~/…` under the home directory, and elsewhere with
+  each segment equal to the user name written as `$USER`, the substitutions
+  listed;
+- the options that shape the vault.
+
+It is expanded for the reader. Its values are printed only, after a check for
+control characters.
+
+**Tests.**
+- `DamagedBundleTest` has 10 tests, run on a fixture whose paths contain
+  spaces, importing with relative paths from the vault's parent:
+  - all eleven refusal cases refuse against a new and an existing library,
+    with the reason and the step list, writing nothing to either;
+  - the whole message matches exactly for the cut manifest;
+  - each printed command runs as printed and succeeds. The restored manifest
+    gives the reference library, the RAW copy gives exactly the manifest's
+    items, the plain import takes no `.movenotes` path, and the re-export
+    reproduces the original vault byte for byte, with `--notebooks Public
+    --no-frontmatter` replayed;
+  - the export record keeps the user name out and expands for another
+    `$HOME` and `$USER`, with the not-found label;
+  - a literal `~` or `$USER` directory round-trips unchanged;
+  - a missing, unreadable, foreign or control-character record gets the
+    labelled placeholder;
+  - a stopped export leaves no manifest or `.partial`;
+  - a re-export stopped among the notes leaves only the record, refused as
+    unfinished;
+  - `--no-preserve-joplin` removes an old bundle;
+  - a valid bundle imports as before.
+- Against the committed M1 code, every new test fails except the valid-bundle
+  one.
+- `test_manifest_reader_matches_json_loads` now checks each refusal kind
+  against a `json.loads` reference over 19 documents.
+- The rewritten `fuzz-v1.py` made 140,000 comparisons with no mismatch.
+- Truncating two real manifests at every offset (647 and 694 cuts, at three
+  read sizes) was always refused as cut short.
+- All 304 tests in the five required modules pass (184.010 s), as do the 15
+  harness tests.
+
+**Identity**, base `7d9a879` against V1:
+- **40,000-file library (132,775 items):** the two exports differ only in
+  `.movenotes/export.json` and `.movenotes/README.md`. The manifests are
+  byte-identical (`5a315af0…`), and so is the rest of the vault
+  (`4bc6d542…`). Each version's import of its own export has fingerprint
+  `a6f1f307…` and the same summary line. V1's record reads
+  `/run/media/$USER/HD2/…` with `user_segments` `[3]`.
+- **Harness, three alternating pairs:** preserved, preserved-unchanged,
+  native, native-unchanged and native-small-merge are all
+  fingerprint-identical. Peak RSS is about 1 MB higher. The medians (0.889 to
+  1.015) are not a timing result, because the test suite ran during the
+  pairs; no timing change is expected, since the check runs once per import.
+
+The benchmarked `obsidian2sql.py` (`d71df593…`) differs from the committed one
+(`0b2c17a7…`) only on the refusal path: the record-value guard, the
+`--notebooks=-x` form, the BOM spelled as an escape, and blank lines.
+
+Private roots under `/run/media/$USER/HD2/`:
+- `movenotes-v1-20261023-sources`: `SOURCES.txt`, `v1_roundtrip.py`,
+  `run_v1.sh`, `run_v1.log`, `fuzz-v1.py`, harness copies;
+- `movenotes-v1-20261023-variants`: `base`, `v1`;
+- `movenotes-v1-20261023-runs`: `roundtrip-40k`, `harness`.

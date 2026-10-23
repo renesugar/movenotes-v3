@@ -173,6 +173,40 @@ Large vaults use deterministic IDs, batched inserts, indexed collision checks,
 one-pass directory discovery, and periodic progress. Options include
 `--batch-size`, `--progress-every`, and `--verbose`.
 
+### A damaged preservation bundle
+
+If the vault has a `.movenotes` preservation bundle that cannot be imported,
+`obsidian2sql.py` refuses it before it touches the output, rather than quietly
+importing the vault as a native one and dropping what the bundle preserves. It
+refuses a bundle in any of these cases:
+
+- `manifest.json` is not valid JSON. The error gives the line, column and byte,
+  and says so when the file ends mid-document, which is what an interrupted
+  export leaves.
+- `manifest.json` is not a preservation manifest.
+- `manifest.json` is a version this release does not read.
+- `joplin-raw/` or `export.json` is present with no manifest, which means an
+  export that did not finish.
+
+The error says that nothing was imported and lists the next steps as complete
+commands, built from the command that failed. The steps are:
+
+1. Restore `manifest.json` from a backup and rerun the same command. For a
+   newer manifest version, update movenotes first.
+2. Import the Joplin RAW copy with `joplin2sql.py`. This is lossless for the
+   export but leaves out Obsidian edits made since.
+3. Rerun with `--ignore-preservation` to import the vault as plain Obsidian
+   notes. This keeps the edits but drops the Joplin-only items and properties.
+4. Export the source library again into a new directory and import that.
+
+For step 4 the directory is a suggestion, labelled as one. The source library
+and the export's options come from the bundle's `export.json`. Vaults
+exported before it existed get a named placeholder instead, with a line saying
+what to put there.
+
+`--ignore-preservation` also imports a vault with a valid bundle as a native
+vault.
+
 ## Export SQLite to a Joplin RAW directory
 
 ```
@@ -328,7 +362,21 @@ with Joplin-to-Obsidian path mappings and SHA-256 checksums. This preservation
 bundle keeps non-note items, ignored properties and the original Markdown body
 available even though the visible Obsidian note is renamed, has front matter,
 and has rewritten links. Pass `--no-preserve-joplin` only when this recovery
-copy is not wanted. URL-only links in visible Obsidian notes are still
+copy is not wanted.
+
+An export removes any previous bundle before it writes a note, so a re-export
+that stops part way never leaves an old bundle describing notes it no longer
+matches. It then writes `.movenotes/export.json`, recording the source library
+and the options that shape the vault, so that `obsidian2sql.py` can print the
+command to export it again. The path is recorded without the user's name:
+
+- Under the home directory it is written as `~/...`.
+- Elsewhere, each path segment equal to the user name is written as `$USER`, as
+  in `/run/media/$USER/HD2/library`.
+
+Both are expanded for whoever reads the record. The manifest is written last,
+to a temporary file that is renamed into place, so an interrupted export leaves
+no manifest rather than a truncated one. URL-only links in visible Obsidian notes are still
 simplified by default; use `--no-simplify-urls` to retain their original syntax.
 
 

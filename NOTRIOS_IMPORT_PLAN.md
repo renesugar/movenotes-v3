@@ -45,13 +45,16 @@ import into an empty existing library takes 0.80 (10,000 files) and 0.67
 (40,000 files) of the time it did. **M1 is complete**: the preservation
 manifest is streamed both ways, so the full library's export peaks at 0.8 GiB
 instead of 3.5 GiB and its preserved import at 0.5 GiB instead of 1.8 GiB,
-with identical output. Next is **V1**.
+with identical output. **V1 is complete**: a damaged preservation bundle is
+refused before the output is touched, with the next steps printed as complete
+commands, and exports record their source library in `.movenotes/export.json`.
+Next is **resumed 7c**.
 Plan revised on **2026-10-22**: all remaining work is assigned to the Claude Code
 main model (**Main**), and the user confirmed this for the session. No Codex
 worker or monitor remains in the plan. See
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 S43b and resumed 7c pin the released Notrios **`v1.0.0`** (`2aab9a8`). The
-remaining order is V1 → resumed 7c → 7d → 7e.
+remaining order is resumed 7c → 7d → 7e.
 Slice **7c remains incomplete**; isolated work
 and checkpoints are under `/media/$USER/HD2/movenotes-7c-20260916/`.
 Both recipe imports succeeded (382,206 documents each), but bounded real
@@ -293,16 +296,16 @@ Session confirmation: **confirmed**.
 
 Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID claude-opus-5-5)**. Product/client version: not exposed; model provider: Anthropic (runtime-reported).
 
-- All remaining work (M1, V1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
+- All remaining work (resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
 - Codex luna_worker and terra_worker do not exist in Claude Code and are not replaced by Claude subagents. Spawning one requires an explicit user request and a recorded plan amendment first.
 - The Codex auxiliary Luna monitor is retired for remaining work. Main runs long data-heavy commands as harness-tracked background commands, is re-invoked once when they exit, and does not poll.
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 - Completed slices keep their recorded Codex attribution. The earlier Codex session is under previous_sessions and its assignments under assignment_history.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **V1 — refuse a damaged preservation bundle**, assigned to the
-Claude Code parent (**Main**). Session assignments are confirmed. Slice
-authorization is pending.
+Next slice: **resumed 7c — large-corpus trials**, assigned to the Claude Code
+parent (**Main**). Session assignments are confirmed. Slice authorization is
+pending.
 
 **Resumed P7c, complete (2026-10-23).** R1–R6 ran as frozen below; every
 comparison is fingerprint-identical, and the five required modules and the
@@ -394,7 +397,7 @@ at full scale by the user's decision; F02 is subsumed by P7b2. Rejected Go G08
 stays out of full trials; no Go candidate is approved. Any producer implementation needs an explicit handoff naming its
 files and checkout, plus the user's approval to write to the Notrios checkout.
 
-Remaining sequence (U1, I1 and M1 complete): V1 → resumed 7c → 7d → 7e, subject to the
+Remaining sequence (U1, I1, M1 and V1 complete): resumed 7c → 7d → 7e, subject to the
 unresolved compatibility gates. Every data-heavy
 run follows the background-run rule under
 [Execution and handoff rules](#execution-and-handoff-rules). Preserve C7c's documented differences: RAW's 842,813 tag
@@ -1096,12 +1099,54 @@ is recorded as `$USER`, as in `/run/media/$USER/HD2/…`.
 
 | Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| V1 / Main | Refuse a damaged preservation bundle instead of importing the vault as native, and print the commands to run next. Today `_load_manifest` returns `None` for invalid JSON, a non-object or a wrong `format`, never checks `version`, and `obsidian2sql.py` then imports the vault as plain Obsidian and reports success, dropping the non-note items, unknown properties and RAW bytes the bundle exists to keep. `sql2obsidian.py` writes the manifest last and not atomically, so an interrupted export leaves a vault that looks complete. **Design.** (1) A bundle is present when `.movenotes/manifest.json` or `.movenotes/joplin-raw/` exists. `obsidian2sql.py` checks it before creating or migrating the output database, so a refusal writes nothing. It refuses: invalid JSON, giving line, column, byte offset and file size, and saying that a file ending mid-document is what an interrupted export leaves; a non-object or another `format`; a `version` other than 1, naming it and saying this release reads version 1 and movenotes needs updating; `items` that is not a list (already an error, now with next steps); and `joplin-raw/` with no manifest. (2) Each refusal exits nonzero, says nothing was imported, and lists the applicable next steps as complete commands: restore `manifest.json` from a backup and rerun the original command; import the RAW copy with `joplin2sql.py --input <vault>/.movenotes/joplin-raw --output <same output>`, lossless for the export but without Obsidian edits made since (offered only when `joplin-raw/` exists); import as a plain vault with the original command plus `--ignore-preservation`, keeping edits but dropping Joplin-only items and properties; or re-export from the source database (`mkdir`, `sql2obsidian.py`, then `obsidian2sql.py` on the new vault with the same output), without edits made since the export. (3) Commands use actual paths and options. The original command is `sys.orig_argv`: interpreter, its flags, the script path as invoked and every option. The other scripts run with the same interpreter and flags, from the running script's directory. Every argument is quoted with `shlex`. A path that depends on how the user's files are organised gets a concrete suggestion labelled as one: the re-export directory is a new sibling `<vault name>-reexport`, with a numeric suffix if that exists, marked "suggested; any new empty directory works". The re-export uses the bundle's export record (see 5): its recorded source database and its original `sql2obsidian.py` options (`--notebooks`, `--no-frontmatter`, `--no-simplify-urls`, `--include-notrios-receipt`), so the new export matches the old one. A recorded `~/…` path is expanded with the importer's own home directory, and a recorded `$USER` segment with the importer's own user name, so the printed command holds a concrete path. If that directory does not exist or holds no `notesdb.sqlite`, the path is still printed, labelled "recorded when the vault was exported; not found here". A placeholder remains only for vaults exported before V1, which have no export record, or whose record is unreadable: a named placeholder with a line saying what it is (the directory given to `sql2obsidian.py --input`, which holds `notesdb.sqlite`). Values from the record are only printed, shell-quoted, and never run, since a vault can come from someone else. (4) New `obsidian2sql.py --ignore-preservation` imports as a native vault even when a bundle is present, valid or not; `.movenotes/` stays excluded from the native walk, as now. (5) `sql2obsidian.py` writes a small export record, `.movenotes/export.json` (its own `format` and `version` 1), before anything else in the bundle, so even an interrupted export has one. It holds the source database directory and the export options. No user name is recorded. A path under the exporter's home directory (`Path.home()`, from `$HOME`) is written as `~/` plus the relative part. In any other path, each whole segment equal to the user name (`$USER`, falling back to `getpass.getuser()`) is written as `$USER`, as in `/run/media/$USER/HD2/library`; a segment that only contains the name, such as `<name>-backup`, is kept. The record lists which substitutions it applied, so a real path that happens to start with `~` or contain a `$USER` segment is not expanded by mistake. Paths in the recorded export options get the same treatment. The record is a new file: the manifest's bytes and format are unchanged. `sql2obsidian.py` then writes the manifest to a temporary file in `.movenotes/`, fsyncs it and renames it into place, so an interrupted export leaves no manifest (refused as a bundle without one) instead of a truncated file. It lands on M1's streamed writer. (6) README documents the refusal, the recovery commands and `--ignore-preservation`. Not in V1: moving a re-exported bundle into an edited vault, which would need proof that it reproduces the original bundle. Owns `obsidian2sql.py`'s bundle check and messages, `sql2obsidian.py`'s export record and manifest write, the README section and tests. | M1 | Every refusal case has a test checking the nonzero exit, that nothing is written to a new or an existing library, and the exact message. The printed commands are run as printed, from a fixture whose paths contain spaces: the RAW-copy and `--ignore-preservation` commands succeed, the original command succeeds after the manifest is restored, and the re-export commands succeed as printed, with the recorded source database and options. The export record's tests check that a source under `$HOME` is recorded as `~/…` and that neither the home path nor the user name appears in the record; that a source outside the home directory is recorded with each segment equal to the user name as `$USER`, a segment merely containing it kept, and no other change; that the record holds the user name nowhere; that `~/…` and `$USER` records printed under a different `$HOME` and `$USER` expand to that home and user; that a path really starting with `~` or holding a literal `$USER` segment round-trips unchanged; and that a vault with no export record, or an unreadable one, gets the labelled placeholder. Valid version-1 bundles import fingerprint-identically to today, with the same counts and errors; native vaults are unchanged. An export interrupted before the rename leaves no `manifest.json`, and completed manifests are byte-identical to M1's. Focused tests plus all five regression modules. No timing change is expected; the check runs once per import. |
+| V1 / Main — complete | Refuse a damaged preservation bundle instead of importing the vault as native, and print the commands to run next. Today `_load_manifest` returns `None` for invalid JSON, a non-object or a wrong `format`, never checks `version`, and `obsidian2sql.py` then imports the vault as plain Obsidian and reports success, dropping the non-note items, unknown properties and RAW bytes the bundle exists to keep. `sql2obsidian.py` writes the manifest last and not atomically, so an interrupted export leaves a vault that looks complete. **Design.** (1) A bundle is present when `.movenotes/manifest.json` or `.movenotes/joplin-raw/` exists. `obsidian2sql.py` checks it before creating or migrating the output database, so a refusal writes nothing. It refuses: invalid JSON, giving line, column, byte offset and file size, and saying that a file ending mid-document is what an interrupted export leaves; a non-object or another `format`; a `version` other than 1, naming it and saying this release reads version 1 and movenotes needs updating; `items` that is not a list (already an error, now with next steps); and `joplin-raw/` with no manifest. (2) Each refusal exits nonzero, says nothing was imported, and lists the applicable next steps as complete commands: restore `manifest.json` from a backup and rerun the original command; import the RAW copy with `joplin2sql.py --input <vault>/.movenotes/joplin-raw --output <same output>`, lossless for the export but without Obsidian edits made since (offered only when `joplin-raw/` exists); import as a plain vault with the original command plus `--ignore-preservation`, keeping edits but dropping Joplin-only items and properties; or re-export from the source database (`mkdir`, `sql2obsidian.py`, then `obsidian2sql.py` on the new vault with the same output), without edits made since the export. (3) Commands use actual paths and options. The original command is `sys.orig_argv`: interpreter, its flags, the script path as invoked and every option. The other scripts run with the same interpreter and flags, from the running script's directory. Every argument is quoted with `shlex`. A path that depends on how the user's files are organised gets a concrete suggestion labelled as one: the re-export directory is a new sibling `<vault name>-reexport`, with a numeric suffix if that exists, marked "suggested; any new empty directory works". The re-export uses the bundle's export record (see 5): its recorded source database and its original `sql2obsidian.py` options (`--notebooks`, `--no-frontmatter`, `--no-simplify-urls`, `--include-notrios-receipt`), so the new export matches the old one. A recorded `~/…` path is expanded with the importer's own home directory, and a recorded `$USER` segment with the importer's own user name, so the printed command holds a concrete path. If that directory does not exist or holds no `notesdb.sqlite`, the path is still printed, labelled "recorded when the vault was exported; not found here". A placeholder remains only for vaults exported before V1, which have no export record, or whose record is unreadable: a named placeholder with a line saying what it is (the directory given to `sql2obsidian.py --input`, which holds `notesdb.sqlite`). Values from the record are only printed, shell-quoted, and never run, since a vault can come from someone else. (4) New `obsidian2sql.py --ignore-preservation` imports as a native vault even when a bundle is present, valid or not; `.movenotes/` stays excluded from the native walk, as now. (5) `sql2obsidian.py` writes a small export record, `.movenotes/export.json` (its own `format` and `version` 1), before anything else in the bundle, so even an interrupted export has one. It holds the source database directory and the export options. No user name is recorded. A path under the exporter's home directory (`Path.home()`, from `$HOME`) is written as `~/` plus the relative part. In any other path, each whole segment equal to the user name (`$USER`, falling back to `getpass.getuser()`) is written as `$USER`, as in `/run/media/$USER/HD2/library`; a segment that only contains the name, such as `<name>-backup`, is kept. The record lists which substitutions it applied, so a real path that happens to start with `~` or contain a `$USER` segment is not expanded by mistake. Paths in the recorded export options get the same treatment. The record is a new file: the manifest's bytes and format are unchanged. `sql2obsidian.py` then writes the manifest to a temporary file in `.movenotes/`, fsyncs it and renames it into place, so an interrupted export leaves no manifest (refused as a bundle without one) instead of a truncated file. It lands on M1's streamed writer. (6) README documents the refusal, the recovery commands and `--ignore-preservation`. Not in V1: moving a re-exported bundle into an edited vault, which would need proof that it reproduces the original bundle. Owns `obsidian2sql.py`'s bundle check and messages, `sql2obsidian.py`'s export record and manifest write, the README section and tests. | M1 | Every refusal case has a test checking the nonzero exit, that nothing is written to a new or an existing library, and the exact message. The printed commands are run as printed, from a fixture whose paths contain spaces: the RAW-copy and `--ignore-preservation` commands succeed, the original command succeeds after the manifest is restored, and the re-export commands succeed as printed, with the recorded source database and options. The export record's tests check that a source under `$HOME` is recorded as `~/…` and that neither the home path nor the user name appears in the record; that a source outside the home directory is recorded with each segment equal to the user name as `$USER`, a segment merely containing it kept, and no other change; that the record holds the user name nowhere; that `~/…` and `$USER` records printed under a different `$HOME` and `$USER` expand to that home and user; that a path really starting with `~` or holding a literal `$USER` segment round-trips unchanged; and that a vault with no export record, or an unreadable one, gets the labelled placeholder. Valid version-1 bundles import fingerprint-identically to today, with the same counts and errors; native vaults are unchanged. An export interrupted before the rename leaves no `manifest.json`, and completed manifests are byte-identical to M1's. Focused tests plus all five regression modules. No timing change is expected; the check runs once per import. |
 
 *Order (decided 2026-10-23):* M1 → V1 → resumed 7c. V1 changes the same
 manifest writer and reader as M1, so it builds on M1's streamed versions instead
 of the code M1 replaces. It precedes 7c, which runs the preserved route, and 7d
 records it in the CHANGELOG.
+
+*V1 result (2026-10-23).* Adopted, with the amendment below.
+
+- **Refusal.** `obsidian2sql.py` checks the bundle before it touches the
+  output and refuses all eleven damaged forms tested, against a new and an
+  existing library alike, writing nothing to either. The error states the
+  reason, that nothing was imported, and the applicable next steps as
+  complete, shell-quoted commands built from the failing command line. Every
+  printed command was run as printed and succeeded, from a fixture whose paths
+  contain spaces. The re-export reproduced the original vault byte for byte,
+  with its recorded `--notebooks` and `--no-frontmatter`.
+- **Export record.** `.movenotes/export.json` keeps the user name out (`~/…`
+  and `$USER` segments) and expands for another `$HOME` and `$USER`. A
+  missing, unreadable or unsafe record gets the labelled placeholder.
+- **Identity.** On the 40,000-file library, V1's export differs from
+  `7d9a879`'s only in `export.json` and the bundle README. The manifest is
+  byte-identical, the imports fingerprint-identical with the same summary,
+  and the harness's preserved and native cases fingerprint-identical.
+- **Tests.** All 304 tests in the five required modules pass.
+
+Details in the [P7c evidence](NOTRIOS_P7C_EVIDENCE.md#v1--damaged-preservation-bundles-refused-2026-10-23).
+
+*V1 amendment (2026-10-23, found while implementing V1).* `sql2obsidian.py`
+removed a previous bundle only when it began writing the new one, after every
+note. So a re-export into an existing vault that stopped among the notes left
+the old export's bundle in place: complete and valid, but beside notes it no
+longer described. The importer would take the pair for a finished export
+whose notes had been edited since. A `--no-preserve-joplin` re-export never
+removed an old bundle at all.
+
+V1 therefore moves the removal, and the export record's write, to before the
+first note (`start_preservation_bundle`). This holds with or without
+preservation. A bundle is now present when `.movenotes` holds a manifest, a
+`joplin-raw/` copy or an export record. A record alone is refused as an
+export that did not finish, with only the plain-import and re-export steps
+offered.
+
+Two more safeguards, because a vault can come from someone else. A record
+value holding control characters, which could rewrite the terminal, makes the
+record count as unreadable. A recorded notebook name that starts with `-` is
+printed as `--notebooks=-x`, so that argparse does not take it for an option.
+The acceptance gains tests for each of these.
 
 **P7a completed audit:** [performance evidence](NOTRIOS_PERFORMANCE_EVIDENCE.md)
 classifies F01–F15 and the additional Notrios review G01–G10, records separate
@@ -1333,6 +1378,7 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-10-23 | V1 revised again | The user decided: "The `$USER` environment variable is available for other paths containing a user name. Update the plan to replace other instances of paths containing user names." Outside the home directory, V1's export record writes each path segment equal to the user name as `$USER` (as in `/run/media/$USER/HD2/…`), and the importer expands it with its own user name. The record lists the substitutions it applied, so literal `~` or `$USER` in a real path is kept. Documentation and provenance only, while I1's measurements run. No worker was used. |
 | 2026-10-23 | I1 complete | The Claude Code parent made `obsidian2sql.py` drop every index but `joplinididx` when it opens a library with no rows, through a new `notesdb.drop_deferred_indexes`; the final pass, or the next open after an interruption, rebuilds them. Three tests added; two fail on the previous code. All 292 tests in the five required modules pass (181.434 s). Alternating pairs against `902bad2`, all outputs fingerprint-identical: empty-library import 0.799 (10,000 files, five pairs) and 0.667 (40,000 files, three pairs); a real SIGINT at 40,000 files left no rows and the rerun matched a new-database import, indexes included. New-database, unchanged and merge medians (1.020, 1.025, 1.041, 0.930) fall inside their pair spreads, on code I1 does not change. No worker was used. Next: ask to proceed to M1. |
 | 2026-10-23 | M1 complete | The Claude Code parent made `sql2obsidian.py` stream the preservation manifest in batches of 1,024 items, byte-identical to the previous output, and `obsidian2sql.py` read it one value at a time into compact per-item state. Two tests were added, and all 294 tests in the five required modules pass (138.691 s). A fuzz of 140,000 comparisons against `json.loads` found no mismatch. Alternating pairs against `4dec69b`, all outputs identical, including R4's existing manifest and import fingerprint: peak RSS 0.28 (40,000-file export), 0.39 (its import), 0.22 (full export) and 0.27 (full preserved import); times within noise, and isolated read and write costs measured on R4's manifest. A per-item encoder was 8 s slower and was replaced by batches; a regex reader fast path measured no better and was reverted. No worker was used. Next: ask to proceed to V1. |
+| 2026-10-23 | V1 complete | The user authorized V1 ("Start V1"). The Claude Code parent made `obsidian2sql.py` refuse a damaged preservation bundle before touching the output: invalid, empty or non-UTF-8 JSON, another format or version, non-list items, an unreadable manifest, and a `joplin-raw/` copy or export record without a manifest. The error prints the next steps as commands built from the failing command line. Added `--ignore-preservation` and `.movenotes/export.json` (source library as `~/…` or with `$USER` segments, plus options), and made the manifest write atomic. Found while implementing and fixed, recorded as a plan amendment: a stopped re-export, or any `--no-preserve-joplin` one, left the previous bundle beside notes it no longer described. Record values are printed only after a control-character check. 10 tests were added and the reader test rewritten; all 304 tests in the five required modules pass (184.010 s). Every printed command succeeds as printed. Against `7d9a879` the manifests and import fingerprints are identical, and only the record and the bundle README differ. The assignments note no longer lists M1 and V1 as remaining; the M1 commit had changed it only in rendered text. No worker was used. Next: ask to proceed to resumed 7c. |
 
 ## Assignment amendment — 2026-10-22
 
@@ -2397,7 +2443,7 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 </details>
 
-<details><summary>V1 — pending; planned parent</summary>
+<details><summary>V1 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -2405,21 +2451,21 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; V1 authorized by the user on 2026-10-23 (Start V1). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | obsidian2sql.py: _check_bundle runs before the output is touched and raises _BundleProblem (unreadable, syntax, format, version, items, no-manifest, unfinished); _JsonReader reports absolute offsets and whether the file was cut, described with line, column, byte and size; _refusal prints the applicable next steps as shlex-quoted commands from sys.orig_argv, with a labelled suggested re-export directory and the recorded source and options or a labelled SOURCE_LIBRARY placeholder; added --ignore-preservation; record values with control characters are refused and dash-led notebook names printed as --notebooks=VALUE. obsidianmeta.py: portable_path and expand_portable_path (~/ under home, $USER segments, substitutions listed). sql2obsidian.py: start_preservation_bundle removes any previous bundle and writes .movenotes/export.json before the first note; _ManifestWriter writes manifest.json.partial, fsyncs and renames. Found and fixed during V1 (plan amendment): a re-export stopped among the notes, or any --no-preserve-joplin re-export, left the previous bundle beside notes it no longer described. README section and bundle README line. Added DamagedBundleTest (10 tests) and rewrote the reader test for refusal kinds; wrote v1_roundtrip.py, run_v1.sh and fuzz-v1.py and recorded the results. |
+| Validation | All 304 tests in the five required modules pass (184.010 s) with PYTHONDONTWRITEBYTECODE=1 and -B; the 15 harness tests pass. Every new DamagedBundleTest test except the valid-bundle one fails on 7d9a879. Eleven refusal cases refuse against a new and an existing library and write nothing to either; the full message is checked exactly; every printed command runs as printed from a fixture with spaces in its paths and succeeds (restore, RAW copy, --ignore-preservation, and a re-export that reproduces the original vault byte for byte with its recorded --notebooks and --no-frontmatter). Export-record tests cover ~/, $USER segments, a segment merely containing the name, expansion under another HOME and USER with the not-found label, literal ~ and $USER directories, missing, unreadable, foreign and control-character records. fuzz-v1.py: 140,000 comparisons with a json.loads reference, 0 mismatches; truncating two real manifests at every offset is always refused as cut short. Against 7d9a879 on the 40,000-file library: exports differ only in .movenotes/export.json and README.md, manifests byte-identical (5a315af0...), import fingerprints identical (a6f1f307...) with the same summary; harness preserved, preserved-unchanged, native, native-unchanged and native-small-merge fingerprint-identical over three alternating pairs. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | 2026-10-23 user: Yes, make it an error; add the slice after M1 ; Option 4 should use actual paths if available (eg. command line that caused the error has paths to input files) ; only use placeholders if necessary ; paths that require knowledge of how files are organized aren't readily apparent to user so a suggestion instead of a placeholder would be useful (as long as it is identified as such). Revised the same day, user: If the absolute path is under the user's /home directory, the absolute path recorded in the exporter should use the $HOME environment variable or ~ instead of writing user names in absolute paths ; update plan to record the source database's path in the bundle so step 4 needs no placeholder. Revised again the same day, user: The $USER environment variable is available for other paths containing a user name. Update the plan to replace other instances of paths containing user names. |
-| Execution evidence | NOTRIOS_IMPORT_PLAN.md, Damaged preservation bundles (added 2026-10-23) |
-| Commit | pending |
+| Execution evidence | NOTRIOS_P7C_EVIDENCE.md, section V1 — damaged preservation bundles refused; /run/media/$USER/HD2/movenotes-v1-20261023-sources (SOURCES.txt, v1_roundtrip.py, run_v1.sh, run_v1.log, fuzz-v1.py, harness copies); /run/media/$USER/HD2/movenotes-v1-20261023-runs (roundtrip-40k, harness) |
+| Commit | Git commit containing this completion record: feat: refuse a damaged preservation bundle with recovery commands (V1) |
 
 </details>
 

@@ -7,11 +7,16 @@ import configparser
 import contextlib
 import io
 import json
+import os
+import re
+import shlex
+import shutil
 import sqlite3
 import subprocess
 import sys
 import tempfile
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from unittest import mock
 
@@ -19,6 +24,7 @@ import constants
 import common
 import notesdb
 import obsidian2sql
+import sql2obsidian
 
 PROJECT_DIR = Path(__file__).resolve().parent
 
@@ -178,13 +184,15 @@ class ObsidianRoundTripTest(unittest.TestCase):
                 self.assertNotIn("SCAN", plan)
 
     def test_manifest_reader_matches_json_loads(self) -> None:
-        """M1: the incremental reader keeps exactly what json.loads would give.
+        """M1, V1: the incremental reader keeps exactly what json.loads would give.
 
         Tiny reads split every key, string and number across buffers; "1.5"
-        cut after "1." is the case a naive reader decodes as 1.
+        cut after "1." is the case a naive reader decodes as 1.  Every document
+        json.loads rejects is refused as malformed, and every well-formed one
+        that is not an importable version-1 manifest for the reason V1 gives.
         """
         note, resource = int(constants.JoplinType.NOTE), int(constants.JoplinType.RESOURCE)
-        fmt = '"format": "movenotes-lossless-joplin-preservation"'
+        fmt = '"format": "movenotes-lossless-joplin-preservation", "version": 1'
         items = (
             f'[{{"id": "n1", "type": {note}, "raw_path": "joplin-raw/é 1.md", '
             f'"obsidian_path": "A/😀.md", "obsidian_sha256": "{"ab" * 32}"}}, 7, '
@@ -193,19 +201,25 @@ class ObsidianRoundTripTest(unittest.TestCase):
             f'{{"id": "n2", "type": true, "obsidian_path": ["x"], "raw_path": "joplin-raw/n2.md"}}]'
         )
         documents = [
-            f'{{{fmt}, "version": 1, "raw_directory": "joplin-raw", "items": {items}, '
+            f'{{{fmt}, "raw_directory": "joplin-raw", "items": {items}, '
             '"resource_files": 1.5e+10, "attachments": {"r1": "a/r.png"}}\n',
             f'{{"items": [], "version": 12345678901234567890, {fmt}, "items": {items}}}',
             f'{{{fmt}, "items": {{}}}}',
             f'{{{fmt}}}',
-            '{"format": "other", "items": []}',
+            '{"format": "other", "version": 1, "items": []}',
+            '{"version": 1, "items": []}',
+            '{"format": "movenotes-lossless-joplin-preservation", "items": []}',
+            '{"format": "movenotes-lossless-joplin-preservation", "version": 2}',
+            '{"format": "movenotes-lossless-joplin-preservation", "version": true}',
+            '{"format": "movenotes-lossless-joplin-preservation", "version": 1.0}',
             f'{{{fmt}, "items": [1,]}}',
             f'{{{fmt}, "items":[ {{"id": "r2", "type": {resource}}} \n,\t7\r\n ,{{}}]}}',
             f'{{{fmt}, "items": [{{}} {{}}]}}',
             f'{{{fmt}, "items": []}} extra',
-            f'﻿{{{fmt}}}',
+            f'\ufeff{{{fmt}}}',
             f'{{{fmt}, "items": [{{"id": "n1"',
             '[]',
+            '[] x',
             '',
         ]
 
@@ -213,20 +227,25 @@ class ObsidianRoundTripTest(unittest.TestCase):
             try:
                 manifest = json.loads(text)
             except ValueError:
-                return None
+                return "syntax"
             if not isinstance(manifest, dict) or manifest.get("format") != (
                 "movenotes-lossless-joplin-preservation"
             ):
-                return None
+                return "format"
+            if type(manifest.get("version")) is not int:
+                return "format"
+            if manifest["version"] != 1:
+                return "version"
             values = manifest.get("items", [])
-            objects = [value for value in values if isinstance(value, dict)] \
-                if isinstance(values, list) else []
+            if not isinstance(values, list):
+                return "items"
+            objects = [value for value in values if isinstance(value, dict)]
 
             def text_or_none(value: object) -> str | None:
                 return value if isinstance(value, str) else None
 
             return obsidian2sql._Manifest(
-                len(objects) if isinstance(values, list) else None,
+                len(objects),
                 [value["raw_path"] for value in objects if isinstance(value.get("raw_path"), str)],
                 [value["id"] for value in objects
                  if value.get("type") == resource and isinstance(value.get("id"), str)],
@@ -239,20 +258,28 @@ class ObsidianRoundTripTest(unittest.TestCase):
                 manifest.get("attachments", {}),
             )
 
+        def observed(path: Path) -> object:
+            try:
+                return obsidian2sql._load_manifest(path)
+            except obsidian2sql._BundleProblem as problem:
+                return problem.kind
+
         with tempfile.TemporaryDirectory(prefix="obsidian-manifest-reader-") as temporary:
-            vault = Path(temporary)
-            path = vault / ".movenotes" / "manifest.json"
-            path.parent.mkdir()
+            path = Path(temporary) / "manifest.json"
             for text in documents:
                 path.write_text(text, encoding="utf-8")
                 expected = reference(text)
                 for chunk in (1, 2, 3, 7, 1 << 20):
                     with self.subTest(text=text[:40], chunk=chunk), \
                             mock.patch.object(obsidian2sql._JsonReader, "_CHUNK", chunk):
-                        self.assertEqual(obsidian2sql._load_manifest(vault), expected)
-            self.assertIsNotNone(reference(documents[0]))
+                        self.assertEqual(observed(path), expected)
+            self.assertIsInstance(reference(documents[0]), obsidian2sql._Manifest)
             self.assertEqual(reference(documents[1]).item_count, 4)
-            self.assertIsNone(reference(documents[2]).item_count)
+            self.assertEqual(
+                [reference(text) for text in documents[2:10]],
+                ["items", obsidian2sql._Manifest(0, [], [], [], "joplin-raw", {}),
+                 "format", "format", "format", "version", "format", "format"],
+            )
 
     @staticmethod
     def _library_state(output: Path) -> tuple[list, list]:
@@ -650,6 +677,468 @@ class ObsidianRoundTripTest(unittest.TestCase):
             self.assertEqual(added_resource, (restored / "assets" / "extra.bin").read_bytes())
             self.assertTrue((restored / "New Empty Folder").is_dir())
 
+
+class DamagedBundleTest(unittest.TestCase):
+    """V1: a damaged preservation bundle is refused, with next steps that work as printed.
+
+    The fixture's paths contain spaces, the import runs from the vault's
+    parent with relative paths, and the export used options a re-export must
+    repeat, so each printed command is checked as a user would run it.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls._temporary = tempfile.TemporaryDirectory(prefix="obsidian v1 bundle ")
+        cls.root = Path(cls._temporary.name).resolve()
+        raw = cls.root / "joplin raw"
+        (raw / "resources").mkdir(parents=True)
+        public, private, note, secret, resource = ("1" * 32, "4" * 32, "2" * 32, "5" * 32, "3" * 32)
+        stamp = "created_time: 2026-01-01T00:00:00.000Z\nupdated_time: 2026-01-01T00:00:00.000Z\n"
+        (raw / f"{public}.md").write_text(f"Public\n\nid: {public}\nparent_id: \ntype_: 2", encoding="utf-8")
+        (raw / f"{private}.md").write_text(f"Private\n\nid: {private}\nparent_id: \ntype_: 2", encoding="utf-8")
+        (raw / f"{resource}.md").write_text(
+            f"file.pdf\n\nid: {resource}\nmime: application/pdf\nfilename: file.pdf\n"
+            "file_extension: pdf\nsize: 4\ntype_: 4",
+            encoding="utf-8",
+        )
+        (raw / "resources" / f"{resource}.pdf").write_bytes(b"%PDF")
+        (raw / f"{note}.md").write_text(
+            f"Open note\n\nSee [the PDF](:/{resource}) and https://example.com/x\n\n"
+            f"id: {note}\nparent_id: {public}\n{stamp}type_: 1",
+            encoding="utf-8",
+        )
+        (raw / f"{secret}.md").write_text(
+            f"Secret note\n\nPrivate body\n\nid: {secret}\nparent_id: {private}\n{stamp}type_: 1",
+            encoding="utf-8",
+        )
+        cls.library = cls.root / "source library"
+        cls.pristine = cls.root / "pristine vault"
+        cls.reference = cls.root / "reference library"
+        for path in (cls.library, cls.pristine, cls.reference):
+            path.mkdir()
+        run("joplin2sql.py", "--input", str(raw), "--output", str(cls.library), "--progress-every", "0")
+        cls.export_options = ["--notebooks", "Public", "--no-frontmatter"]
+        run(
+            "sql2obsidian.py", "--input", str(cls.library), "--output", str(cls.pristine),
+            *cls.export_options, "--progress-every", "0",
+        )
+        run("obsidian2sql.py", "--input", str(cls.pristine), "--output", str(cls.reference),
+            "--progress-every", "0")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls._temporary.cleanup()
+
+    @staticmethod
+    def _items(output: Path) -> list[tuple]:
+        with contextlib.closing(sqlite3.connect(output / notesdb.DATABASE_FILENAME)) as conn:
+            return conn.execute(
+                "SELECT joplin_id, joplin_type_, note_title, note_data, note_obsidian_path "
+                "FROM notes ORDER BY joplin_id, note_obsidian_path"
+            ).fetchall()
+
+    @staticmethod
+    def _tree(root: Path) -> dict[str, bytes]:
+        return {
+            path.relative_to(root).as_posix(): path.read_bytes()
+            for path in sorted(root.rglob("*")) if path.is_file()
+        }
+
+    def _case(self, damage: Callable[[Path], None] | None = None) -> Path:
+        """A copy of the exported vault, damaged, beside an empty library directory."""
+        case = Path(tempfile.mkdtemp(prefix="case ", dir=self.root))
+        shutil.copytree(self.pristine, case / "my vault")
+        (case / "new library").mkdir()
+        if damage is not None:
+            damage(case / "my vault" / ".movenotes")
+        return case
+
+    def _import(self, case: Path, *extra: str, output: str = "new library",
+                env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(PROJECT_DIR / "obsidian2sql.py"), "--input", "my vault",
+             "--output", output, "--progress-every", "0", *extra],
+            cwd=case, capture_output=True, text=True, env=env,
+        )
+
+    @staticmethod
+    def _steps(stderr: str) -> list[tuple[str, list[str]]]:
+        """Each numbered next step's title and its command lines, as printed."""
+        steps: list[tuple[str, list[str]]] = []
+        for line in stderr.splitlines():
+            match = re.match(r"\d+\. (.*)", line)
+            if match:
+                steps.append((match.group(1), []))
+            elif steps and line.startswith("     "):
+                steps[-1][1].append(line[5:])
+        return steps
+
+    def _step(self, stderr: str, opening: str) -> list[str]:
+        found = [commands for title, commands in self._steps(stderr) if title.startswith(opening)]
+        self.assertEqual(len(found), 1, stderr)
+        return found[0]
+
+    def _shell(self, case: Path, commands: list[str]) -> None:
+        for command in commands:
+            result = subprocess.run(command, shell=True, cwd=case, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, f"{command}\n{result.stdout}{result.stderr}")
+
+    @staticmethod
+    def _cut(bundle: Path) -> None:
+        """Cut the manifest inside its first RAW path, as an interrupted write would."""
+        manifest = bundle / "manifest.json"
+        text = manifest.read_text(encoding="utf-8")
+        manifest.write_text(text[: text.index('"joplin-raw/') + 8], encoding="utf-8")
+
+    @staticmethod
+    def _rewrite(change: Callable[[dict], object]) -> Callable[[Path], None]:
+        def damage(bundle: Path) -> None:
+            manifest = bundle / "manifest.json"
+            value = json.loads(manifest.read_text(encoding="utf-8"))
+            manifest.write_text(json.dumps(change(value) or value), encoding="utf-8")
+        return damage
+
+    def _refusal_cases(self) -> dict[str, tuple[Callable[[Path], None], str]]:
+        manifest = ".movenotes/manifest.json"
+
+        def replace(old: bytes, new: bytes) -> Callable[[Path], None]:
+            def damage(bundle: Path) -> None:
+                path = bundle / "manifest.json"
+                data = path.read_bytes()
+                self.assertIn(old, data)
+                path.write_bytes(data.replace(old, new, 1))
+            return damage
+
+        def remove(*names: str) -> Callable[[Path], None]:
+            def damage(bundle: Path) -> None:
+                for name in names:
+                    path = bundle / name
+                    shutil.rmtree(path) if path.is_dir() else path.unlink()
+            return damage
+
+        def directory(bundle: Path) -> None:
+            (bundle / "manifest.json").unlink()
+            (bundle / "manifest.json").mkdir()
+
+        return {
+            "cut": (self._cut, "ends in the middle of the document"),
+            "syntax": (replace(b'"items": [', b'"items": [}'), f"{manifest} is not valid JSON: "),
+            "utf8": (replace(b'"scope"', b'"sc\xffope"'), f"{manifest} is not valid UTF-8 at byte "),
+            "empty": (lambda bundle: (bundle / "manifest.json").write_bytes(b""),
+                      f"{manifest} is empty, which is what an interrupted export leaves."),
+            "array": (lambda bundle: (bundle / "manifest.json").write_text("[]"),
+                      f"{manifest} is not a movenotes preservation manifest: it is not a JSON object."),
+            "format": (self._rewrite(lambda value: value.update(format="other")),
+                       f'{manifest} is not a movenotes preservation manifest: its format is "other".'),
+            "version": (self._rewrite(lambda value: value.update(version=2)),
+                        f"{manifest} is version 2, and this release of obsidian2sql.py reads version 1 only."),
+            "items": (self._rewrite(lambda value: value.update(items={})),
+                      f"{manifest} is damaged: its items field is not a list."),
+            "directory": (directory, f"{manifest} cannot be read: "),
+            "no-manifest": (remove("manifest.json"),
+                            ".movenotes/joplin-raw/ is present but .movenotes/manifest.json is not"),
+            "unfinished": (remove("manifest.json", "joplin-raw", "README.md"),
+                           ".movenotes/export.json is present but there is no manifest and no Joplin RAW copy"),
+        }
+
+    def test_every_damaged_bundle_is_refused_and_writes_nothing(self) -> None:
+        other = self.root / "existing library"
+        if not other.exists():
+            shutil.copytree(self.reference, other)
+        before = self._tree(other)
+        for name, (damage, reason) in self._refusal_cases().items():
+            with self.subTest(name):
+                case = self._case(damage)
+                for output in ("new library", str(other)):
+                    result = self._import(case, output=output)
+                    self.assertEqual(result.returncode, 1, result.stdout)
+                    self.assertEqual(result.stdout, "")
+                    lines = result.stderr.splitlines()
+                    self.assertEqual(
+                        lines[0],
+                        f"ERROR: cannot import '{case / 'my vault'}': "
+                        "its movenotes preservation bundle is damaged.",
+                    )
+                    self.assertIn(reason, lines[1])
+                    self.assertEqual(lines[2:5], ["Nothing was imported.", "", "Next steps, any one of:"])
+                self.assertEqual(list((case / "new library").iterdir()), [])
+                self.assertEqual(self._tree(other), before)
+                titles = [title.split(" ")[0] for title, _ in self._steps(result.stderr)]
+                expected = ["Import", "Import", "Export"]
+                if name == "version":
+                    expected = ["Update"] + expected
+                elif name == "unfinished":
+                    expected = ["Import", "Export"]
+                else:
+                    expected = ["Restore"] + expected
+                self.assertEqual(titles, expected)
+
+    def test_refusal_message_is_exact(self) -> None:
+        case = self._case(self._cut)
+        vault = case / "my vault"
+        text = (vault / ".movenotes" / "manifest.json").read_text(encoding="utf-8")
+        with self.assertRaises(json.JSONDecodeError) as caught:
+            json.loads(text)
+        error = caught.exception
+        result = self._import(case)
+        python, script = sys.executable, str(PROJECT_DIR / "obsidian2sql.py")
+        original = [python, script, "--input", "my vault", "--output", "new library", "--progress-every", "0"]
+        target = case / "my vault-reexport"
+        expected = "\n".join([
+            f"ERROR: cannot import '{vault}': its movenotes preservation bundle is damaged.",
+            f".movenotes/manifest.json is not valid JSON: Unterminated string starting at line "
+            f"{error.lineno:,}, column {error.colno:,} (byte {len(text[:error.pos].encode()):,} of "
+            f"{len(text.encode()):,}). The file ends in the middle of the document, which is what "
+            "an interrupted export leaves.",
+            "Nothing was imported.",
+            "",
+            "Next steps, any one of:",
+            "",
+            "1. Restore .movenotes/manifest.json from a backup, then rerun this command:",
+            "     " + shlex.join(original),
+            "",
+            "2. Import the Joplin RAW copy instead. It is lossless for the export, but leaves out "
+            "any Obsidian edits made since:",
+            "     " + shlex.join([python, str(PROJECT_DIR / "joplin2sql.py"), "--input",
+                                  str(vault / ".movenotes" / "joplin-raw"), "--output",
+                                  str(case / "new library")]),
+            "",
+            "3. Import the vault as plain Obsidian notes. This keeps edits made since the export, "
+            "but drops the Joplin-only items and properties the bundle holds:",
+            "     " + shlex.join(original + ["--ignore-preservation"]),
+            "",
+            "4. Export the source library again into a new directory and import that. This leaves "
+            "out any edits made since the export:",
+            f"     mkdir {shlex.quote(str(target))}  # suggested; any new empty directory works",
+            "     " + shlex.join([python, str(PROJECT_DIR / "sql2obsidian.py"), "--input",
+                                  str(self.library), "--output", str(target), *self.export_options]),
+            "     " + shlex.join([python, script, "--input", str(target), "--output",
+                                  str(case / "new library"), "--progress-every", "0"]),
+        ]) + "\n"
+        self.assertEqual(result.stderr, expected)
+
+    def test_printed_commands_succeed_as_printed(self) -> None:
+        reference = self._items(self.reference)
+        # Restoring the manifest makes the original command succeed.
+        case = self._case(self._cut)
+        commands = self._step(self._import(case).stderr, "Restore")
+        shutil.copy2(self.pristine / ".movenotes" / "manifest.json", case / "my vault" / ".movenotes")
+        self._shell(case, commands)
+        self.assertEqual(self._items(case / "new library"), reference)
+        # The RAW copy imports exactly the items the export preserved.
+        manifest = json.loads((self.pristine / ".movenotes" / "manifest.json").read_text(encoding="utf-8"))
+        case = self._case(self._cut)
+        self._shell(case, self._step(self._import(case).stderr, "Import the Joplin RAW copy"))
+        self.assertEqual(
+            {row[0] for row in self._items(case / "new library")},
+            {item["id"] for item in manifest["items"]},
+        )
+        # The plain import takes the vault's own files and none of the bundle.
+        case = self._case(self._cut)
+        self._shell(case, self._step(self._import(case).stderr, "Import the vault as plain"))
+        paths = {row[4] for row in self._items(case / "new library") if row[4]}
+        self.assertIn("Public/Open note.md", paths)
+        self.assertFalse(any(path.startswith(".movenotes/") for path in paths))
+        # The re-export repeats the recorded source and options, so its vault is
+        # the original export, and importing it gives the reference library.
+        case = self._case(self._cut)
+        self._shell(case, self._step(self._import(case).stderr, "Export the source library"))
+        self.assertEqual(self._tree(case / "my vault-reexport"), self._tree(self.pristine))
+        self.assertEqual(self._items(case / "new library"), reference)
+
+    def test_ignore_preservation_imports_the_vault_as_native(self) -> None:
+        for damage in (None, self._cut):
+            with self.subTest(damaged=damage is not None):
+                case = self._case(damage)
+                result = self._import(case, "--ignore-preservation")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("from native Obsidian vault (", result.stdout)
+                paths = {row[4] for row in self._items(case / "new library")}
+                self.assertFalse(any(str(path).startswith(".movenotes") for path in paths if path))
+                self.assertIn("Public/Open note.md", paths)
+
+    def test_valid_bundle_still_imports(self) -> None:
+        case = self._case()
+        result = self._import(case)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("from Joplin preservation bundle", result.stdout)
+        self.assertEqual(self._items(case / "new library"), self._items(self.reference))
+
+    def _export(self, library: Path, vault: Path, env: dict[str, str]) -> dict:
+        vault.mkdir(parents=True)
+        result = subprocess.run(
+            [sys.executable, str(PROJECT_DIR / "sql2obsidian.py"), "--input", str(library),
+             "--output", str(vault), "--progress-every", "0"],
+            capture_output=True, text=True, env=env,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads((vault / ".movenotes" / "export.json").read_text(encoding="utf-8"))
+
+    def _reexport_source(self, vault: Path, env: dict[str, str]) -> str:
+        """The --input of the printed re-export, marked if it is labelled as not found."""
+        (vault / ".movenotes" / "manifest.json").write_text("{", encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, str(PROJECT_DIR / "obsidian2sql.py"), "--input", str(vault),
+             "--output", str(vault.parent)],
+            capture_output=True, text=True, env=env,
+        )
+        self.assertEqual(result.returncode, 1, result.stdout)
+        command = self._step(result.stderr, "Export the source library")[1]
+        words = shlex.split(command, comments=True)
+        source = words[words.index("--input") + 1]
+        return source + ("  [not found]" if "not found here" in command else "")
+
+    def test_export_record_keeps_the_user_name_out(self) -> None:
+        user, other_user = "v1user", "v1other"
+        base = Path(tempfile.mkdtemp(prefix="record ", dir=self.root))
+        home, other_home = base / "home" / user, base / "home" / other_user
+        environment = {**os.environ, "HOME": str(home), "USER": user}
+        moved = {**os.environ, "HOME": str(other_home), "USER": other_user}
+
+        # Under the home directory: "~/...", with neither the home nor the name.
+        under_home = home / "notes lib"
+        shutil.copytree(self.library, under_home)
+        record = self._export(under_home, base / "vault a", environment)
+        self.assertEqual(record["source_database"], {"path": "~/notes lib", "home": True, "user_segments": []})
+        text = json.dumps(record)
+        self.assertNotIn(user, text)
+        self.assertNotIn(str(home), text)
+        self.assertEqual(self._reexport_source(base / "vault a", environment), str(under_home))
+        # Read by another user, it names their home; found there or labelled.
+        self.assertEqual(self._reexport_source(base / "vault a", moved),
+                         str(other_home / "notes lib") + "  [not found]")
+        shutil.copytree(self.library, other_home / "notes lib")
+        self.assertEqual(self._reexport_source(base / "vault a", moved), str(other_home / "notes lib"))
+
+        # Elsewhere: each segment equal to the name becomes $USER, and only those.
+        outside = base / "media" / user / f"{user}-backup" / user / "lib"
+        shutil.copytree(self.library, outside)
+        record = self._export(outside, base / "vault b", environment)
+        parts = list(outside.parts)
+        recorded = [("$USER" if part == user else part) for part in parts]
+        self.assertEqual(record["source_database"], {
+            "path": str(Path(*recorded)), "home": False,
+            "user_segments": [index for index, part in enumerate(parts) if part == user],
+        })
+        self.assertNotIn(user, Path(record["source_database"]["path"]).parts)
+        self.assertIn(f"{user}-backup", record["source_database"]["path"])
+        self.assertEqual(self._reexport_source(base / "vault b", environment), str(outside))
+        self.assertEqual(
+            self._reexport_source(base / "vault b", moved),
+            str(Path(*[(other_user if part == user else part) for part in parts])) + "  [not found]",
+        )
+
+        # A literal "~" or "$USER" directory is not a substitution and round-trips.
+        literal = base / "~" / "$USER" / "lib"
+        shutil.copytree(self.library, literal)
+        record = self._export(literal, base / "vault c", environment)
+        self.assertEqual(record["source_database"], {"path": str(literal), "home": False, "user_segments": []})
+        self.assertEqual(self._reexport_source(base / "vault c", moved), str(literal))
+
+    def test_missing_or_unreadable_record_gets_a_labelled_placeholder(self) -> None:
+        note = ("SOURCE_LIBRARY is the directory that was given to sql2obsidian.py --input when this "
+                "vault was exported; it holds notesdb.sqlite.")
+        cases = {
+            "missing": (lambda bundle: (bundle / "export.json").unlink(),
+                        " This vault has no export record, so it is not known here."),
+            "unreadable": (lambda bundle: (bundle / "export.json").write_text("{"),
+                           " The export record, .movenotes/export.json, cannot be read ("),
+            "other format": (lambda bundle: (bundle / "export.json").write_text('{"format": "x"}'),
+                             " The export record, .movenotes/export.json, cannot be read (it is not a "
+                             "version-1 movenotes export record)"),
+            # A vault can come from someone else: an escape sequence in its
+            # record must not reach the terminal.
+            "control characters": (self._record(notebooks=["Public\x1b[2J"]),
+                                   " The export record, .movenotes/export.json, cannot be read (its "
+                                   "source library or options are malformed)"),
+        }
+        for name, (damage, reason) in cases.items():
+            with self.subTest(name):
+                def both(bundle: Path) -> None:
+                    damage(bundle)
+                    self._cut(bundle)
+                result = self._import(self._case(both))
+                commands = self._step(result.stderr, "Export the source library")
+                self.assertIn(" --input SOURCE_LIBRARY --output ", commands[1])
+                self.assertNotIn("--notebooks", commands[1])
+                self.assertIn("   " + note + reason, result.stderr)
+                self.assertIn("Add the options that export used, if any: --notebooks, "
+                              "--no-frontmatter, --no-simplify-urls, --include-notrios-receipt.",
+                              result.stderr)
+                self.assertNotIn("\x1b", result.stderr)
+
+    @staticmethod
+    def _record(**options: object) -> Callable[[Path], None]:
+        def damage(bundle: Path) -> None:
+            path = bundle / "export.json"
+            record = json.loads(path.read_text(encoding="utf-8"))
+            record["options"].update(options)
+            path.write_text(json.dumps(record), encoding="utf-8")
+        return damage
+
+    def test_recorded_notebook_names_are_passed_as_values(self) -> None:
+        """A name starting with "-" must not be read by argparse as an option."""
+        def damage(bundle: Path) -> None:
+            self._record(notebooks=["-dash", "Public"])(bundle)
+            self._cut(bundle)
+        command = self._step(self._import(self._case(damage)).stderr, "Export the source library")[1]
+        words = shlex.split(command)
+        self.assertEqual(words[words.index("--output") + 2:],
+                         ["--notebooks=-dash", "--notebooks", "Public", "--no-frontmatter"])
+
+
+    def _export_in_process(self, vault: Path, *extra: str) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            sql2obsidian.main(["--input", str(self.library), "--output", str(vault),
+                               "--progress-every", "0", *extra])
+
+    def test_interrupted_export_leaves_no_manifest(self) -> None:
+        """The manifest appears only by rename, so a stopped export has none."""
+        case = Path(tempfile.mkdtemp(prefix="interrupted ", dir=self.root))
+        (case / "my vault").mkdir()
+        (case / "new library").mkdir()
+        with mock.patch.object(sql2obsidian.os, "replace", side_effect=KeyboardInterrupt), \
+                self.assertRaises(KeyboardInterrupt):
+            self._export_in_process(case / "my vault", *self.export_options)
+        bundle = case / "my vault" / ".movenotes"
+        self.assertFalse((bundle / "manifest.json").exists())
+        self.assertFalse((bundle / "manifest.json.partial").exists())
+        result = self._import(case)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(".movenotes/joplin-raw/ is present but .movenotes/manifest.json is not",
+                      result.stderr)
+        # A killed export leaves the partial file; it is not taken for a manifest.
+        (bundle / "manifest.json.partial").write_bytes(
+            (self.pristine / ".movenotes" / "manifest.json").read_bytes()
+        )
+        self.assertIn(".movenotes/joplin-raw/ is present", self._import(case).stderr)
+        self.assertEqual(list((case / "new library").iterdir()), [])
+
+    def test_reexport_removes_the_previous_bundle_first(self) -> None:
+        """A re-export stopped among the notes must not leave the old bundle beside them."""
+        case = self._case()
+        vault = case / "my vault"
+        written = Path.write_bytes
+
+        def fail_on_notes(path: Path, data: bytes) -> int:
+            if path.suffix == ".md" and ".movenotes" not in path.parts:
+                raise KeyboardInterrupt
+            return written(path, data)
+
+        with mock.patch.object(Path, "write_bytes", fail_on_notes), \
+                self.assertRaises(KeyboardInterrupt):
+            self._export_in_process(vault, *self.export_options)
+        self.assertEqual(sorted(path.name for path in (vault / ".movenotes").iterdir()), ["export.json"])
+        result = self._import(case)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("the export that wrote this vault did not finish", result.stderr)
+        # Without preservation the old bundle goes too, instead of describing
+        # notes it no longer matches.
+        self._export_in_process(vault, *self.export_options, "--no-preserve-joplin")
+        self.assertFalse((vault / ".movenotes").exists())
+        result = self._import(case)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("from native Obsidian vault (", result.stdout)
 
 class ExportAndImageRegressionTest(unittest.TestCase):
     def test_multibyte_long_title_is_shortened_without_failure(self) -> None:

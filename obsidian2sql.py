@@ -3,7 +3,7 @@
 
 The importer supports both native Obsidian vaults and vaults produced by
 ``sql2obsidian.py``. A ``.movenotes/joplin-raw`` preservation bundle is used
-when present. Native Obsidian files are represented by deterministic
+when present; a damaged one is refused, with the commands to run next. Native Obsidian files are represented by deterministic
 Joplin-compatible note, folder and resource rows while their exact paths and
 bytes are retained for lossless Obsidian round trips and carried through
 Joplin's ``application_data`` property.
@@ -12,11 +12,13 @@ Joplin's ``application_data`` property.
 from __future__ import annotations
 
 import argparse
+import codecs
 import hashlib
 import json
 import mimetypes
 import os
 import re
+import shlex
 import shutil
 import sqlite3
 import sys
@@ -70,6 +72,13 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         help="Print progress every N imported files; 0 disables it (default: 1000)",
     )
     parser.add_argument("--verbose", action="store_true", help="Print every imported path")
+    parser.add_argument(
+        "--ignore-preservation", action="store_true",
+        help=(
+            "Import the vault as plain Obsidian notes even if it holds a .movenotes "
+            "preservation bundle, valid or damaged; the bundle is not read"
+        ),
+    )
     return parser
 
 
@@ -494,7 +503,7 @@ class _Manifest(NamedTuple):
     path in order, resource IDs, and the note items' paths and digests.
     """
 
-    item_count: int | None  # items that are objects; None if "items" is not a list
+    item_count: int  # items that are objects
     raw_paths: list[str]
     resource_ids: list[str]
     notes: list[_ManifestNote]
@@ -502,8 +511,36 @@ class _Manifest(NamedTuple):
     attachments: object
 
 
+_MANIFEST_FORMAT = "movenotes-lossless-joplin-preservation"
+_MANIFEST_LABEL = f"{_PRESERVATION_DIR}/{_MANIFEST_NAME}"
+_RAW_DIR_NAME = "joplin-raw"
 _JSON_WHITESPACE = frozenset(" \t\n\r")
 _JSON_NUMBER_CHARACTERS = "0123456789.eE+-"
+# Where the decoder stops in a literal the end of the file cut short.
+_JSON_CUT_LITERALS = frozenset({"t", "tr", "tru", "f", "fa", "fal", "fals", "n", "nu", "nul"})
+
+
+class _ManifestSyntaxError(ValueError):
+    """Malformed JSON at a character offset; at_end if the file ended mid-value."""
+
+    def __init__(self, message: str, offset: int, at_end: bool) -> None:
+        super().__init__(message)
+        self.message = message
+        self.offset = offset
+        self.at_end = at_end
+
+
+class _BundleProblem(Exception):
+    """Why a .movenotes preservation bundle cannot be imported.
+
+    kind is "unreadable", "syntax", "format", "version", "items",
+    "no-manifest" or "unfinished"; it decides which next steps are offered.
+    """
+
+    def __init__(self, kind: str, reason: str) -> None:
+        super().__init__(reason)
+        self.kind = kind
+        self.reason = reason
 
 
 class _JsonReader:
@@ -522,6 +559,7 @@ class _JsonReader:
         self._decoder = json.JSONDecoder()
         self._buffer = ""
         self._position = 0
+        self._offset = 0  # characters read before the buffer
         self._eof = False
 
     def _fill(self, wanted: int) -> bool:
@@ -531,9 +569,17 @@ class _JsonReader:
         if not chunk:
             self._eof = True
             return False
+        self._offset += self._position
         self._buffer = self._buffer[self._position:] + chunk
         self._position = 0
         return True
+
+    def fail(self, message: str, position: int | None = None) -> None:
+        """Raise _ManifestSyntaxError at position, by default the current one."""
+        position = self._position if position is None else position
+        rest = self._buffer[position:].rstrip(" \t\n\r")
+        cut = self._eof and (rest in _JSON_CUT_LITERALS or not rest.strip(_JSON_NUMBER_CHARACTERS))
+        raise _ManifestSyntaxError(message, self._offset + position, cut)
 
     def peek(self) -> str:
         """Skip whitespace and return the next character, or "" at the end."""
@@ -549,18 +595,22 @@ class _JsonReader:
 
     def expect(self, character: str) -> None:
         if self.peek() != character:
-            raise ValueError(f"expected {character!r} in the manifest")
+            self.fail(f"Expecting {character!r}")
         self._position += 1
 
     def value(self) -> object:
-        self.peek()
+        if self.peek() == "":
+            self.fail("Expecting value")
         while True:
             try:
                 value, end = self._decoder.raw_decode(self._buffer, self._position)
-            except json.JSONDecodeError:
-                if not self._fill(len(self._buffer) - self._position):
-                    raise
-                continue
+            except json.JSONDecodeError as exc:
+                if self._fill(len(self._buffer) - self._position):
+                    continue
+                if exc.msg.startswith("Unterminated string"):
+                    # The string runs to the end of the file, so the file was cut.
+                    raise _ManifestSyntaxError(exc.msg, self._offset + exc.pos, True) from None
+                self.fail(exc.msg, exc.pos)
             # A number cut by the end of the buffer ("12" of "123", or "1" of
             # "1.5") decodes early; only what follows it shows that it ended.
             if (
@@ -573,43 +623,133 @@ class _JsonReader:
             return value
 
 
-def _load_manifest(vault_path: Path) -> _Manifest | None:
-    path = vault_path / _PRESERVATION_DIR / _MANIFEST_NAME
-    if not path.is_file():
-        return None
-    try:
-        with path.open(encoding="utf-8") as stream:
-            manifest = _read_manifest(_JsonReader(stream))
-    except (OSError, ValueError, json.JSONDecodeError):
-        return None
-    return manifest
+def _check_bundle(vault_path: Path) -> _Manifest | None:
+    """The vault's preservation manifest, or None for a plain vault.
 
-
-def _read_manifest(reader: _JsonReader) -> _Manifest | None:
-    """Return the manifest's compact form, or None if it is not a manifest.
-
-    Malformed JSON raises ValueError, as json.loads would.  The whole document
-    is read before anything is decided, so a later error still means the vault
-    is imported as native rather than half as a preserved bundle.
+    A bundle is present when .movenotes holds a manifest, a Joplin RAW copy or
+    an export record.  sql2obsidian.py writes them in the reverse order, so
+    either of the others without a manifest is an export that did not finish.
+    A bundle that cannot be imported raises _BundleProblem.
     """
-    if reader.peek() != "{":
-        return None
+    root = vault_path / _PRESERVATION_DIR
+    manifest_path = root / _MANIFEST_NAME
+    if manifest_path.exists() or manifest_path.is_symlink():
+        return _load_manifest(manifest_path)
+    if (root / _RAW_DIR_NAME).exists():
+        raise _BundleProblem(
+            "no-manifest",
+            f"{_PRESERVATION_DIR}/{_RAW_DIR_NAME}/ is present but {_MANIFEST_LABEL} is not: "
+            "the export that wrote the bundle did not finish, or the manifest was removed.",
+        )
+    if (root / obsidianmeta.EXPORT_RECORD_NAME).exists():
+        raise _BundleProblem(
+            "unfinished",
+            f"{_PRESERVATION_DIR}/{obsidianmeta.EXPORT_RECORD_NAME} is present but there is "
+            "no manifest and no Joplin RAW copy: the export that wrote this vault did not finish.",
+        )
+    return None
+
+
+def _load_manifest(path: Path) -> _Manifest:
+    """Read a preservation manifest; any reason it cannot be imported raises _BundleProblem."""
+    try:
+        with path.open(encoding="utf-8", newline="") as stream:
+            return _read_manifest(_JsonReader(stream))
+    except _ManifestSyntaxError as exc:
+        raise _BundleProblem("syntax", _describe_syntax_error(path, exc)) from None
+    except UnicodeDecodeError:
+        raise _BundleProblem("syntax", _describe_invalid_utf8(path)) from None
+    except OSError as exc:
+        raise _BundleProblem(
+            "unreadable", f"{_MANIFEST_LABEL} cannot be read: {exc.strerror or exc}."
+        ) from None
+
+
+def _describe_syntax_error(path: Path, error: _ManifestSyntaxError) -> str:
+    size = path.stat().st_size
+    if size == 0:
+        return f"{_MANIFEST_LABEL} is empty, which is what an interrupted export leaves."
+    line = column = 1
+    byte_offset = 0
+    remaining = error.offset
+    with path.open(encoding="utf-8", newline="") as stream:
+        while remaining > 0:
+            chunk = stream.read(min(remaining, 1 << 20))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+            newlines = chunk.count("\n")
+            if newlines:
+                line += newlines
+                column = len(chunk) - chunk.rfind("\n")
+            else:
+                column += len(chunk)
+            byte_offset += len(chunk.encode("utf-8"))
+    text = (
+        f"{_MANIFEST_LABEL} is not valid JSON: {error.message.removesuffix(' at')} "
+        f"at line {line:,}, column {column:,} (byte {byte_offset:,} of {size:,})."
+    )
+    if error.at_end:
+        text += " The file ends in the middle of the document, which is what an interrupted export leaves."
+    return text
+
+
+def _describe_invalid_utf8(path: Path) -> str:
+    size = path.stat().st_size
+    decoder = codecs.getincrementaldecoder("utf-8")()
+    position = 0
+    with path.open("rb") as stream:
+        while True:
+            block = stream.read(1 << 20)
+            pending = len(decoder.getstate()[0])
+            try:
+                decoder.decode(block, final=not block)
+            except UnicodeDecodeError as exc:
+                at = position - pending + exc.start
+                return f"{_MANIFEST_LABEL} is not valid UTF-8 at byte {at:,} of {size:,}."
+            if not block:
+                return f"{_MANIFEST_LABEL} is not valid UTF-8."
+            position += len(block)
+
+
+def _json_excerpt(value: object) -> str:
+    text = json.dumps(value, ensure_ascii=False)
+    return text if len(text) <= 80 else text[:77] + "..."
+
+
+def _read_manifest(reader: _JsonReader) -> _Manifest:
+    """Return the manifest's compact form.
+
+    Malformed JSON raises _ManifestSyntaxError where json.loads would raise,
+    and a well-formed document that is not an importable manifest raises
+    _BundleProblem.  The whole document is read before either is decided.
+    """
+    first = reader.peek()
+    if first == "\ufeff":
+        reader.fail("Unexpected UTF-8 byte-order mark")
+    if first != "{":
+        reader.value()
+        if reader.peek() != "":
+            reader.fail("Extra data")
+        raise _BundleProblem(
+            "format", f"{_MANIFEST_LABEL} is not a movenotes preservation manifest: it is not a JSON object."
+        )
     reader.expect("{")
     members: dict[str, object] = {}
-    items: tuple[int | None, list[str], list[str], list[_ManifestNote]] = (0, [], [], [])
+    items: tuple[int, list[str], list[str], list[_ManifestNote]] | None = (0, [], [], [])
     if reader.peek() == "}":
         reader.expect("}")
     else:
         while True:
             if reader.peek() != '"':
-                raise ValueError("expected a key in the manifest")
+                reader.fail("Expecting property name enclosed in double quotes")
             key = reader.value()
             reader.expect(":")
             if key == "items" and reader.peek() == "[":
                 items = _read_manifest_items(reader)
             elif key == "items":
                 reader.value()
-                items = (None, [], [], [])
+                items = None
             else:
                 members[key] = reader.value()
             if reader.peek() == ",":
@@ -618,12 +758,30 @@ def _read_manifest(reader: _JsonReader) -> _Manifest | None:
             reader.expect("}")
             break
     if reader.peek() != "":
-        raise ValueError("extra data after the manifest")
-    if members.get("format") != "movenotes-lossless-joplin-preservation":
-        return None
+        reader.fail("Extra data")
+    if members.get("format") != _MANIFEST_FORMAT:
+        found = (
+            f"its format is {_json_excerpt(members['format'])}" if "format" in members
+            else "it has no format field"
+        )
+        raise _BundleProblem(
+            "format", f"{_MANIFEST_LABEL} is not a movenotes preservation manifest: {found}."
+        )
+    version = members.get("version")
+    if type(version) is not int:
+        found = f"its version is {_json_excerpt(version)}" if "version" in members else "it has no version"
+        raise _BundleProblem("format", f"{_MANIFEST_LABEL} is damaged: {found}, not a whole number.")
+    if version != 1:
+        raise _BundleProblem(
+            "version",
+            f"{_MANIFEST_LABEL} is version {version}, and this release of obsidian2sql.py "
+            "reads version 1 only.",
+        )
+    if items is None:
+        raise _BundleProblem("items", f"{_MANIFEST_LABEL} is damaged: its items field is not a list.")
     return _Manifest(
         *items,
-        raw_directory=members.get("raw_directory", "joplin-raw"),
+        raw_directory=members.get("raw_directory", _RAW_DIR_NAME),
         attachments=members.get("attachments", {}),
     )
 
@@ -690,8 +848,6 @@ def _import_preserved_joplin(
     """Import a preservation bundle with bounded parsing and indexed overlays."""
     preservation_root = vault_path / _PRESERVATION_DIR
     item_count = manifest.item_count
-    if item_count is None:
-        common.error("invalid .movenotes manifest: items is not a list")
     inserted = skipped = processed = 0
     batch: list[dict] = []
 
@@ -1315,6 +1471,186 @@ def _native_rows(
 
     return generate(), len(markdown_files) + len(resource_files)
 
+
+_SOURCE_PLACEHOLDER = "SOURCE_LIBRARY"
+
+
+def _printable(text: str) -> bool:
+    """No control characters, which could rewrite the terminal around them."""
+    return not any(ord(character) < 0x20 or 0x7F <= ord(character) < 0xA0 for character in text)
+
+
+def _invocation(argv: list[str]) -> tuple[list[str], list[str], Callable[[str], str]]:
+    """How this run was started, for printing commands the user can run next.
+
+    Returns the interpreter with its flags, the words that ran this script, and
+    a function naming a sibling script the same way.  sys.orig_argv holds the
+    command as typed; when main() was called some other way it does not end
+    with argv, and the interpreter and this file's absolute path stand in.
+    """
+    original = list(getattr(sys, "orig_argv", None) or [])
+    head = original[: len(original) - len(argv)]
+    here = Path(__file__).resolve()
+    if original[len(head):] == argv and len(head) >= 2:
+        if Path(head[-1]).name == here.name:
+            script = head[-1]
+            return head[:-1], head, lambda name: str(Path(script).with_name(name))
+        if len(head) >= 3 and head[-2] == "-m":
+            return head[:-2], head, lambda name: str(here.with_name(name))
+    return [sys.executable], [sys.executable, str(here)], lambda name: str(here.with_name(name))
+
+
+def _suggested_directory(vault_path: Path) -> Path:
+    candidate = vault_path.with_name(f"{vault_path.name}-reexport")
+    number = 2
+    while candidate.exists() or candidate.is_symlink():
+        candidate = vault_path.with_name(f"{vault_path.name}-reexport-{number}")
+        number += 1
+    return candidate
+
+
+def _recorded_export(root: Path) -> tuple[str, list[str], str, list[str]]:
+    """The source library and sql2obsidian.py options of the export, from its record.
+
+    Returns the --input word, the options, a comment for the command line and
+    notes to print under it.  The record may come from someone else's vault, so
+    its values are only ever printed, shell-quoted, never run.
+    """
+    label = f"{_PRESERVATION_DIR}/{obsidianmeta.EXPORT_RECORD_NAME}"
+    explain = (
+        f"{_SOURCE_PLACEHOLDER} is the directory that was given to sql2obsidian.py --input "
+        f"when this vault was exported; it holds {notesdb.DATABASE_FILENAME}."
+    )
+    unknown_options = (
+        " Add the options that export used, if any: --notebooks, --no-frontmatter, "
+        "--no-simplify-urls, --include-notrios-receipt."
+    )
+    path = root / obsidianmeta.EXPORT_RECORD_NAME
+    if not path.exists():
+        return _SOURCE_PLACEHOLDER, [], "", [
+            explain + " This vault has no export record, so it is not known here." + unknown_options
+        ]
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        reason = getattr(exc, "strerror", None) or str(exc)
+    else:
+        reason = "it is not a version-1 movenotes export record"
+        options = record.get("options") if isinstance(record, dict) else None
+        if (
+            isinstance(record, dict)
+            and record.get("format") == obsidianmeta.EXPORT_RECORD_FORMAT
+            and type(record.get("version")) is int
+            and record["version"] == 1
+            and isinstance(options, dict)
+        ):
+            source = obsidianmeta.expand_portable_path(record.get("source_database"))
+            notebooks = options.get("notebooks")
+            flags = {
+                "--no-frontmatter": options.get("frontmatter"),
+                "--no-simplify-urls": options.get("simplify_urls"),
+                "--include-notrios-receipt": options.get("include_notrios_receipt"),
+            }
+            if (
+                source is not None
+                and _printable(str(source))
+                and (notebooks is None or isinstance(notebooks, list) and all(
+                    isinstance(value, str) and _printable(value) for value in notebooks
+                ))
+                and all(isinstance(value, bool) for value in flags.values())
+            ):
+                words: list[str] = []
+                for value in notebooks or []:
+                    # "--notebooks=-x", or argparse takes "-x" for an option.
+                    words += [f"--notebooks={value}"] if value.startswith("-") else ["--notebooks", value]
+                words += [flag for flag in ("--no-frontmatter", "--no-simplify-urls") if not flags[flag]]
+                if flags["--include-notrios-receipt"]:
+                    words.append("--include-notrios-receipt")
+                comment = "" if (source / notesdb.DATABASE_FILENAME).is_file() else (
+                    "  # source library recorded when the vault was exported; not found here"
+                )
+                return str(source), words, comment, []
+            reason = "its source library or options are malformed"
+    return _SOURCE_PLACEHOLDER, [], "", [
+        explain + f" The export record, {label}, cannot be read ({reason}), so it is not known here."
+        + unknown_options
+    ]
+
+
+def _refusal(
+    problem: _BundleProblem,
+    vault_path: Path,
+    output_path: Path,
+    args: argparse.Namespace,
+    argv: list[str],
+) -> str:
+    """The error for a damaged bundle, with the commands that can follow it."""
+    interpreter, this_script, sibling = _invocation(argv)
+    original = this_script + list(argv)
+    root = vault_path / _PRESERVATION_DIR
+    raw_copy = root / _RAW_DIR_NAME
+    steps: list[tuple[str, list[str], list[str]]] = []
+    if problem.kind == "version":
+        steps.append((
+            "Update movenotes to a release that reads this manifest version, then rerun this command:",
+            [shlex.join(original)], [],
+        ))
+    elif problem.kind != "unfinished":
+        steps.append((
+            f"Restore {_MANIFEST_LABEL} from a backup, then rerun this command:",
+            [shlex.join(original)], [],
+        ))
+    if raw_copy.is_dir():
+        steps.append((
+            "Import the Joplin RAW copy instead. It is lossless for the export, "
+            "but leaves out any Obsidian edits made since:",
+            [shlex.join(interpreter + [
+                sibling("joplin2sql.py"), "--input", str(raw_copy), "--output", str(output_path),
+            ])], [],
+        ))
+    steps.append((
+        "Import the vault as plain Obsidian notes. This keeps edits made since the export, "
+        "but drops the Joplin-only items and properties the bundle holds:",
+        [shlex.join(original + ["--ignore-preservation"])], [],
+    ))
+    target = _suggested_directory(vault_path)
+    source, export_options, comment, notes = _recorded_export(root)
+    parser = _build_argument_parser()
+    import_options: list[str] = []
+    if args.batch_size != parser.get_default("batch_size"):
+        import_options += ["--batch-size", str(args.batch_size)]
+    if args.progress_every != parser.get_default("progress_every"):
+        import_options += ["--progress-every", str(args.progress_every)]
+    if args.verbose:
+        import_options.append("--verbose")
+    steps.append((
+        "Export the source library again into a new directory and import that. "
+        "This leaves out any edits made since the export:",
+        [
+            f"mkdir {shlex.quote(str(target))}  # suggested; any new empty directory works",
+            shlex.join(interpreter + [
+                sibling("sql2obsidian.py"), "--input", source, "--output", str(target),
+            ] + export_options) + comment,
+            shlex.join(this_script + [
+                "--input", str(target), "--output", str(output_path),
+            ] + import_options),
+        ],
+        notes,
+    ))
+    lines = [
+        f"cannot import '{vault_path}': its movenotes preservation bundle is damaged.",
+        problem.reason,
+        "Nothing was imported.",
+        "",
+        "Next steps, any one of:",
+    ]
+    for number, (title, commands, step_notes) in enumerate(steps, 1):
+        lines += ["", f"{number}. {title}"]
+        lines += [f"     {command}" for command in commands]
+        lines += [f"   {note}" for note in step_notes]
+    return "\n".join(lines)
+
+
 def main(argv: list[str]) -> int:
     args = _build_argument_parser().parse_args(argv)
     if args.batch_size < 1:
@@ -1323,6 +1659,13 @@ def main(argv: list[str]) -> int:
         common.error("--progress-every cannot be negative")
     vault_path: Path = args.input_path
     output_path: Path = args.output_path
+    manifest = None
+    if not args.ignore_preservation:
+        # Before the output is touched, so a refusal writes nothing.
+        try:
+            manifest = _check_bundle(vault_path)
+        except _BundleProblem as problem:
+            common.error(_refusal(problem, vault_path, output_path, args, argv))
     database_path = output_path / notesdb.DATABASE_FILENAME
     new_database = not database_path.is_file()
     if new_database:
@@ -1343,7 +1686,6 @@ def main(argv: list[str]) -> int:
             notesdb.drop_deferred_indexes(sqlconn)
     output_path.joinpath("resources").mkdir(parents=True, exist_ok=True)
 
-    manifest = _load_manifest(vault_path)
     try:
         inserted = skipped = 0
 
