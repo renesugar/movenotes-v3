@@ -22,8 +22,10 @@ import sqlite3
 import sys
 import urllib.parse
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
+from typing import NamedTuple
 
 import common
 import constants
@@ -470,6 +472,12 @@ def _insert_rows(sqlconn: sqlite3.Connection, rows: list[dict], batch_size: int)
     return inserted, skipped
 
 
+class _UnchangedNote(NamedTuple):
+    """A vault note already stored with the same ID and bytes."""
+
+    path: str
+
+
 def _load_manifest(vault_path: Path) -> dict | None:
     path = vault_path / _PRESERVATION_DIR / _MANIFEST_NAME
     if not path.is_file():
@@ -785,13 +793,19 @@ def _native_rows(
     known_directories: set[str] | None = None,
     external_path_ids: dict[str, str] | None = None,
     folder_id_overrides: dict[str, str] | None = None,
+    existing_hashes: Callable[[list[str]], dict[str, set[bytes | None]]] | None = None,
+    lookahead: int = 500,
 ):  # noqa: ANN201
     """Return a bounded-memory row iterator and the number of vault files.
 
-    Path/ID indexes are compact and built once. File bytes are read only when
-    their row is yielded, so at most one SQLite batch of note bodies is held in
-    memory. Attachment bytes remain in ``resources/`` rather than being copied
-    into a second SQLite BLOB.
+    Path/ID indexes are compact and built once. Note bytes are read
+    ``lookahead`` files ahead of the rows yielded, so at most that many note
+    bodies plus one SQLite batch are held in memory. Attachment bytes remain in
+    ``resources/`` rather than being copied into a second SQLite BLOB.
+
+    ``existing_hashes`` is ``_existing_import_hashes`` bound to the output
+    database. A note it reports as stored with the same ID and bytes is yielded
+    as an ``_UnchangedNote`` instead of a row.
     """
     exclude_paths = exclude_paths or set()
     known_directories = known_directories or set()
@@ -892,6 +906,81 @@ def _native_rows(
         and (path not in known_directories or path in note_parent_paths)
     }
 
+    def note_row(
+        source: Path, relative: str, raw: bytes, frontmatter: str,
+        obsidian_body: str, parsed: dict[str, object],
+        properties: list[tuple[str, str]], note_id: str,
+    ) -> dict:
+        title = str(parsed.get("title") or source.stem)
+        timestamp = str(parsed.get("created") or _iso_timestamp(source))
+        updated = str(parsed.get("updated") or timestamp)
+        source_url = str(parsed.get("source-url") or "")
+        parent_id = folder_ids.get(
+            PurePosixPath(relative).parent.as_posix(), ""
+        )
+        converted = rewrite_obsidian_links(
+            obsidian_body,
+            PurePosixPath(relative),
+            all_path_ids,
+            basename_paths,
+            set(resource_ids),
+        )
+        generated_body = title + ("\n\n" + converted if converted else "")
+        existing_app = ""
+        if properties:
+            effective = dict(properties)
+            note_id = effective.get("id", note_id)
+            parent_id = effective.get("parent_id", parent_id)
+            existing_app = effective.get("application_data", "")
+        app_data = obsidianmeta.encode_note_application_data(
+            relative_path=relative,
+            raw=raw,
+            generated_joplin_body=generated_body,
+            existing_application_data=existing_app,
+        )
+        if not properties:
+            properties = _generated_properties(
+                item_id=note_id,
+                item_type=int(constants.JoplinType.NOTE),
+                timestamp=timestamp,
+                parent_id=parent_id,
+                application_data=app_data,
+            )
+        else:
+            properties = [
+                (key, app_data if key == "application_data" else value)
+                for key, value in properties
+            ]
+            if not any(key == "application_data" for key, _value in properties):
+                properties.insert(-1, ("application_data", app_data))
+            properties = [
+                (
+                    key,
+                    source_url
+                    if key == "source_url" and source_url
+                    else value,
+                )
+                for key, value in properties
+            ]
+        row = _columns_from_properties(
+            properties=properties,
+            body=generated_body,
+            title=title,
+            source_path=relative,
+            raw=raw,
+            frontmatter=frontmatter,
+            obsidian_body=obsidian_body,
+            application_data_override=app_data,
+        )
+        row["joplin_id"] = note_id
+        row["note_uuid"] = note_id
+        row["joplin_parent_id"] = parent_id
+        row["note_parent_uuid"] = parent_id
+        row["joplin_created_time"] = row.get("joplin_created_time") or timestamp
+        row["joplin_updated_time"] = row.get("joplin_updated_time") or updated
+        row["joplin_source_url"] = row.get("joplin_source_url") or source_url
+        return row
+
     def generate():  # noqa: ANN202
         tag_ids: dict[str, str] = {}
         note_tag_pairs: list[tuple[str, str, str]] = []
@@ -963,97 +1052,66 @@ def _native_rows(
             row["note_source_filename"] = destination.name
             yield row
 
-        for source, relative in markdown_files:
-            raw = source.read_bytes()
-            try:
-                text = raw.decode("utf-8-sig")
-            except UnicodeDecodeError as exc:
-                common.error(f"'{source}' is not valid UTF-8: {exc}")
-            frontmatter, obsidian_body = split_frontmatter(text)
-            parsed = parse_frontmatter(frontmatter)
-            title = str(parsed.get("title") or source.stem)
-            timestamp = str(parsed.get("created") or _iso_timestamp(source))
-            updated = str(parsed.get("updated") or timestamp)
-            source_url = str(parsed.get("source-url") or "")
-            properties = _property_pairs(parsed.get("joplin-properties"))
-            note_id = note_ids[relative]
-            parent_id = folder_ids.get(
-                PurePosixPath(relative).parent.as_posix(), ""
-            )
-            converted = rewrite_obsidian_links(
-                obsidian_body,
-                PurePosixPath(relative),
-                all_path_ids,
-                basename_paths,
-                set(resource_ids),
-            )
-            generated_body = title + ("\n\n" + converted if converted else "")
-            existing_app = ""
-            if properties:
-                effective = dict(properties)
-                note_id = effective.get("id", note_id)
-                parent_id = effective.get("parent_id", parent_id)
-                existing_app = effective.get("application_data", "")
-            app_data = obsidianmeta.encode_note_application_data(
-                relative_path=relative,
-                raw=raw,
-                generated_joplin_body=generated_body,
-                existing_application_data=existing_app,
-            )
-            if not properties:
-                properties = _generated_properties(
-                    item_id=note_id,
-                    item_type=int(constants.JoplinType.NOTE),
-                    timestamp=timestamp,
-                    parent_id=parent_id,
-                    application_data=app_data,
+        for start in range(0, len(markdown_files), lookahead):
+            # Read one batch of notes ahead and ask the database once whether
+            # each is already stored with the same ID and bytes.  That is the
+            # test _insert_rows applies, and the database only gains rows
+            # before the batch reaches it, so a note found unchanged here
+            # would be skipped there too; converting it would be wasted work.
+            # Its tags are still collected below.  A file that cannot be read
+            # or decoded stops the read-ahead, and its error is raised in file
+            # order, after the notes before it have been yielded.
+            notes = []
+            failure = None
+            for source, relative in markdown_files[start:start + lookahead]:
+                try:
+                    raw = source.read_bytes()
+                    text = raw.decode("utf-8-sig")
+                    frontmatter, obsidian_body = split_frontmatter(text)
+                    parsed = parse_frontmatter(frontmatter)
+                except Exception as exc:  # noqa: BLE001 - re-raised in order below
+                    failure = (source, exc)
+                    break
+                properties = _property_pairs(parsed.get("joplin-properties"))
+                note_id = note_ids[relative]
+                if properties:
+                    note_id = dict(properties).get("id", note_id)
+                notes.append(
+                    (source, relative, raw, frontmatter, obsidian_body, parsed,
+                     properties, note_id)
                 )
-            else:
-                properties = [
-                    (key, app_data if key == "application_data" else value)
-                    for key, value in properties
-                ]
-                if not any(key == "application_data" for key, _value in properties):
-                    properties.insert(-1, ("application_data", app_data))
-                properties = [
-                    (
-                        key,
-                        source_url
-                        if key == "source_url" and source_url
-                        else value,
-                    )
-                    for key, value in properties
-                ]
-            row = _columns_from_properties(
-                properties=properties,
-                body=generated_body,
-                title=title,
-                source_path=relative,
-                raw=raw,
-                frontmatter=frontmatter,
-                obsidian_body=obsidian_body,
-                application_data_override=app_data,
+            stored = (
+                existing_hashes([str(note[-1]) for note in notes])
+                if existing_hashes is not None and notes
+                else {}
             )
-            row["joplin_id"] = note_id
-            row["note_uuid"] = note_id
-            row["joplin_parent_id"] = parent_id
-            row["note_parent_uuid"] = parent_id
-            row["joplin_created_time"] = row.get("joplin_created_time") or timestamp
-            row["joplin_updated_time"] = row.get("joplin_updated_time") or updated
-            row["joplin_source_url"] = row.get("joplin_source_url") or source_url
-            yield row
-
-            tags = parsed.get("tags")
-            if isinstance(tags, list):
-                for tag in tags:
-                    tag_name = str(tag).lstrip("#").strip()
-                    if not tag_name:
-                        continue
-                    tag_id = tag_ids.setdefault(
-                        tag_name,
-                        obsidianmeta.deterministic_id("tag", tag_name),
+            for (
+                source, relative, raw, frontmatter, obsidian_body, parsed,
+                properties, note_id,
+            ) in notes:
+                if hashlib.sha256(raw).digest() in stored.get(str(note_id), ()):
+                    yield _UnchangedNote(relative)
+                else:
+                    yield note_row(
+                        source, relative, raw, frontmatter, obsidian_body,
+                        parsed, properties, note_ids[relative],
                     )
-                    note_tag_pairs.append((note_id, tag_id, tag_name))
+                tags = parsed.get("tags")
+                if isinstance(tags, list):
+                    for tag in tags:
+                        tag_name = str(tag).lstrip("#").strip()
+                        if not tag_name:
+                            continue
+                        tag_id = tag_ids.setdefault(
+                            tag_name,
+                            obsidianmeta.deterministic_id("tag", tag_name),
+                        )
+                        note_tag_pairs.append((note_id, tag_id, tag_name))
+            if failure is not None:
+                source, exc = failure
+                if isinstance(exc, UnicodeDecodeError):
+                    common.error(f"'{source}' is not valid UTF-8: {exc}")
+                raise exc
 
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         for tag_name, tag_id in sorted(
@@ -1120,13 +1178,22 @@ def main(argv: list[str]) -> int:
     try:
         inserted = skipped = 0
 
+        def stored_hashes(item_ids: list[str]) -> dict[str, set[bytes | None]]:
+            return _existing_import_hashes(sqlconn, item_ids)
+
         def import_native_rows(rows, file_count: int) -> tuple[int, int]:  # noqa: ANN001
             batch: list[dict] = []
             added_total = skipped_total = files_processed = 0
             next_progress = args.progress_every if args.progress_every else 0
 
+            # A note found unchanged before conversion still takes its slot, so
+            # batches close where they would if its row had been built, and the
+            # remaining rows meet _insert_rows' checks at the same points.
+            batch_slots = 0
+
             def flush_native_batch() -> None:
-                nonlocal added_total, skipped_total
+                nonlocal added_total, skipped_total, batch_slots
+                batch_slots = 0
                 if not batch:
                     return
                 added, repeated = _insert_rows(sqlconn, batch, args.batch_size)
@@ -1135,18 +1202,26 @@ def main(argv: list[str]) -> int:
                 batch.clear()
 
             for row in rows:
-                item_type = row.get("joplin_type_")
-                source_path = str(row.get("note_obsidian_path") or "")
-                is_vault_file = item_type in {
-                    int(constants.JoplinType.NOTE),
-                    int(constants.JoplinType.RESOURCE),
-                } and not source_path.startswith(".movenotes/")
-                if is_vault_file:
+                unchanged = isinstance(row, _UnchangedNote)
+                if unchanged:
+                    source_path = row.path
                     files_processed += 1
+                    skipped_total += 1
+                else:
+                    item_type = row.get("joplin_type_")
+                    source_path = str(row.get("note_obsidian_path") or "")
+                    is_vault_file = item_type in {
+                        int(constants.JoplinType.NOTE),
+                        int(constants.JoplinType.RESOURCE),
+                    } and not source_path.startswith(".movenotes/")
+                    if is_vault_file:
+                        files_processed += 1
                 if args.verbose:
                     print(f"processing '{source_path or row.get('note_title')}'")
-                batch.append(row)
-                if len(batch) >= args.batch_size:
+                if not unchanged:
+                    batch.append(row)
+                batch_slots += 1
+                if batch_slots >= args.batch_size:
                     flush_native_batch()
                 if (
                     not args.verbose
@@ -1186,6 +1261,8 @@ def main(argv: list[str]) -> int:
                 known_directories=set(context["known_directories"]),
                 external_path_ids=dict(context["external_path_ids"]),
                 folder_id_overrides=dict(context["folder_id_overrides"]),
+                existing_hashes=stored_hashes,
+                lookahead=args.batch_size,
             )
             native_inserted, native_skipped = import_native_rows(rows, file_count)
             inserted += native_inserted
@@ -1194,7 +1271,10 @@ def main(argv: list[str]) -> int:
             if file_count:
                 source_description += f" plus {file_count:,} additional Obsidian vault file(s)"
         else:
-            rows, file_count = _native_rows(vault_path, output_path)
+            rows, file_count = _native_rows(
+                vault_path, output_path,
+                existing_hashes=stored_hashes, lookahead=args.batch_size,
+            )
             inserted, skipped = import_native_rows(rows, file_count)
             source_description = f"native Obsidian vault ({file_count:,} file(s))"
         notesdb.ensure_joplin_id_index(sqlconn)

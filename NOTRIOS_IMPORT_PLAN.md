@@ -37,13 +37,15 @@ prerequisites came first: **S43a, S43b, S43c and E1 are complete**. S43a found t
 downstream fixes, now planned as **S43c** and **E1**. **Resumed P7c ran its
 whole frozen matrix** (R1–R6, all outputs identical). On 2026-10-23 the user
 accepted F04 at full scale and removed the Go producer targets from the plan.
-P7c found three fixes, planned as **U1**, **I1** and **M1**. Next is **U1**.
+P7c found three fixes, planned as **U1**, **I1** and **M1**. **U1 is complete**:
+an unchanged rerun now takes 0.47 (subset) and 0.52 (full vault) of the time it
+did before. Next is **I1**.
 Plan revised on **2026-10-22**: all remaining work is assigned to the Claude Code
 main model (**Main**), and the user confirmed this for the session. No Codex
 worker or monitor remains in the plan. See
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 S43b and resumed 7c pin the released Notrios **`v1.0.0`** (`2aab9a8`). The
-remaining order is U1 → I1 → M1 → resumed 7c → 7d → 7e.
+remaining order is I1 → M1 → resumed 7c → 7d → 7e.
 Slice **7c remains incomplete**; isolated work
 and checkpoints are under `/media/$USER/HD2/movenotes-7c-20260916/`.
 Both recipe imports succeeded (382,206 documents each), but bounded real
@@ -285,16 +287,16 @@ Session confirmation: **confirmed**.
 
 Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID claude-opus-5-5)**. Product/client version: not exposed; model provider: Anthropic (runtime-reported).
 
-- All remaining work (U1, I1, M1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
+- All remaining work (I1, M1, resumed 7c, 7d and 7e) is planned for the Claude Code parent, called Main in the slice tables. No worker or subagent is planned.
 - Codex luna_worker and terra_worker do not exist in Claude Code and are not replaced by Claude subagents. Spawning one requires an explicit user request and a recorded plan amendment first.
 - The Codex auxiliary Luna monitor is retired for remaining work. Main runs long data-heavy commands as harness-tracked background commands, is re-invoked once when they exit, and does not poll.
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 - Completed slices keep their recorded Codex attribution. The earlier Codex session is under previous_sessions and its assignments under assignment_history.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **U1 — skip unchanged native vault files before conversion**,
-assigned to the Claude Code parent (**Main**). Session assignments are
-confirmed. Slice authorization is pending.
+Next slice: **I1 — defer secondary indexes when importing into an empty
+existing library**, assigned to the Claude Code parent (**Main**). Session
+assignments are confirmed. Slice authorization is pending.
 
 **Resumed P7c, complete (2026-10-23).** R1–R6 ran as frozen below; every
 comparison is fingerprint-identical, and the five required modules and the
@@ -386,7 +388,7 @@ at full scale by the user's decision; F02 is subsumed by P7b2. Rejected Go G08
 stays out of full trials; no Go candidate is approved. Any producer implementation needs an explicit handoff naming its
 files and checkout, plus the user's approval to write to the Notrios checkout.
 
-Remaining sequence: U1 → I1 → M1 → resumed 7c → 7d → 7e, subject to the
+Remaining sequence (U1 complete): I1 → M1 → resumed 7c → 7d → 7e, subject to the
 unresolved compatibility gates. Every data-heavy
 run follows the background-run rule under
 [Execution and handoff rules](#execution-and-handoff-rules). Preserve C7c's documented differences: RAW's 842,813 tag
@@ -1005,7 +1007,7 @@ implementation.
 
 | Slice / planned owner | Work and owned output | Depends on | Acceptance |
 |---|---|---|---|
-| U1 / Main | Skip unchanged native vault files before converting them. R6's profile of an unchanged 10,000-file rerun (58.3 s under cProfile) spends 31.6 s building rows that are then skipped: two frontmatter parses per file (13.1 s), link rewriting (3.2 s), compressed application data (3.1 s) and JSON encoding. That is why an unchanged full-corpus rerun costs 85% of a fresh import. `_insert_rows` decides "unchanged" from the item ID and the SHA-256 of the file's raw bytes alone. The ID is already known after the inventory pass (the frontmatter `joplin-properties` id, or the path-derived ID), so the same decision can be made from a batched lookup of `(ID, raw digest)` before conversion. Owns `obsidian2sql.py`, tests and a candidate harness. | P7c | An identical rerun and a merge into an existing library produce databases fingerprint-identical to the current code, with the same inserted/skipped counts and the same collision errors (changed bytes under an existing ID still refuse). Tag and note-tag rows of skipped notes stay exactly as they are; the design must show they need no regeneration, or regenerate them cheaply. Fresh imports are unaffected. Measured with paired alternating runs: the unchanged rerun improves by at least the 5% adoption gate on the 10,000-file subset and in one full-corpus pair, with no fresh, small-merge or memory regression. The preserved-bundle and RAW unchanged paths are checked against R2 and R4; extending U1 to them needs its own measured evidence. Focused tests plus all five regression modules. |
+| U1 / Main — complete | Skip unchanged native vault files before converting them. R6's profile of an unchanged 10,000-file rerun (58.3 s under cProfile) spends 31.6 s building rows that are then skipped: two frontmatter parses per file (13.1 s), link rewriting (3.2 s), compressed application data (3.1 s) and JSON encoding. That is why an unchanged full-corpus rerun costs 85% of a fresh import. `_insert_rows` decides "unchanged" from the item ID and the SHA-256 of the file's raw bytes alone. The ID is already known after the inventory pass (the frontmatter `joplin-properties` id, or the path-derived ID), so the same decision can be made from a batched lookup of `(ID, raw digest)` before conversion. Owns `obsidian2sql.py`, tests and a candidate harness. | P7c | An identical rerun and a merge into an existing library produce databases fingerprint-identical to the current code, with the same inserted/skipped counts and the same collision errors (changed bytes under an existing ID still refuse). Tag and note-tag rows of skipped notes stay exactly as they are; the design must show they need no regeneration, or regenerate them cheaply. Fresh imports are unaffected. Measured with paired alternating runs: the unchanged rerun improves by at least the 5% adoption gate on the 10,000-file subset and in one full-corpus pair, with no fresh, small-merge or memory regression. The preserved-bundle and RAW unchanged paths are checked against R2 and R4; extending U1 to them needs its own measured evidence. Focused tests plus all five regression modules. |
 
 *Order (decided 2026-10-22, when U1 was added):* U1 comes after resumed P7c
 and before resumed 7c. It changes `obsidian2sql.py`, so landing it during
@@ -1013,6 +1015,19 @@ P7c's frozen matrix would invalidate that matrix's comparisons. Landing it
 before 7c means 7c's full-corpus trials, which include unchanged reruns,
 measure the final code. 7c and 7d now also depend on U1, and 7d's CHANGELOG
 records it if it is adopted.
+
+*U1 result (2026-10-23).* Adopted. Paired alternating runs against `9c25e2a`
+are fingerprint-identical throughout. The unchanged rerun's median time is 0.472
+of the previous code's on five 10,000-file pairs and 0.524 in the full-vault
+pair (983.03 s to 515.14 s). Fresh imports are not slower (subset median 0.938;
+one ungated full-vault run 1.042, within the single-run noise R2 showed), and
+the ten-note merge differs by 0.02 s on 0.55 s. Fresh imports peak about 2 MB
+(subset, +4.0%) to 6 MB (full vault, +0.8%) higher, because one batch of notes
+is read ahead of the batch being inserted; that bound does not grow with the
+vault. U1's acceptance said "no memory regression", so the increase was put to
+the user, who accepted U1 as measured. RAW imports and preserved-bundle items
+run unchanged code, so R2 and R4 stand for them. Details in the
+[P7c evidence](NOTRIOS_P7C_EVIDENCE.md#u1--unchanged-notes-skipped-before-conversion-2026-10-23).
 
 **Fixes found by resumed P7c's R4 and R5 (2026-10-23).** Planned work at the
 user's standing direction, with designs frozen here before implementation.
@@ -1252,6 +1267,7 @@ diff/link checks, not a claim that the future importer or runtime gates passed.
 | 2026-10-23 | Resumed P7c results | The Claude Code parent ran the frozen R1–R6 matrix with P7b2 constant; every comparison is fingerprint-identical. On five alternating 10,000-file pairs F04 is faster in every pair (median fresh 0.834, unchanged 0.823, merge 1.000, memory +0.5%). At full scale R1's single gated fresh pair is 0.969, below the frozen 5% gate, with unchanged 0.859 and the ungated fresh setup 0.803; R2's RAW control, with identical code, moved −25% to +31%, so F04's full-scale adoption is held as ambiguous for the user. R4 exported the full RAW library in 1,406 s and reimported the bundle in 2,256 s, losslessly (only the `note_obsidian_*` snapshot columns differ, on the 382,206 notes), but at 3.5 GiB and 1.8 GiB peak RSS from holding the 530 MB manifest. R5's SIGINT, in the inventory and in a batch insert, left no notes, and both reruns matched the uninterrupted fingerprint; two earlier attempts were invalid because a non-interactive shell's `&` made the child ignore SIGINT. The reruns were slow because an empty existing library builds all eight indexes before inserting. The Go producer targets remain unmet. 286 tests in the five required modules pass (149.366 s) and the 11 harness tests pass. I1 and M1 are added from R5 and R4, with the order I1 → M1 after U1 proposed. P7c stays open. No worker was used. Next: the user's F04 and Go-target decisions and the I1/M1 order, then ask to proceed to U1. |
 | 2026-10-23 | P7c complete | The user decided: "Remove the Go targets from the plan ; Accept F04 at full scale." F04 is adopted at full scale and stays in `HEAD`; `PERFORMANCE_REVIEW.md` records it. The Go producer targets are removed from the adoption gates and the frozen design, with a dated note. Correction to the row above: they were not "unmet". They were set on `notriosctl` timings at Notrios `7662fdd`, 290 commits before the `v1.0.0` pin and Notrios's own J17/J32 performance work, and P7c never ran Notrios. The P7c evidence and ledger record are corrected to match. Documentation and provenance only. No worker was used. Next: the user's answer on the proposed I1/M1 order, then ask to proceed to U1. |
 | 2026-10-23 | Order confirmed | The user answered "Yes to the I1 and M1 order; proceed with U1." The order is U1 → I1 → M1 → resumed 7c → 7d → 7e; 7c and 7d now also depend on I1 and M1, and 7d's CHANGELOG text adds F04, I1 and M1. Documentation only. Next: U1, authorized. |
+| 2026-10-23 | U1 complete | The Claude Code parent made `obsidian2sql.py` read note bytes one batch ahead and look up each batch's `(ID, raw digest)` pairs before conversion; a note stored with the same bytes is counted as skipped without being converted, while its tags are still collected and batch boundaries, collision checks and read-error order stay as before. Three tests added; the unchanged-rerun test fails on the previous code. All 289 tests in the five required modules pass (172.590 s). Paired against `9c25e2a`, all outputs fingerprint-identical: unchanged rerun 0.472 (subset, five pairs) and 0.524 (full vault, 983.03 s to 515.14 s); fresh 0.938; merge 1.038, 0.02 s. Fresh-import peak memory rises by one read-ahead batch, +2.1 MB (+4.0%) on the subset and +5.9 MB (+0.8%) on the full vault; the user accepted U1 as measured. No worker was used. Next: ask to proceed to I1. |
 
 ## Assignment amendment — 2026-10-22
 
@@ -2238,7 +2254,7 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 </details>
 
-<details><summary>U1 — pending; planned parent</summary>
+<details><summary>U1 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -2246,21 +2262,21 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; U1 authorized by the user on 2026-10-23 (Yes to the I1 and M1 order; proceed with U1). On 2026-10-23 the user accepted U1 as measured, including the bounded fresh-import memory increase. |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Implemented the batched read-ahead in obsidian2sql.py: _native_rows reads note bytes one batch ahead, looks up the batch's (ID, raw digest) pairs with _existing_import_hashes, and yields _UnchangedNote markers for notes stored with the same bytes instead of converting them; tags are still collected for every note; import_native_rows counts markers as skipped and keeps batch boundaries with batch_slots; read errors are re-raised in file order. Added three tests to test_obsidian2sql.py. Ran the paired alternating base-versus-U1 benchmark with scripts/notrios_p7c_benchmark.py on the 10,000-file subset and the full vault, recorded the results and put the fresh-import memory increase to the user. |
+| Validation | All 289 tests in the five required modules pass (172.590 s) with PYTHONDONTWRITEBYTECODE=1 and -B, including test_unchanged_rerun_converts_no_note (fails on the previous code), test_skipped_notes_still_restore_missing_tags and test_unreadable_note_after_unchanged_notes_reports_utf8_error. Paired alternating runs, base 9c25e2a against U1, every output fingerprint-identical: 10,000-file subset, five pairs each, median U1/base unchanged rerun 0.472, fresh import 0.938, ten-note merge 1.038 (0.02 s on 0.55 s, pairs -0.04 to +0.08 s); full vault, one pair, unchanged rerun 0.524 (983.03 s to 515.14 s). Ungated setup imports: subset fresh 0.86-0.98 in all five, full-vault fresh 1.042 (1,537.89 s to 1,601.87 s, one run). Peak RSS: unchanged -2.1 MB subset and -1.9 MB full; fresh +2.1 MB (+4.0%) subset and +5.9 MB (+0.8%) full, from one batch of read-ahead notes; merge +0.5 MB. The user accepted U1 as measured on 2026-10-23. RAW (joplin2sql.py) and preserved-bundle items are unchanged code; R2 and R4 stand for them. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | Resumed P7c R6 profile, 2026-10-22; user: Add a plan item to fix this. |
-| Execution evidence | Scratch profile /tmp/claude-$UID/-home-$USER-projects-movenotes-v3/<session>/scratchpad/p7c-r6/unchanged.prof |
-| Commit | pending |
+| Execution evidence | NOTRIOS_P7C_EVIDENCE.md, section U1 — unchanged notes skipped before conversion; /run/media/$USER/HD2/movenotes-u1-20261023-sources (SOURCES.txt, harness copies, run_u1.sh, run_u1.log); /run/media/$USER/HD2/movenotes-u1-20261023-subset/results.json; /run/media/$USER/HD2/movenotes-u1-20261023-full/results.json; Scratch profile /tmp/claude-$UID/-home-$USER-projects-movenotes-v3/<session>/scratchpad/p7c-r6/unchanged.prof |
+| Commit | Git commit containing this completion record: perf: skip unchanged vault notes before converting them (U1) |
 
 </details>
 

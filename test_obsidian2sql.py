@@ -176,6 +176,103 @@ class ObsidianRoundTripTest(unittest.TestCase):
                 self.assertIn("joplinididx", plan)
                 self.assertNotIn("SCAN", plan)
 
+    def _import_quietly(self, vault: Path, output: Path, *extra: str) -> str:
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            obsidian2sql.main([
+                "--input", str(vault), "--output", str(output),
+                "--progress-every", "0", *extra,
+            ])
+        return stdout.getvalue()
+
+    def test_unchanged_rerun_converts_no_note(self) -> None:
+        """A note stored with the same ID and bytes is skipped before conversion."""
+        with tempfile.TemporaryDirectory(prefix="obsidian-unchanged-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            output = root / "sqlite"
+            (vault / "folder").mkdir(parents=True)
+            output.mkdir()
+            for index in range(3):
+                (vault / "folder" / f"note {index}.md").write_text(
+                    f"---\ntags:\n  - shared\n  - tag{index}\n---\n# Note {index}\n\n"
+                    f"[[note {(index + 1) % 3}]] body {index}\n",
+                    encoding="utf-8",
+                )
+            first = self._import_quietly(vault, output, "--batch-size", "2")
+            self.assertIn("0 unchanged item(s) skipped", first)
+            database = output / notesdb.DATABASE_FILENAME
+            with contextlib.closing(sqlite3.connect(database)) as conn:
+                before = conn.execute(
+                    "SELECT * FROM notes ORDER BY note_id"
+                ).fetchall()
+            converted: list[str] = []
+            original = obsidian2sql.rewrite_obsidian_links
+
+            def counting(body, relative, *args):  # noqa: ANN001, ANN202
+                converted.append(str(relative))
+                return original(body, relative, *args)
+
+            with mock.patch.object(obsidian2sql, "rewrite_obsidian_links", counting):
+                second = self._import_quietly(vault, output, "--batch-size", "2")
+            self.assertEqual(converted, [])
+            self.assertIn("imported 0 item(s)", second)
+            self.assertIn(f"; {len(before):,} unchanged item(s) skipped", second)
+            with contextlib.closing(sqlite3.connect(database)) as conn:
+                self.assertEqual(
+                    conn.execute("SELECT * FROM notes ORDER BY note_id").fetchall(),
+                    before,
+                )
+
+            # Changed bytes under a stored ID still refuse, and are converted.
+            (vault / "folder" / "note 1.md").write_text("# Note 1\n\nedited\n", encoding="utf-8")
+            with mock.patch.object(obsidian2sql, "rewrite_obsidian_links", counting), \
+                    self.assertRaisesRegex(SystemExit, "item id collision"):
+                self._import_quietly(vault, output, "--batch-size", "2")
+            self.assertEqual(converted, ["folder/note 1.md"])
+
+    def test_skipped_notes_still_restore_missing_tags(self) -> None:
+        """Tags of an unchanged note are still collected, so missing rows return."""
+        with tempfile.TemporaryDirectory(prefix="obsidian-unchanged-tags-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            output = root / "sqlite"
+            vault.mkdir()
+            output.mkdir()
+            (vault / "tagged.md").write_text(
+                "---\ntags:\n  - alpha\n  - beta\n---\nbody\n", encoding="utf-8"
+            )
+            self._import_quietly(vault, output)
+            database = output / notesdb.DATABASE_FILENAME
+            tag_types = (int(constants.JoplinType.TAG), int(constants.JoplinType.NOTE_TAG))
+            query = (
+                "SELECT joplin_id, joplin_type_, note_title FROM notes "
+                "WHERE joplin_type_ IN (?, ?) ORDER BY joplin_id"
+            )
+            with contextlib.closing(sqlite3.connect(database)) as conn:
+                tags = conn.execute(query, tag_types).fetchall()
+                self.assertEqual(len(tags), 4)
+                conn.execute("DELETE FROM notes WHERE joplin_type_ IN (?, ?)", tag_types)
+                conn.commit()
+            output_text = self._import_quietly(vault, output)
+            self.assertIn("imported 4 item(s)", output_text)
+            with contextlib.closing(sqlite3.connect(database)) as conn:
+                self.assertEqual(conn.execute(query, tag_types).fetchall(), tags)
+
+    def test_unreadable_note_after_unchanged_notes_reports_utf8_error(self) -> None:
+        """A read-ahead decoding failure is still reported as before."""
+        with tempfile.TemporaryDirectory(prefix="obsidian-unchanged-utf8-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            output = root / "sqlite"
+            vault.mkdir()
+            output.mkdir()
+            (vault / "a.md").write_text("first\n", encoding="utf-8")
+            self._import_quietly(vault, output)
+            (vault / "b.md").write_bytes(b"\xff\xfe broken\n")
+            with self.assertRaisesRegex(SystemExit, r"b\.md' is not valid UTF-8"):
+                self._import_quietly(vault, output)
+
     def test_native_obsidian_survives_joplin_round_trip_exactly(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-native-") as temporary:
             root = Path(temporary)

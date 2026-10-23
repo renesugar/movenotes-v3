@@ -369,3 +369,49 @@ Private roots under `/run/media/$USER/HD2/`: `movenotes-p7c-20261022-sources`
 `movenotes-p7c-20261022-variants`, `movenotes-p7c-20261022-r3-subset`,
 `movenotes-p7c-20261022-r1r2-full`, `movenotes-p7c-20261022-r4-preserved` and
 `movenotes-p7c-20261022-r5-recovery` (attempts, `empty-existing-check`).
+
+## U1 — unchanged notes skipped before conversion (2026-10-23)
+
+R6 showed an unchanged rerun spending most of its time converting notes that
+`_insert_rows` then skips. U1 makes the same decision earlier. `_native_rows`
+now reads note bytes one batch (`--batch-size`, 500 by default) ahead and looks
+up that batch's `(ID, SHA-256 of the raw bytes)` pairs in the database with
+`_existing_import_hashes`. A note already stored with the same bytes is passed
+on as a skip marker without link rewriting, compressed application data or row
+assembly. Everything else is converted as before. The database only gains rows
+during an import, so a note found unchanged at read-ahead time would also have
+been skipped at insert time. Tags are still read from every note, so missing
+tag and note-tag rows are still recreated. Skipped notes still take a batch
+slot, so batches close where they did and collision errors come in the same
+order. A file that cannot be read or decoded is reported in file order.
+
+Paired alternating runs of `scripts/notrios_p7c_benchmark.py`, `9c25e2a` (base)
+against the U1 working tree (`obsidian2sql.py` SHA-256 `9b6eeb88…aa87`, the
+committed file). Every output is fingerprint-identical to base.
+
+| Case | Pairs | Base | U1 | Median U1/base | Peak RSS, U1 − base |
+|---|---:|---:|---:|---:|---:|
+| Unchanged rerun, 10,000 files | 5 | 25.81–40.52 s | 12.17–14.63 s | **0.472** | −2.1 MB |
+| Unchanged rerun, full vault | 1 | 983.03 s | 515.14 s | **0.524** | −1.9 MB |
+| Fresh import, 10,000 files | 5 | 29.93–47.92 s | 28.07–32.79 s | 0.938 | +2.1 MB (+4.0%) |
+| Ten-note merge into 10,000 files | 5 | 0.53–0.60 s | 0.52–0.68 s | 1.038 | +0.5 MB (+1.8%) |
+
+The ungated setup imports agree. The five 10,000-file fresh setups for the merge
+case ran 0.86–0.98 of base. The full-vault fresh setup ran 1,537.89 s on base
+and 1,601.87 s on U1 (1.042, one run, within the up to 31% single-run noise R2
+showed), at 775,396 and 781,476 KiB peak RSS. The merge's median difference is
+0.02 s, at the timer's 0.01 s resolution, with pairs from −0.04 to +0.08 s.
+
+The fresh-import memory increase is one batch of notes held read ahead of the
+batch waiting to be inserted. It is bounded by the batch size and does not grow
+with the vault. U1's frozen acceptance asked for no memory regression, so the
+increase was put to the user, who on 2026-10-23 **accepted U1 as measured**.
+
+RAW imports (`joplin2sql.py`) and preserved-bundle items run unchanged code, so
+R2's and R4's results stand for them. Only extra native files in a preserved
+vault use U1's path.
+
+Private roots under `/run/media/$USER/HD2/`: `movenotes-u1-20261023-sources`
+(`SOURCES.txt` with hashes, harness copies, `run_u1.sh`, `run_u1.log`),
+`movenotes-u1-20261023-variants` (`base`, `u1`), `movenotes-u1-20261023-subset`
+and `movenotes-u1-20261023-full`.

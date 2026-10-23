@@ -142,6 +142,16 @@ rerun's to 0.823, with identical output and a ten-note merge unchanged. Over
 the full vault all three paired timings were faster, at 2.4–3.4% more peak memory
 for the retained paths.
 
+An unchanged rerun used to convert every note (frontmatter, links, compressed
+application data) before finding it already stored. The importer now reads
+note bytes one batch ahead and checks the batch's IDs and raw-byte digests in
+one query, so a note stored with the same bytes is skipped before conversion.
+Tags are still read from every note. On five alternating 10,000-file pairs the
+unchanged rerun's median time fell to 0.472 of the previous code's, and in a
+full-vault pair from 983 s to 515 s, with identical output. Fresh imports are
+not slower; their peak memory rises by the read-ahead batch, about 2 MB at
+10,000 files and 6 MB over the full vault, which does not grow with the vault.
+
 The resulting complexity is O(vault files + links) for inventory and link
 resolution, plus indexed/batched SQLite insertion. Memory is O(path index +
 batch note bytes + tags), rather than O(total vault bytes).
