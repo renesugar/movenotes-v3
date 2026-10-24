@@ -1400,7 +1400,7 @@
       "planned_worker": "parent",
       "configured_model": "not exposed; runtime reports claude-opus-5-5",
       "configured_reasoning_effort": "not exposed",
-      "assignment_confirmation": "Codex partial run: Confirmed unchanged Codex session; user explicitly authorized 7c. Remaining work: Claude Code session assignments confirmed by user on 2026-10-22; resume still requires authorization.",
+      "assignment_confirmation": "Codex partial run: Confirmed unchanged Codex session; user explicitly authorized 7c. Remaining work: Claude Code session assignments confirmed by user on 2026-10-22; resumed 7c authorized by the user on 2026-10-23 (Start it.), with the work on the internal disk (user answer: Internal disk).",
       "assignment_history": [
         {
           "coding_agent": "codex",
@@ -1429,7 +1429,8 @@
         "User request for Luna monitoring with long notification waits; native spawn /root/notrios_7c_monitor",
         "NOTRIOS_CORPUS_TRIALS.md",
         "Private /media/$USER/HD2/movenotes-7c-20260916/notification.json and resume/final-regressions.log",
-        "2ea17ca: committed receipt-test ordering correction; 7c remains incomplete"
+        "2ea17ca: committed receipt-test ordering correction; 7c remains incomplete",
+        "2026-10-23: resumed 7c design frozen in NOTRIOS_IMPORT_PLAN.md before any run"
       ],
       "commit": "none — uncommitted",
       "monitoring_assignment": {

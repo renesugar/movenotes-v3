@@ -973,6 +973,101 @@ data.
   the acceptance scope with the user; do not count skipped full integrations as
   passed. 7d and 7e remain downstream of completed 7c.
 
+**Resumed 7c design (frozen 2026-10-23, before any run).** The user
+authorized resumed 7c ("Start it") and chose its work volume the same day:
+"Internal disk". HD2 had 52 GB free, against an estimated 70–90 GB, and the
+internal disk 538 GB.
+
+- **Inputs.**
+  - Producer: Notrios `v1.0.0` (`2aab9a8`). The binary is S43b's build, SHA-256
+    `b4f368a9…e55c` and Go build `vcs.revision=2aab9a8`, copied into the work
+    root and checked before every stage.
+  - Consumer: this repository at the commit that adds the harness. Every stage
+    records the hashes of the Python files it runs.
+  - The three corpora under
+    [Corpus and measurement procedure](#corpus-and-measurement-procedure),
+    read-only.
+  - Release help and source were checked before reuse. Import batches are
+    still 1–500 (`cmd/notriosctl/main.go`). The publish commands accept the
+    `--profiles` and `--target publication_handoff` forms S43b ran. Recipe
+    imports use `--batch-size 500`; Joplin uses the default of 100, as before.
+- **Work root.** `~/movenotes-work/7c-20261023`, mode 700, outside every
+  source tree and this repository. It is not indexed and never committed.
+  - The `7662fdd` libraries on HD2 and C7c's results are kept and not read for
+    acceptance. C7c's accepted v6 run lived under `/tmp` and no longer exists,
+    so the comparison is rerun, as the contract requires.
+- **Harness.** `scripts/notrios_7c_trials.py`, sequential, with no private
+  path in its code; every path is an argument. It carries the earlier private
+  harness forward:
+  - per-stage `checkpoint.json`, GNU time, logs, disk before and after, and
+    aggregate output counts, bytes and digests;
+  - the conversion phase log;
+  - archived failed attempts.
+
+  Each checkpoint is bound to a fingerprint: argv, producer binary hash,
+  consumer file hashes, and input digests (the source inventory or the
+  upstream stage's output digest). A completed stage is reused only when its
+  fingerprint matches. Otherwise it runs into a fresh path, and the old
+  attempt is kept.
+- **Phases.** Each runs as one harness-tracked background command.
+  1. *Producer:* source inventories, then fresh imports of the Joplin, recipe
+     RAW and recipe vault libraries.
+  2. *Bounded:* for each route, the first 1,000 documents by ID, with link
+     action `plain_text`. The stages are profile, plan (asserting no source
+     bundles), publish, producer verify, Python verify, conversion, vault
+     export (`--include-notrios-receipt --no-simplify-urls`), the attachment
+     check (exact bytes and reachable sets, archive → database → vault), site
+     generation (Ledger, Bluge), Hugo and the Bluge index. Then a live-site
+     check and the recovery trial.
+     - *Live-site check:* serve each bounded site with the generated server on
+       loopback. `/api/health` and `/` answer 200. A `tag:` query returns
+       exactly the number of `search-source.jsonl` rows carrying that tag. A
+       returned URL answers 200.
+     - *Recovery trial:* on the bounded Joplin archive, which has real
+       attachments, kill the conversion after its payload is built. A rerun
+       must refuse the stale lock. Clean up only after checking ownership.
+       A fresh rerun must match the bounded conversion's output digest, and
+       an unchanged rerun must leave it unchanged.
+  3. *Full:* the same stages over every document, all notebooks plus unfiled
+     documents. Each route's full tier is gated on its bounded tier.
+  4. *Comparison:* `notrios_c7c.py` on the new recipe libraries and the three
+     bounded publications, with C7c's v6 rules.
+  5. *Regression:* the five-module gate with both bytecode controls, plus the
+     harness tests.
+- **Durations and stall thresholds.**
+  - The `7662fdd` producer imports took 1,568 s, 7,246 s and 17,142 s on HD2.
+    Phase 1's stall threshold is their sum doubled, 52,000 s.
+  - Phase 2 is expected to take minutes; its threshold is 3,600 s.
+  - Phase 3's threshold is set from phase 2's per-1,000-document stage times,
+    scaled to the full counts and doubled, and recorded before launch.
+  - Phase 4 is expected to take about 90 minutes, with a 3,600 s per-query
+    limit; its threshold is 4 h.
+  - Under the background-run rule, a single diagnostic is allowed only after a
+    threshold passes.
+- **Acceptance.**
+  - Every stage exits 0, or a refusal is recorded with its aggregate
+    diagnostic and the route's dependent stages are recorded as skipped.
+    Refused notes are never filtered out. A refusal that remains blocks 7c
+    until the user revises its scope.
+  - Each full plan selects every document.
+  - Attachment bytes and reachable sets are exact on every route that has
+    resources.
+  - Conversion RSS and phase times at bounded and full scale are recorded
+    side by side. Only measured bounds are claimed, per stage, with no
+    whole-pipeline memory claim.
+  - The comparison accounts for all 382,206 identities per route, with zero
+    unexplained source-to-route differences. C7c's documented differences are
+    re-established and quantified against its accepted figures: the separate
+    tag channel, the RAW metadata projection and the 3,682 pinned titles. Any
+    change from those figures is explained by a producer change between
+    `7662fdd` and `v1.0.0`.
+  - The live-site and recovery checks pass.
+  - The regression gate passes after the final change.
+- **Owned files.** `scripts/notrios_7c_trials.py`, `test_notrios_7c.py`, the
+  resumed section of `NOTRIOS_CORPUS_TRIALS.md`, this plan and its ledger.
+  Importer, exporter and site code is excluded. A defect found there is
+  recorded here as a fix before any change, as before.
+
 ### Performance investigation and measured adoption before resuming 7c
 
 Added at the user's request on 2026-09-17. Read both supplied reviews:
@@ -2477,7 +2572,7 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Codex partial run: Confirmed unchanged Codex session; user explicitly authorized 7c. Remaining work: Claude Code session assignments confirmed by user on 2026-10-22; resume still requires authorization. |
+| Assignment confirmation | Codex partial run: Confirmed unchanged Codex session; user explicitly authorized 7c. Remaining work: Claude Code session assignments confirmed by user on 2026-10-22; resumed 7c authorized by the user on 2026-10-23 (Start it.), with the work on the internal disk (user answer: Internal disk). |
 | Actual worker | luna_worker (harness/monitoring only) |
 | Child thread | /root/notrios_7c_monitor |
 | Actual model | not exposed — configured worker model is not execution evidence |
@@ -2490,7 +2585,7 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Validation | Partial corpus acceptance: both 382,206-document recipe imports succeeded; three bounded real publications passed both verifiers but conversion refused. Full real tiers skipped. Synthetic 10,000 pipeline and recovery passed. Initial semantic multisets differ and include embedded frontmatter; refined semantic audit pending. Corrected full regression passed all 262 tests in 139.150s. Historical failure proven to be JSONL row permutation. See NOTRIOS_CORPUS_TRIALS.md. |
 | Delegation failure or reassignment | User explicitly added Luna harness/monitoring delegation to parent-owned 7c to reduce model usage; no silent substitution. 2026-10-22: user moved the remaining 7c work to the Claude Code parent and retired the Luna harness/monitoring delegation. |
 | Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
-| Execution evidence | User: Proceed with 7c; User request for Luna monitoring with long notification waits; native spawn /root/notrios_7c_monitor; NOTRIOS_CORPUS_TRIALS.md; Private /media/$USER/HD2/movenotes-7c-20260916/notification.json and resume/final-regressions.log; 2ea17ca: committed receipt-test ordering correction; 7c remains incomplete |
+| Execution evidence | User: Proceed with 7c; User request for Luna monitoring with long notification waits; native spawn /root/notrios_7c_monitor; NOTRIOS_CORPUS_TRIALS.md; Private /media/$USER/HD2/movenotes-7c-20260916/notification.json and resume/final-regressions.log; 2ea17ca: committed receipt-test ordering correction; 7c remains incomplete; 2026-10-23: resumed 7c design frozen in NOTRIOS_IMPORT_PLAN.md before any run |
 | Commit | none — uncommitted |
 
 </details>
