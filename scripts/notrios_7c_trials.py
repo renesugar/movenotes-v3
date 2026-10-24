@@ -18,6 +18,7 @@ usage:
       --theme DIR --source joplin=DIR --source recipe-raw=DIR --source recipe-vault=DIR
   notrios_7c_trials.py producer ROOT [--route NAME ...]
   notrios_7c_trials.py pipeline ROOT --tier bounded|full [--route NAME ...]
+  notrios_7c_trials.py census ROOT [--route NAME ...]
   notrios_7c_trials.py live-site ROOT --tier bounded|full [--route NAME ...]
   notrios_7c_trials.py recovery ROOT [--route joplin]
   notrios_7c_trials.py compare ROOT
@@ -324,6 +325,24 @@ class Trials:
             outputs={"library": "{stage}/library"}, mkdirs=("{stage}/library",),
         )
 
+    def census(self, route: str) -> Path:
+        """Classify the full publication's link refusals without converting it.
+
+        Runs the full tier's own stages up to Python verification, so phase 3
+        reuses them, then counts each note's first refusal by the check that
+        raised it.  Only counts and URL schemes are recorded.
+        """
+        stages = self.pipeline(route, "full", through="python-verify")
+        archive = stages["publish"] / "archive"
+        return self.stage(
+            f"{route}/full/link-census",
+            [sys.executable, "-B", str(HARNESS), "census-child", str(archive), "{stage}/work",
+             "{stage}/census.json"],
+            inputs={"consumer": consumer_hashes(("notrios2sql",), "census-child"),
+                    "archive": self.output_digest(stages["publish"], "archive")},
+            outputs={"census": "{stage}/census.json"}, mkdirs=("{stage}/work",),
+        )
+
     def library(self, route: str) -> Path:
         """The current producer stage for a route, without re-inventorying its source."""
         return self.current(f"{route}/producer-import")
@@ -352,7 +371,7 @@ class Trials:
             selection += ["--documents", ",".join(orphans)]
         return selection, total, f"all-notebooks-plus-{len(orphans)}-unfiled"
 
-    def pipeline(self, route: str, tier: str) -> dict[str, Path]:
+    def pipeline(self, route: str, tier: str, through: str | None = None) -> dict[str, Path]:
         producer = self.library(route)
         database = producer / "library" / "notes.sqlite"
         assets = producer / "library" / "assets"
@@ -406,6 +425,8 @@ class Trials:
             inputs={"consumer": consumer_hashes(("notrios_archive",), "verify-child"), "archive": archived},
             outputs={"counts": "{stage}/stdout.log"}, mkdirs=("{stage}/work",),
         )
+        if through == "python-verify":
+            return stages
         stages["convert"] = self.stage(
             f"{base}/convert",
             [*python, "convert-child", str(archive), "{stage}/converted", selection_sha,
@@ -613,6 +634,59 @@ def convert_child(archive: str, destination: str, selection_sha: str, phase_log:
                                         expected_selection_sha256=selection_sha, progress=progress)
         progress("complete", row_count=result.row_count, resource_count=result.resource_count)
     print(json.dumps(result.summary(), sort_keys=True))
+    return 0
+
+
+def census_child(archive: str, work: str, output: str) -> int:
+    """Count each note's first conversion refusal by the check that raised it.
+
+    A check is named by its function and line in the hashed consumer source.
+    For a refused destination only the URL scheme is kept.
+    """
+    import collections
+    import traceback
+    from urllib.parse import urlsplit
+    sys.path.insert(0, str(REPO))
+    import notrios2sql
+    import notrios_mapping as mapping
+    from notrios_archive import NotriosError, verify_archive
+    from notrios_links import DEFAULT_CONVERSION_LIMITS
+
+    checks: collections.Counter[str] = collections.Counter()
+    html_images = collections.Counter()
+    documents = 0
+    with verify_archive(Path(archive), work_dir=Path(work)) as verified:
+        database_id = verified.manifest.snapshot["database_id"]
+
+        def resolve(kind: str, source_id: str) -> str:
+            verified.get_record(kind, (source_id,))
+            return mapping.mapped_id(database_id, kind, (source_id,))
+
+        for document in verified.iter_records("document"):
+            documents += 1
+            revision = verified.get_record("revision", (document.payload["current_revision_id"],))
+            try:
+                notrios2sql._project_note(verified, document, revision, DEFAULT_CONVERSION_LIMITS, resolve)
+                continue
+            except NotriosError as error:
+                frames = [(frame, line) for frame, line in traceback.walk_tb(error.__traceback__)
+                          if frame.f_code.co_filename.startswith(str(REPO))]
+                # The check is the caller of the shared _refuse helper.
+                frame, line = frames[-2] if frames[-1][0].f_code.co_name == "_refuse" else frames[-1]
+                key = f"{error.code}: {error} @ {frame.f_code.co_name}:{line}"
+                token = next((f.f_locals["token"] for f, _ in reversed(frames) if "token" in f.f_locals), None)
+                if frame.f_code.co_name == "_target" and token is not None:
+                    try:
+                        scheme = urlsplit(token.destination.decode("utf-8", "replace")).scheme.lower()
+                    except ValueError:
+                        scheme = "unparseable"
+                    key += f" [{scheme or 'no scheme'}]"
+                checks[key] += 1
+                body = notrios2sql._body(verified, revision, DEFAULT_CONVERSION_LIMITS)
+                if "<img" in body and "resource://" in body:
+                    html_images["refused_notes_with_html_resource_image"] += 1
+    _write_json(Path(output), {"documents": documents, "refused_documents": sum(checks.values()),
+                               "first_refusal": dict(checks.most_common()), **html_images})
     return 0
 
 
@@ -852,6 +926,7 @@ def recovery_child(archive: str, work: str, expected_digest: str, output: str) -
 # The functions each child command runs, for its stage's fingerprint.
 _CHILD_SOURCES = {
     "verify-child": lambda: [verify_child],
+    "census-child": lambda: [census_child, _write_json],
     "convert-child": lambda: [convert_child],
     "asset-check-child": lambda: [asset_check_child, _set_digest, _write_json],
     "live-site-child": lambda: [live_site_child, _get, _write_json],
@@ -908,19 +983,19 @@ def main(argv: list[str] | None = None) -> int:
     setup_parser.add_argument("--expected-sha256", required=True)
     setup_parser.add_argument("--theme", required=True)
     setup_parser.add_argument("--source", action="append", default=[], metavar="ROUTE=DIR")
-    for name in ("producer", "pipeline", "live-site", "recovery", "compare", "summary"):
+    for name in ("producer", "pipeline", "census", "live-site", "recovery", "compare", "summary"):
         sub = commands.add_parser(name)
         sub.add_argument("root", type=Path)
-        if name in ("producer", "pipeline", "live-site", "recovery"):
+        if name in ("producer", "pipeline", "census", "live-site", "recovery"):
             sub.add_argument("--route", action="append", choices=list(ROUTES))
         if name in ("pipeline", "live-site"):
             sub.add_argument("--tier", required=True, choices=("bounded", "full"))
-    for name, count in (("verify-child", 2), ("convert-child", 4), ("asset-check-child", 5),
+    for name, count in (("verify-child", 2), ("census-child", 3), ("convert-child", 4), ("asset-check-child", 5),
                         ("live-site-child", 2), ("recovery-child", 4)):
         sub = commands.add_parser(name)
         sub.add_argument("values", nargs=count)
     args = parser.parse_args(argv)
-    children = {"verify-child": verify_child, "convert-child": convert_child,
+    children = {"verify-child": verify_child, "census-child": census_child, "convert-child": convert_child,
                 "asset-check-child": asset_check_child, "live-site-child": live_site_child,
                 "recovery-child": recovery_child}
     if args.command in children:
@@ -942,6 +1017,12 @@ def main(argv: list[str] | None = None) -> int:
                 except StageFailed as failure:
                     # Independent routes continue; this route's later stages
                     # are skipped and the failure is in its checkpoint.
+                    failures.append(str(failure))
+        elif args.command == "census":
+            for route in routes:
+                try:
+                    trials.census(route)
+                except StageFailed as failure:
                     failures.append(str(failure))
         elif args.command == "live-site":
             for route in routes:

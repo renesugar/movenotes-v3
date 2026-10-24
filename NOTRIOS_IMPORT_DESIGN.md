@@ -279,10 +279,23 @@ recognition. These are lexical protection rules, not inferred rendered block
 structure. Ambiguous nested container/fence syntax containing internal targets
 refuses rather than guessing its context.
 
-Active accepted link syntax is `[label](destination)` or `![label](destination)` on
-one line, with no nested brackets, backslash escapes in label or destination,
-angle destination or whitespace in destination. Empty labels are allowed.
-Destination may not contain parentheses; percent-encoded bytes remain encoded.
+Active link syntax is `[label](destination)` or `![label](destination)`,
+recognised exactly as the producer's parser (`internal/markdownlinks` at
+`v1.0.0`) recognises it, so every span it records is a token (C7d). The label
+runs from the `[` to the first `]` on its line and may hold `[`, backslashes and
+backticks; the `]` must be followed at once by `(`. The destination ends at the
+parenthesis that balances the opening one, skipping backslash-escaped bytes and
+stopping at the line end (an unbalanced one falls back to the first `)`); a
+`<…>` destination may hold spaces. The parenthesised bytes are trimmed of
+Unicode whitespace and split as the producer splits them: an angle destination
+and what follows its `>`, or the bytes before the first space or tab and the
+title after it. A destination starting `[[` keeps every byte, with no fragment
+(J37). Empty labels are allowed; percent-encoded bytes remain encoded.
+
+A destination that holds a recognised internal scheme or `:/` ID must also
+match the original strict form, with no whitespace, parentheses, backslashes or
+angle brackets and no masked byte, so its bytes can be replaced in place; any
+other internal destination refuses.
 
 S43a: one optional title may follow the destination. The title is one or more
 spaces or tabs, then `"…"`, `'…'` or `(…)`, then optional spaces or tabs before
@@ -314,15 +327,18 @@ decode percent escapes for this comparison. Accepted target rules:
 | `document://default/documents/ID` | `resolved`, existing matching `target_document_id`, no resource target; `target_uri` if present equals that base exactly. Produce `:/<mapped-id>` plus unchanged validated fragment. Document embeds refuse. |
 | `resource://default/resources/ID` | `resolved`, matching resource target, no document target; matching `target_uri` if present; require a document-resource relation for this source and target. No fragment. Produce `:/<mapped-id>`. |
 | `#fragment` | `resolved`; target ID absent or equal to source document; no resource ID. `target_uri` absent/empty or the source's canonical document URI. Keep `#fragment` unchanged. |
-| HTTP(S) absolute URL | `external`, no internal IDs; hostname required, no userinfo, controls or backslashes. `target_uri` if present equals destination base. Preserve the entire original token byte-for-byte, including query/fragment. |
+| Any other destination (C7d) | `external`, no internal IDs; `target_uri` if present equals destination base. Copied byte for byte, whatever its scheme (`http(s)`, `mailto:`, `file:`, `tel:`, `data:`, relative, browser schemes): the importer resolves none of them. A destination that names an internal target in any other spelling, percent-encoded included, refuses. |
+| HTML `<img … src="resource://default/resources/ID">` (C7d) | The producer rewrites a Joplin image's `:/id` source to this URI and records only the attachment relation, no link span. The source must be a whole single- or double-quoted `src` attribute of an `<img>` tag outside protected code, the resource a document-resource relation of this note, and no fragment. Only the attribute value changes, to `:/<mapped-id>`; the resource counts as inline, so it is not listed again under Attachments. Any other HTML occurrence of an internal target refuses. A projected note keeps `src=":/<mapped-id>"` on export, as the native Joplin export does. |
 
 Only lowercase exact internal scheme/authority/path spellings above are admitted;
 no userinfo, ports, queries, encoded IDs, traversal or alternate authorities.
-For any destination fragment, require one nonempty fragment of at most 1024
+For a document or self-anchor fragment, require one nonempty fragment of at most 1024
 bytes with valid `%HH` sequences and no controls/whitespace or additional `#`.
-`anchor_type` must be `heading` and `anchor_value` must equal the raw fragment;
-empty/absent anchor fields are required when there is no fragment. Refuse block
-anchors (`#^...`) in this first mapper: translating their semantics through
+External fragments are part of a copied URL and are not checked (C7d). For every
+token the anchor fields must equal what the producer records for the fragment:
+none for no fragment or an empty one, `block` and the rest after `#^`, otherwise
+`heading` and the raw fragment. Refuse block
+anchors (`#^...`) on internal targets in this first mapper: translating their semantics through
 both Obsidian and Hugo is not implemented. Heading fragments are preserved,
 not recalculated or resolved by title; target heading existence/rendered slug
 compatibility is tested downstream, not certified for every renderer at import.
@@ -332,9 +348,9 @@ record. Ordinary unrecorded HTTP(S) links remain untouched. Refuse missing
 internal records even when their target happens to be included. After accounting
 for accepted tokens, scan unprotected bytes case-insensitively for
 `document://`, `resource://`, `notrios://` and `:/` followed by 32 hex digits;
-any unconsumed occurrence refuses. Refuse unprotected wiki links/embeds and
-Markdown reference definitions/uses that could be local links, and active
-inline links with relative, file, unsupported-scheme or malformed destinations.
+any unconsumed occurrence refuses. Refuse unprotected wiki links/embeds: exported
+to a vault they would resolve by title. Reference definitions and uses are text
+(C7d); one that carries an internal target refuses at that target.
 There is no filename/title resolution fallback. Bare relative prose is not a
 link. These conservative checks include HTML attribute/autolink occurrences
 of recognized internal schemes; they do not constitute an arbitrary HTML or
@@ -342,14 +358,14 @@ privacy audit. Protected code bytes, withheld prose and redaction remain inert
 and unchanged. Do not claim that archive integrity detects every skipped
 producer rewrite or hidden private reference.
 
-C7a additionally admits only flat, nonempty, single-line literal bracket prose
-without nested brackets, backslashes, backticks, image prefix or an adjoining
-reference/destination suffix. First scan the complete protected-byte projection
-for possible reference definitions/uses; any active such form still refuses,
-including a definition following a shortcut. Internal schemes/IDs inside apparent
-prose must still be accounted for and cannot be hidden by skipping the literal.
-A retained record over literal prose refuses. See the linked review for the
-precise conservative boundaries and negative acceptance cases.
+C7d replaces C7a's narrow literal-bracket exception. A `[` or `![` that does
+not start a token is prose, and the scan resumes at the next byte, so a token
+inside it is still found: multi-line and unclosed brackets, an aside or source
+list after a space (`[12] (Table 3)`, `[1] [title](url)`), nested or escaped
+brackets and reference forms all stay exactly as written. Nothing is skipped,
+so an internal scheme or ID inside prose is still an unconsumed occurrence and
+refuses. A retained record over prose refuses. The C7a version of this
+paragraph, and its review, describe the earlier boundary.
 
 Apply replacements in a single left-to-right byte pass using validated spans;
 never reuse original offsets after editing. Only destination bytes change;

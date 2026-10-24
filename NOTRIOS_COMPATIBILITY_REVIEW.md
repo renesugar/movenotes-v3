@@ -268,3 +268,54 @@ are `movenotes-c7b-validate-final-20260917.py` and
 `movenotes-c7b-live-final-20260917.py` in that private work directory. The
 existing reference/unclosed/unsupported syntax policy and source-to-route tag differences still block complete 7c
 acceptance; C7c must quantify comparison differences without hiding those limits.
+
+## C7d: the producer's link grammar, prose brackets and pass-through destinations
+
+Resumed 7c's bounded conversions refused 7, 8 and 3 of 1,000 notes on C7a's
+narrow literal-bracket boundary (see NOTRIOS_IMPORT_PLAN.md, "Resumed 7c
+results so far"). A census of the three `v1.0.0` producer libraries put the
+same boundary at 1,768 of 103,349 Joplin notes, an upper bound, and at 2,621
+and 2,622 of 382,206 recipe notes. On 2026-10-24 the user decided the two open
+questions: HTML images the producer rewrote are converted back, and every
+non-internal destination is copied as found.
+
+*Decision.* Inline links are recognised exactly as the producer's
+`internal/markdownlinks` parser recognises them, and any other bracket is
+prose. The importer only ever rewrites internal targets, and the producer only
+records links its parser finds. So matching its parser is what makes every
+recorded span a token, and no prose rule can hide an internal target: an
+internal scheme or `:/` ID outside a token's destination, or outside a
+recognised HTML image source, still refuses wherever it sits. An internal
+destination must still use the strict C7a form, so its replacement stays a
+byte-exact splice.
+
+*What stays refused.* Wiki links and embeds (exported, they resolve by title),
+internal targets in any form other than a strict inline destination or an
+`<img>` `src` with an attachment relation, encoded internal targets, producer
+records over protected code, records the scanner cannot match, block or
+malformed fragments on internal targets, and C7a's ambiguous-container rule.
+
+*Mapper and receipt.* A body C7a accepted yields the same tokens and
+replacements under C7d. Its strict links have the same spans in the producer's
+grammar, a balanced title included. Its flat literals were never tokens, and
+neither were the forms C7a refused. Accepted outputs therefore do not change,
+and the mapper and receipt versions stay as they are; the immutable publication
+fixtures and their reruns still pass byte for byte in the regression suite.
+
+*Differential check against the producer.* Over all three libraries, every
+Markdown link record the producer wrote outside protected code is a token here
+with the same span, target and label: 75,776 of 75,776 in Joplin and every
+record in both recipe libraries. Under C7d both recipe libraries scan with no
+refusal at all. In Joplin, 82 notes still refuse on wiki links, 198 hold
+producer records inside protected code (15 of them only `external` ones), about
+5 hold an internal link the producer rewrote without recording it (its label
+holds an escaped `\]`, or it starts at an escaped `\[`), and 1 meets the
+ambiguous-container rule. These are library-body figures. A publication
+plain-texts unresolved links and links to unselected documents, so the
+published figures are at most these.
+
+*Bounded acceptance.* With C7d all three bounded routes pass every stage:
+conversion (15.15 s, 17.31 s and 11.90 s; peak RSS ≤ 55,992 KiB), vault export,
+exact attachment bytes and reachable sets, site generation, Hugo, the
+browser-runtime validation, Bluge indexing, the live-site tag check (29, 52
+and 3 rows answered with the same totals), and the recovery trial.

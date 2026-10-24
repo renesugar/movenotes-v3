@@ -303,8 +303,8 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - Completed slices keep their recorded Codex attribution. The earlier Codex session is under previous_sessions and its assignments under assignment_history.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **C7d — admit the remaining link forms**, assigned to the Claude
-Code parent (**Main**), proposed 2026-10-24 and not yet authorized. Resumed 7c
+Current slice: **C7d — admit the remaining link forms**, assigned to the Claude
+Code parent (**Main**), authorized 2026-10-24 and in progress. Resumed 7c
 is authorized and in progress, but blocked at phase 2 by conversion refusals;
 see "Resumed 7c results so far". It continues after C7d, or after the user
 revises its scope.
@@ -712,6 +712,7 @@ recorded findings. Each needs its design frozen here before implementation.
 |---|---|---|---|
 | S43c / Main — complete | Carry link titles through the downstream tools that S43a does not own (scope extended by the frozen design below to `common.py`, `cleanres.py` and `sql2obsidian.py`). `obsidian2sql._normalise_target` splits a title only when the target does not start with `./` or `../`. The vault exporter writes `../` for notes in other folders, so a titled cross-folder link from a Notrios export stays unresolved on native reimport, where the untitled link resolves. When it does resolve a link, it writes `[display](:/id)` and drops the title. `obsidian2site` keeps titles on external links but drops them on resolved note and asset links. Fix both to split exactly one delimited title the way S43a's grammar does, and write it back after the rewritten destination. Owns `obsidian2sql.py`, `obsidian2site.py` and their tests. | S43b | Titled `./`, `../` and bare relative note and attachment links resolve on native reimport exactly as their untitled forms do, with the title bytes kept after the `:/id` destination. Site output keeps titles on resolved note and asset links. Untitled links and all canonical URLs, path maps and theme layouts are byte-identical; prove the URL maps unchanged over a real vault, as AGENTS.md requires. Undelimited suffixes are left as they are today. Focused tests plus all five regression modules. |
 | E1 / Main — complete | Stop exporters modifying the database they read. `notesdb.connect()` runs `PRAGMA journal_mode=WAL`, so `sql2obsidian.py` or `sql2joplin.py` run on a completed Notrios import rewrites `notesdb.sqlite`: header bytes 18–19 change from `01 01` to `02 02` and the change counter advances. A later identical `notrios2sql.py` rerun then refuses with `completed payload inventory differs`, and the documented import → vault recipe cannot be repeated. Before implementation, decide between opening read-only when no migration is needed and an explicit read-only flag; migrating an older database in place must stay as it is for other workflows. Owns `notesdb.py` (a narrow read-only open path), the two exporters' open calls and tests. | S43a finding | After a vault export and a Joplin export of a completed import, the import directory is byte-identical, an identical rerun reports `unchanged`, and no `-wal` or `-shm` file is left behind. Older databases that need migration still migrate, with that existing behaviour covered by a regression test. Exporter output is unchanged. Focused tests plus all five regression modules. |
+| H1 / Main | *Proposed 2026-10-24, found during C7d; not authorized.* Make HTML images render after export. A Joplin note can hold `<img src=":/id">` (80 tags in 38 notes of the Joplin corpus). `sql2obsidian.py` copies the resource (`common.get_resource_ids` finds HTML references) but `rewrite_resource_links` rewrites only Markdown links, so the vault keeps `src=":/id"`, which neither Obsidian nor the generated site resolves. Notrios-generated notes do the same since C7d, on purpose, to match. Rewrite the `src` value to the attachment's path relative to the note in both export paths, keeping every other byte of the tag, and decide with the user whether an exported image stays HTML or becomes an embed. Owns `sql2obsidian.py`, `notrios_links.py` (`rewrite_projected_links`) and tests. | C7d | A note with HTML images exports with each `src` pointing at its copied attachment, on both paths, byte-identical elsewhere; the vault reimports to the same database as before the change except for the rewritten bytes; the generated site shows the image. Focused tests plus the five-module gate. |
 
 **S43c design, frozen 2026-10-22 before implementation.** Reading the code
 found a third consumer that the original S43c row did not name.
@@ -869,7 +870,7 @@ binding until C7a explicitly revises it. No new producer/schema pin is implied.
 | C7a / Main — complete | Diagnose real-body refusals and source/import differences; amend NOTRIOS_IMPORT_DESIGN.md and specify independent sanitized fixtures, comparison rules and mapper/version consequences. | Partial 7c evidence | Completed in NOTRIOS_COMPATIBILITY_REVIEW.md and the amended design: non-NUL body controls, narrow literal brackets, unchanged mapper/receipts conditional on identical old outputs, source-path comparison and explicit retained refusals. |
 | C7b / Terra — complete | Implemented only the C7a-approved body/link compatibility changes in notrios2sql.py, notrios_links.py and focused test_notrios2sql.py fixtures/tests; dependent serializer/exporter changes require Main's explicit scoped handoff. | C7a | 264 regressions pass; immutable fixture payloads and reruns are byte-identical to baseline; independent three-note CLI/vault/Hugo/Bluge validation passes. Original bounded conversions still refuse unsupported link syntax; no notes filtered. Main reviewed. |
 | C7c / Luna — complete | Implemented disk-backed semantic comparisons, verified publication cohorts, indexed duplicate-sensitive joins, checkpoint/resume and PIDFD notification scripts with bounded query deadlines. | C7b | All 382,206 source identities per route accounted for; zero unexplained source-to-route differences under documented rules; tags remain explicitly separate, route equivalence false. Full corpus terminal notification, measured RSS, focused/scale/recovery checks and Main review recorded in NOTRIOS_C7C_EVIDENCE.md. |
-| C7d / Main | *Proposed 2026-10-24, not authorized.* Admit the link forms resumed 7c's bounded tier refuses (see "Resumed 7c results so far"), with internal-target accounting unchanged. (1) *Census first:* run the full tier's profile, plan, publish and both verifiers for the three routes, with no conversion, and add an aggregate classifier to the harness that records counts per form and never note content; this replaces the Joplin upper bound with exact figures. (2) *Literal prose:* a bracket pair that spans lines within one paragraph, and a `[` with no `]` before a blank line or the end of the note; a flat pair followed by whitespace and then `(` or `[`, where the following `(`/`[` is scanned as its own token. CommonMark, which Hugo's Goldmark and Obsidian follow, allows no whitespace between a link's label and its destination, and the existing whole-note check rules out reference definitions first. (3) *Inline links:* labels with balanced nested brackets and backslash escapes; the destination grammar is unchanged. (4) *Reference links:* definitions whose destinations are `http(s)`, every use resolving to one; any internal target in a definition still refuses. (5) *External fragments:* validate an `http(s)` fragment as a URL fragment, not by the heading-fragment rules meant for internal targets. (6) *Decisions needed:* whether HTML `<img src="resource://…">` is rewritten to the mapped resource and accounted for, or stays refused; and whether non-`http(s)` destinations (`file:`, `mailto:`, `tel:`, `data:`, browser schemes) pass through as inert text or stay refused. Owns `notrios_links.py`, `notrios2sql.py` as needed, focused `test_notrios2sql.py` cases, the census in `scripts/notrios_7c_trials.py`, and amendments to NOTRIOS_IMPORT_DESIGN.md and NOTRIOS_COMPATIBILITY_REVIEW.md. | Resumed 7c phases 1–2 | Independent sanitized positive and negative fixtures for each admitted form, including hidden or unrecorded internal targets next to each new form. Immutable publication fixtures and their reruns stay byte-identical. The bounded and full conversions of all three routes finish with zero refusals, or every remaining refusal is listed by form and count and accepted by the user. Projected bodies change only approved destination bytes. Five-module regression gate and the harness tests pass. Then resumed 7c continues from phase 2 with its frozen design unchanged. |
+| C7d / Main | *Authorized 2026-10-24 (Start C7d); in progress.* Admit the link forms resumed 7c's bounded tier refuses (see "Resumed 7c results so far"), with internal-target accounting unchanged. (1) *Census first:* run the full tier's profile, plan, publish and both verifiers for the three routes, with no conversion, and add an aggregate classifier to the harness that records counts per form and never note content; this replaces the Joplin upper bound with exact figures. (2) *Literal prose:* a bracket pair that spans lines within one paragraph, and a `[` with no `]` before a blank line or the end of the note; a flat pair followed by whitespace and then `(` or `[`, where the following `(`/`[` is scanned as its own token. CommonMark, which Hugo's Goldmark and Obsidian follow, allows no whitespace between a link's label and its destination, and the existing whole-note check rules out reference definitions first. (3) *Inline links:* labels with balanced nested brackets and backslash escapes; the destination grammar is unchanged. (4) *Reference links:* definitions whose destinations are `http(s)`, every use resolving to one; any internal target in a definition still refuses. (5) *External fragments:* validate an `http(s)` fragment as a URL fragment, not by the heading-fragment rules meant for internal targets. (6) *HTML images:* the producer rewrites a Joplin `<img src=":/id">` to `resource://default/resources/res_joplin_<id>` but records only the attachment, no link span; all 80 such tags in 38 Joplin notes match a resource the note references and a source resource file. Recognise `<img … src="resource://…">`, require the resource among the note's attachment relations, and rewrite only the `src` bytes to the mapped `:/id`; any other HTML occurrence of an internal target still refuses. (7) *Other destinations:* pass every non-internal destination through unchanged as found, whatever its scheme (`file:`, `mailto:`, `tel:`, `data:`, `javascript:`, browser schemes, schemeless); the importer resolves none of them. Internal-scheme destinations keep their existing validation. Owns `notrios_links.py`, `notrios2sql.py` as needed, focused `test_notrios2sql.py` cases, the census in `scripts/notrios_7c_trials.py`, and amendments to NOTRIOS_IMPORT_DESIGN.md and NOTRIOS_COMPATIBILITY_REVIEW.md. | Resumed 7c phases 1–2 | Independent sanitized positive and negative fixtures for each admitted form, including hidden or unrecorded internal targets next to each new form. Immutable publication fixtures and their reruns stay byte-identical. The bounded and full conversions of all three routes finish with zero refusals, or every remaining refusal is listed by form and count and accepted by the user. Projected bodies change only approved destination bytes. Five-module regression gate and the harness tests pass. Then resumed 7c continues from phase 2 with its frozen design unchanged. |
 
 **Monitoring for data-heavy slices.** *Historical, C7a–P7c under Codex:* the
 user required a low-usage method for that work. A Codex `luna_worker`
@@ -1144,8 +1145,64 @@ of `ftp:`, `blob:` and an `https` URL the parser rejects. A note is counted unde
 one form can surface another form behind it.
 
 Phase 3 is gated on phase 2, so 7c cannot proceed: one refusal fails the whole
-conversion. C7d below is the proposed fix; it needs the user's decision before
-any change.
+conversion. C7d below is the fix; the user authorized it on 2026-10-24 and
+decided its two open questions (see its row).
+
+*C7d census launch (2026-10-24).* `notrios_7c_trials.py census` runs the full
+tier's profile, plan, publish and both verifiers (the same stages and commands
+phase 3 runs, so phase 3 reuses them), then a `link-census` stage with no
+conversion. Its stall threshold is phase 2's per-1,000-document times for those
+stages scaled to the full counts (1,897 s, 19,515 s and 19,290 s), plus the
+census at phase 2's verification-plus-preflight rate (1,091 s, 3,944 s and
+3,971 s), doubled: 99,400 s.
+
+*Census result: the full tier cannot be published with `v1.0.0`.* The census
+stopped within 11 s. `publish plan` refused Joplin's full plan with `selection
+exceeds max_documents=100000`, and `publish profile save` refused both recipe
+profiles with `at most 100 notebook and tag selectors` (785 and 784 notebooks).
+At `2aab9a8`, `publish plan` and `publish run` call `PlanSelection` with no
+document limit, which falls back to the REST/MCP default of 100,000
+(`internal/store/sqlite_selection.go`), and the CLI exposes no flag to raise it.
+`export archive-v2` raises its own default to the direct-planner maximum of
+1,000,000, with a comment naming the 382,206-note corpus, but it bypasses the
+profile and reviewed-plan gate and exposes no link policy. A profile could
+use one query selector instead of notebooks, but the 100,000 cap still
+applies. So phase 3's "each full plan selects every document" cannot be met
+through the publish path on any route: Joplin has 103,349 documents and each
+recipe route 382,206. This is a 7c scope decision for the user (options:
+export instead of publish, ≤ 100,000-document partitions, or a producer fix
+and re-pin), and it does not block C7d. For C7d the library-body census stands
+in for step 1: it is exact for both recipe routes, whose first 1,000 match
+their archives, and an upper bound for Joplin.
+
+*Phase 2 rerun with the C7d scanner (2026-10-24): passed.* Every bounded stage
+exited 0 on every route: 15:12:53Z to 15:16:55Z, within the 3,600 s threshold.
+The stages before conversion were reused, because their fingerprints did not
+change. Wall seconds / peak RSS KiB:
+
+| Stage | Joplin | Recipe RAW | Recipe vault |
+|---|---:|---:|---:|
+| Profile / plan | 0.02 / 0.16 | 0.02 / 0.14 | 0.02 / 0.17 |
+| Publish | 12.19 / 50,012 | 44.97 / 50,080 | 45.40 / 49,840 |
+| Producer / Python verification | 0.94 / 5.04 | 0.99 / 4.94 | 0.83 / 4.05 |
+| Conversion, internal verification included | 15.15 / 49,692 | 17.31 / 55,992 | 11.90 / 47,384 |
+| Vault export | 8.74 / 42,928 | 11.18 / 38,480 | 7.33 / 36,808 |
+| Attachment check | 4.70 / 39,452 | 4.93 / 43,556 | 3.81 / 36,876 |
+| Site generation | 15.34 / 50,304 | 16.91 / 53,444 | 14.78 / 50,372 |
+| Hugo | 5.34 / 193,540 | 5.23 / 224,412 | 4.41 / 205,124 |
+| Browser-runtime validation | 2.59 / 31,500 | 2.77 / 31,644 | 2.24 / 30,976 |
+| Server tidy / build | 0.21 / 3.44 | 0.13 / 3.11 | 0.13 / 3.11 |
+| Bluge indexing | 1.93 / 87,316 | 2.14 / 100,732 | 1.73 / 90,604 |
+| Live-site check | 1.05 / 29,392 | 1.10 / 29,232 | 1.14 / 29,312 |
+
+Conversions wrote 1,090, 4,382 and 1,023 rows (3, 0 and 0 resources).
+Attachment bytes and reachable sets are exact from archive to database to vault
+(3 Joplin resources, 3,456,782 bytes). The live-site check found health, home
+and search at 200, and the most-used tag's search total equal to its JSONL rows
+(29, 52 and 3). The recovery trial on the bounded Joplin archive passed: the
+killed run left no destination, the stale lock refused, cleanup removed only
+the 3 token-checked directories, the fresh rerun matched the bounded
+conversion, and the unchanged rerun left it unchanged.
 
 ### Performance investigation and measured adoption before resuming 7c
 
@@ -2643,7 +2700,7 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 </details>
 
-<details><summary>C7d — pending; planned parent</summary>
+<details><summary>C7d — in progress; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -2651,20 +2708,20 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; proposed by Main on 2026-10-24 from resumed 7c's phase 2 refusals; slice and its open decisions require user authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; proposed by Main on 2026-10-24 from resumed 7c's phase 2 refusals; authorized by the user on 2026-10-24 (Start C7d). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Read the producer's internal/markdownlinks parser and publish/export limits at 2aab9a8. notrios_links.py: inline links recognised exactly as the producer's parser (label to the first ] on its line, balanced or angle destinations, Go-whitespace trim, J37 literal hrefs); any other bracket is prose and scanning resumes after it; internal destinations keep the strict form; wiki links refuse; non-internal destinations pass through unless they name an internal target, percent-encoded included; heading-fragment rules only on internal targets; anchors compared as the producer's splitAnchor; HTML <img src=resource://...> mapped through the note's attachment relation and kept as :/id on projected export. Rewrote three C7a link-grammar tests and added producer-shaped, pass-through and HTML-image tests. Added the census command and child to the 7c harness. Amended NOTRIOS_IMPORT_DESIGN.md and NOTRIOS_COMPATIBILITY_REVIEW.md; proposed H1. |
+| Validation | Partial. Differential check: every producer Markdown record outside protected code is a token with the same span, target and label (75,776/75,776 Joplin; all recipe records); both recipe libraries scan with no refusal. Bounded phase 2 rerun passed every stage on all three routes, plus live-site and recovery. 311 tests (five modules plus harness) passed in 184.443s with both bytecode controls. Not yet met: full conversions (v1.0.0 publish caps selections at 100,000 documents and profiles at 100 selectors) and user acceptance of the remaining Joplin refusal forms (library-body figures: 82 wiki-link notes, 198 with records in protected code, about 5 unrecorded internal links, 1 ambiguous container). |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md C7d row and Resumed 7c results so far, added 2026-10-24 |
-| Execution evidence | none |
+| Execution evidence | 2026-10-24 user on the HTML images: <img src="resource://…"> tags look more like Notrios tags than Joplin tags … it sounds like a Notrios attachment/resource URL did not get converted to a Joplin attachment/resource URL. Main verified: 80 tags in 38 notes, each matching a referenced producer resource and a source resource file.; 2026-10-24 user on file:, mailto: and tel: destinations: It is not something that gets resolved during import. For the purposes of import and export, I would treat them as plain text (pass them through unchanged as you find them).; 2026-10-24 user: Start C7d; 2026-10-24: C7d census stopped at the v1.0.0 publish caps (selection exceeds max_documents=100000; at most 100 notebook and tag selectors); 2026-10-24: bounded phase 2 rerun with the C7d scanner passed every stage, live-site and recovery (phases.log 15:12:53Z-15:16:55Z); 2026-10-24: regression gate 311 tests OK in 184.443s |
 | Commit | pending |
 
 </details>
@@ -2690,7 +2747,7 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Validation | Partial corpus acceptance: both 382,206-document recipe imports succeeded; three bounded real publications passed both verifiers but conversion refused. Full real tiers skipped. Synthetic 10,000 pipeline and recovery passed. Initial semantic multisets differ and include embedded frontmatter; refined semantic audit pending. Corrected full regression passed all 262 tests in 139.150s. Historical failure proven to be JSONL row permutation. See NOTRIOS_CORPUS_TRIALS.md. |
 | Delegation failure or reassignment | User explicitly added Luna harness/monitoring delegation to parent-owned 7c to reduce model usage; no silent substitution. 2026-10-22: user moved the remaining 7c work to the Claude Code parent and retired the Luna harness/monitoring delegation. |
 | Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
-| Execution evidence | User: Proceed with 7c; User request for Luna monitoring with long notification waits; native spawn /root/notrios_7c_monitor; NOTRIOS_CORPUS_TRIALS.md; Private /media/$USER/HD2/movenotes-7c-20260916/notification.json and resume/final-regressions.log; 2ea17ca: committed receipt-test ordering correction; 7c remains incomplete; 2026-10-23: resumed 7c design frozen in NOTRIOS_IMPORT_PLAN.md before any run; 2026-10-24: phase 1 complete (103,349 / 382,206 / 382,206 documents, all imports exit 0); phase 2 bounded conversions refused unsupported or unaccounted active link syntax on all three routes (7, 8 and 3 of 1,000), dependent stages skipped; aggregate diagnostic and full-library census in NOTRIOS_IMPORT_PLAN.md, Resumed 7c results so far; blocked pending C7d or a user scope revision |
+| Execution evidence | User: Proceed with 7c; User request for Luna monitoring with long notification waits; native spawn /root/notrios_7c_monitor; NOTRIOS_CORPUS_TRIALS.md; Private /media/$USER/HD2/movenotes-7c-20260916/notification.json and resume/final-regressions.log; 2ea17ca: committed receipt-test ordering correction; 7c remains incomplete; 2026-10-23: resumed 7c design frozen in NOTRIOS_IMPORT_PLAN.md before any run; 2026-10-24: phase 1 complete (103,349 / 382,206 / 382,206 documents, all imports exit 0); phase 2 bounded conversions refused unsupported or unaccounted active link syntax on all three routes (7, 8 and 3 of 1,000), dependent stages skipped; aggregate diagnostic and full-library census in NOTRIOS_IMPORT_PLAN.md, Resumed 7c results so far; blocked pending C7d or a user scope revision; 2026-10-24: phase 2 passed with the C7d scanner; phase 3 blocked by the v1.0.0 publish caps, pending a user scope decision |
 | Commit | none — uncommitted |
 
 </details>
@@ -2848,6 +2905,32 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Planned assignment evidence | S43a finding, 2026-10-22; user: Update the plan if you find items that need to be fixed instead of just logging their existence. |
 | Execution evidence | User: proceed with E1 on that basis; Local logs /tmp/movenotes-e1/e1-tests.log; comparison outputs under /tmp/movenotes-e1/cmp |
 | Commit | Git commit containing this completion record: fix: stop exporters rewriting the database they read (E1) |
+
+</details>
+
+<details><summary>H1 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; proposed by Main on 2026-10-24 during C7d; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | C7d finding, 2026-10-24; user: Update the plan if you find items that need to be fixed instead of just logging their existence. |
+| Execution evidence | none |
+| Commit | pending |
 
 </details>
 <!-- NOTRIOS-EXECUTION:END -->

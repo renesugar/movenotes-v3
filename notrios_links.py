@@ -1,7 +1,9 @@
 """Bounded lexical Markdown projection for the Notrios publication profile.
 
-This deliberately narrow grammar refuses ambiguous active syntax. Protected
-code and bytes outside validated destinations remain unchanged.
+Inline links are recognised the way the producer's own parser recognises them,
+so every span it records is a token here. Any other bracket is prose. Internal
+targets are the only bytes that change, and an internal target anywhere outside
+a token refuses. Protected code and every other byte remain unchanged.
 """
 from array import array
 from dataclasses import dataclass, fields
@@ -10,7 +12,7 @@ from pathlib import PurePosixPath
 import posixpath
 import re
 import string
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, unquote_to_bytes
 
 from notrios_archive import NotriosError
 
@@ -42,8 +44,21 @@ _INTERESTING = re.compile(rb"!?\[|" + _INTERNAL, re.I)
 # It stays on one line and excludes backslashes and backticks, so escapes and
 # code spans cannot move its end; an unescaped closing delimiter ends it.
 _TITLE = rb"[ \t]+(?:\"[^\"\\`\r\n]*\"|'[^'\\`\r\n]*'|\([^()\\`\r\n]*\))[ \t]*"
-_INLINE = re.compile(rb"(!?)\[([^\[\]\\\r\n]*)\]\(([^()\\\s<>]+)(" + _TITLE + rb")?\)")
+# The exact destination grammar an internal target must use, so its bytes can
+# be replaced in place (C7a). The label is matched separately, as the producer
+# matches it.
+_STRICT_DESTINATION = re.compile(rb"([^()\\\s<>]+)(" + _TITLE + rb")?")
 _TITLE_REFUSED = re.compile(rb"[\x00-\x08\x0b-\x1f\x7f]|" + _INTERNAL, re.I)
+_INTERNAL_ANYWHERE = re.compile(_INTERNAL, re.I)
+_WIKI = re.compile(rb"\[\[[^\]\n]+\]\]")
+# A Joplin HTML image whose source the producer rewrote to its resource URI
+# (and, in a projected note, the mapped form written back). It carries no link
+# record, only the note's attachment relation.
+_HTML_IMAGE = re.compile(rb"<img\b[^<>]*?[ \t\r\n]src[ \t]*=[ \t]*([\"'])("
+                         rb"resource://default/resources/[a-z0-9][a-z0-9_.:-]{1,127}|:/[0-9a-f]{32})\1[^<>]*>", re.I)
+# Go's unicode.IsSpace, which the producer's strings.TrimSpace uses.
+_GO_SPACE = "\t\n\v\f\r \x85\xa0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a" \
+            "\u2028\u2029\u202f\u205f\u3000"
 _DOCUMENT = re.compile(rb"document://default/documents/([a-z0-9][a-z0-9_.:-]{1,127})\Z")
 _RESOURCE = re.compile(rb"resource://default/resources/([a-z0-9][a-z0-9_.:-]{1,127})\Z")
 _MAPPED = re.compile(rb":/([0-9a-f]{32})(?:#(.*))?\Z")
@@ -64,6 +79,8 @@ class Token:
     # Bytes between the destination and the closing parenthesis: separating
     # whitespace and the delimited title, or empty when there is no title.
     title_suffix: bytes = b""
+    # An HTML image source: start..end is the attribute value alone.
+    html: bool = False
 
 
 @dataclass(frozen=True)
@@ -142,105 +159,160 @@ def _protected_body(body):
     return visible
 
 
-_REFERENCE_DEFINITION = re.compile(
-    rb"(?m)^[ \t]*(?:(?:>[ \t]*)|(?:[-+*][ \t]+)|(?:[0-9]+[.)][ \t]+))*"
-    rb"\[[^][\r\n]+\][ \t]*:")
+def _angle_close(text, open_):
+    """The producer's angleClose: the ``>`` closing ``<`` at open_, on one line."""
+    index = open_ + 1
+    while index < len(text):
+        char = text[index]
+        if char in (10, 60):  # newline, "<"
+            return None
+        if char == 92:  # a backslash escapes the next byte
+            index += 1
+        elif char == 62:
+            return index
+        index += 1
+    return None
 
 
-def _has_reference_ambiguity(visible):
-    """Reject reference syntax before treating any bracket pair as prose.
+def _close_paren(body, start):
+    """The producer's closeParen: balanced, escape-aware, ending at the line.
 
-    A shortcut use is indistinguishable from a literal pair without resolving
-    the complete note, so a possible definition anywhere makes every proposed
-    literal pair ambiguous. The visible buffer excludes protected code/fences
-    and escaped punctuation.
+    Unbalanced parentheses fall back to the first ``)``, as the producer does.
     """
-    return _REFERENCE_DEFINITION.search(visible) is not None
-
-
-def _space_width(value, position):
-    """Return one UTF-8 whitespace width, treating C0 separators cautiously."""
-    first = value[position]
-    if first < 0x20:
-        # The importer admits body controls, but they cannot hide a suffix that
-        # would otherwise make a bracket pair active Markdown syntax.
-        return 1
-    if first < 0x80:
-        return 1 if first == 0x20 else 0
-    width = 2 if first & 0xe0 == 0xc0 else 3 if first & 0xf0 == 0xe0 else 4 if first & 0xf8 == 0xf0 else 0
-    if not width or position + width > len(value):
-        return 0
-    try:
-        return width if value[position:position + width].decode("utf-8").isspace() else 0
-    except UnicodeDecodeError:
-        return 0
-
-
-def _literal_end(visible, original, start):
-    """Classify one deliberately flat literal bracket pair, or refuse."""
-    if start and visible[start - 1:start] == b"!":
-        _refuse("unsupported or unaccounted active link syntax")
-    end = start + 1
-    while end < len(visible) and visible[end:end + 1] not in (b"]", b"\r", b"\n"):
-        char = visible[end]
-        if char in (ord("["), ord("\\"), ord("`")):
-            _refuse("unsupported or unaccounted active link syntax")
-        end += 1
-    if end == start + 1 or end == len(visible) or visible[end] != ord("]"):
-        _refuse("unsupported or unaccounted active link syntax")
-    end += 1
-    # Protection can mask escaped punctuation or inline code. Such a pair is
-    # never literal prose; compare its original bytes before accepting it.
-    if visible[start:end] != original[start:end]:
-        _refuse("unsupported or unaccounted active link syntax")
-    # A reference use or malformed inline destination can be separated from its
-    # label by whitespace. Do not let the literal exception swallow either.
-    suffix = end
-    while suffix < len(visible):
-        width = _space_width(visible, suffix)
-        if not width:
+    depth, first = 0, None
+    index = start
+    while index < len(body):
+        char = body[index]
+        if char == 10:
             break
-        suffix += width
-    if suffix < len(visible) and visible[suffix] in (ord("["), ord("(")):
-        _refuse("unsupported or unaccounted active link syntax")
-    return end
+        if char == 92:
+            if index + 1 < len(body) and body[index + 1] == 10:
+                break
+            index += 1
+        elif char == 40:
+            depth += 1
+        elif char == 41:
+            if first is None:
+                first = index
+            if depth == 0:
+                return index
+            depth -= 1
+        index += 1
+    return first
+
+
+def _target_end(body, start):
+    if start < len(body) and body[start] == 60:
+        bracket = _angle_close(body, start)
+        if bracket is not None and (end := _close_paren(body, bracket + 1)) is not None:
+            return end
+    return _close_paren(body, start)
+
+
+def _destination(region, offset):
+    """Split a link's parenthesised bytes as the producer's markdownDestination.
+
+    Returns the destination's start and end offsets in the body.
+    """
+    text = region.decode("utf-8")
+    stripped = text.strip(_GO_SPACE)
+    lead = len(text[:len(text) - len(text.lstrip(_GO_SPACE))].encode("utf-8"))
+    start = offset + lead
+    raw = stripped.encode("utf-8")
+    if raw.startswith(b"<") and (bracket := _angle_close(raw, 0)) is not None:
+        inner = raw[1:bracket].decode("utf-8")
+        inner_lead = len(inner.encode("utf-8")) - len(inner.lstrip(_GO_SPACE).encode("utf-8"))
+        value = inner.strip(_GO_SPACE).encode("utf-8")
+        return start + 1 + inner_lead, start + 1 + inner_lead + len(value)
+    space = min((i for i in (raw.find(b" "), raw.find(b"\t")) if i > 0), default=None)
+    if space is not None:
+        value = raw[:space].decode("utf-8").strip(_GO_SPACE).encode("utf-8")
+        return start, start + len(value)
+    return start, start + len(raw)
+
+
+def _inline_at(visible, body, start):
+    """Match one inline link or image at start exactly as the producer does.
+
+    The label runs to the first ``]`` on its line and the destination to the
+    parenthesis that closes it. An internal target must also use the strict
+    destination grammar, so its bytes can be replaced in place; anything else
+    is an external token whose bytes stay as they are.
+    """
+    bang = visible[start] == 33
+    open_ = start + bang
+    text = open_ + 1
+    while text < len(body) and body[text] not in (93, 10):
+        text += 1
+    if text + 1 >= len(body) or body[text] != 93 or body[text + 1] != 40:
+        return None
+    end = _target_end(body, text + 2)
+    if end is None or end == text + 2:
+        return None
+    label = body[open_ + 1:text]
+    if _INTERNAL_ANYWHERE.search(body, text + 2, end):
+        strict = _STRICT_DESTINATION.fullmatch(visible, text + 2, end)
+        if strict is None or visible[text + 2:end] != body[text + 2:end]:
+            _refuse("unsupported or unaccounted active link syntax")
+        destination_start, destination_end = strict.span(1)
+    else:
+        destination_start, destination_end = _destination(body[text + 2:end], text + 2)
+    destination = body[destination_start:destination_end]
+    if destination.startswith(b"[["):
+        # A wiki link written where an href belongs names nothing; the
+        # producer keeps all of its bytes as the target (J37).
+        base, fragment = destination, None
+    else:
+        base, separator, fragment = destination.partition(b"#")
+        fragment = fragment if separator else None
+    return Token(start, end + 1, bang, label, destination, base, fragment,
+                 destination_start, destination_end, body[destination_end:end])
 
 
 def scan_markdown(body: bytes):
     """Yield complete active tokens with authoritative UTF-8 byte offsets.
 
-    Flat bracket prose is admitted only after a whole-note check rules out
-    active reference definitions. It remains invisible to link accounting.
+    A bracket that does not start a token is prose, and scanning resumes just
+    after it, so a token inside it is still found. An internal target that is
+    not inside a token's destination or a recognised HTML image source refuses,
+    wherever it is: reference definitions and other unsupported forms cannot
+    hide one. Wiki links are refused outright: exported, they would resolve by
+    title, which the importer never does.
     """
     visible = _protected_body(body)
+    images = {match.start(2): match for match in _HTML_IMAGE.finditer(visible)
+              if visible[match.start():match.end()] == body[match.start():match.end()]}
     position = 0
-    checked_references = False
     while found := _INTERESTING.search(visible, position):
         start = found.start()
-        token = _INLINE.match(visible, start)
-        if token is not None and visible[token.start():token.end()] == body[token.start():token.end()]:
-            destination, title_suffix = token[3], token[4] or b""
-            # A title is inert text, so it must not hide an internal target
-            # from link accounting or carry controls into rendered attributes.
-            if _TITLE_REFUSED.search(title_suffix):
-                _refuse("unsupported link title")
-            base, separator, fragment = destination.partition(b"#")
-            yield Token(token.start(), token.end(), bool(token[1]), token[2], destination,
-                        base, fragment if separator else None, token.start(3), token.end(3), title_suffix)
-            position = token.end()
+        if visible[start] in (33, 91):  # "!" or "["
+            token = _inline_at(visible, body, start)
+            if token is not None:
+                # A title is inert text, so it must not hide an internal target
+                # from link accounting or carry controls into rendered attributes.
+                if _TITLE_REFUSED.search(token.title_suffix):
+                    _refuse("unsupported link title")
+                yield token
+                position = token.end
+                continue
+            if _WIKI.match(visible, start + (visible[start] == 33)):
+                _refuse("wiki links are unsupported")
+            position = start + 1
             continue
-        if visible[start:start + 1] != b"[":
+        image = images.get(start)
+        if image is None:
             _refuse("unsupported or unaccounted active link syntax")
-        if not checked_references:
-            checked_references = True
-            if _has_reference_ambiguity(visible):
-                _refuse("unsupported or unaccounted active link syntax")
-        end = _literal_end(visible, body, start)
-        # Do not advance over an apparent literal pair and hide an internal
-        # target from the normal accounting path.
-        if re.search(_INTERNAL, visible[start:end], re.I):
-            _refuse("unsupported or unaccounted active link syntax")
-        position = end
+        value = image[2]
+        yield Token(start, image.end(2), True, b"", value, value, None, start, image.end(2), html=True)
+        position = image.end(2)
+
+
+def _record_anchor(fragment):
+    """The anchor the producer records for a fragment (splitAnchor)."""
+    if not fragment:
+        return "", ""
+    value = fragment.decode("utf-8")
+    return ("block", value[1:]) if value.startswith("^") else ("heading", value)
 
 
 def _fragment(fragment, limits):
@@ -258,12 +330,13 @@ def _fragment(fragment, limits):
 
 
 def _target(token, limits):
-    _fragment(token.fragment, limits)
     if match := _DOCUMENT.fullmatch(token.base):
+        _fragment(token.fragment, limits)
         if token.bang:
             _refuse("document embeds are unsupported")
         return "document", match[1].decode("ascii")
     if token.base == b"" and token.fragment is not None:
+        _fragment(token.fragment, limits)
         if token.bang:
             _refuse("self-anchor embeds are unsupported")
         return "self", None
@@ -271,16 +344,12 @@ def _target(token, limits):
         if token.fragment is not None:
             _refuse("resource fragments are unsupported")
         return "resource", match[1].decode("ascii")
-    try:
-        value = token.destination.decode("utf-8")
-        parsed = urlsplit(value)
-        valid = (parsed.scheme.lower() in ("http", "https") and bool(parsed.hostname)
-                 and parsed.username is None and parsed.password is None and "\\" not in value
-                 and not any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in value))
-        parsed.port
-    except (ValueError, UnicodeDecodeError):
-        valid = False
-    if not valid:
+    # Every other destination is copied as found, whatever its scheme (C7d):
+    # file:, mailto: and tel: name things outside the library, and the
+    # importer resolves none of them. Heading-fragment rules are for internal
+    # targets only. A destination naming an internal target in any other form,
+    # percent-encoded included, is not external.
+    if _INTERNAL_ANYWHERE.search(token.destination) or _INTERNAL_ANYWHERE.search(unquote_to_bytes(token.destination)):
         _refuse("unsupported link destination")
     return "external", None
 
@@ -330,11 +399,8 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
                 or p["raw_target"] != token.base.decode("utf-8")
                 or "display_text" in p and p["display_text"] != token.label.decode("utf-8")):
             _refuse("link record disagrees with active token")
-        if token.fragment is None:
-            if p.get("anchor_type") or p.get("anchor_value"):
-                _refuse("fragment-free link has anchor metadata")
-        elif p.get("anchor_type") != "heading" or p.get("anchor_value") != token.fragment.decode("utf-8"):
-            _refuse("heading fragment disagrees with link record")
+        if (p.get("anchor_type") or "", p.get("anchor_value") or "") != _record_anchor(token.fragment):
+            _refuse("link anchor disagrees with link record")
         kind, target_id = _target(token, limits)
         if kind in ("document", "resource"):
             target_field = "target_document_id" if kind == "document" else "target_resource_id"
@@ -360,9 +426,23 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
             _refuse("external target disagrees with link record")
         accounted.add(start)
     for token in tokens:
+        if token.html:
+            # The producer records an HTML image's resource as an attachment
+            # relation and no link span, so the relation is what accounts for it.
+            if (match := _RESOURCE.fullmatch(token.base)) is None:
+                _refuse("HTML image source is not a published resource")
+            mapped = resolve("resource", match[1].decode("ascii"))
+            if not re.fullmatch(r"[0-9a-f]{32}", mapped):
+                _refuse("resolver did not return a mapped identity")
+            if mapped not in related:
+                _refuse("HTML image resource has no document-resource relation")
+            inline_resources.add(mapped)
+            replacements.append((token.destination_start, token.destination_end, b":/" + mapped.encode()))
+            continue
         kind, _ = _target(token, limits)
         if kind != "external" and token.start not in accounted:
             _refuse("active internal link has no retained record")
+    replacements.sort()
     return LinkPlan(tuple(tokens), tuple(replacements), limits.max_projected_body_bytes,
                     tuple(sorted(inline_resources)), limits.max_links_per_note, limits.max_resource_relations_per_note)
 
@@ -449,6 +529,14 @@ def rewrite_projected_links(body: str, *, note_id: str, note_path: PurePosixPath
         if count > limits.max_links_per_note:
             raise NotriosError("limit", "projected link count exceeds limit")
         match = _MAPPED.fullmatch(token.destination)
+        if token.html:
+            # Left as `:/id`, as the native Joplin export leaves an HTML
+            # image; the relation already materialises the attachment.
+            if (match is None or match[2] is not None or attachments is None
+                    or lookup_item_type(match[1].decode("ascii")) != 4
+                    or attachments.vault_name(match[1].decode("ascii"), required=True) is None):
+                _refuse("HTML image has no mapped resource")
+            continue
         if match is None:
             kind, _ = _target(token, limits)
             if kind not in ("external", "self"):

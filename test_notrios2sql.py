@@ -2628,20 +2628,25 @@ class NotriosLinkProjectionTest(unittest.TestCase):
         with self.assertRaises(archive_v2.NotriosError):
             self.project(plain, [archive_v2.Record("link", p.key, {**p.payload, "anchor_type": "heading"})])
 
-    def test_unsupported_active_syntax_and_uri_variants_refuse(self):
-        destinations = (b"relative.md", b"file:///private", b"javascript:alert", b"notrios://doc_child",
+    def test_unsupported_internal_syntax_and_uri_variants_refuse(self):
+        destinations = (b"notrios://doc_child",
                         b"Document://default/documents/doc_child", b"document://elsewhere/documents/doc_child",
                         b"document://default:80/documents/doc_child", b"document://user@default/documents/doc_child",
                         b"document://default/documents/../doc_child", b"document://default/documents/%64oc_child",
                         b"document://default/documents/doc_child?q=1", b"#^block", b"#", b"#two#parts", b"#bad%XZ",
-                        b"https://user:password@example.test", b"https:///missing", b"https://example.test:99999")
+                        b"https://example.test/?u=document%3A%2F%2Fdefault%2Fdocuments%2Fdoc_child",
+                        b"relative-%3A%2F" + b"a" * 32)
         for destination in destinations:
             body = b"[label](" + destination + b")"
             with self.subTest(destination=destination), self.assertRaises(archive_v2.NotriosError):
                 self.project(body, [retained_link(body, body)])
-        for body in (b"[[Local]]", b"![[Local]]", b"[ref]: ./local.md", b"[text][ref]",
-                     b"[nested [label]](https://example.test)",
-                     b"[escaped\\!](https://example.test)", b"[label](<https://example.test>)",
+        uri = b"document://default/documents/doc_child"
+        # Every form below is prose or an unsupported link, so an internal
+        # target in it is outside any token and refuses wherever it sits.
+        for body in (b"[[Local]]", b"![[Local]]", b"see [[Local|alias]] here",
+                     b"[ref]: " + uri, b"[text][ref]\n[ref]: :/" + b"a" * 32, b"[text]\n\n[text]: <" + uri + b">",
+                     b"[two\nlines](" + uri + b")", b"[spaced] (" + uri + b")", b"[n [x]](" + uri + b")",
+                     b"[label](" + uri + b" junk)", b"[label](<" + uri + b">)",
                      b"<a href='document://default/documents/doc_child'>", b"DOCUMENT://default/documents/doc_child",
                      b"bare :/"+b"a"*32, b"![embed](document://default/documents/doc_child)"):
             with self.subTest(body=body), self.assertRaises(archive_v2.NotriosError):
@@ -2698,7 +2703,7 @@ class NotriosLinkProjectionTest(unittest.TestCase):
             token = b"[link](" + uri + suffix + b")"
             with self.subTest(suffix=suffix), self.assertRaises(archive_v2.NotriosError):
                 self.project(token, [retained_link(token, token)])
-        for destination in (b"doc child", b"doc(child)", b"doc\\child", b"<doc>", b"<document://default/documents/doc_child>"):
+        for destination in (uri + b" child", uri + b"(child)", uri + b"\\child", b"<" + uri + b">", b"<doc " + uri + b">"):
             body = b"[label](" + destination + b")"
             with self.subTest(destination=destination), self.assertRaises(archive_v2.NotriosError):
                 self.project(body)
@@ -2707,7 +2712,7 @@ class NotriosLinkProjectionTest(unittest.TestCase):
         self.assertEqual(self.project(body).encode(), body)
         with self.assertRaises(archive_v2.NotriosError):
             self.project(body, [retained_link(body, hidden)])
-        for body in (b'[x](https://example.test "t")\n[ref]: https://example.test\n[sic]',
+        for body in (b'[x](https://example.test "t")\n[ref]: ' + uri + b'\n[sic]',
                      b'[x](' + uri + b' "t")'):
             with self.subTest(body=body), self.assertRaises(archive_v2.NotriosError):
                 self.project(body)
@@ -2732,7 +2737,7 @@ class NotriosLinkProjectionTest(unittest.TestCase):
         self.assertEqual(rewrite(f"[A](:/{note}) ![Shot](:/{image}) [File](:/{other})"),
                          "[A](../Other/Caf%C3%A9.md) ![[Photo é.png]] [File](../attachments/Doc.pdf)")
 
-    def test_flat_literal_brackets_are_unrecorded_and_reference_forms_refuse(self):
+    def test_bracket_prose_and_reference_forms_are_unrecorded_text(self):
         link = b"[Web](https://example.test/x)"
         body = b"[sic], [x]; [00:01-00:03]. " + link
         self.assertEqual(self.project(body).encode(), body)
@@ -2741,25 +2746,139 @@ class NotriosLinkProjectionTest(unittest.TestCase):
             "source_start_byte": body.index(b"[sic]"), "source_end_byte": body.index(b"[sic]") + len(b"[sic]")})
         with self.assertRaises(archive_v2.NotriosError):
             self.project(body, [literal_record])
-        definitions = (b"[Ref] : https://example.test", b"[REF]: https://example.test",
-                       b"> [ref]: https://example.test", b"- [ref]: https://example.test",
-                       b"1. [ref]: https://example.test", b"[text][ref]\n[ref]: https://example.test",
-                       b"[text] [ref]", b"[text][]")
-        for suffix in definitions:
-            with self.subTest(suffix=suffix), self.assertRaises(archive_v2.NotriosError):
-                self.project(b"[sic]\n" + suffix)
-        # A reference-looking definition in protected code cannot activate an
-        # outside literal shortcut.
-        self.assertEqual(self.project(b"```md\n[ref]: https://example.test\n```\n[sic]").encode(),
-                         b"```md\n[ref]: https://example.test\n```\n[sic]")
-        for malformed in (b"[unclosed", b"[nested [x]]", b"![x]", b"[x](bad)", b"[x] (bad)",
-                          b"[x] [y]", b"[document://default/documents/doc_child]",
-                          b"[resource://default/resources/res]", b"[notrios://doc]", b"[:/" + b"a" * 32 + b"]",
-                          b"[x](https://example.test/\x1f)", b"[x](#part\x0b)", b"[a\\]b]", b"[a\\*b]",
-                          b"[a`code`b]", b"[a`document://default/documents/doc_child`b]",
-                          b"[x]\x0b(bad)", b"[x]\xc2\xa0(bad)", b"[x]\x0c[y]"):
-            with self.subTest(malformed=malformed), self.assertRaises(archive_v2.NotriosError):
-                self.project(malformed)
+        # Forms resumed 7c's corpora hold (C7d): annotations broken across
+        # lines or never closed, asides and numbered source lists after a
+        # space, nested and escaped brackets, and reference definitions and
+        # uses. None is an inline link to the producer, so none has a record,
+        # and every byte stays as it is.
+        prose = (b"[12,\n13]", b"[note: one\ntwo]", b"[unclosed\n\nnext", b"[unclosed", b"[nested [x]]",
+                 b"![x]", b"[x] (aside)", b"[x] [y]", b"[x]\x0b(y)", b"[x]\xc2\xa0(y)", b"[x]\x0c[y]",
+                 b"[a\\]b]", b"[a\\*b]", b"[a`code`b]", b"[a`document://default/documents/doc_child`b]",
+                 b"[Ref] : https://example.test", b"[REF]: https://example.test", b"> [ref]: https://example.test",
+                 b"- [ref]: https://example.test", b"1. [ref]: ./local.md", b"[text][ref]\n[ref]: https://example.test",
+                 b"[text] [ref]", b"[text][]", b"[n [s]: x](https://example.test)")
+        for text in prose:
+            with self.subTest(text=text):
+                body = b"[sic]\n" + text
+                self.assertEqual(self.project(body).encode(), body)
+        # A token inside prose is still found and accounted for. An unclosed
+        # bracket on the same line is part of the label, as the producer reads it.
+        inner = b"[title](document://default/documents/doc_child)"
+        for body, token in ((b"[1] " + inner, inner), (b"[aside " + inner, b"[aside " + inner),
+                            (b"[a\nb " + inner + b"]", inner)):
+            with self.subTest(body=body):
+                self.assertEqual(self.project(body, [retained_link(body, token)]).encode(),
+                                 body.replace(b"document://default/documents/doc_child", b":/" + b"a" * 32))
+                with self.assertRaises(archive_v2.NotriosError):
+                    self.project(body)
+        # Internal-looking text inside a bracket is still an internal target.
+        for text in (b"[document://default/documents/doc_child]", b"[resource://default/resources/res]",
+                     b"[notrios://doc]", b"[:/" + b"a" * 32 + b"]"):
+            with self.subTest(text=text), self.assertRaises(archive_v2.NotriosError):
+                self.project(text)
+
+    def test_links_the_producer_records_are_tokens_and_other_destinations_pass_through(self):
+        # The producer's label runs to the first "]" on its line and its
+        # destination to the balancing parenthesis or a closing ">" (J41/J42).
+        cases = (
+            (b"[escaped\\'s blog](https://example.test/a)", b"escaped\\'s blog", b"https://example.test/a"),
+            (b"[a `code` label](https://example.test/a)", b"a `code` label", b"https://example.test/a"),
+            (b"[a [b label](https://example.test/a)", b"a [b label", b"https://example.test/a"),
+            (b"[wiki](https://en.example.test/wiki/A_(b))", b"wiki", b"https://en.example.test/wiki/A_(b)"),
+            (b"[spaced](<https://example.test/a b> \"T\")", b"spaced", b"https://example.test/a b"),
+            (b"[titled](https://example.test/a 'T')", b"titled", b"https://example.test/a"),
+            (b"![img](https://example.test/i.png)", b"img", b"https://example.test/i.png"),
+            (b"[mail](mailto:someone@example.test)", b"mail", b"mailto:someone@example.test"),
+        )
+        for token, label, destination in cases:
+            body = "日 ".encode() + token + b" tail"
+            with self.subTest(token=token):
+                scanned, = links.scan_markdown(body)
+                self.assertEqual((scanned.start, scanned.end, scanned.label, scanned.destination),
+                                 (len("日 ".encode()), len("日 ".encode()) + len(token), label, destination))
+                record = archive_v2.Record("link", ("lnk_x",), dict(
+                    id="lnk_x", source_document_id="doc_public", relation_type="embed" if token[:1] == b"!" else "link",
+                    source_format="markdown", raw_target=destination.decode(), display_text=label.decode(),
+                    source_start_byte=scanned.start, source_end_byte=scanned.end, source_line=1, source_column=3,
+                    resolution_status="external", target_uri=destination.decode()))
+                self.assertEqual(self.project(body, [record]).encode(), body)
+                self.assertEqual(self.project(body).encode(), body)
+                wrong = archive_v2.Record("link", record.key, {**record.payload, "display_text": label.decode() + "x"})
+                with self.assertRaises(archive_v2.NotriosError):
+                    self.project(body, [wrong])
+        # Every non-internal destination is copied as found, whatever its
+        # scheme; heading-fragment rules apply to internal targets only.
+        for destination in (b"file:///private/a.pdf", b"tel:+1-555-0100", b"data:text/plain,hi", b"javascript:void(0)",
+                            b"chrome://settings", b"relative.md", b"../up.md", b"https://user:password@example.test",
+                            b"https:///missing", b"https://example.test:99999", b"https://example.test/#",
+                            b"https://example.test/#^x", b"https://example.test/#a#b",
+                            b"https://example.test/#" + b"f" * 2000, b"https://example.test/\x1f"):
+            body = b"[label](" + destination + b")"
+            with self.subTest(destination=destination):
+                self.assertEqual(self.project(body).encode(), body)
+        fragments = ((b"#", "", ""), (b"#^x", "block", "x"), (b"#a#b", "heading", "a#b"), (b"#part", "heading", "part"))
+        for fragment, anchor_type, anchor_value in fragments:
+            body = b"[web](https://example.test/" + fragment + b")"
+            record = retained_link(body, body)
+            payload = {k: v for k, v in record.payload.items() if k not in ("anchor_type", "anchor_value")}
+            payload["raw_target"] = "https://example.test/"
+            payload["target_uri"] = "https://example.test/"
+            if anchor_type:
+                payload.update(anchor_type=anchor_type, anchor_value=anchor_value)
+            with self.subTest(fragment=fragment):
+                self.assertEqual(self.project(body, [archive_v2.Record("link", record.key, payload)]).encode(), body)
+                with self.assertRaises(archive_v2.NotriosError):
+                    self.project(body, [archive_v2.Record("link", record.key, {**payload, "anchor_type": "other"})])
+        # A wiki link written where an href belongs is a literal href (J37).
+        body = b"[text]([[Target#part]])"
+        scanned, = links.scan_markdown(body)
+        self.assertEqual((scanned.base, scanned.fragment), (b"[[Target#part]]", None))
+        self.assertEqual(self.project(body).encode(), body)
+
+    def test_html_image_sources_map_through_their_attachment_relation(self):
+        mapped = "a" * 32
+        tag = b'<img width="49" height="49" src="resource://default/resources/res_y"/>'
+        body = b"Before " + tag + b"\n[Child](document://default/documents/doc_child) after"
+        child = b"[Child](document://default/documents/doc_child)"
+        plan = links.validate_links(body, [retained_link(body, child)], resolve=lambda kind, value: mapped,
+                                    resource_ids=[mapped])
+        expected = body.replace(b"resource://default/resources/res_y", b":/" + mapped.encode()).replace(
+            b"document://default/documents/doc_child", b":/" + mapped.encode())
+        attachment = links.Attachment(mapped, "shot.png", "referenced", 0)
+        # An inline resource is not listed again under Attachments.
+        self.assertEqual(links.project_body(body, plan, related_resources=[attachment]).encode(), expected)
+        for variant in (tag.replace(b'src="', b"src='").replace(b'"/>', b"'/>"), tag.replace(b"<img", b"<IMG"),
+                        b'<img\n  alt="x"\n  src="resource://default/resources/res_y">'):
+            with self.subTest(variant=variant):
+                self.assertEqual(self.project(variant, resource_ids=[mapped]).encode(),
+                                 variant.replace(b"resource://default/resources/res_y", b":/" + mapped.encode()))
+        refused = (tag,  # no attachment relation
+                   b'<img src="document://default/documents/doc_child">', b'<img src=":/' + b"b" * 32 + b'">',
+                   b'<img alt="resource://default/resources/res_y" src="resource://default/resources/res_y">',
+                   b'<img src="resource://default/resources/res_y#part">', b'<a href="resource://default/resources/res_y">',
+                   b'<img data-src="resource://default/resources/res_y">')
+        for index, body in enumerate(refused):
+            with self.subTest(body=body), self.assertRaises(archive_v2.NotriosError):
+                self.project(body, resource_ids=[] if index == 0 else [mapped])
+        # Inside code it is protected text, like every other internal-looking byte there.
+        code = b"`" + tag + b"`"
+        self.assertEqual(self.project(code).encode(), code)
+
+    def test_projected_html_images_keep_their_mapped_source(self):
+        from pathlib import PurePosixPath
+        image = "b" * 32
+        attachments = mock.Mock()
+        attachments.vault_name.side_effect = lambda ident, required: {image: "Shot.png"}.get(ident)
+        def rewrite(body, kind=4):
+            return links.rewrite_projected_links(body, note_id="d" * 32, note_path=PurePosixPath("Deep/Source.md"),
+                lookup_item_type=lambda ident: kind, lookup_note_path=lambda ident: None, attachments=attachments)
+        body = f'<img width="4" src=":/{image}"/> and ![Shot](:/{image})'
+        # Left as the native Joplin export leaves an HTML image.
+        self.assertEqual(rewrite(body), f'<img width="4" src=":/{image}"/> and ![[Shot.png]]')
+        for bad, kind in ((f'<img src=":/{"c" * 32}">', 4), (f'<img src=":/{image}">', 1),
+                          ('<img src="resource://default/resources/res_y">', 4)):
+            with self.subTest(bad=bad), self.assertRaises(archive_v2.NotriosError):
+                rewrite(bad, kind)
 
     def test_self_and_external_record_agreement(self):
         for body in (b"[self](#part)", b"[web](https://example.test/#part)"):
