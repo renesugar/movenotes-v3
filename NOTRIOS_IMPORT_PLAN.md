@@ -303,9 +303,11 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - Completed slices keep their recorded Codex attribution. The earlier Codex session is under previous_sessions and its assignments under assignment_history.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **resumed 7c — large-corpus trials**, assigned to the Claude Code
-parent (**Main**). Session assignments are confirmed. Slice authorization is
-pending.
+Next slice: **C7d — admit the remaining link forms**, assigned to the Claude
+Code parent (**Main**), proposed 2026-10-24 and not yet authorized. Resumed 7c
+is authorized and in progress, but blocked at phase 2 by conversion refusals;
+see "Resumed 7c results so far". It continues after C7d, or after the user
+revises its scope.
 
 **Resumed P7c, complete (2026-10-23).** R1–R6 ran as frozen below; every
 comparison is fingerprint-identical, and the five required modules and the
@@ -867,6 +869,7 @@ binding until C7a explicitly revises it. No new producer/schema pin is implied.
 | C7a / Main — complete | Diagnose real-body refusals and source/import differences; amend NOTRIOS_IMPORT_DESIGN.md and specify independent sanitized fixtures, comparison rules and mapper/version consequences. | Partial 7c evidence | Completed in NOTRIOS_COMPATIBILITY_REVIEW.md and the amended design: non-NUL body controls, narrow literal brackets, unchanged mapper/receipts conditional on identical old outputs, source-path comparison and explicit retained refusals. |
 | C7b / Terra — complete | Implemented only the C7a-approved body/link compatibility changes in notrios2sql.py, notrios_links.py and focused test_notrios2sql.py fixtures/tests; dependent serializer/exporter changes require Main's explicit scoped handoff. | C7a | 264 regressions pass; immutable fixture payloads and reruns are byte-identical to baseline; independent three-note CLI/vault/Hugo/Bluge validation passes. Original bounded conversions still refuse unsupported link syntax; no notes filtered. Main reviewed. |
 | C7c / Luna — complete | Implemented disk-backed semantic comparisons, verified publication cohorts, indexed duplicate-sensitive joins, checkpoint/resume and PIDFD notification scripts with bounded query deadlines. | C7b | All 382,206 source identities per route accounted for; zero unexplained source-to-route differences under documented rules; tags remain explicitly separate, route equivalence false. Full corpus terminal notification, measured RSS, focused/scale/recovery checks and Main review recorded in NOTRIOS_C7C_EVIDENCE.md. |
+| C7d / Main | *Proposed 2026-10-24, not authorized.* Admit the link forms resumed 7c's bounded tier refuses (see "Resumed 7c results so far"), with internal-target accounting unchanged. (1) *Census first:* run the full tier's profile, plan, publish and both verifiers for the three routes, with no conversion, and add an aggregate classifier to the harness that records counts per form and never note content; this replaces the Joplin upper bound with exact figures. (2) *Literal prose:* a bracket pair that spans lines within one paragraph, and a `[` with no `]` before a blank line or the end of the note; a flat pair followed by whitespace and then `(` or `[`, where the following `(`/`[` is scanned as its own token. CommonMark, which Hugo's Goldmark and Obsidian follow, allows no whitespace between a link's label and its destination, and the existing whole-note check rules out reference definitions first. (3) *Inline links:* labels with balanced nested brackets and backslash escapes; the destination grammar is unchanged. (4) *Reference links:* definitions whose destinations are `http(s)`, every use resolving to one; any internal target in a definition still refuses. (5) *External fragments:* validate an `http(s)` fragment as a URL fragment, not by the heading-fragment rules meant for internal targets. (6) *Decisions needed:* whether HTML `<img src="resource://…">` is rewritten to the mapped resource and accounted for, or stays refused; and whether non-`http(s)` destinations (`file:`, `mailto:`, `tel:`, `data:`, browser schemes) pass through as inert text or stay refused. Owns `notrios_links.py`, `notrios2sql.py` as needed, focused `test_notrios2sql.py` cases, the census in `scripts/notrios_7c_trials.py`, and amendments to NOTRIOS_IMPORT_DESIGN.md and NOTRIOS_COMPATIBILITY_REVIEW.md. | Resumed 7c phases 1–2 | Independent sanitized positive and negative fixtures for each admitted form, including hidden or unrecorded internal targets next to each new form. Immutable publication fixtures and their reruns stay byte-identical. The bounded and full conversions of all three routes finish with zero refusals, or every remaining refusal is listed by form and count and accepted by the user. Projected bodies change only approved destination bytes. Five-module regression gate and the harness tests pass. Then resumed 7c continues from phase 2 with its frozen design unchanged. |
 
 **Monitoring for data-heavy slices.** *Historical, C7a–P7c under Codex:* the
 user required a low-usage method for that work. A Codex `luna_worker`
@@ -1067,6 +1070,82 @@ internal disk 538 GB.
   resumed section of `NOTRIOS_CORPUS_TRIALS.md`, this plan and its ledger.
   Importer, exporter and site code is excluded. A defect found there is
   recorded here as a fix before any change, as before.
+
+### Resumed 7c results so far (2026-10-24) — blocked at phase 2
+
+Work root `~/movenotes-work/7c-20261023`, producer `v1.0.0` (2aab9a8,
+CLI SHA-256 `b4f368a9…e55c`). Times are GNU time; RSS is KiB.
+
+*Phase 1, producer imports: complete.* Every import exited 0 with one
+succeeded job and no retries. Counts match the earlier 7c audit.
+
+| Route | Documents | Notebooks | Wall s | Peak RSS | `7662fdd` wall s |
+|---|---:|---:|---:|---:|---:|
+| Joplin | 103,349 | 9 | 747.84 | 114,392 | 1,567.83 |
+| Recipe RAW | 382,206 | 785 | 4,656.89 | 299,500 | 7,245.65 |
+| Recipe vault | 382,206 | 784 | 3,117.79 | 584,700 | 17,142.24 |
+
+The producer reports 5 Joplin resources without content, and 95 Joplin and
+14 recipe-RAW unresolved links. Phase 4 judges them; they are not refusals here.
+
+*Phase 2, bounded tier: refused at conversion.* On every route profile, plan
+(exactly 1,000 documents, zero source bundles), publish, producer verification
+and Python verification exited 0; publish was the longest stage (12.19 s Joplin,
+44.97 s and 45.40 s recipes, ≤ 50,080 KiB). Each conversion then refused in
+preflight with `unsupported or unaccounted active link syntax`. Per the
+acceptance rule, nothing was filtered and every dependent stage is skipped:
+vault export, attachment check, site generation, Hugo, validation, Bluge, the
+live-site check and the recovery trial (which needs the bounded Joplin
+conversion). The failed attempts are kept in their stage directories.
+
+Aggregate diagnostic (first refusal per note; no note content is recorded):
+
+| First check that refuses | Joplin bounded | RAW bounded | Vault bounded |
+|---|---:|---:|---:|
+| Pair not closed on its own line (multi-line or unclosed `[`) | 1 | 7 | 3 |
+| Flat pair, then whitespace, then `(` or `[` | 3 | 1 | 0 |
+| Nested `[`, `\` or backtick inside a pair | 1 | 0 | 0 |
+| Escape or code span inside a pair | 1 | 0 | 0 |
+| Reference definition somewhere in the note | 1 | 0 | 0 |
+| **Refused of 1,000** | **7** | **8** | **3** |
+
+Read locally, every one of the 18 is prose or an external link: recipe
+annotations and citations broken across lines, `[12] (Table 3)`-style asides,
+numbered source lists `[1] [title](https://…)`, an inline link whose label
+holds a nested `[…]` or an escaped quote, and reference-style links with
+`https` definitions. None hides an internal target.
+
+*Full-scale census (diagnostic, not a 7c stage).* The same scanner plus the
+destination check, run over each producer library's current bodies. For both
+recipe routes the first 1,000 documents give exactly the archive figures (8 and
+3), so those counts stand for the full publication. For Joplin they give 13
+against the archive's 7: a bounded publication turns links to unselected
+documents into plain text, which a full publication will not do. The Joplin
+column is therefore an upper bound until the full publication is classified.
+
+| First check that refuses | Joplin (≤) | Recipe RAW | Recipe vault |
+|---|---:|---:|---:|
+| Pair not closed on its own line | 87 | 2,398 | 2,399 |
+| Flat pair, then whitespace, then `(` or `[` | 358 | 199 | 199 |
+| Nested `[`, `\` or backtick inside a pair | 344 | 17 | 17 |
+| Escape or code span inside a pair | 335 | 0 | 0 |
+| Reference definition in the note | 39 | 7 | 7 |
+| HTML `<img src="resource://…">` outside a Markdown link | 15 | 0 | 0 |
+| Ambiguous container/fence holding an internal target | 1 | 0 | 0 |
+| Lexically clean, but a destination refuses | 589 | 0 | 0 |
+| **Refused notes** | **1,768 of 103,349** | **2,621 of 382,206** | **2,622 of 382,206** |
+
+The 589 Joplin destination refusals are `file:` (438); heading-fragment rules
+applied to `https` URLs (74: an empty or over-long fragment, or characters the
+heading rules exclude); `mailto:` (28); `data:` (14); `tel:` (7);
+browser-internal schemes such as `chrome:`, `view-source:`, `about:` and
+`place:` (17); schemeless destinations (6); `javascript:` (2); and one each
+of `ftp:`, `blob:` and an `https` URL the parser rejects. A note is counted under its first refusal only, so a fix to
+one form can surface another form behind it.
+
+Phase 3 is gated on phase 2, so 7c cannot proceed: one refusal fails the whole
+conversion. C7d below is the proposed fix; it needs the user's decision before
+any change.
 
 ### Performance investigation and measured adoption before resuming 7c
 
@@ -2564,6 +2643,32 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 </details>
 
+<details><summary>C7d — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; proposed by Main on 2026-10-24 from resumed 7c's phase 2 refusals; slice and its open decisions require user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md C7d row and Resumed 7c results so far, added 2026-10-24 |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
 <details><summary>7c — in progress; planned parent</summary>
 
 | Property | Value |
@@ -2585,7 +2690,7 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Validation | Partial corpus acceptance: both 382,206-document recipe imports succeeded; three bounded real publications passed both verifiers but conversion refused. Full real tiers skipped. Synthetic 10,000 pipeline and recovery passed. Initial semantic multisets differ and include embedded frontmatter; refined semantic audit pending. Corrected full regression passed all 262 tests in 139.150s. Historical failure proven to be JSONL row permutation. See NOTRIOS_CORPUS_TRIALS.md. |
 | Delegation failure or reassignment | User explicitly added Luna harness/monitoring delegation to parent-owned 7c to reduce model usage; no silent substitution. 2026-10-22: user moved the remaining 7c work to the Claude Code parent and retired the Luna harness/monitoring delegation. |
 | Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md |
-| Execution evidence | User: Proceed with 7c; User request for Luna monitoring with long notification waits; native spawn /root/notrios_7c_monitor; NOTRIOS_CORPUS_TRIALS.md; Private /media/$USER/HD2/movenotes-7c-20260916/notification.json and resume/final-regressions.log; 2ea17ca: committed receipt-test ordering correction; 7c remains incomplete; 2026-10-23: resumed 7c design frozen in NOTRIOS_IMPORT_PLAN.md before any run |
+| Execution evidence | User: Proceed with 7c; User request for Luna monitoring with long notification waits; native spawn /root/notrios_7c_monitor; NOTRIOS_CORPUS_TRIALS.md; Private /media/$USER/HD2/movenotes-7c-20260916/notification.json and resume/final-regressions.log; 2ea17ca: committed receipt-test ordering correction; 7c remains incomplete; 2026-10-23: resumed 7c design frozen in NOTRIOS_IMPORT_PLAN.md before any run; 2026-10-24: phase 1 complete (103,349 / 382,206 / 382,206 documents, all imports exit 0); phase 2 bounded conversions refused unsupported or unaccounted active link syntax on all three routes (7, 8 and 3 of 1,000), dependent stages skipped; aggregate diagnostic and full-library census in NOTRIOS_IMPORT_PLAN.md, Resumed 7c results so far; blocked pending C7d or a user scope revision |
 | Commit | none — uncommitted |
 
 </details>

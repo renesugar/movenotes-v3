@@ -1394,6 +1394,31 @@
       "billing_route": "not exposed"
     },
     {
+      "id": "C7d",
+      "coding_agent": "claude",
+      "status": "pending",
+      "planned_worker": "parent",
+      "configured_model": "not exposed; runtime reports claude-opus-5-5",
+      "configured_reasoning_effort": "not exposed",
+      "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-22; proposed by Main on 2026-10-24 from resumed 7c's phase 2 refusals; slice and its open decisions require user authorization.",
+      "delegation_required": false,
+      "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md C7d row and Resumed 7c results so far, added 2026-10-24",
+      "planned_work": "Census the full publications' link forms without converting, then admit multi-line and unclosed literal bracket prose, flat pairs followed by whitespace and ( or [, inline-link labels with nested brackets and escapes, http(s) reference links, and URL-fragment validation for http(s) links, with internal-target accounting unchanged; user decisions pending on HTML img resource sources and non-http(s) destinations.",
+      "actual_worker": "pending",
+      "child_thread": "pending",
+      "actual_model": "pending",
+      "reasoning_effort": "pending",
+      "worker_contribution": "pending",
+      "parent": "pending",
+      "parent_underlying_model_family": "pending",
+      "parent_reasoning_effort": "pending",
+      "parent_contribution": "pending",
+      "validation": "pending",
+      "delegation_failure_or_reassignment": "none recorded",
+      "evidence": [],
+      "commit": "pending"
+    },
+    {
       "id": "7c",
       "coding_agent": "codex (partial execution to 2026-09-16); claude (remaining work)",
       "status": "in progress",
@@ -1430,7 +1455,8 @@
         "NOTRIOS_CORPUS_TRIALS.md",
         "Private /media/$USER/HD2/movenotes-7c-20260916/notification.json and resume/final-regressions.log",
         "2ea17ca: committed receipt-test ordering correction; 7c remains incomplete",
-        "2026-10-23: resumed 7c design frozen in NOTRIOS_IMPORT_PLAN.md before any run"
+        "2026-10-23: resumed 7c design frozen in NOTRIOS_IMPORT_PLAN.md before any run",
+        "2026-10-24: phase 1 complete (103,349 / 382,206 / 382,206 documents, all imports exit 0); phase 2 bounded conversions refused unsupported or unaccounted active link syntax on all three routes (7, 8 and 3 of 1,000), dependent stages skipped; aggregate diagnostic and full-library census in NOTRIOS_IMPORT_PLAN.md, Resumed 7c results so far; blocked pending C7d or a user scope revision"
       ],
       "commit": "none — uncommitted",
       "monitoring_assignment": {
