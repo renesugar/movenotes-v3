@@ -6,6 +6,7 @@ targets are the only bytes that change, and an internal target anywhere outside
 a token refuses. Protected code and every other byte remain unchanged.
 """
 from array import array
+import bisect
 from dataclasses import dataclass, fields
 import html
 from pathlib import PurePosixPath
@@ -61,6 +62,13 @@ _GO_SPACE = "\t\n\v\f\r \x85\xa0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006
 _DOCUMENT = re.compile(rb"document://default/documents/([a-z0-9][a-z0-9_.:-]{1,127})\Z")
 _RESOURCE = re.compile(rb"resource://default/resources/([a-z0-9][a-z0-9_.:-]{1,127})\Z")
 _MAPPED = re.compile(rb":/([0-9a-f]{32})(?:#(.*))?\Z")
+# An internal target in a destination position that no token covers, because
+# its label holds escaped brackets the producer's parser stops at; the producer
+# rewrote it at import and recorded no link (C7d). Only the bytes up to the
+# closing parenthesis are taken, without a title.
+_BARE = re.compile(rb"(document://default/documents/[a-z0-9][a-z0-9_.:-]{1,127}(?:#[^()\\\s<>]*)?"
+                   rb"|resource://default/resources/[a-z0-9][a-z0-9_.:-]{1,127}"
+                   rb"|:/[0-9a-f]{32}(?:#[^()\\\s<>]*)?)\)")
 _CODE_MASK = bytes(c if c in (10, 13) else 32 for c in range(256))
 
 
@@ -80,6 +88,9 @@ class Token:
     title_suffix: bytes = b""
     # An HTML image source: start..end is the attribute value alone.
     html: bool = False
+    # An unrecorded internal destination (_BARE): start..end is the
+    # destination alone, and the label is unknown.
+    bare: bool = False
 
 
 @dataclass(frozen=True)
@@ -110,7 +121,7 @@ def _protected_body(body):
         # Preserve line boundaries for subsequent lexical checks.
         visible[start:end] = body[start:end].translate(_CODE_MASK)
     fence = None
-    ambiguous = False
+    ambiguous = None
     for line in re.finditer(rb"[^\n]*(?:\n|$)", body):
         raw = line[0].rstrip(b"\r\n")
         if fence is not None:
@@ -125,8 +136,8 @@ def _protected_body(body):
             protect(*line.span())
         elif raw.startswith((b"\t", b"    ")):
             protect(*line.span())
-        elif re.match(rb" {0,3}(?:>[ \t]*|[-+*] +|[0-9]+[.)] +).*?(?:`{3,}|~{3,})", raw):
-            ambiguous = True
+        elif ambiguous is None and re.match(rb" {0,3}(?:>[ \t]*|[-+*] +|[0-9]+[.)] +).*?(?:`{3,}|~{3,})", raw):
+            ambiguous = line.start()
     # Compact run arrays keep unmatched delimiter work linear, without a large
     # Python object per byte or repeatedly rescanning unmatched suffixes.
     starts, ends = array("I"), array("I")
@@ -153,7 +164,9 @@ def _protected_body(body):
             index += 1
     for escaped in re.finditer(rb"\\[!\"#$%&'()*+,\-./:;<=>?@\[\]\\^_`{|}~]", bytes(visible)):
         visible[escaped.start():escaped.end()] = b"  "
-    if ambiguous and re.search(_INTERNAL, body, re.I):
+    # A fence inside a container changes only what follows it, so an internal
+    # target before the first such line is read the same either way (C7d).
+    if ambiguous is not None and _INTERNAL_ANYWHERE.search(body, ambiguous):
         _refuse("ambiguous container/fence syntax with an internal target")
     return visible
 
@@ -275,8 +288,9 @@ def scan_markdown(body: bytes):
     after it, so a token inside it is still found. An internal target that is
     not inside a token's destination or a recognised HTML image source refuses,
     wherever it is: reference definitions, wiki links and other unsupported
-    forms cannot hide one. An unrecorded wiki link is text (C7d); one the
-    producer recorded has no token, so its record refuses.
+    forms cannot hide one. The one exception is a strict internal destination
+    directly after ``](`` that no token covers (_BARE). Wiki links are text
+    (C7d).
     """
     visible = _protected_body(body)
     images = {match.start(2): match for match in _HTML_IMAGE.finditer(visible)
@@ -298,7 +312,17 @@ def scan_markdown(body: bytes):
             continue
         image = images.get(start)
         if image is None:
-            _refuse("unsupported or unaccounted active link syntax")
+            bare = _BARE.match(body, start)
+            if (bare is None or body[start - 2:start] != b"](" or visible[start - 1] != 40
+                    or visible[start:bare.end()] != body[start:bare.end()]):
+                _refuse("unsupported or unaccounted active link syntax")
+            end = bare.end(1)
+            destination = body[start:end]
+            base, separator, fragment = destination.partition(b"#")
+            yield Token(start, end, False, b"", destination, base, fragment if separator else None,
+                        start, end, bare=True)
+            position = end
+            continue
         value = image[2]
         yield Token(start, image.end(2), True, b"", value, value, None, start, image.end(2), html=True)
         position = image.end(2)
@@ -309,8 +333,9 @@ def _protected_record_token(body, start, end, visible):
 
     The producer scans code, so it records links there that this scanner
     protects. Such a span is read with the producer's grammar over the raw
-    bytes, and must be exactly one link holding no internal target; its bytes
-    are never changed (C7d). Any other unmatched span refuses.
+    bytes, and must be exactly one link holding no internal target, external
+    or a self-anchor; its bytes are never changed (C7d). Any other unmatched
+    span refuses.
     """
     if visible is None:
         visible = _protected_body(body)
@@ -320,6 +345,34 @@ def _protected_record_token(body, start, end, visible):
     if token is None or token.end != end:
         _refuse("archived link does not match a complete active token")
     return token, visible
+
+
+def _bare_record_token(body, start, end, bare):
+    """The token for a record whose span ends at an unrecorded-form destination.
+
+    The producer's label ends at the first ``]``, escaped or not, so it can
+    record a link this scanner reads as a bare destination (_BARE). The span
+    must be that label and destination exactly; the token takes its bounds.
+    """
+    bang = body[start] == 33
+    label_start = start + bang + 1
+    if (body[start + bang] != 91 or not label_start <= bare.start - 2 or bare.end + 1 != end
+            or b"\n" in body[label_start:bare.start - 2]):
+        _refuse("archived link does not match a complete active token")
+    return Token(start, end, bang, body[label_start:bare.start - 2], bare.destination, bare.base, bare.fragment,
+                 bare.destination_start, bare.destination_end, bare=True)
+
+
+def _wiki_record(body, start, end, p, token_starts):
+    """A wiki link the producer recorded is kept as text, as an unrecorded one
+    is (C7d): Obsidian resolves it by title. Its span must be one wiki link on
+    one line, holding the recorded target, no internal target and no token."""
+    span = body[start:end]
+    first = bisect.bisect_left(token_starts, start)
+    if (not re.fullmatch(rb"!?\[\[[^\[\]\n]+\]\]", span) or _INTERNAL_ANYWHERE.search(span)
+            or p["raw_target"].encode("utf-8") not in span
+            or first < len(token_starts) and token_starts[first] < end):
+        _refuse("archived link does not match a complete active token")
 
 
 def _record_anchor(fragment):
@@ -391,6 +444,8 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
         retained.append(record.payload)
     retained.sort(key=lambda p: (p["source_start_byte"], p["source_end_byte"], p["id"]))
     by_start = {token.start: token for token in tokens}
+    token_starts = sorted(by_start)
+    bare_by_end = {token.end: token for token in tokens if token.bare}
     accounted, replacements, previous, owner = set(), [], 0, None
     related, inline_resources = set(), set()
     visible = None
@@ -404,11 +459,24 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
                 or body[start] & 0xc0 == 0x80 or end < len(body) and body[end] & 0xc0 == 0x80):
             _refuse("invalid, overlapping or non-UTF-8 link span")
         previous = end
+        if p["source_format"] == "obsidian-wikilink":
+            _wiki_record(body, start, end, p, token_starts)
+            accounted.add(start)
+            continue
         token = by_start.get(start)
         protected = False
         if token is None or token.end != end:
-            token, visible = _protected_record_token(body, start, end, visible)
-            protected = True
+            if (bare := bare_by_end.get(end - 1)) is not None and bare.start > start:
+                token = _bare_record_token(body, start, end, bare)
+                accounted.add(bare.start)
+            else:
+                token, visible = _protected_record_token(body, start, end, visible)
+                protected = True
+                # An active token inside the span ending with it is this
+                # link read from a later bracket; the record accounts for it.
+                inner = bisect.bisect_right(token_starts, start)
+                if inner < len(token_starts) and token_starts[inner] < end and by_start[token_starts[inner]].end == end:
+                    accounted.add(token_starts[inner])
         source_id = p["source_document_id"]
         if owner is not None and owner != source_id:
             _refuse("link records have different source documents")
@@ -420,7 +488,7 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
         if (p.get("anchor_type") or "", p.get("anchor_value") or "") != _record_anchor(token.fragment):
             _refuse("link anchor disagrees with link record")
         kind, target_id = _target(token, limits)
-        if protected and kind != "external":
+        if protected and kind not in ("external", "self"):
             _refuse("internal link record inside protected code")
         if kind in ("document", "resource"):
             target_field = "target_document_id" if kind == "document" else "target_resource_id"
@@ -441,6 +509,12 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
             if (p["resolution_status"] != "resolved" or p.get("target_document_id", source_id) != source_id
                     or "target_resource_id" in p or p.get("target_uri", "") not in ("", f"document://default/documents/{source_id}")):
                 _refuse("self-anchor target disagrees with link record")
+        elif p["resolution_status"] == "resolved":
+            # The producer matched a non-internal destination to a note or an
+            # attachment by name. The destination is copied as written, like
+            # any other non-internal one; the match is not applied (C7d).
+            if ("target_document_id" in p) == ("target_resource_id" in p):
+                _refuse("external target disagrees with link record")
         elif (p["resolution_status"] != "external" or "target_document_id" in p or "target_resource_id" in p
               or "target_uri" in p and p["target_uri"] != token.base.decode("utf-8")):
             _refuse("external target disagrees with link record")
@@ -458,6 +532,24 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
                 _refuse("HTML image resource has no document-resource relation")
             inline_resources.add(mapped)
             replacements.append((token.destination_start, token.destination_end, b":/" + mapped.encode()))
+            continue
+        if token.bare:
+            if token.start in accounted:
+                continue
+            # Mapped back to the Joplin form the producer replaced; a target
+            # missing from the publication refuses in resolve.
+            kind, target_id = _target(token, limits)
+            if kind not in ("document", "resource"):
+                _refuse("unsupported or unaccounted active link syntax")
+            mapped = resolve(kind, target_id)
+            if not re.fullmatch(r"[0-9a-f]{32}", mapped):
+                _refuse("resolver did not return a mapped identity")
+            if kind == "resource":
+                if mapped not in related:
+                    _refuse("resource link has no document-resource relation")
+                inline_resources.add(mapped)
+            destination = b":/" + mapped.encode() + (b"#" + token.fragment if token.fragment is not None else b"")
+            replacements.append((token.destination_start, token.destination_end, destination))
             continue
         kind, _ = _target(token, limits)
         if kind != "external" and token.start not in accounted:
@@ -565,6 +657,29 @@ def rewrite_projected_links(body: str, *, note_id: str, note_path: PurePosixPath
         _fragment(token.fragment, limits)
         item_id = match[1].decode("ascii")
         item_type = lookup_item_type(item_id)
+        if token.bare:
+            # Only the destination is known, so only it changes. A note left
+            # out of the vault keeps its `:/id`, as a native export keeps one.
+            if item_type == 4:
+                if token.fragment is not None or attachments is None:
+                    _refuse("invalid mapped resource target")
+                name = attachments.vault_name(item_id, required=True)
+                if name is None:
+                    _refuse("missing mapped resource")
+                destination = quote(posixpath.relpath("attachments/" + name, start=str(note_path.parent)),
+                                    safe="/-._~").encode("ascii")
+            elif item_type == 1:
+                path = lookup_note_path(item_id)
+                if path is None:
+                    continue
+                destination = quote(posixpath.relpath(str(path), start=str(note_path.parent)),
+                                    safe="/-._~").encode("ascii")
+                if token.fragment is not None:
+                    destination += b"#" + token.fragment
+            else:
+                _refuse("mapped link has no supported note target")
+            replacements.append((token.destination_start, token.destination_end, destination))
+            continue
         if item_type == 4:
             if token.fragment is not None or attachments is None:
                 _refuse("invalid mapped resource target")

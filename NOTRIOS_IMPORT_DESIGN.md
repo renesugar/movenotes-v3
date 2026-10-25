@@ -314,8 +314,9 @@ UTF-8 boundaries. Sort by `(start,end,id)` and reject any overlap, duplicate
 span or stale span. The producer scans code too, so a publication carries
 records for links in code spans and blocks (and at escaped brackets). Such a
 record is read with the producer's grammar over the raw bytes; it must be
-exactly one `external` link with no internal target anywhere in its span, and
-its bytes stay unchanged (C7d). Any other record inside protected code refuses. `source_line` and `source_column` are validated as nonnegative integers
+exactly one `external` link or self-anchor with no internal target anywhere in
+its span, and its bytes stay unchanged (C7d; self-anchors added at the user's
+choice on 2026-10-25). Any other record inside protected code refuses. `source_line` and `source_column` are validated as nonnegative integers
 but are not compared with the rewritten body; the fixture demonstrates that
 byte offsets are the authority after publication rewrites.
 
@@ -329,7 +330,7 @@ decode percent escapes for this comparison. Accepted target rules:
 | `document://default/documents/ID` | `resolved`, existing matching `target_document_id`, no resource target; `target_uri` if present equals that base exactly. Produce `:/<mapped-id>` plus unchanged validated fragment. Document embeds refuse. |
 | `resource://default/resources/ID` | `resolved`, matching resource target, no document target; matching `target_uri` if present; require a document-resource relation for this source and target. No fragment. Produce `:/<mapped-id>`. |
 | `#fragment` | `resolved`; target ID absent or equal to source document; no resource ID. `target_uri` absent/empty or the source's canonical document URI. Keep `#fragment` unchanged. |
-| Any other destination (C7d) | `external`, no internal IDs; `target_uri` if present equals destination base. Copied byte for byte, whatever its scheme (`http(s)`, `mailto:`, `file:`, `tel:`, `data:`, relative, browser schemes): the importer resolves none of them. A destination that names an internal target in any other spelling, percent-encoded included, refuses. |
+| Any other destination (C7d) | `external`, no internal IDs, and `target_uri` if present equals destination base; or `resolved` with exactly one target ID, where the producer matched the destination to a note or attachment by name (the user chose on 2026-10-25 not to apply the match: one was a browser-internal URL matched to a note). Copied byte for byte, whatever its scheme (`http(s)`, `mailto:`, `file:`, `tel:`, `data:`, relative, browser schemes): the importer resolves none of them. A destination that names an internal target in any other spelling, percent-encoded included, refuses. |
 | HTML `<img … src="resource://default/resources/ID">` (C7d) | The producer rewrites a Joplin image's `:/id` source to this URI and records only the attachment relation, no link span. The source must be a whole single- or double-quoted `src` attribute of an `<img>` tag outside protected code, the resource a document-resource relation of this note, and no fragment. Only the attribute value changes, to `:/<mapped-id>`; the resource counts as inline, so it is not listed again under Attachments. Any other HTML occurrence of an internal target refuses. A projected note keeps `src=":/<mapped-id>"` on export, as the native Joplin export does. |
 
 Only lowercase exact internal scheme/authority/path spellings above are admitted;
@@ -351,11 +352,26 @@ untouched. Refuse missing
 internal records even when their target happens to be included. After accounting
 for accepted tokens, scan unprotected bytes case-insensitively for
 `document://`, `resource://`, `notrios://` and `:/` followed by 32 hex digits;
-any unconsumed occurrence refuses. Wiki links/embeds and reference definitions
-and uses are text (C7d; the user chose to admit unrecorded wiki links on
-2026-10-24, knowing an exported one resolves by title in Obsidian). A wiki link
-the producer recorded has no token, so its record refuses, and any of these
-forms carrying an internal target refuses at that target.
+any unconsumed occurrence refuses, with one exception (C7d, the user's choice
+on 2026-10-25): an exact `document://` or `resource://` URI, or a `:/` ID in a
+projected note, directly after `](` and followed at once by `)`. The producer
+rewrote it at import inside a label its parser cannot read (escaped or nested
+brackets, or two lines) and recorded no link. It maps back to `:/<mapped-id>`,
+fragment kept; its target must be in the publication, and a resource must be an
+attachment of the note. The producer's label ends at the first `]`, escaped
+or not, so its record may start at an escaped `[`. A record whose span ends
+with an active token or such a destination accounts for it, and its label is
+checked against the producer's bytes. A projected note changes only the destination: a note
+to its relative vault path, a resource to its attachment path, and a note left
+out of the vault keeps `:/id`, as a native export does. Wiki links/embeds and
+reference definitions and uses are text (C7d; the user chose to admit
+unrecorded wiki links on 2026-10-24, knowing an exported one resolves by title
+in Obsidian, and recorded ones on 2026-10-25). A recorded wiki link's span must
+be one `[[…]]` or `![[…]]` on one line holding its `raw_target`, no internal
+target and no token. Any of these forms carrying an internal target refuses at
+that target. A list or quote line holding a fence marker is ambiguous, and
+refuses only when an internal target follows its start (2026-10-25); before
+it, either reading of the fence gives the same bytes.
 There is no filename/title resolution fallback. Bare relative prose is not a
 link. These conservative checks include HTML attribute/autolink occurrences
 of recognized internal schemes; they do not constitute an arbitrary HTML or

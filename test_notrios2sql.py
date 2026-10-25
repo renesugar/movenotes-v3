@@ -2665,7 +2665,7 @@ class NotriosLinkProjectionTest(unittest.TestCase):
         # target in it is outside any token and refuses wherever it sits.
         for body in (b"[[" + uri + b"]]", b"![[x|:/" + b"a" * 32 + b"]]",
                      b"[ref]: " + uri, b"[text][ref]\n[ref]: :/" + b"a" * 32, b"[text]\n\n[text]: <" + uri + b">",
-                     b"[two\nlines](" + uri + b")", b"[spaced] (" + uri + b")", b"[n [x]](" + uri + b")",
+                     b"[spaced] (" + uri + b")", b"(" + uri + b")", b"](" + uri + b" junk)", b'](' + uri + b' "t")',
                      b"[label](" + uri + b" junk)", b"[label](<" + uri + b">)",
                      b"<a href='document://default/documents/doc_child'>", b"DOCUMENT://default/documents/doc_child",
                      b"bare :/"+b"a"*32, b"![embed](document://default/documents/doc_child)"):
@@ -2855,7 +2855,98 @@ class NotriosLinkProjectionTest(unittest.TestCase):
         self.assertEqual((scanned.base, scanned.fragment), (b"[[Target#part]]", None))
         self.assertEqual(self.project(body).encode(), body)
 
-    def test_unrecorded_wiki_links_are_text_and_recorded_ones_refuse(self):
+    def test_unrecorded_internal_destinations_map_back_to_the_joplin_form(self):
+        # A label the producer's parser cannot read (escaped or nested
+        # brackets, two lines) leaves an internal destination it rewrote at
+        # import but did not record. Directly after "](" it maps back (C7d).
+        uri = b"document://default/documents/doc_child"
+        mapped = b":/" + b"a" * 32
+        for body in (b"[text \\[x\\] more](" + uri + b")", b"[n [x]](" + uri + b"#part)",
+                     b"[two\nlines](" + uri + b")", b"!\\[shot\\](resource://default/resources/res_image) after"):
+            with self.subTest(body=body):
+                expected = re.sub(rb"(document|resource)://default/(documents|resources)/[a-z_]+", mapped, body)
+                plan = links.validate_links(body, [], resolve=lambda kind, value: "a" * 32, resource_ids=["a" * 32])
+                self.assertEqual(links.project_body(body, plan).encode(), expected)
+        # The target must be in the publication, and a resource must be attached.
+        def missing(kind, value):
+            raise archive_v2.NotriosError("graph", "record lookup has no target")
+        body = b"[text \\[x\\] more](" + uri + b")"
+        with self.assertRaises(archive_v2.NotriosError):
+            links.validate_links(body, [], resolve=missing)
+        with self.assertRaises(archive_v2.NotriosError):
+            self.project(b"!\\[shot\\](resource://default/resources/res_image)")
+        # The producer's label ends at the escaped "]", so it may record the
+        # link from the escaped "["; the record then accounts for the URI.
+        body = b"!\\[shot\\](resource://default/resources/res_image)"
+        record = archive_v2.Record("link", ("lnk_b",), dict(
+            id="lnk_b", source_document_id="doc_public", relation_type="link", source_format="markdown",
+            raw_target="resource://default/resources/res_image", display_text="shot\\",
+            source_start_byte=2, source_end_byte=len(body), source_line=1, source_column=3,
+            resolution_status="resolved", target_resource_id="res_image",
+            target_uri="resource://default/resources/res_image"))
+        plan = links.validate_links(body, [record], resolve=lambda kind, value: "a" * 32, resource_ids=["a" * 32])
+        self.assertEqual(links.project_body(body, plan).encode(), b"!\\[shot\\](:/" + b"a" * 32 + b")")
+        for change in ({"display_text": "other"}, {"target_resource_id": "res_other"}, {"source_start_byte": 1}):
+            with self.subTest(change=change), self.assertRaises(archive_v2.NotriosError):
+                links.validate_links(body, [archive_v2.Record("link", record.key, {**record.payload, **change})],
+                                     resolve=lambda kind, value: "a" * 32, resource_ids=["a" * 32])
+        # In a projected note only the destination changes; a note left out
+        # of the vault keeps its `:/id`, as a native export does.
+        from pathlib import PurePosixPath
+        attachments = mock.Mock()
+        attachments.vault_name.side_effect = lambda ident, required: "Shot.png"
+        def rewrite(body, kind, path):
+            return links.rewrite_projected_links(body, note_id="d" * 32, note_path=PurePosixPath("Deep/Source.md"),
+                lookup_item_type=lambda ident: kind, lookup_note_path=lambda ident: path, attachments=attachments)
+        note = "[text \\[x\\] more](:/" + "a" * 32 + "#part)"
+        self.assertEqual(rewrite(note, 1, PurePosixPath("Other/Child.md")), "[text \\[x\\] more](../Other/Child.md#part)")
+        self.assertEqual(rewrite(note, 1, None), note)
+        self.assertEqual(rewrite("!\\[shot\\](:/" + "a" * 32 + ")", 4, None), "!\\[shot\\](../attachments/Shot.png)")
+
+    def test_records_matched_by_name_keep_their_destination(self):
+        # The producer resolves some non-internal destinations to a note or an
+        # attachment by name; the destination is copied as written (C7d).
+        for destination, target in ((b"./notes.md", "target_resource_id"), (b"sandbox:/mnt/data/x.md", "target_resource_id"),
+                                    (b"/user/status/1", "target_document_id"), (b"chrome://extensions/", "target_document_id")):
+            body = b"see [it](" + destination + b") here"
+            record = retained_link(body, b"[it](" + destination + b")")
+            payload = {**record.payload, "resolution_status": "resolved", target: "doc_child",
+                       "target_uri": "document://default/documents/doc_child"}
+            with self.subTest(destination=destination):
+                self.assertEqual(self.project(body, [archive_v2.Record("link", record.key, payload)]).encode(), body)
+                for change in ({"target_document_id": "a", "target_resource_id": "b"},):
+                    with self.assertRaises(archive_v2.NotriosError):
+                        self.project(body, [archive_v2.Record("link", record.key, {**payload, **change})])
+        body = b"[it](./notes.md)"
+        record = retained_link(body, body)
+        bare = {k: v for k, v in record.payload.items() if k not in ("target_document_id", "target_resource_id")}
+        with self.assertRaises(archive_v2.NotriosError):
+            self.project(body, [archive_v2.Record("link", record.key, {**bare, "resolution_status": "resolved"})])
+
+    def test_self_anchor_records_inside_protected_code_stay_text(self):
+        link = b"[Here](#local)"
+        for body in (b"\\[" + link + b"\\]", b"- top\n\t- " + link + b"\n", b"`" + link + b"`"):
+            with self.subTest(body=body):
+                self.assertEqual(self.project(body, [retained_link(body, link)]).encode(), body)
+        # The producer starts the span at the escaped bracket, so the record
+        # covers the active self-anchor the scanner finds inside it.
+        body = b"\\[" + link + b"\\]"
+        record = retained_link(body, link)
+        record = archive_v2.Record("link", record.key, {**record.payload, "source_start_byte": 1,
+                                                        "display_text": "[Here"})
+        self.assertEqual(self.project(body, [record]).encode(), body)
+
+    def test_an_ambiguous_fence_refuses_only_internal_targets_after_it(self):
+        token = b"[Child](document://default/documents/doc_child)"
+        fence = b"- ```text\n  " + b"[Web](https://example.test/)" + b"\n  ```\n"
+        before = token + b"\n\n" + fence
+        self.assertEqual(self.project(before, [retained_link(before, token)]).encode(),
+                         before.replace(b"document://default/documents/doc_child", b":/" + b"a" * 32))
+        after = fence + b"\n" + token
+        with self.assertRaises(archive_v2.NotriosError):
+            self.project(after, [retained_link(after, token)])
+
+    def test_unrecorded_wiki_links_are_text_and_recorded_ones_too(self):
         for body in (b"[[Local]]", b"![[Local]]", b"see [[Local|alias]] here", b"[[Local#Part]] [[Other]]"):
             with self.subTest(body=body):
                 self.assertEqual(self.project(body).encode(), body)
@@ -2864,8 +2955,15 @@ class NotriosLinkProjectionTest(unittest.TestCase):
             id="lnk_w", source_document_id="doc_public", relation_type="link", source_format="obsidian-wikilink",
             raw_target="Local", display_text="Local", source_start_byte=4, source_end_byte=len(body),
             source_line=1, source_column=5, resolution_status="resolved", target_document_id="doc_child"))
+        # A recorded one is kept as text too: Obsidian resolves it by title (C7d).
+        self.assertEqual(self.project(body, [record]).encode(), body)
+        for change in ({"raw_target": "Elsewhere"}, {"source_start_byte": 0}, {"source_end_byte": len(body) - 1}):
+            with self.subTest(change=change), self.assertRaises(archive_v2.NotriosError):
+                self.project(body, [archive_v2.Record("link", record.key, {**record.payload, **change})])
+        body = b"[[document://default/documents/doc_child]]"
         with self.assertRaises(archive_v2.NotriosError):
-            self.project(body, [record])
+            self.project(body, [archive_v2.Record("link", record.key, {**record.payload, "source_start_byte": 0,
+                                                                         "source_end_byte": len(body)})])
 
     def test_external_records_inside_protected_code_stay_text(self):
         # The producer scans code, so a publication carries records for links
