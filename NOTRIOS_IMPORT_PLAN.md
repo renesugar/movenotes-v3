@@ -713,6 +713,8 @@ recorded findings. Each needs its design frozen here before implementation.
 | S43c / Main — complete | Carry link titles through the downstream tools that S43a does not own (scope extended by the frozen design below to `common.py`, `cleanres.py` and `sql2obsidian.py`). `obsidian2sql._normalise_target` splits a title only when the target does not start with `./` or `../`. The vault exporter writes `../` for notes in other folders, so a titled cross-folder link from a Notrios export stays unresolved on native reimport, where the untitled link resolves. When it does resolve a link, it writes `[display](:/id)` and drops the title. `obsidian2site` keeps titles on external links but drops them on resolved note and asset links. Fix both to split exactly one delimited title the way S43a's grammar does, and write it back after the rewritten destination. Owns `obsidian2sql.py`, `obsidian2site.py` and their tests. | S43b | Titled `./`, `../` and bare relative note and attachment links resolve on native reimport exactly as their untitled forms do, with the title bytes kept after the `:/id` destination. Site output keeps titles on resolved note and asset links. Untitled links and all canonical URLs, path maps and theme layouts are byte-identical; prove the URL maps unchanged over a real vault, as AGENTS.md requires. Undelimited suffixes are left as they are today. Focused tests plus all five regression modules. |
 | E1 / Main — complete | Stop exporters modifying the database they read. `notesdb.connect()` runs `PRAGMA journal_mode=WAL`, so `sql2obsidian.py` or `sql2joplin.py` run on a completed Notrios import rewrites `notesdb.sqlite`: header bytes 18–19 change from `01 01` to `02 02` and the change counter advances. A later identical `notrios2sql.py` rerun then refuses with `completed payload inventory differs`, and the documented import → vault recipe cannot be repeated. Before implementation, decide between opening read-only when no migration is needed and an explicit read-only flag; migrating an older database in place must stay as it is for other workflows. Owns `notesdb.py` (a narrow read-only open path), the two exporters' open calls and tests. | S43a finding | After a vault export and a Joplin export of a completed import, the import directory is byte-identical, an identical rerun reports `unchanged`, and no `-wal` or `-shm` file is left behind. Older databases that need migration still migrate, with that existing behaviour covered by a regression test. Exporter output is unchanged. Focused tests plus all five regression modules. |
 | H1 / Main | *Proposed 2026-10-24, found during C7d; not authorized.* Make HTML images render after export. A Joplin note can hold `<img src=":/id">` (80 tags in 38 notes of the Joplin corpus). `sql2obsidian.py` copies the resource (`common.get_resource_ids` finds HTML references) but `rewrite_resource_links` rewrites only Markdown links, so the vault keeps `src=":/id"`, which neither Obsidian nor the generated site resolves. Notrios-generated notes do the same since C7d, on purpose, to match. Rewrite the `src` value to the attachment's path relative to the note in both export paths, keeping every other byte of the tag, and decide with the user whether an exported image stays HTML or becomes an embed. Owns `sql2obsidian.py`, `notrios_links.py` (`rewrite_projected_links`) and tests. | C7d | A note with HTML images exports with each `src` pointing at its copied attachment, on both paths, byte-identical elsewhere; the vault reimports to the same database as before the change except for the rewritten bytes; the generated site shows the image. Focused tests plus the five-module gate. |
+| R1 / Main | *Proposed 2026-10-25 at the user's request; not authorized.* Report the links a web reader cannot reach, links that are not secure, and links the user should check, during site generation, without failing it. The user: a publication is meant to work once it moves from the local machine to the web; `tel:` and `mailto:` links work wherever the number or address still exists, which only the user can check; `file:` links never work on the web but may be part of an explanation; and failing the export on the first such link stops the rest from being found. `obsidian2site.py` already never fails on a link: it repairs malformed HTTP(S) destinations where it can, shows the rest as text and only counts both (`url_stats`), and leaves every other destination as written. It will write one CSV report per run, one row per link in a published note, with the category, the reason, the note's vault path and site URL, line and column, the label, the destination exactly as written, and what the site did with it (kept, repaired to a given URL, or shown as text). Categories: **unreachable**: `file:` and drive-letter or UNC paths, browser- and app-internal schemes (`about:`, `blob:`, `chrome:`, `javascript:`, `joplin:`, `sandbox:`, `view-source:` and any other scheme except http, https, mailto, tel and data), relative and wiki links that resolve to no published note or attachment, and internal forms left unresolved (`:/id`, `document://`, `resource://`). **Malformed**: HTTP(S) destinations repaired or shown as text, including the backslash and bad-port forms C7d found. **Insecure**: `http:`. **Verify** (for information only): `tel:` and `mailto:`. `data:` links are self-contained, so they are counted, not listed. Markdown, reference, angle, bare and wiki forms, and HTML `href` and `src` attributes, are covered; anything in code spans or blocks is not a link and is skipped. The report lists phone numbers, email addresses and local paths, so it must never be published or uploaded. By default it goes at the site directory's root, outside everything Hugo publishes, and `--link-report PATH` chooses another location. The regeneration cleanup replaces it, and the generated `.gitignore` and `.vercelignore` list it. Rows are streamed as notes are converted, in a fixed order (vault path, then offset), so an identical rerun writes an identical report. The run prints the count in each category and the report's path. The local vault and Joplin exports are not affected. Owns `obsidian2site.py`, its tests, and the README's site-generation usage. | User, 2026-10-25; C7d | A synthetic vault with every category, plus the same links inside code that must not be listed, generates a site byte-identical to before the change apart from the report and the two ignore files. The report holds exactly the expected rows, and a rerun writes it byte-identical. Nothing in `public/`, the server bundle or a `--vercel` upload set contains the report. Generation never stops for a link. Running it on the three 7c libraries records the per-category counts, in aggregate only. Focused tests plus the five-module gate. |
+| R2 / Main | *Proposed 2026-10-25, found while planning R1; not authorized; needs the user's choice below.* Keep non-internal destinations on the Notrios route. With the publication handoff's `plain_text` link action, the v1.0.0 producer replaces every unresolved or ambiguous link with its label alone and drops its record (`publicationLinkNeedsRewrite` and `replacementFor` in `internal/archivev2/publish.go`). In the Joplin library that is 2,318 links, the export report's `rewritten_links`. The producer's link table puts them as 471 `file:`, 13 `tel:`, 1,197 `data:`, 500 relative destinations, 8 ambiguous ones (2 of them `file:`) and 129 others. Each recipe library has 2. They never reach movenotes, so they do not pass through unchanged as the user asked on 2026-10-24, and R1 cannot list them on this route. External `http:`, `https:` and `mailto:` links are not rewritten. Options: (a) export the handoff with `--link-action retain`, which the producer accepts for this target and which leaves bodies untouched. movenotes would then admit unresolved and ambiguous records whose destination names no internal target, as text that R1 reports. For a link to a withheld note it would do itself what `plain_text` does (replace the span with its label) and report it as withheld. Before choosing (a), a bounded probe must show what `retain` emits for a link to a withheld note: whether the record survives, and whether it names a target outside the archive. (b) Change the producer so `plain_text` rewrites only links to withheld or excluded internal targets: a new producer pin and regenerated fixtures. (c) Accept the loss on this route, and have R1 report only the export's `rewritten_links` count. Recommended: (a) after the probe. It needs no producer change, and every destination arrives as written. Fall back to (b) if the probe shows `retain` puts withheld note identities into the handoff in a way the import cannot contain. It changes resumed 7c's frozen link policy, so it comes after 7c. Owns `notrios_archive.py`, `notrios_links.py`, `notrios2sql.py`, the 7c harness's export arguments, the contract's `link` row, the design, and tests. | R1; 7c; user's choice of (a), (b) or (c) | On the chosen route, every non-internal destination in a Notrios publication reaches the vault and site byte-identical to the source note, and appears in R1's report. A link to a withheld note never carries that note's identity into the vault or site, and is reported. Every existing link-projection test passes unchanged apart from the ones the decision supersedes. Rerun the bounded 7c tier, record per-category counts in aggregate only, and run the five-module gate. |
 
 **S43c design, frozen 2026-10-22 before implementation.** Reading the code
 found a third consumer that the original S43c row did not name.
@@ -2972,6 +2974,58 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Validation | pending |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | C7d finding, 2026-10-24; user: Update the plan if you find items that need to be fixed instead of just logging their existence. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>R1 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; requested by the user on 2026-10-25; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | User, 2026-10-25: Update the plan to create the report of links that would not be reachable or not secure ('http:' links) and tel: and mailto: links (included for information only so the user can verify them themselves). |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>R2 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; proposed by Main on 2026-10-25 while planning R1; requires the user's choice of option and authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | R1 planning finding, 2026-10-25: under plain_text the v1.0.0 producer replaces 2,318 unresolved or ambiguous Joplin links (471 file:, 13 tel:, 1,197 data:, 500 relative) with their labels; user: Update the plan if you find items that need to be fixed instead of just logging their existence. |
 | Execution evidence | none |
 | Commit | pending |
 
