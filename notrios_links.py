@@ -50,7 +50,6 @@ _TITLE = rb"[ \t]+(?:\"[^\"\\`\r\n]*\"|'[^'\\`\r\n]*'|\([^()\\`\r\n]*\))[ \t]*"
 _STRICT_DESTINATION = re.compile(rb"([^()\\\s<>]+)(" + _TITLE + rb")?")
 _TITLE_REFUSED = re.compile(rb"[\x00-\x08\x0b-\x1f\x7f]|" + _INTERNAL, re.I)
 _INTERNAL_ANYWHERE = re.compile(_INTERNAL, re.I)
-_WIKI = re.compile(rb"\[\[[^\]\n]+\]\]")
 # A Joplin HTML image whose source the producer rewrote to its resource URI
 # (and, in a projected note, the mapped form written back). It carries no link
 # record, only the note's attachment relation.
@@ -275,9 +274,9 @@ def scan_markdown(body: bytes):
     A bracket that does not start a token is prose, and scanning resumes just
     after it, so a token inside it is still found. An internal target that is
     not inside a token's destination or a recognised HTML image source refuses,
-    wherever it is: reference definitions and other unsupported forms cannot
-    hide one. Wiki links are refused outright: exported, they would resolve by
-    title, which the importer never does.
+    wherever it is: reference definitions, wiki links and other unsupported
+    forms cannot hide one. An unrecorded wiki link is text (C7d); one the
+    producer recorded has no token, so its record refuses.
     """
     visible = _protected_body(body)
     images = {match.start(2): match for match in _HTML_IMAGE.finditer(visible)
@@ -295,8 +294,6 @@ def scan_markdown(body: bytes):
                 yield token
                 position = token.end
                 continue
-            if _WIKI.match(visible, start + (visible[start] == 33)):
-                _refuse("wiki links are unsupported")
             position = start + 1
             continue
         image = images.get(start)
@@ -305,6 +302,24 @@ def scan_markdown(body: bytes):
         value = image[2]
         yield Token(start, image.end(2), True, b"", value, value, None, start, image.end(2), html=True)
         position = image.end(2)
+
+
+def _protected_record_token(body, start, end, visible):
+    """The token for an archived span that starts inside protected code.
+
+    The producer scans code, so it records links there that this scanner
+    protects. Such a span is read with the producer's grammar over the raw
+    bytes, and must be exactly one link holding no internal target; its bytes
+    are never changed (C7d). Any other unmatched span refuses.
+    """
+    if visible is None:
+        visible = _protected_body(body)
+    if visible[start] == body[start] or _INTERNAL_ANYWHERE.search(body, start, end):
+        _refuse("archived link does not match a complete active token")
+    token = _inline_at(body, body, start)
+    if token is None or token.end != end:
+        _refuse("archived link does not match a complete active token")
+    return token, visible
 
 
 def _record_anchor(fragment):
@@ -378,6 +393,7 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
     by_start = {token.start: token for token in tokens}
     accounted, replacements, previous, owner = set(), [], 0, None
     related, inline_resources = set(), set()
+    visible = None
     for count, ident in enumerate(resource_ids, 1):
         if count > limits.max_resource_relations_per_note:
             raise NotriosError("limit", "resource relation count exceeds limit")
@@ -389,8 +405,10 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
             _refuse("invalid, overlapping or non-UTF-8 link span")
         previous = end
         token = by_start.get(start)
+        protected = False
         if token is None or token.end != end:
-            _refuse("archived link does not match a complete active token")
+            token, visible = _protected_record_token(body, start, end, visible)
+            protected = True
         source_id = p["source_document_id"]
         if owner is not None and owner != source_id:
             _refuse("link records have different source documents")
@@ -402,6 +420,8 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
         if (p.get("anchor_type") or "", p.get("anchor_value") or "") != _record_anchor(token.fragment):
             _refuse("link anchor disagrees with link record")
         kind, target_id = _target(token, limits)
+        if protected and kind != "external":
+            _refuse("internal link record inside protected code")
         if kind in ("document", "resource"):
             target_field = "target_document_id" if kind == "document" else "target_resource_id"
             other_field = "target_resource_id" if kind == "document" else "target_document_id"

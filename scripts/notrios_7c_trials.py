@@ -52,6 +52,11 @@ ROUTES = {
     "recipe-vault": ("obsidian", ["--batch-size", "500"]),
 }
 BOUNDED_DOCUMENTS = 1000
+# The direct-planner maximum at v1.0.0 (store.MaxSelectionDocuments). `publish
+# plan` and `publish run` fall back to the REST/MCP default of 100,000, which
+# every full route exceeds, so the full tier exports instead (user decision,
+# 2026-10-24); a one-notebook check found the two paths' payloads identical.
+FULL_MAX_DOCUMENTS = 1_000_000
 MIN_FREE_BYTES = 20 * 1024**3
 TIME_FORMAT = '{"wall_seconds":%e,"user_seconds":%U,"system_seconds":%S,"max_rss_kib":%M,"exit":%x}'
 
@@ -333,13 +338,14 @@ class Trials:
         raised it.  Only counts and URL schemes are recorded.
         """
         stages = self.pipeline(route, "full", through="python-verify")
-        archive = stages["publish"] / "archive"
+        source = stages["export"]
+        archive = source / "archive"
         return self.stage(
             f"{route}/full/link-census",
             [sys.executable, "-B", str(HARNESS), "census-child", str(archive), "{stage}/work",
              "{stage}/census.json"],
             inputs={"consumer": consumer_hashes(("notrios2sql",), "census-child"),
-                    "archive": self.output_digest(stages["publish"], "archive")},
+                    "archive": self.output_digest(source, "archive")},
             outputs={"census": "{stage}/census.json"}, mkdirs=("{stage}/work",),
         )
 
@@ -361,15 +367,19 @@ class Trials:
                     "SELECT id FROM documents WHERE deleted_at IS NULL ORDER BY id LIMIT ?",
                     (BOUNDED_DOCUMENTS,))]
                 return ["--documents", ",".join(ids)], min(total, BOUNDED_DOCUMENTS), "first-ids"
-            notebooks = [row[0] for row in connection.execute("SELECT id FROM notebooks ORDER BY id")]
-            orphans = [row[0] for row in connection.execute(
-                "SELECT id FROM documents WHERE deleted_at IS NULL AND notebook_id IS NULL ORDER BY id")]
-        selection = []
-        if notebooks:
-            selection += ["--notebooks", ",".join(notebooks)]
+            # Notebook selection includes descendants, so the roots select every
+            # filed document and stay within the planner's 100 selectors.
+            roots = [row[0] for row in connection.execute(
+                "SELECT id FROM notebooks WHERE parent_id IS NULL OR parent_id = '' ORDER BY id")]
+            orphans = connection.execute(
+                "SELECT count(*) FROM documents WHERE deleted_at IS NULL AND notebook_id IS NULL").fetchone()[0]
         if orphans:
-            selection += ["--documents", ",".join(orphans)]
-        return selection, total, f"all-notebooks-plus-{len(orphans)}-unfiled"
+            # A job's parameters are capped at 8,192 bytes, so unfiled
+            # documents cannot be listed by ID at this scale.
+            raise SystemExit(f"{orphans} unfiled documents cannot be selected for the full tier")
+        if len(roots) > 100:
+            raise SystemExit(f"{len(roots)} root notebooks exceed the planner's 100 selectors")
+        return ["--notebooks", ",".join(roots)], total, f"{len(roots)}-root-notebooks"
 
     def pipeline(self, route: str, tier: str, through: str | None = None) -> dict[str, Path]:
         producer = self.library(route)
@@ -381,7 +391,55 @@ class Trials:
         shared = ["--config", str(self.empty_config), "--db", str(database), "--asset-store", str(assets)]
         base = f"{route}/{tier}"
         stages: dict[str, Path] = {}
+        if tier == "full":
+            archive, archived, selection_sha = self._export(stages, base, shared, selection, expected,
+                                                            description, binary, produced)
+        else:
+            archive, archived, selection_sha = self._publish(stages, base, shared, selection, expected,
+                                                             description, binary, produced, tier)
+        stages["producer-verify"] = self.stage(
+            f"{base}/producer-verify", [str(self.binary), "verify", "archive-v2", str(archive)],
+            inputs={"producer": binary, "archive": archived}, outputs={},
+        )
+        python = [sys.executable, "-B", str(HARNESS)]
+        stages["python-verify"] = self.stage(
+            f"{base}/python-verify", [*python, "verify-child", str(archive), "{stage}/work"],
+            inputs={"consumer": consumer_hashes(("notrios_archive",), "verify-child"), "archive": archived},
+            outputs={"counts": "{stage}/stdout.log"}, mkdirs=("{stage}/work",),
+        )
+        verified = json.loads((stages["python-verify"] / "stdout.log").read_text(encoding="utf-8"))
+        if verified["documents"] != expected or verified["source_bundles"] != 0:
+            raise SystemExit(f"{base}: the archive holds {verified['documents']} of {expected} documents "
+                             f"and {verified['source_bundles']} source bundles")
+        if through == "python-verify":
+            return stages
+        return self._downstream(stages, base, archive, archived, selection_sha, python)
 
+    def _export(self, stages, base, shared, selection, expected, description, binary, produced):
+        stages["export"] = self.stage(
+            f"{base}/export",
+            [str(self.binary), "export", "archive-v2", *shared, "--target", "publication_handoff",
+             *selection, "--max-documents", str(FULL_MAX_DOCUMENTS), "{stage}/archive"],
+            inputs={"producer": binary, "library": produced, "selection": _digest(selection)},
+            outputs={"archive": "{stage}/archive"},
+        )
+        report = json.loads((stages["export"] / "stdout.log").read_text(encoding="utf-8"))
+        if report["target"] != "publication_handoff" or report["full_backup"]:
+            raise SystemExit(f"{base}: the export is not a publication handoff")
+        if report["selected_documents"] != expected or report["excluded_documents"] != 0:
+            raise SystemExit(f"{base}: the export selects {report['selected_documents']} of {expected} documents "
+                             f"and excludes {report['excluded_documents']}")
+        review = {"counts": {key: report[key] for key in ("selected_documents", "excluded_documents",
+                                                          "reachable_resources", "rewritten_links",
+                                                          "rewritten_documents", "cleared_link_targets",
+                                                          "skipped_rewrites", "stripped_metadata")},
+                  "library_documents_selected_of": expected, "selection": description,
+                  "plan_sha256": report["selection_manifest_sha256"]}
+        _write_json(stages["export"] / "review.json", review)
+        return (stages["export"] / "archive", self.output_digest(stages["export"], "archive"),
+                report["selection_manifest_sha256"])
+
+    def _publish(self, stages, base, shared, selection, expected, description, binary, produced, tier):
         stages["profile"] = self.stage(
             f"{base}/profile",
             [str(self.binary), "publish", "profile", "save", *shared,
@@ -413,20 +471,9 @@ class Trials:
              "--reviewed-plan", selection_sha, "{stage}/archive"],
             inputs={"producer": binary, "plan": selection_sha}, outputs={"archive": "{stage}/archive"},
         )
-        archive = stages["publish"] / "archive"
-        archived = self.output_digest(stages["publish"], "archive")
-        stages["producer-verify"] = self.stage(
-            f"{base}/producer-verify", [str(self.binary), "verify", "archive-v2", str(archive)],
-            inputs={"producer": binary, "archive": archived}, outputs={},
-        )
-        python = [sys.executable, "-B", str(HARNESS)]
-        stages["python-verify"] = self.stage(
-            f"{base}/python-verify", [*python, "verify-child", str(archive), "{stage}/work"],
-            inputs={"consumer": consumer_hashes(("notrios_archive",), "verify-child"), "archive": archived},
-            outputs={"counts": "{stage}/stdout.log"}, mkdirs=("{stage}/work",),
-        )
-        if through == "python-verify":
-            return stages
+        return (stages["publish"] / "archive", self.output_digest(stages["publish"], "archive"), selection_sha)
+
+    def _downstream(self, stages, base, archive, archived, selection_sha, python):
         stages["convert"] = self.stage(
             f"{base}/convert",
             [*python, "convert-child", str(archive), "{stage}/converted", selection_sha,

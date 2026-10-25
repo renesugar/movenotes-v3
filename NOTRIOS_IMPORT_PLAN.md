@@ -1204,6 +1204,49 @@ killed run left no destination, the stale lock refused, cleanup removed only
 the 3 token-checked directories, the fresh rerun matched the bounded
 conversion, and the unchanged rerun left it unchanged.
 
+*Decisions and phase 3 amendment (2026-10-24, before launch).* The user chose
+to run the full tier with `export archive-v2 --target publication_handoff`,
+and to have C7d also admit unrecorded wiki links as text and external
+producer records inside protected code. Notebook selection includes
+descendants, so the full tier selects each library's root notebooks (8, 5 and
+11), within the planner's 100 selectors, with `--max-documents 1000000`. No
+library holds an unfiled document, which a job's 8,192-byte parameter limit
+would keep out. The export has no plan or reviewed-plan step; the harness
+instead requires its report to be a publication handoff that selects every
+document and excludes none, and Python verification to find every document
+and no source bundle. The export's default policy for this target is
+`plain_text`, the same as the publish profile's. Equivalence check on one
+12,052-document Joplin notebook: `publish run` and `export archive-v2` gave
+the same selection digest (`29f04564…`), identical payload files (12,061
+files, one tree digest) and the same report counts; the manifest snapshots
+differ only in `id` and `created_at`. Export took 75.47 s and 67,072 KiB
+against publish's 81.48 s and 65,972 KiB.
+
+Phase 3's stall threshold is phase 2's per-1,000-document wall times for
+every pipeline stage (75.79 s, 114.77 s and 99.91 s), scaled to the full
+counts (7,833 s, 43,866 s and 38,186 s), and doubled: 179,770 s. The launch
+first reruns the bounded tier, whose conversion fingerprint changed, then the
+full census, the full pipelines and the full live-site check.
+
+*Phase 3, first attempt (2026-10-24 to 2026-10-25): Joplin refused at
+verification.* The bounded rerun with the final scanner and its recovery trial
+passed. All three full exports passed the harness's selection checks, and both
+recipe routes passed every full stage. Joplin's Python verification refused
+with `publication: external link requires HTTP(S) and no internal target`, so
+its census, pipeline and live-site check did not run. That rule dated from 3d,
+and C7d had changed only the scanner. An aggregate count over the export, with
+the rule counting instead of raising, found 96 producer `external` records it
+refuses. 59 are mailto links, which the producer records as external. 33 are
+HTTPS destinations holding a backslash, because the producer keeps Markdown
+escapes literally. 4 are HTTPS destinations with a malformed port. All have
+no internal target ID and a `target_uri` equal to the destination, and the rest
+of the archive verifies. Under the user's rule for other destinations (pass
+them through unchanged), C7d now has the verifier require only a nonempty
+destination without control characters and no internal target ID;
+`validate_links` still refuses a destination that holds an internal target.
+The contract's `link` row records the change. Every full stage reruns, because
+the verifier is in each stage's consumer hashes. Same stall threshold, 179,770 s.
+
 ### Performance investigation and measured adoption before resuming 7c
 
 Added at the user's request on 2026-09-17. Read both supplied reviews:
@@ -2717,8 +2760,8 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Parent | Claude Code parent |
 | Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
 | Parent reasoning effort | not exposed |
-| Parent contribution | Read the producer's internal/markdownlinks parser and publish/export limits at 2aab9a8. notrios_links.py: inline links recognised exactly as the producer's parser (label to the first ] on its line, balanced or angle destinations, Go-whitespace trim, J37 literal hrefs); any other bracket is prose and scanning resumes after it; internal destinations keep the strict form; wiki links refuse; non-internal destinations pass through unless they name an internal target, percent-encoded included; heading-fragment rules only on internal targets; anchors compared as the producer's splitAnchor; HTML <img src=resource://...> mapped through the note's attachment relation and kept as :/id on projected export. Rewrote three C7a link-grammar tests and added producer-shaped, pass-through and HTML-image tests. Added the census command and child to the 7c harness. Amended NOTRIOS_IMPORT_DESIGN.md and NOTRIOS_COMPATIBILITY_REVIEW.md; proposed H1. |
-| Validation | Partial. Differential check: every producer Markdown record outside protected code is a token with the same span, target and label (75,776/75,776 Joplin; all recipe records); both recipe libraries scan with no refusal. Bounded phase 2 rerun passed every stage on all three routes, plus live-site and recovery. 311 tests (five modules plus harness) passed in 184.443s with both bytecode controls. Not yet met: full conversions (v1.0.0 publish caps selections at 100,000 documents and profiles at 100 selectors) and user acceptance of the remaining Joplin refusal forms (library-body figures: 82 wiki-link notes, 198 with records in protected code, about 5 unrecorded internal links, 1 ambiguous container). |
+| Parent contribution | Read the producer's internal/markdownlinks parser and publish/export limits at 2aab9a8. notrios_links.py: inline links recognised exactly as the producer's parser (label to the first ] on its line, balanced or angle destinations, Go-whitespace trim, J37 literal hrefs); any other bracket is prose and scanning resumes after it; internal destinations keep the strict form; unrecorded wiki links are text and recorded ones refuse (user decision 2026-10-24); a producer record inside protected code or at an escaped bracket is accepted unchanged when it is one external link with no internal target in its span (user decision 2026-10-24); non-internal destinations pass through unless they name an internal target, percent-encoded included; heading-fragment rules only on internal targets; anchors compared as the producer's splitAnchor; HTML <img src=resource://...> mapped through the note's attachment relation and kept as :/id on projected export. Rewrote three C7a link-grammar tests and added producer-shaped, pass-through and HTML-image tests. Added the census command and child to the 7c harness. Amended NOTRIOS_IMPORT_DESIGN.md and NOTRIOS_COMPATIBILITY_REVIEW.md; proposed H1. The 7c harness's full tier uses export archive-v2 --target publication_handoff on each library's root notebooks (user decision 2026-10-24), checked to select every document and exclude none; equivalence with publish run checked on one 12,052-document notebook. notrios_archive.py: an external link record needs only a nonempty destination without control characters and no internal target ID, any scheme (phase 3 found 59 mailto, 33 backslash and 4 malformed-port producer records the HTTP(S) rule refused); contract link row updated. The frozen differential reports keep their recorded results; the live checks apply REVISED_AFTER_AUDIT, which now expects external_file_uri to be accepted, agreeing with the producer's recorded Go acceptance; only the v1.0.0 binary is still available, and the case spec is shared with the schema-28 report. |
+| Validation | Partial. Differential check: every producer Markdown record outside protected code is a token with the same span, target and label (75,776/75,776 Joplin; all recipe records); both recipe libraries scan with no refusal. Bounded phase 2 rerun passed every stage on all three routes, plus live-site and recovery. 311 tests (five modules plus harness) passed in 184.443s with both bytecode controls. Phase 3 first attempt: both recipe routes passed every full stage; Joplin full verification refused 96 non-HTTP(S) external records, now admitted. 313 tests (five modules plus harness) passed in 167.955s with both bytecode controls after the verifier change. Not yet met: the full rerun of all three routes on the final code (running). |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | NOTRIOS_IMPORT_PLAN.md C7d row and Resumed 7c results so far, added 2026-10-24 |
 | Execution evidence | 2026-10-24 user on the HTML images: <img src="resource://…"> tags look more like Notrios tags than Joplin tags … it sounds like a Notrios attachment/resource URL did not get converted to a Joplin attachment/resource URL. Main verified: 80 tags in 38 notes, each matching a referenced producer resource and a source resource file.; 2026-10-24 user on file:, mailto: and tel: destinations: It is not something that gets resolved during import. For the purposes of import and export, I would treat them as plain text (pass them through unchanged as you find them).; 2026-10-24 user: Start C7d; 2026-10-24: C7d census stopped at the v1.0.0 publish caps (selection exceeds max_documents=100000; at most 100 notebook and tag selectors); 2026-10-24: bounded phase 2 rerun with the C7d scanner passed every stage, live-site and recovery (phases.log 15:12:53Z-15:16:55Z); 2026-10-24: regression gate 311 tests OK in 184.443s |

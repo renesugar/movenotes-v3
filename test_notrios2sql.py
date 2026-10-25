@@ -53,6 +53,12 @@ RECORD_COUNTS = {
     "provenance": "provenance", "source_bundle": "source_bundles",
 }
 
+# Python expectations changed after a frozen differential audit was run. The
+# reports stay as that run's evidence; the live checks use the current rule.
+# C7d: the producer records file: and mailto: links as external, as Go already
+# accepted, and the import passes every external destination through unchanged.
+REVISED_AFTER_AUDIT = {"external_file_uri": "accepted"}
+
 
 def load_json(path: Path):
     return json.loads(path.read_bytes())
@@ -1323,8 +1329,8 @@ class NotriosObjectSpoolTest(unittest.TestCase):
 
     def test_link_publication_target_rules(self):
         for damage, message in (("two_targets", "multiple internal targets"),
-                                ("external_internal", "HTTP(S)"), ("external_scheme", "HTTP(S)"),
-                                ("external_host", "HTTP(S)"), ("idless", "self-anchor")):
+                                ("external_internal", "no internal target"), ("external_empty", "a destination"),
+                                ("external_control", "a destination"), ("idless", "self-anchor")):
             with self.subTest(damage=damage):
                 self.fresh_archive()
                 records = self.envelopes()
@@ -1341,7 +1347,7 @@ class NotriosObjectSpoolTest(unittest.TestCase):
                     if damage == "external_internal":
                         p["target_document_id"] = "doc_public"
                     else:
-                        p["raw_target"] = "file:///private" if damage == "external_scheme" else "https:///missing"
+                        p["raw_target"] = "" if damage == "external_empty" else "https://example.com/\x7f"
                 else:
                     p.update(raw_target="", anchor_type="", anchor_value="")
                 self.write_records(records)
@@ -1356,6 +1362,20 @@ class NotriosObjectSpoolTest(unittest.TestCase):
         self.write_records(records)
         with self.verify():
             pass
+        # The producer records mailto links as external, and keeps Markdown
+        # escapes and malformed ports as written; all pass through as text.
+        for uri in ("mailto:someone@example.com", "tel:+1-555-0100", "file:///private",
+                    "https://example.com/a\\_b", "https://example.com:port/", "https:///missing"):
+            with self.subTest(uri=uri):
+                self.fresh_archive()
+                records = self.envelopes()
+                p = next(r["payload"] for r in records if r["type"] == "link")
+                for field in ("target_document_id", "target_resource_id"):
+                    p.pop(field, None)
+                p.update(resolution_status="external", raw_target=uri, target_uri=uri)
+                self.write_records(records)
+                with self.verify():
+                    pass
 
     def test_blob_context_requires_authenticated_eof(self):
         with self.verify() as verified:
@@ -1552,7 +1572,7 @@ class NotriosObjectSpoolTest(unittest.TestCase):
             with self.subTest(case=case["name"]):
                 self.fresh_archive()
                 self.apply_audit_case(case)
-                if case["expect_python"] == "accepted":
+                if REVISED_AFTER_AUDIT.get(case["name"], case["expect_python"]) == "accepted":
                     with self.verify():
                         pass
                     self.assertEqual(list(self.work.iterdir()), [])
@@ -2643,7 +2663,7 @@ class NotriosLinkProjectionTest(unittest.TestCase):
         uri = b"document://default/documents/doc_child"
         # Every form below is prose or an unsupported link, so an internal
         # target in it is outside any token and refuses wherever it sits.
-        for body in (b"[[Local]]", b"![[Local]]", b"see [[Local|alias]] here",
+        for body in (b"[[" + uri + b"]]", b"![[x|:/" + b"a" * 32 + b"]]",
                      b"[ref]: " + uri, b"[text][ref]\n[ref]: :/" + b"a" * 32, b"[text]\n\n[text]: <" + uri + b">",
                      b"[two\nlines](" + uri + b")", b"[spaced] (" + uri + b")", b"[n [x]](" + uri + b")",
                      b"[label](" + uri + b" junk)", b"[label](<" + uri + b">)",
@@ -2834,6 +2854,43 @@ class NotriosLinkProjectionTest(unittest.TestCase):
         scanned, = links.scan_markdown(body)
         self.assertEqual((scanned.base, scanned.fragment), (b"[[Target#part]]", None))
         self.assertEqual(self.project(body).encode(), body)
+
+    def test_unrecorded_wiki_links_are_text_and_recorded_ones_refuse(self):
+        for body in (b"[[Local]]", b"![[Local]]", b"see [[Local|alias]] here", b"[[Local#Part]] [[Other]]"):
+            with self.subTest(body=body):
+                self.assertEqual(self.project(body).encode(), body)
+        body = b"see [[Local]]"
+        record = archive_v2.Record("link", ("lnk_w",), dict(
+            id="lnk_w", source_document_id="doc_public", relation_type="link", source_format="obsidian-wikilink",
+            raw_target="Local", display_text="Local", source_start_byte=4, source_end_byte=len(body),
+            source_line=1, source_column=5, resolution_status="resolved", target_document_id="doc_child"))
+        with self.assertRaises(archive_v2.NotriosError):
+            self.project(body, [record])
+
+    def test_external_records_inside_protected_code_stay_text(self):
+        # The producer scans code, so a publication carries records for links
+        # in code spans and blocks; an external one is accepted unchanged.
+        link = b"[Web](https://example.test/a)"
+        for body in (b"`" + link + b"`", b"```\n" + link + b"\n```\n", b"    " + link + b"\n", b"\\" + link):
+            with self.subTest(body=body):
+                # The producer ignores escapes too, so an escaped bracket
+                # still starts its span.
+                record = retained_link(body, link)
+                self.assertEqual(self.project(body, [record]).encode(), body)
+                for change in ({"source_end_byte": record.payload["source_end_byte"] - 1},
+                               {"resolution_status": "resolved"}, {"display_text": "Other"}):
+                    with self.assertRaises(archive_v2.NotriosError):
+                        self.project(body, [archive_v2.Record("link", record.key, {**record.payload, **change})])
+        hidden = b"[Hidden](document://default/documents/doc_child)"
+        body = b"`" + hidden + b"`"
+        with self.assertRaises(archive_v2.NotriosError):
+            self.project(body, [retained_link(body, hidden)])
+        # Outside code, a record that matches no token still refuses.
+        body = b"[sic] " + link
+        record = retained_link(body, link)
+        with self.assertRaises(archive_v2.NotriosError):
+            self.project(body, [archive_v2.Record("link", record.key, {**record.payload, "source_start_byte": 0,
+                                                                         "source_end_byte": 5})])
 
     def test_html_image_sources_map_through_their_attachment_relation(self):
         mapped = "a" * 32
@@ -3538,7 +3595,7 @@ class NotriosSchema28Test(unittest.TestCase):
                 self.assertEqual(result["python_result"], spec["expect_python"])
                 case.fresh_archive()
                 case.apply_audit_case(spec)
-                if spec["expect_python"] == "accepted":
+                if REVISED_AFTER_AUDIT.get(spec["name"], spec["expect_python"]) == "accepted":
                     with case.verify():
                         pass
                 else:
@@ -3679,7 +3736,7 @@ class NotriosV1TitledTest(unittest.TestCase):
                 self.assertEqual(result["python_result"], spec["expect_python"])
                 case.fresh_archive()
                 case.apply_audit_case(spec)
-                if spec["expect_python"] == "accepted":
+                if REVISED_AFTER_AUDIT.get(spec["name"], spec["expect_python"]) == "accepted":
                     with case.verify():
                         pass
                 else:

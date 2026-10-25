@@ -22,7 +22,6 @@ import stat
 import tempfile
 from types import MappingProxyType
 from typing import BinaryIO
-from urllib.parse import urlsplit
 
 
 class NotriosError(ValueError):
@@ -1015,18 +1014,13 @@ def _validate_link_publication(p):
     if status not in ("resolved", "external"):
         raise NotriosError("publication", "link status is not publishable")
     if status == "external":
-        valid = True
-        for uri in (p["raw_target"],) + ((p["target_uri"],) if p.get("target_uri") else ()):
-            try:
-                parsed = urlsplit(uri)
-                valid = valid and (parsed.scheme.lower() in ("http", "https") and bool(parsed.hostname)
-                                   and parsed.username is None and "\\" not in uri
-                                   and not any(ord(c) <= 32 or ord(c) == 127 for c in uri))
-                parsed.port  # Reject malformed/out-of-range ports too.
-            except ValueError:
-                valid = False
-        if targets or not valid:
-            raise NotriosError("publication", "external link requires HTTP(S) and no internal target")
+        # C7d: an external destination is text the import passes through
+        # unchanged, whatever its scheme, so only its shape is checked here.
+        # validate_links refuses one that holds an internal target.
+        uris = (p["raw_target"],) + ((p["target_uri"],) if p.get("target_uri") else ())
+        if (targets or not p["raw_target"]
+                or any(ord(c) < 32 or ord(c) == 127 for uri in uris for c in uri)):
+            raise NotriosError("publication", "external link requires a destination and no internal target")
     elif not targets:
         if (p["raw_target"] or p.get("target_uri", "") not in ("", f"document://default/documents/{p['source_document_id']}")
                 or not p.get("anchor_type") or not p.get("anchor_value")):

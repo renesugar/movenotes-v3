@@ -311,9 +311,11 @@ fields are compared exactly as for an untitled link, because producer rows never
 carry the title. Every archived link must match one complete active token at exactly
 its half-open byte span; `start < end <= body_size`, both endpoints must be
 UTF-8 boundaries. Sort by `(start,end,id)` and reject any overlap, duplicate
-span, stale span or token inside protected code. The producer currently scans
-code too: such publications conservatively refuse if they contain those link
-records. `source_line` and `source_column` are validated as nonnegative integers
+span or stale span. The producer scans code too, so a publication carries
+records for links in code spans and blocks (and at escaped brackets). Such a
+record is read with the producer's grammar over the raw bytes; it must be
+exactly one `external` link with no internal target anywhere in its span, and
+its bytes stay unchanged (C7d). Any other record inside protected code refuses. `source_line` and `source_column` are validated as nonnegative integers
 but are not compared with the rewritten body; the fixture demonstrates that
 byte offsets are the authority after publication rewrites.
 
@@ -344,13 +346,16 @@ not recalculated or resolved by title; target heading existence/rendered slug
 compatibility is tested downstream, not certified for every renderer at import.
 
 Every active internal token and self-anchor must have one matching retained
-record. Ordinary unrecorded HTTP(S) links remain untouched. Refuse missing
+record. Ordinary unrecorded links, and external records of any scheme, remain
+untouched. Refuse missing
 internal records even when their target happens to be included. After accounting
 for accepted tokens, scan unprotected bytes case-insensitively for
 `document://`, `resource://`, `notrios://` and `:/` followed by 32 hex digits;
-any unconsumed occurrence refuses. Refuse unprotected wiki links/embeds: exported
-to a vault they would resolve by title. Reference definitions and uses are text
-(C7d); one that carries an internal target refuses at that target.
+any unconsumed occurrence refuses. Wiki links/embeds and reference definitions
+and uses are text (C7d; the user chose to admit unrecorded wiki links on
+2026-10-24, knowing an exported one resolves by title in Obsidian). A wiki link
+the producer recorded has no token, so its record refuses, and any of these
+forms carrying an internal target refuses at that target.
 There is no filename/title resolution fallback. Bare relative prose is not a
 link. These conservative checks include HTML attribute/autolink occurrences
 of recognized internal schemes; they do not constitute an arbitrary HTML or

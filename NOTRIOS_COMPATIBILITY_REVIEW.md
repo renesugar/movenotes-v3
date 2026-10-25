@@ -289,11 +289,16 @@ recognised HTML image source, still refuses wherever it sits. An internal
 destination must still use the strict C7a form, so its replacement stays a
 byte-exact splice.
 
-*What stays refused.* Wiki links and embeds (exported, they resolve by title),
-internal targets in any form other than a strict inline destination or an
-`<img>` `src` with an attachment relation, encoded internal targets, producer
-records over protected code, records the scanner cannot match, block or
-malformed fragments on internal targets, and C7a's ambiguous-container rule.
+*Second decision (2026-10-24).* The user chose to admit two of the forms left
+in Joplin: unrecorded wiki links are text, and a producer record inside
+protected code (or at an escaped bracket) is accepted when it is one `external`
+link with no internal target in its span, its bytes unchanged.
+
+*What stays refused.* Wiki links the producer recorded, internal targets in any
+form other than a strict inline destination or an `<img>` `src` with an
+attachment relation, encoded internal targets, internal records inside
+protected code, records the scanner cannot match, block or malformed fragments
+on internal targets, and C7a's ambiguous-container rule.
 
 *Mapper and receipt.* A body C7a accepted yields the same tokens and
 replacements under C7d. Its strict links have the same spans in the producer's
