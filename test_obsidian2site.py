@@ -826,6 +826,62 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertIsNotNone(obsidian2site._repair_http_url(broken))
             self.assertIsNone(obsidian2site._repair_http_url("http://"))
 
+    def test_script_and_similar_tags_in_prose_show_as_text(self) -> None:
+        """T1: a raw <script> in prose failed Hugo's --minify on a real library."""
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-raw-text-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            site = root / "site"
+            vault.mkdir()
+            (vault / "Raw.md").write_text(
+                "Prose <script>alert(1)</script> after.\n\n"
+                '<script setup lang="ts">\nimport type { X } from "./y"\n</script>\n\n'
+                "Unclosed <script> tags that run on.\n\n"
+                "<style>\nbody { color: red }\n</style>\n\n"
+                "<title>Head</title> <TEXTAREA>x</TEXTAREA> <noscript>n</noscript>\n\n"
+                '<svg width="10"><title>Tip</title><style>.a{}</style><rect/>'
+                "<script>s()</script></svg> <title>After</title>\n\n"
+                "<svg/> <title>Self</title>\n\n"
+                "Inline `<script>code()</script>` span.\n\n"
+                "```html\n<script>fenced()</script>\n```\n\n"
+                "    <script>indented()</script>\n\n"
+                '<div><iframe src="https://example.test/x"></iframe></div>\n',
+                encoding="utf-8",
+            )
+
+            result = run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+            self.assertIn(
+                "raw HTML: 19 script, style or similar tag(s) in prose shown as text",
+                result.stdout,
+            )
+            _metadata, body = read_json_frontmatter(site / "content" / "notes" / "raw.md")
+            for expected in (
+                "Prose &lt;script>alert(1)&lt;/script> after.",
+                '&lt;script setup lang="ts">\nimport type { X } from "./y"\n&lt;/script>',
+                "Unclosed &lt;script> tags",
+                "&lt;style>\nbody { color: red }\n&lt;/style>",
+                "&lt;title>Head&lt;/title> &lt;TEXTAREA>x&lt;/TEXTAREA> &lt;noscript>n&lt;/noscript>",
+                # SVG keeps its own title and style; only its script is escaped.
+                '<svg width="10"><title>Tip</title><style>.a{}</style><rect/>'
+                "&lt;script>s()&lt;/script></svg> &lt;title>After&lt;/title>",
+                "<svg/> &lt;title>Self&lt;/title>",
+                # Code, an indented line and other HTML stay as written.
+                "Inline `<script>code()</script>` span.",
+                "```html\n<script>fenced()</script>\n```",
+                "\n    <script>indented()</script>\n",
+                '<div><iframe src="https://example.test/x"></iframe></div>',
+            ):
+                self.assertIn(expected, body)
+            # Search reads the body as written, which strips the tags.
+            row = json.loads((site / "server" / "search-source.jsonl").read_text(encoding="utf-8"))
+            self.assertIn("alert(1)", row["summary"])
+            self.assertNotIn("&lt;", row["summary"])
+            self.assertNotIn("<script", row["summary"])
+
+            (vault / "Raw.md").write_text("Plain <b>bold</b> prose.\n", encoding="utf-8")
+            result = run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+            self.assertNotIn("raw HTML:", result.stdout)
+
     def test_tag_searches_agree_with_the_tag_archive(self) -> None:
         """Step 46: one `tag:` meaning across the archive and both backends.
 
