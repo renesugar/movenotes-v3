@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "plan": "NOTRIOS_IMPORT_PLAN.md",
-  "updated": "2026-10-23",
+  "updated": "2026-10-26",
   "session": {
     "coding_agent": "claude",
     "product_role": "Claude Code (terminal CLI)",
@@ -1396,7 +1396,7 @@
     {
       "id": "C7d",
       "coding_agent": "claude",
-      "status": "in progress",
+      "status": "complete",
       "planned_worker": "parent",
       "configured_model": "not exposed; runtime reports claude-opus-5-5",
       "configured_reasoning_effort": "not exposed",
@@ -1412,8 +1412,8 @@
       "parent": "Claude Code parent",
       "parent_underlying_model_family": "Claude Opus 5.5, runtime-reported claude-opus-5-5",
       "parent_reasoning_effort": "not exposed",
-      "parent_contribution": "Read the producer's internal/markdownlinks parser and publish/export limits at 2aab9a8. notrios_links.py: inline links recognised exactly as the producer's parser (label to the first ] on its line, balanced or angle destinations, Go-whitespace trim, J37 literal hrefs); any other bracket is prose and scanning resumes after it; internal destinations keep the strict form; unrecorded wiki links are text and recorded ones refuse (user decision 2026-10-24); a producer record inside protected code or at an escaped bracket is accepted unchanged when it is one external link with no internal target in its span (user decision 2026-10-24); non-internal destinations pass through unless they name an internal target, percent-encoded included; heading-fragment rules only on internal targets; anchors compared as the producer's splitAnchor; HTML <img src=resource://...> mapped through the note's attachment relation and kept as :/id on projected export. Rewrote three C7a link-grammar tests and added producer-shaped, pass-through and HTML-image tests. Added the census command and child to the 7c harness. Amended NOTRIOS_IMPORT_DESIGN.md and NOTRIOS_COMPATIBILITY_REVIEW.md; proposed H1. The 7c harness's full tier uses export archive-v2 --target publication_handoff on each library's root notebooks (user decision 2026-10-24), checked to select every document and exclude none; equivalence with publish run checked on one 12,052-document notebook. notrios_archive.py: an external link record needs only a nonempty destination without control characters and no internal target ID, any scheme (phase 3 found 59 mailto, 33 backslash and 4 malformed-port producer records the HTTP(S) rule refused); contract link row updated. The frozen differential reports keep their recorded results; the live checks apply REVISED_AFTER_AUDIT, which now expects external_file_uri to be accepted, agreeing with the producer's recorded Go acceptance; only the v1.0.0 binary is still available, and the case spec is shared with the schema-28 report. Third decision (2026-10-25): resolved-by-name records with a non-internal destination are copied as written; an unrecorded strict internal destination directly after ]( maps back to :/id when its target is in the publication (projected export rewrites only that destination); recorded wiki links are text; self-anchor records inside protected code are accepted unchanged; an ambiguous container fence refuses only for an internal target after it. Five tests added, two updated. A record starting at an escaped [ accounts for the token or unrecorded destination ending with its span (2 further Joplin notes); two more tests.",
-      "validation": "Partial. Differential check: every producer Markdown record outside protected code is a token with the same span, target and label (75,776/75,776 Joplin; all recipe records); both recipe libraries scan with no refusal. Bounded phase 2 rerun passed every stage on all three routes, plus live-site and recovery. 311 tests (five modules plus harness) passed in 184.443s with both bytecode controls. Phase 3 first attempt: both recipe routes passed every full stage; Joplin full verification refused 96 non-HTTP(S) external records, now admitted. 313 tests (five modules plus harness) passed in 167.955s with both bytecode controls after the verifier change. Phase 3b: both recipe routes passed every full stage; Joplin refused 14 notes in five forms, all admitted by the third decision. 317 tests passed in 217.995s after it; the private diagnostic found no refusal over all 103,349 Joplin notes. Not yet met: the full rerun of all three routes on the final code.",
+      "parent_contribution": "Read the producer's internal/markdownlinks parser and publish/export limits at 2aab9a8. notrios_links.py: inline links recognised exactly as the producer's parser (label to the first ] on its line, balanced or angle destinations, Go-whitespace trim, J37 literal hrefs); any other bracket is prose and scanning resumes after it; internal destinations keep the strict form; unrecorded wiki links are text and recorded ones refuse (user decision 2026-10-24); a producer record inside protected code or at an escaped bracket is accepted unchanged when it is one external link with no internal target in its span (user decision 2026-10-24); non-internal destinations pass through unless they name an internal target, percent-encoded included; heading-fragment rules only on internal targets; anchors compared as the producer's splitAnchor; HTML <img src=resource://...> mapped through the note's attachment relation and kept as :/id on projected export. Rewrote three C7a link-grammar tests and added producer-shaped, pass-through and HTML-image tests. Added the census command and child to the 7c harness. Amended NOTRIOS_IMPORT_DESIGN.md and NOTRIOS_COMPATIBILITY_REVIEW.md; proposed H1. The 7c harness's full tier uses export archive-v2 --target publication_handoff on each library's root notebooks (user decision 2026-10-24), checked to select every document and exclude none; equivalence with publish run checked on one 12,052-document notebook. notrios_archive.py: an external link record needs only a nonempty destination without control characters and no internal target ID, any scheme (phase 3 found 59 mailto, 33 backslash and 4 malformed-port producer records the HTTP(S) rule refused); contract link row updated. The frozen differential reports keep their recorded results; the live checks apply REVISED_AFTER_AUDIT, which now expects external_file_uri to be accepted, agreeing with the producer's recorded Go acceptance; only the v1.0.0 binary is still available, and the case spec is shared with the schema-28 report. Third decision (2026-10-25): resolved-by-name records with a non-internal destination are copied as written; an unrecorded strict internal destination directly after ]( maps back to :/id when its target is in the publication (projected export rewrites only that destination); recorded wiki links are text; self-anchor records inside protected code are accepted unchanged; an ambiguous container fence refuses only for an internal target after it. Five tests added, two updated. A record starting at an escaped [ accounts for the token or unrecorded destination ending with its span (2 further Joplin notes); two more tests. Ran phase 3c (bounded, recovery, full census, full pipelines, full live-site) on 12a09fe and recorded it; traced Joplin's Hugo failure to raw <script> prose already in the Joplin RAW source and proposed T1.",
+      "validation": "Differential check: every producer Markdown record outside protected code is a token with the same span, target and label (75,776/75,776 Joplin; all recipe records); both recipe libraries scan with no refusal. Bounded phase 2 rerun passed every stage on all three routes, plus live-site and recovery. 311 tests (five modules plus harness) passed in 184.443s with both bytecode controls. Phase 3 first attempt: both recipe routes passed every full stage; Joplin full verification refused 96 non-HTTP(S) external records, now admitted. 313 tests (five modules plus harness) passed in 167.955s with both bytecode controls after the verifier change. Phase 3b: both recipe routes passed every full stage; Joplin refused 14 notes in five forms, all admitted by the third decision. 317 tests passed in 217.995s after it; the private diagnostic found no refusal over all 103,349 Joplin notes. Phase 3c on 12a09fe: bounded tier and recovery passed; the full census found 0 refused documents on all three routes; all three full conversions passed with no refusal (103,349, 382,206 and 382,206 documents), as did vault export, asset check and site generation. Both recipe routes passed every full stage. Joplin's Hugo build failed on three notes whose Joplin RAW source holds raw <script> in prose, outside C7d's scope and planned as T1; the full live-site check therefore stopped at Joplin.",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
         "2026-10-24 user on the HTML images: <img src=\"resource://…\"> tags look more like Notrios tags than Joplin tags … it sounds like a Notrios attachment/resource URL did not get converted to a Joplin attachment/resource URL. Main verified: 80 tags in 38 notes, each matching a referenced producer resource and a source resource file.",
@@ -1422,8 +1422,35 @@
         "2026-10-24: C7d census stopped at the v1.0.0 publish caps (selection exceeds max_documents=100000; at most 100 notebook and tag selectors)",
         "2026-10-24: bounded phase 2 rerun with the C7d scanner passed every stage, live-site and recovery (phases.log 15:12:53Z-15:16:55Z)",
         "2026-10-24: regression gate 311 tests OK in 184.443s",
-        "2026-10-25 user answers on the 14 full Joplin refusals: by-name match = Pass through as written; unrecorded internal URI = Map back to :/id; recorded wiki links = Keep as text; self-anchors in code and ambiguous fence = Admit both."
+        "2026-10-25 user answers on the 14 full Joplin refusals: by-name match = Pass through as written; unrecorded internal URI = Map back to :/id; recorded wiki links = Keep as text; self-anchors in code and ambiguous fence = Admit both.",
+        "2026-10-26: phase 3c (phases.log 2026-10-25T21:46:02Z to 2026-10-26T09:58:12Z): bounded, recovery and census exit 0; pipeline exit 1 only for joplin/full/hugo; live-site stopped at joplin/full/search-index"
       ],
+      "commit": "Git commit containing this completion record: docs: complete C7d with phase 3c and plan T1 (C7d)",
+      "billing_route": "not exposed"
+    },
+    {
+      "id": "T1",
+      "coding_agent": "claude",
+      "status": "pending",
+      "planned_worker": "parent",
+      "configured_model": "not exposed; runtime reports claude-opus-5-5",
+      "configured_reasoning_effort": "not exposed",
+      "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-22; proposed by Main on 2026-10-26 from resumed 7c's phase 3c; slice implementation requires user authorization.",
+      "delegation_required": false,
+      "planned_assignment_evidence": "Phase 3c finding, 2026-10-26: the full Joplin Hugo build failed on three notes whose prose holds raw <script>; user: Update the plan if you find items that need to be fixed instead of just logging their existence.",
+      "planned_work": "In obsidian2site.py, show raw-text HTML element tags (script, style, title, textarea, noscript, noembed, noframes, xmp, plaintext) written in note prose outside code as text on the generated site, counted in the run's statistics; vault, database and every other HTML tag unchanged.",
+      "actual_worker": "pending",
+      "child_thread": "pending",
+      "actual_model": "pending",
+      "reasoning_effort": "pending",
+      "worker_contribution": "pending",
+      "parent": "pending",
+      "parent_underlying_model_family": "pending",
+      "parent_reasoning_effort": "pending",
+      "parent_contribution": "pending",
+      "validation": "pending",
+      "delegation_failure_or_reassignment": "none recorded",
+      "evidence": [],
       "commit": "pending"
     },
     {
@@ -1465,7 +1492,8 @@
         "2ea17ca: committed receipt-test ordering correction; 7c remains incomplete",
         "2026-10-23: resumed 7c design frozen in NOTRIOS_IMPORT_PLAN.md before any run",
         "2026-10-24: phase 1 complete (103,349 / 382,206 / 382,206 documents, all imports exit 0); phase 2 bounded conversions refused unsupported or unaccounted active link syntax on all three routes (7, 8 and 3 of 1,000), dependent stages skipped; aggregate diagnostic and full-library census in NOTRIOS_IMPORT_PLAN.md, Resumed 7c results so far; blocked pending C7d or a user scope revision",
-        "2026-10-24: phase 2 passed with the C7d scanner; phase 3 blocked by the v1.0.0 publish caps, pending a user scope decision"
+        "2026-10-24: phase 2 passed with the C7d scanner; phase 3 blocked by the v1.0.0 publish caps, pending a user scope decision",
+        "2026-10-26: phase 3c: every full conversion passed with no refusal; both recipe routes passed every full stage; Joplin full Hugo failed on raw <script> prose in three source notes; blocked pending T1 or a user scope revision"
       ],
       "commit": "none — uncommitted",
       "monitoring_assignment": {
