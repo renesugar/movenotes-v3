@@ -1431,7 +1431,7 @@
     {
       "id": "T1",
       "coding_agent": "claude",
-      "status": "in progress",
+      "status": "complete",
       "planned_worker": "parent",
       "configured_model": "not exposed; runtime reports claude-opus-5-5",
       "configured_reasoning_effort": "not exposed",
@@ -1447,13 +1447,15 @@
       "parent": "Claude Code parent",
       "parent_underlying_model_family": "Claude Opus 5.5, runtime-reported claude-opus-5-5",
       "parent_reasoning_effort": "not exposed",
-      "parent_contribution": "Traced phase 3c's Joplin Hugo failure to raw <script> prose present in the Joplin RAW source; counted raw-text elements outside code in all three generated sites (Joplin: script 3 notes, style 2, title 2, plus 414 SVG title tooltips in one note; recipes none; none on lines indented four or more columns). obsidian2site.py: _show_raw_text_elements escapes the < of script, style, title, textarea, noscript, noembed, noframes, xmp and plaintext tags in prose after body conversion, outside fenced and inline code and indented lines (new keep_indented option of _transform_outside_code), only script inside an open svg; search text is taken before the pass; the run prints the count. One end-to-end test added.",
-      "validation": "Partial. Synthetic vault with real Hugo v0.164.0 --gc --minify and the Ledger theme: the unchanged generator fails with the same minifier error as Joplin, the changed one builds; built page shows every prose tag as text, keeps SVG title and style, code unchanged; outside the escaped note only timestamps and the build ID differ, search-source.jsonl byte-identical. 318 tests (five modules plus harness) passed in 193.276s with both bytecode controls. Not yet met: the 7c rerun of the site stages on the three routes.",
+      "parent_contribution": "Traced phase 3c's Joplin Hugo failure to raw <script> prose present in the Joplin RAW source; counted raw-text elements outside code in all three generated sites (Joplin: script 3 notes, style 2, title 2, plus 414 SVG title tooltips in one note; recipes none; none on lines indented four or more columns). obsidian2site.py: _show_raw_text_elements escapes the < of script, style, title, textarea, noscript, noembed, noframes, xmp and plaintext tags in prose after body conversion, outside fenced and inline code and indented lines (new keep_indented option of _transform_outside_code), only script inside an open svg; search text is taken before the pass; the run prints the count. One end-to-end test added. Ran phase 3d on 7e85d13 and compared its generated content with phase 3c's.",
+      "validation": "Synthetic vault with real Hugo v0.164.0 --gc --minify and the Ledger theme: the unchanged generator fails with the same minifier error as Joplin, the changed one builds; built page shows every prose tag as text, keeps SVG title and style, code unchanged; outside the escaped note only timestamps and the build ID differ, search-source.jsonl byte-identical. 318 tests (five modules plus harness) passed in 193.276s with both bytecode controls. Phase 3d on 7e85d13: bounded tier and live-site passed; every full site stage and the full live-site check passed on all three routes (Joplin Hugo --minify 290 s). Against phase 3c: Joplin changes exactly 5 notes, by 11 escaped < only; recipe routes change no note; notes/_index.md differs only by timestamps; search-source.jsonl holds the same rows in a different order.",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "2026-10-26 user answer on raw-text HTML in prose: Show as text (Recommended)"
+        "2026-10-26 user answer on raw-text HTML in prose: Show as text (Recommended)",
+        "2026-10-26: phase 3d (phases.log 13:22:15Z to 19:00:24Z): bounded, bounded live-site, full pipeline and full live-site exit 0"
       ],
-      "commit": "pending"
+      "commit": "Git commit containing this completion record: docs: complete T1 with phase 3d's full results (T1)",
+      "billing_route": "not exposed"
     },
     {
       "id": "7c",
@@ -1495,7 +1497,8 @@
         "2026-10-23: resumed 7c design frozen in NOTRIOS_IMPORT_PLAN.md before any run",
         "2026-10-24: phase 1 complete (103,349 / 382,206 / 382,206 documents, all imports exit 0); phase 2 bounded conversions refused unsupported or unaccounted active link syntax on all three routes (7, 8 and 3 of 1,000), dependent stages skipped; aggregate diagnostic and full-library census in NOTRIOS_IMPORT_PLAN.md, Resumed 7c results so far; blocked pending C7d or a user scope revision",
         "2026-10-24: phase 2 passed with the C7d scanner; phase 3 blocked by the v1.0.0 publish caps, pending a user scope decision",
-        "2026-10-26: phase 3c: every full conversion passed with no refusal; both recipe routes passed every full stage; Joplin full Hugo failed on raw <script> prose in three source notes; blocked pending T1 or a user scope revision"
+        "2026-10-26: phase 3c: every full conversion passed with no refusal; both recipe routes passed every full stage; Joplin full Hugo failed on raw <script> prose in three source notes; blocked pending T1 or a user scope revision",
+        "2026-10-26: phase 3d: with T1, every full stage and the full live-site check passed on all three routes; phase 4 next"
       ],
       "commit": "none — uncommitted",
       "monitoring_assignment": {
