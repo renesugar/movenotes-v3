@@ -1460,7 +1460,7 @@
     {
       "id": "7c",
       "coding_agent": "codex (partial execution to 2026-09-16); claude (remaining work)",
-      "status": "in progress",
+      "status": "complete",
       "planned_worker": "parent",
       "configured_model": "not exposed; runtime reports claude-opus-5-5",
       "configured_reasoning_effort": "not exposed",
@@ -1477,17 +1477,17 @@
       ],
       "delegation_required": false,
       "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
-      "actual_worker": "luna_worker (harness/monitoring only)",
-      "child_thread": "/root/notrios_7c_monitor",
-      "actual_model": "not exposed — configured worker model is not execution evidence",
-      "reasoning_effort": "not exposed — configured max is not execution evidence",
-      "worker_contribution": "Completed durable checkpointed harness, corrected pinned-CLI batch limit to 500, monitored imports with OS completion notifications, ran bounded routes, synthetic full pipeline, recovery, semantic comparison and regressions; retained failures and skipped dependent full trials. Proved historical test hashes are row permutations and ran corrected 262-test regression gate successfully.",
-      "parent": "Codex; exact model not exposed",
-      "parent_underlying_model_family": "GPT-6 (runtime-reported)",
+      "actual_worker": "Codex partial run: luna_worker (harness/monitoring only). Resumed work 2026-10-23 to 2026-10-26: none",
+      "child_thread": "Codex partial run: /root/notrios_7c_monitor. Resumed work: none",
+      "actual_model": "Codex partial run: not exposed — configured worker model is not execution evidence. Resumed work: none",
+      "reasoning_effort": "Codex partial run: not exposed — configured max is not execution evidence. Resumed work: none",
+      "worker_contribution": "Codex partial run: Completed durable checkpointed harness, corrected pinned-CLI batch limit to 500, monitored imports with OS completion notifications, ran bounded routes, synthetic full pipeline, recovery, semantic comparison and regressions; retained failures and skipped dependent full trials. Proved historical test hashes are row permutations and ran corrected 262-test regression gate successfully. Resumed work: none.",
+      "parent": "Codex parent (partial run, exact model not exposed); Claude Code parent (resumed work)",
+      "parent_underlying_model_family": "Codex partial run: GPT-6 (runtime-reported). Resumed work: Claude Opus 5.5, runtime-reported claude-opus-5-5",
       "parent_reasoning_effort": "not exposed",
-      "parent_contribution": "Inspected producer pin and source sizes, prepared initial harness and isolated measurements, investigated Joplin lexical refusal, reviewed terminal evidence and recorded partial acceptance; used 25-minute native notification waits with occasional fallback checks. Corrected nondeterministic receipt-test search row comparison; sampled control characters and embedded frontmatter differences; retained 7c as incomplete.",
-      "validation": "Partial corpus acceptance: both 382,206-document recipe imports succeeded; three bounded real publications passed both verifiers but conversion refused. Full real tiers skipped. Synthetic 10,000 pipeline and recovery passed. Initial semantic multisets differ and include embedded frontmatter; refined semantic audit pending. Corrected full regression passed all 262 tests in 139.150s. Historical failure proven to be JSONL row permutation. See NOTRIOS_CORPUS_TRIALS.md.",
-      "delegation_failure_or_reassignment": "User explicitly added Luna harness/monitoring delegation to parent-owned 7c to reduce model usage; no silent substitution. 2026-10-22: user moved the remaining 7c work to the Claude Code parent and retired the Luna harness/monitoring delegation.",
+      "parent_contribution": "Codex partial run: Inspected producer pin and source sizes, prepared initial harness and isolated measurements, investigated Joplin lexical refusal, reviewed terminal evidence and recorded partial acceptance; used 25-minute native notification waits with occasional fallback checks. Corrected nondeterministic receipt-test search row comparison; sampled control characters and embedded frontmatter differences; retained 7c as incomplete. Resumed work (Claude Code parent): froze the resumed design in the plan before any run; rebuilt the durable checkpointed harness for the v1.0.0 producer (producer, pipeline, census, live-site, recovery, compare and summary commands, fresh-directory reruns on changed inputs, failed attempts kept); ran phases 1 to 5 as harness-tracked background commands without polling; diagnosed each refusal with aggregate or masked private diagnostics; proposed C7d and T1 and implemented both on the user's decisions; recorded every phase in the plan and the resumed section of NOTRIOS_CORPUS_TRIALS.md.",
+      "validation": "Codex partial run: Partial corpus acceptance: both 382,206-document recipe imports succeeded; three bounded real publications passed both verifiers but conversion refused. Full real tiers skipped. Synthetic 10,000 pipeline and recovery passed. Initial semantic multisets differ and include embedded frontmatter; refined semantic audit pending. Corrected full regression passed all 262 tests in 139.150s. Historical failure proven to be JSONL row permutation. See NOTRIOS_CORPUS_TRIALS.md. Resumed (2026-10-23 to 2026-10-26): every stage exits 0 on all three routes at bounded and full scale (103,349, 382,206 and 382,206 documents); each full export selects every document; Joplin's 757 attachments exact with equal reachable sets, recipes none; live-site and recovery pass; comparison joins all 382,206 identities per recipe route with zero unexplained differences and C7c's accepted figures (842,813 RAW tag associations against 0, 382,206 RAW metadata not projected, 3,682 pinned titles; Joplin publication 987 exact plus 13 privacy projections); per-stage times and RSS recorded at both scales; 318 tests passed in 222.826s with both bytecode controls after the final change.",
+      "delegation_failure_or_reassignment": "User explicitly added Luna harness/monitoring delegation to parent-owned 7c to reduce model usage; no silent substitution. 2026-10-22: user moved the remaining 7c work to the Claude Code parent and retired the Luna harness/monitoring delegation. Resumed work ran with no worker, as reassigned.",
       "evidence": [
         "User: Proceed with 7c",
         "User request for Luna monitoring with long notification waits; native spawn /root/notrios_7c_monitor",
@@ -1498,9 +1498,10 @@
         "2026-10-24: phase 1 complete (103,349 / 382,206 / 382,206 documents, all imports exit 0); phase 2 bounded conversions refused unsupported or unaccounted active link syntax on all three routes (7, 8 and 3 of 1,000), dependent stages skipped; aggregate diagnostic and full-library census in NOTRIOS_IMPORT_PLAN.md, Resumed 7c results so far; blocked pending C7d or a user scope revision",
         "2026-10-24: phase 2 passed with the C7d scanner; phase 3 blocked by the v1.0.0 publish caps, pending a user scope decision",
         "2026-10-26: phase 3c: every full conversion passed with no refusal; both recipe routes passed every full stage; Joplin full Hugo failed on raw <script> prose in three source notes; blocked pending T1 or a user scope revision",
-        "2026-10-26: phase 3d: with T1, every full stage and the full live-site check passed on all three routes; phase 4 next"
+        "2026-10-26: phase 3d: with T1, every full stage and the full live-site check passed on all three routes; phase 4 next",
+        "2026-10-26: phase 4 comparison exit 0 (phases.log 19:09:19Z to 20:39:23Z), rules c7c-recipe-semantic-v6, all unexplained counts 0; phase 5 gate 318 tests OK in 222.826s on 68fe16e"
       ],
-      "commit": "none — uncommitted",
+      "commit": "Git commit containing this completion record: docs: complete 7c with phases 4 and 5 (7c)",
       "monitoring_assignment": {
         "superseded": "2026-10-22: retired for remaining work; Main runs data-heavy commands as harness-tracked background commands.",
         "coding_agent": "codex",
@@ -1512,7 +1513,8 @@
         "authorization": "User explicitly requested scripts and Luna notification-based monitoring to reduce usage. Parent retains implementation review and acceptance.",
         "execution_model": "not exposed",
         "execution_effort": "not exposed"
-      }
+      },
+      "billing_route": "Codex partial run: not exposed. Resumed work: not exposed"
     },
     {
       "id": "7d",

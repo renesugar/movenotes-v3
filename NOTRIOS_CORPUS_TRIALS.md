@@ -1,4 +1,4 @@
-# Notrios corpus trials — 7c (in progress)
+# Notrios corpus trials — 7c (complete)
 
 The user authorized 7c in the unchanged Codex session. This is a parent-owned
 slice. The user subsequently assigned harness completion and notification-based
@@ -8,9 +8,12 @@ parent (runtime family GPT-6; exact alias/effort not exposed) owns investigation
 and acceptance. Monitoring uses OS completion waits and parent 25-minute
 notification waits, with occasional timeout fallback checks.
 
-**Status: partial.** Both recipe imports finished successfully, but the real
-conversion gates refused input. Full real-data pipelines were skipped; 7c is
-not complete and 7d must not begin yet.
+**Status: complete (2026-10-26).** The first Codex run below was partial: both
+recipe imports finished, but the real conversion gates refused input and the
+full pipelines were skipped. The Claude Code parent resumed 7c on 2026-10-23
+with the Notrios `v1.0.0` producer and completed every stage on all three
+libraries; see [Resumed trials](#resumed-trials-2026-10-23-to-2026-10-26). The
+sections up to it are the historical record of the first run.
 
 ## Inputs and isolation
 
@@ -172,3 +175,68 @@ C7a is complete: [compatibility decisions](NOTRIOS_COMPATIBILITY_REVIEW.md).
 It explains observed control provenance, a reliable recipe source join and
 producer metadata/tag differences. C7b implementation and C7c full comparison
 remain pending; original 7c refusals and skipped stages are not acceptance passes.
+
+## Resumed trials (2026-10-23 to 2026-10-26)
+
+Claude Code parent (Main), runtime-reported model `claude-opus-5-5`; reasoning
+effort, client version and billing route not exposed; no worker. The frozen
+design, every phase's results and the decisions taken on the way are in
+[NOTRIOS_IMPORT_PLAN.md](NOTRIOS_IMPORT_PLAN.md) under "Resumed 7c". This
+section summarizes the final state. Work root `~/movenotes-work/7c-20261023` on
+the internal disk; producer `v1.0.0` (2aab9a8); Hugo v0.164.0 extended; Go
+1.27.0. Times are GNU time wall seconds; RSS is peak KiB. Only aggregate
+evidence is recorded.
+
+**Accepted.** Every stage of every route exited 0 at the final code
+(`7e85d13` for the site stages, `12a09fe` for conversion). Getting there took
+C7d (link forms, three user decisions) and T1 (raw `<script>` and similar tags
+in prose shown as text on the site). No note was filtered out.
+
+| Route | Documents | Attachments (exact bytes, equal reachable sets) |
+|---|---:|---:|
+| Joplin | 103,349 | 757 |
+| Recipe RAW | 382,206 | 0 |
+| Recipe vault | 382,206 | 0 |
+
+The full tier is `export archive-v2 --target publication_handoff` over each
+library's root notebooks, checked to select every document and exclude none.
+
+| Stage | Joplin bounded | Joplin full | RAW bounded | RAW full | Vault bounded | Vault full |
+|---|---:|---:|---:|---:|---:|---:|
+| Export (full) or publish (bounded) | 12 / 50,012 | 735 / 112,620 | 45 / 50,080 | 6,301 / 310,316 | 45 / 49,840 | 6,507 / 339,964 |
+| Python verification | 6 / 36,680 | 332 / 46,592 | 6 / 39,824 | 1,314 / 46,596 | 4 / 36,452 | 999 / 46,664 |
+| Conversion | 12 / 49,836 | 1,178 / 70,232 | 18 / 55,764 | 6,793 / 68,584 | 12 / 47,428 | 3,636 / 69,668 |
+| Vault export | 7 / 42,832 | 583 / 177,372 | 11 / 38,636 | 3,922 / 864,800 | 8 / 36,524 | 2,086 / 476,684 |
+| Attachment check | 5 / 39,464 | 388 / 522,172 | 5 / 43,924 | 1,395 / 1,779,224 | 4 / 37,764 | 931 / 697,984 |
+| Site generation | 15 / 51,616 | 1,029 / 484,744 | 19 / 53,928 | 5,746 / 1,423,704 | 15 / 51,588 | 5,135 / 1,366,704 |
+| Hugo (`--gc --minify`) | 6 / 197,612 | 290 / 5,433,324 | 5 / 217,332 | 1,863 / 15,429,656 | 4 / 213,476 | 1,000 / 14,241,460 |
+| Bluge search index | 2 / 87,880 | 189 / 317,408 | 2 / 104,396 | 913 / 423,464 | 2 / 91,316 | 645 / 413,208 |
+
+Each cell is wall seconds / peak RSS KiB for that stage alone; no
+whole-pipeline memory figure is claimed. Conversion stays under 70,232 KiB at
+full scale on every route. Hugo is every full route's peak.
+
+**Live site and recovery.** On each full route, health, home, search and the
+first result page returned 200, and the most-used tag's search total equals
+its search-source rows (2,385, 18,448 and 3,493 of 103,378, 382,206 and
+382,206 rows). The recovery trial on the bounded Joplin archive passed: the
+killed run left no destination, the stale lock refused, cleanup removed only
+token-checked directories, and the fresh and unchanged reruns matched.
+
+**Comparison** (`notrios_c7c.py`, rules `c7c-recipe-semantic-v6`, 5,270 s,
+158,888 KiB). Every one of the 382,206 identities per route is joined, with no
+missing, extra or duplicate rows, and every unexplained-difference count is
+zero. C7c's documented differences come out at its accepted figures:
+382,206 bodies and titles match on RAW; on the vault, metadata matches for all
+382,206 and 3,682 titles follow the pinned-title rule; the RAW route carries
+842,813 tag associations in the producer's separate tag channel against the
+vault's 0; RAW metadata is not projected (382,206). The three bounded
+publications verify, Joplin's as 987 exact bodies plus 13 privacy
+projections. `semantic_equal` stays false for these documented reasons, as
+C7c accepted.
+
+**Regression.** 318 tests (five modules plus the harness tests) passed in
+222.826 s with both bytecode controls, after the final change.
+
+**Follow-ups planned, not part of 7c.** H1 (HTML images after export), R1 (the
+link report), R2 (keeping non-internal destinations on the Notrios route).
