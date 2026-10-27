@@ -135,8 +135,9 @@ Next slice: **R1 — the link report**, assigned to Main; not yet authorized.
 | H1 / Main | *Proposed 2026-10-24 (C7d); not authorized.* Make HTML images render after export. See [H1](#h1--html-images-after-export). | L7 | As in H1. |
 | D1 / Main | *Proposed 2026-10-26 (7d); not authorized.* Clearer `notrios2sql.py` refusals for an unusable `--output`. See [D1](#d1--clearer-output-refusals). | L7 | As in D1. |
 | R1 / Main | *Complete 2026-10-27.* Report links a web reader cannot reach. See [R1](#r1--the-link-report). | L7 | As in R1. |
-| R2 / Main | *Proposed 2026-10-25; option (a) chosen by the user; not authorized.* Keep non-internal destinations on the Notrios route. See [R2](#r2--non-internal-destinations-on-the-notrios-route). | R1 | As in R2. |
+| R2 / Main | *Started 2026-10-27; the probe is done, and option (a) or (b) awaits the user.* Keep non-internal destinations on the Notrios route. See [R2](#r2--non-internal-destinations-on-the-notrios-route). | R1 | As in R2. |
 | R3 / Main | *Proposed 2026-10-27, found by R1's corpus run; not authorized.* Resolve a same-folder link on the site when another note shares its name. See [R3](#r3--same-folder-links-on-the-site). | R1 | As in R3. |
+| W1 / Main | *Proposed 2026-10-27, found by R2's probe; not authorized.* Import a Notrios publication that holds resolved wiki links. See [W1](#w1--resolved-wiki-links-on-the-notrios-route). | — | As in W1. |
 
 ### L1 — Remove the account name from committed paths
 
@@ -567,6 +568,64 @@ back to option (b), a producer change. The full specification is in the
 vault and site byte-identical to the source note and appears in R1's report;
 a link to a withheld note never carries that note's identity.
 
+*Probe, 2026-10-27.* A synthetic Obsidian library published by Notrios `v1.0.0`
+(`2aab9a8`) with each action, from a public note linking to a withheld note
+four ways (a Markdown link, a wiki link, an aliased wiki link and a wiki link
+to a heading) and to `file:`, `tel:`, `data:`, relative, missing, ambiguous,
+drive-letter, `javascript:` and app-scheme destinations:
+
+- **`retain` keeps every non-internal destination byte for byte** in the body,
+  with a record for each: `unresolved` (`target_uri` the destination as
+  written), `ambiguous` (no target URI) or, for `mailto:` and `http:`,
+  `external` as today. movenotes refuses the archive at verification, `link
+  status is not publishable`, as expected.
+- **`retain` puts the withheld note's ID into the handoff.** The body keeps
+  `document://default/documents/<withheld id>` in all four links, and each has
+  a `target_excluded` record with that ID, its byte span and its label. A Joplin
+  library's IDs are `doc_joplin_<Joplin ID>`; an Obsidian library's spell the
+  note's folder and title (`doc_obsidian_private_hidden_plan`). Every occurrence
+  is inside a recorded span, so the import can replace each before it writes
+  anything, and the vault and site need never carry one. The archive itself
+  does, so on this route a publication would have to be kept as private as the
+  library. An unaliased wiki link's label is the URI itself, so the import
+  would have to write neutral text in its place: Notrios has already dropped
+  the title.
+- **`plain_text` leaks the same ID today, for a wiki link without an alias.**
+  It replaces the link with its label, which is the withheld note's URI, so
+  `[[Hidden Plan]]` publishes as `document://default/documents/doc_obsidian_private_hidden_plan`
+  with no record. movenotes contains it by refusing the whole publication,
+  `unsupported or unaccounted active link syntax`, since any internal target
+  outside a recorded token refuses. None of the three bounded 7c publications
+  has one. A fix belongs in the producer, which is option (b).
+- **Any resolved wiki link refuses the import on either action**, as the
+  design records (C7d): Notrios stores `[[Other Note]]` as
+  `[[document://default/documents/<id>]]`. A Notrios library imported from an
+  Obsidian vault with wiki links cannot reach movenotes; that is now
+  [W1](#w1--resolved-wiki-links-on-the-notrios-route).
+
+Option (a) works for the vault and site, but not for the handoff archive, which
+would carry withheld IDs. Whether that is acceptable, or R2 falls back to
+option (b), is the user's decision.
+
+### W1 — Resolved wiki links on the Notrios route
+
+Found 2026-10-27 by R2's probe. Notrios stores a resolved wiki link with its
+canonical target, `[[document://default/documents/<id>]]` or
+`[[document://…|alias]]`, and records it as a resolved `obsidian-wikilink`.
+`notrios_links.py` refuses any internal target outside a Markdown token, so a
+publication holding one refuses whole; the design chose that in C7d, before
+any Obsidian library was published. Map a recorded, resolved wiki link like a
+Markdown one: the target to the note's or attachment's vault name, keeping the
+alias, the heading and the embed `!`, so Obsidian resolves it by name as
+before, and refuse one that no record accounts for. Owns `notrios_links.py`,
+its tests, a fixture with wiki links, and the wiki-link rule in
+`docs/notrios-import-design.md`.
+
+*Acceptance:* a publication of an Obsidian library with wiki links, aliased,
+to a heading and embedded, imports, and each link exports to the vault
+resolving to its note or attachment; an unrecorded internal target still
+refuses; every existing link-projection test passes unchanged.
+
 ### R3 — Same-folder links on the site
 
 Found 2026-10-27 by R1's run over the Joplin library. `sql2obsidian.py` writes a
@@ -903,7 +962,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
-<details><summary>R2 — pending; planned parent</summary>
+<details><summary>R2 — in progress; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -911,20 +970,20 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27; R2 authorized on 2026-10-27 (Push commits to develop. Start R2 next.). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Bounded probe only, no implementation: a synthetic Obsidian library (the titled v1 vault plus a withheld note, a private attachment, two notes named alike and a probe note) imported and published by Notrios v1.0.0 (2aab9a8) with plain_text and with retain; link records and bodies compared; notrios2sql.py run on each; the three bounded 7c publications checked for body URIs to unpublished documents (0 each) and for document ID shapes. Plan: probe results in R2, W1 proposed. |
+| Validation | Partial: probe only. retain: every non-internal destination byte-identical in the body, records unresolved/ambiguous/external; four target_excluded records carry the withheld ID, each inside a recorded span; movenotes refuses at verification (link status is not publishable). plain_text: an unaliased withheld wiki link publishes as the withheld document URI with no record, and notrios2sql.py refuses the archive (unsupported or unaccounted active link syntax); a resolved wiki link alone refuses the same way. No code changed. |
 | Delegation failure or reassignment | Moved 2026-10-26 from the Notrios import plan (status pending there, never started) at the user's direction; the original record stays in the archived ledger. |
 | Planned assignment evidence | User chose option (a) 2026-10-25; moved from the Notrios import plan 2026-10-26. |
-| Execution evidence | none |
+| Execution evidence | User: Push commits to develop. Start R2 next.; Private scratchpad r2/probe.sh, r2/links.py, r2/leak.py and the probe archives |
 | Commit | pending |
 
 </details>
@@ -950,6 +1009,32 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Validation | pending |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | R1 corpus finding, 2026-10-27. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>W1 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | R2 probe finding, 2026-10-27. |
 | Execution evidence | none |
 | Commit | pending |
 
@@ -980,3 +1065,4 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-27 | H1 pushed; D1 complete | `b0d3dbe` pushed. `notrios2sql.py` now refuses an unusable `--output` before reading the archive, as `error [destination]` naming the problem: a parent that does not exist, is not a directory, cannot be opened or has a symlink in its path, or an output that exists and is not a directory or not a completed import. A completed import of another publication is still refused after verification. 330 required and 43 harness tests pass. Next: ask to proceed to R1. |
 | 2026-10-27 | H1 checked in Obsidian | With the user's agreement, Obsidian ran with a separate scratch profile, after two launches with the default profile had opened the user's large `obsidian_vault` instead (the first by mistake, through `--version`; the second because `obsidian://open?path=` knows only listed vaults). Both instances were closed. Obsidian showed the exported `<img>` in Reading view and Live Preview, resolved to the vault's attachment, at its natural size, with `width` and `alt` kept. The user's own vault list is unchanged. |
 | 2026-10-27 | R1 complete | `obsidian2site.py` writes `movenotes-link-report.csv` beside the project on every run: one row per link a web reader cannot rely on, `unreachable`, `malformed`, `insecure` or `verify`, with the note, line, column, label, destination and what the site did, and the counts per category on stdout. A link never fails generation, nothing in code is listed, and the report stays outside `content/` and `static/` and is listed in the generated `.gitignore` and `.vercelignore`. The rest of the site is byte-identical apart from timestamps, the build ID and the known search-source row order. The 7c run listed 72 in-page anchors as unrewritten vault links; that is fixed. It also found 5 same-folder links the site cannot resolve, proposed as R3. Counts are in [R1](#r1--the-link-report). 331 required and 43 harness tests pass. Next: ask to proceed to R2. |
+| 2026-10-27 | R1 pushed; R2 probe | The user: "Push commits to develop. Start R2 next." `ad675cf` pushed. R2's probe published a synthetic Obsidian library with both link actions. `retain` keeps every non-internal destination byte for byte, but puts each withheld note's ID into the handoff, inside spans the import could replace. `plain_text` already leaks that ID for a wiki link without an alias, which movenotes contains by refusing the publication. Any resolved wiki link refuses the import, proposed as W1. Next: the user's choice between option (a), with a handoff that carries withheld IDs, and option (b), a producer change. |

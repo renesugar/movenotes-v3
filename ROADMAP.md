@@ -25,6 +25,8 @@ Finished plans are in [`plans/`](plans/).
   - keeping the links Notrios cannot resolve on the Notrios route (R2).
 - **Found by the link report:** a same-folder link the site cannot resolve
   when another note shares its name (R3).
+- **Found by R2's probe:** importing a Notrios publication that holds
+  resolved wiki links, which refuses today (W1).
 
 ## Deferred
 
