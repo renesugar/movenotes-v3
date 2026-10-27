@@ -1,8 +1,8 @@
 # Plan: Reorganize the repository, then the Notrios import follow-ups
 
 Status: **opened 2026-10-26.** L0 (opening) and **L1 to L7 are complete**
-(L4 ran before L3). **L8** is rewritten and verified locally; publishing it
-awaits the user's permission to force-push. The user
+(L4 ran before L3), and **L8** is published. The next slice is **H1**, not
+yet authorized. The user
 confirmed this plan's assignments for the session on 2026-10-26; see
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 
@@ -101,9 +101,8 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 <!-- PLAN-ASSIGNMENTS:END -->
 
-Current slice: **L8 — rewrite the old paths in the Git history**, assigned to
-Main. The rewrite is done locally; publishing needs separate permission to
-force-push, and for `main` the user's change to its protection.
+Next slice: **H1 — HTML images after export**, assigned to Main; not yet
+authorized.
 
 ## Execution rules
 
@@ -451,7 +450,7 @@ pruned nothing. Then:
   which the force-push leases are taken against. The full map is
   [`docs/plan/l8-commit-map.txt`](docs/plan/l8-commit-map.txt).
 
-*Publishing, not yet authorized:*
+*Publishing, as authorized on 2026-10-27; steps 1 and 2 are done:*
 
 1. The user temporarily enables "Allow force pushes" on `main`. `develop` is
    not protected.
@@ -746,7 +745,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
-<details><summary>L8 — in progress; planned parent</summary>
+<details><summary>L8 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -754,7 +753,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27 (new session); L8 authorized on 2026-10-27 (I installed git filter-repo. gh is also available. Start L8.), with the scope Rewrite develop and main; force-pushing needs separate permission. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27 (new session); L8 authorized on 2026-10-27 (I installed git filter-repo. gh is also available. Start L8.), with the scope Rewrite develop and main; force-pushing needs separate permission. Force-push authorized 2026-10-27: I enabled force pushes on main; Force-push when ready. |
 | Actual worker | none |
 | Child thread | none |
 | Actual model | none |
@@ -763,12 +762,12 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Parent | Claude Code parent (Main) |
 | Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
 | Parent reasoning effort | not exposed |
-| Parent contribution | Read-only check found GitHub's main at cb7ddc0 (merges of pull requests 1 to 3) holding the old paths, three unwritable refs/pull/N/head refs, a public repository with no forks, and classic protection on main (force pushes off). Made a mirror backup outside the working tree. Rewrote develop and main with git filter-repo in a separate mirror: four rules (scratchpad paths, home paths, /media and /run/media account segments, <account>-backup) on blobs and messages, --prune-empty never, --prune-degenerate never. Moved this checkout onto the rewritten branches (identical tree). Mapped 210 citations of rewritten commits in nine files through the commit map, keeping PLAN.md's L8 text on the old hashes it describes; committed the map as docs/plan/l8-commit-map.txt. |
-| Validation | Partial; publishing pending. Inventory of every blob and message on both rewritten branches: no account name outside the GitHub user name. develop's tip tree unchanged (b59b5ba). All 124 commits: same paths and modes; 577 changed blob entries each equal the old blob with the rules applied; parents mapped, authors, committers and dates equal; 7 messages changed only by filter-repo's hash mapping. The 14 hashes filter-repo left unmapped name no object here (Notrios, theme, a number). Every mapped short hash resolves to a commit; the archived Notrios ledger passes --check in place; 41 documents, 0 broken links. On the rewritten tip with the references mapped: 325 required tests passed in 207.345 s and 43 harness tests in 16.272 s, no __pycache__ written. |
+| Parent contribution | Read-only check found GitHub's main at cb7ddc0 (merges of pull requests 1 to 3) holding the old paths, three unwritable refs/pull/N/head refs, a public repository with no forks, and classic protection on main (force pushes off). Made a mirror backup outside the working tree. Rewrote develop and main with git filter-repo in a separate mirror: four rules (scratchpad paths, home paths, /media and /run/media account segments, <account>-backup) on blobs and messages, --prune-empty never, --prune-degenerate never. Moved this checkout onto the rewritten branches (identical tree). Mapped 210 citations of rewritten commits in nine files through the commit map, keeping PLAN.md's L8 text on the old hashes it describes; committed the map as docs/plan/l8-commit-map.txt. Published: checked force pushes enabled on main and GitHub still at 659aa41 and cb7ddc0, then pushed develop (659aa41 to 547b289) and main (cb7ddc0 to 526c073), each with --force-with-lease against those hashes. |
+| Validation | Inventory of every blob and message on both rewritten branches: no account name outside the GitHub user name. develop's tip tree unchanged (b59b5ba). All 124 commits: same paths and modes; 577 changed blob entries each equal the old blob with the rules applied; parents mapped, authors, committers and dates equal; 7 messages changed only by filter-repo's hash mapping. The 14 hashes filter-repo left unmapped name no object here (Notrios, theme, a number). Every mapped short hash resolves to a commit; the archived Notrios ledger passes --check in place; 41 documents, 0 broken links. On the rewritten tip with the references mapped: 325 required tests passed in 207.345 s and 43 harness tests in 16.272 s, no __pycache__ written. After the push, a fresh mirror clone of GitHub has develop 547b289 and main 526c073, and no blob or message on them holds the account name; refs/pull/1/head to refs/pull/3/head still serve the old commits, as expected. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | User, 2026-10-26: Update the plan to rewrite the old paths in the Git history. |
-| Execution evidence | User: I installed git filter-repo. gh is also available. Start L8.; User answers 2026-10-27: Current; Rewrite develop and main (Recommended); Only this checkout; User: main is protected on GitHub; changes are merged by pull request into main, then merged back into develop; docs/plan/l8-commit-map.txt; Private scratchpad l8/inventory.py, l8/verify.py, l8/refs.py, l8/expressions.txt |
-| Commit | pending |
+| Execution evidence | User: I installed git filter-repo. gh is also available. Start L8.; User answers 2026-10-27: Current; Rewrite develop and main (Recommended); Only this checkout; User: main is protected on GitHub; changes are merged by pull request into main, then merged back into develop; docs/plan/l8-commit-map.txt; Private scratchpad l8/inventory.py, l8/verify.py, l8/refs.py, l8/expressions.txt; User: I enabled force pushes on main; Force-push when ready. |
+| Commit | Git commit containing this record: docs: record the published history rewrite (L8) |
 
 </details>
 
@@ -895,3 +894,4 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-26 | L7 complete | Every one of the 66 fences in the README and `docs/` is registered in `docs/examples.json`: 22 run in the gate, 16 with `--with-tools`, and 28 record why they are not run. The first run found six examples that failed as written because their `--output` directory did not exist; the pages are fixed. The registry needed `homes`, `cwd`, `{port}` (8080 is taken on this machine) and `serves` beyond the specification. 325 required tests (eight modules) and 43 harness tests pass, and all 38 examples pass with the tools. Next: ask to proceed to L8. |
 | 2026-10-27 | New session; L8 authorized | The user re-confirmed the assignments for the new session, and: "I installed `git filter-repo`. `gh` is also available. Start L8." A read-only check found GitHub's `main` at `cb7ddc0` with the old paths, and pull-request refs that cannot be rewritten; the user chose to rewrite `develop` and `main`, and said `main` is protected and is updated by merging a pull request, then merging back into `develop`. Publishing needs separate permission. |
 | 2026-10-27 | L8 rewritten locally | `git filter-repo` rewrote `develop` and `main` after a mirror backup. No blob or message on either branch holds the account name, the tip tree is unchanged, and every commit differs from its original only by L1's replacements. 210 references to rewritten commits are mapped, and the map is committed. Nothing is pushed: publishing needs the user's permission, and force pushes enabled on `main`. |
+| 2026-10-27 | L8 complete | The user: "I enabled force pushes on `main`; Force-push when ready." `develop` (`659aa41` to `547b289`) and `main` (`cb7ddc0` to `526c073`) were pushed with leases against their old tips. A fresh clone of GitHub holds the account name in no blob or message. Left to the user: turning force pushes off on `main`, asking GitHub Support to remove `refs/pull/1-3/head` and the cached views, and saying when the backup can go. The next pull request from `develop` brings `main` up to date. Next: ask to proceed to H1. |
