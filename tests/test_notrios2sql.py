@@ -4254,6 +4254,55 @@ class NotriosCLITest(unittest.TestCase):
         self.assertEqual(result.stderr, "")
         self.assertFalse(self.destination.exists())
 
+    def test_cli_refuses_an_unusable_output_before_verifying_and_names_the_problem(self):
+        # D1: each refused before the archive is read, as a destination problem.
+        (self.root / "file.txt").write_text("x", encoding="utf-8")
+        (self.root / "real").mkdir()
+        (self.root / "link").symlink_to(self.root / "real", target_is_directory=True)
+        (self.root / "locked").mkdir(mode=0o000)
+        self.addCleanup((self.root / "locked").chmod, 0o700)
+        (self.root / "plain").write_text("x", encoding="utf-8")
+        (self.root / "empty").mkdir()
+        (self.root / "unrelated").mkdir()
+        (self.root / "unrelated" / "notesdb.sqlite").write_bytes(b"not a database")
+        cases = {
+            self.root / "missing" / "out": "output parent directory does not exist",
+            self.root / "file.txt" / "out": "output parent is not a directory",
+            self.root / "link" / "out": "output parent path must not contain a symlink",
+            self.root / "locked" / "out": "output parent directory cannot be opened: permission denied",
+            self.root / "plain": "output exists and is not a directory; give a new path, which notrios2sql.py creates",
+            self.root / "empty": "output directory exists and is not a completed import; "
+                                 "give a new path, which notrios2sql.py creates",
+            self.root / "unrelated": "output directory exists and is not a completed import; "
+                                     "give a new path, which notrios2sql.py creates",
+        }
+        def entries():
+            # Without following the symlink or entering the locked directory.
+            return sorted((path.relative_to(self.root).as_posix(), path.lstat().st_mode, path.lstat().st_size)
+                          for path in self.root.rglob("*"))
+        for output, message in cases.items():
+            with self.subTest(output=output.relative_to(self.root)):
+                before = entries()
+                result = self.cli(output=output)
+                self.assert_refused(result)
+                self.assertEqual(result.stderr, f"error [destination]: {message}\n")
+                self.assertEqual(self.phase_lines(result), [])
+                self.assertEqual(entries(), before)
+        # A completed import of another publication is still compared after verification.
+        other = self.root / "other"
+        self.assertEqual(subprocess.run(
+            [sys.executable, "-B", str(PROJECT_DIR / "notrios2sql.py"), "--input",
+             str(FIXTURE_ROOT / "v1.0.0" / "publication-titled" / "archive"), "--output", str(other)],
+            capture_output=True, text=True, timeout=30, env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        ).returncode, 0)
+        before = fixture_inventory(other)
+        result = self.cli(output=other)
+        self.assert_refused(result)
+        self.assertIn("phase: verify", self.phase_lines(result))
+        self.assertTrue(result.stderr.endswith("error [destination]: completion receipt or shape differs\n"),
+                        result.stderr)
+        self.assertEqual(fixture_inventory(other), before)
+
     def test_cli_digest_mismatch_and_changed_source_refuse_without_output_changes(self):
         self.assert_refused(self.cli("--expected-selection-sha256", "0" * 64))
         self.assertFalse(self.destination.exists())

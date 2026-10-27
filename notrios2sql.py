@@ -508,6 +508,76 @@ def _check_existing(destination, work, receipt, limits):
         connection.close()
 
 
+@contextmanager
+def _open_output_parent(parent: Path):
+    """Open the output's parent as the archive reader opens a root, naming what is wrong (D1).
+
+    The walk holds a no-follow descriptor per component, so a symlink in the
+    path refuses, as it always has; only the message changes.
+    """
+    directory_fd, part = None, parent.anchor
+    try:
+        directory_fd = os.open(parent.anchor, os.O_RDONLY | os.O_DIRECTORY)
+        for part in parent.parts[1:]:
+            next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory_fd)
+            os.close(directory_fd)
+            directory_fd = next_fd
+    except OSError as exc:
+        # Linux reports a symlink opened with O_DIRECTORY | O_NOFOLLOW as ENOTDIR.
+        symlink = False
+        if exc.errno in (errno.ENOTDIR, errno.ELOOP) and directory_fd is not None:
+            try:
+                symlink = stat.S_ISLNK(os.stat(part, dir_fd=directory_fd, follow_symlinks=False).st_mode)
+            except OSError:
+                pass
+        if directory_fd is not None:
+            os.close(directory_fd)
+        if symlink:
+            raise NotriosError("destination", "output parent path must not contain a symlink") from None
+        if exc.errno == errno.ENOENT:
+            raise NotriosError("destination", "output parent directory does not exist") from None
+        if exc.errno in (errno.ENOTDIR, errno.ELOOP):
+            raise NotriosError("destination", "output parent is not a directory") from None
+        if exc.errno in (errno.EACCES, errno.EPERM):
+            raise NotriosError("destination", "output parent directory cannot be opened: permission denied") from None
+        raise NotriosError("io", "output parent directory cannot be opened") from None
+    try:
+        yield directory_fd
+    finally:
+        os.close(directory_fd)
+
+
+def _refuse_unusable_output(parent_fd: int, name: str) -> None:
+    """Refuse an existing output that cannot be a completed import, before verifying anything (D1).
+
+    A missing output is created. An existing one must be a directory holding a
+    completion marker; whether it is this publication's import is decided after
+    verification, as before.
+    """
+    try:
+        info = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return
+    if stat.S_ISLNK(info.st_mode):
+        raise NotriosError("destination", "destination must not be a symlink")
+    if not stat.S_ISDIR(info.st_mode):
+        raise NotriosError("destination", "output exists and is not a directory; "
+                                          "give a new path, which notrios2sql.py creates")
+    try:
+        directory_fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent_fd)
+    except OSError:
+        raise NotriosError("destination", "existing output directory cannot be opened") from None
+    try:
+        marker = os.stat(COMPLETE, dir_fd=directory_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        marker = None
+    finally:
+        os.close(directory_fd)
+    if marker is None or not stat.S_ISREG(marker.st_mode):
+        raise NotriosError("destination", "output directory exists and is not a completed import; "
+                                          "give a new path, which notrios2sql.py creates")
+
+
 def _report_progress(progress: Callable[..., None] | None, phase: str, *,
                      row_count: int | None = None, resource_count: int | None = None) -> None:
     """Report a fixed, content-free import phase for an optional caller callback."""
@@ -529,12 +599,13 @@ def import_publication(source: Path, destination: Path, *, expected_selection_sh
         raise NotriosError("destination", "invalid destination basename")
     with ExitStack() as stack:
         stack.enter_context(archive_api._open_root_directory(source))
-        parent_fd = stack.enter_context(archive_api._open_root_directory(destination.parent))
+        parent_fd = stack.enter_context(_open_output_parent(destination.parent))
         source, destination = source.resolve(), destination.parent.resolve() / destination.name
         if source == destination or source in destination.parents or destination in source.parents:
             raise NotriosError("destination", "source and destination trees must be disjoint")
         if destination.is_symlink():
             raise NotriosError("destination", "destination must not be a symlink")
+        _refuse_unusable_output(parent_fd, destination.name)
         token = secrets.token_hex(24)
         lock_name = ".movenotes-notrios-lock-" + hashlib.sha256(destination.name.encode("utf-8")).hexdigest()
         work_name, stage_name = ".movenotes-notrios-work-" + token, ".movenotes-notrios-stage-" + token
@@ -560,6 +631,8 @@ def import_publication(source: Path, destination: Path, *, expected_selection_sh
                 _report_progress(progress, "preflight")
                 _preflight(archive, conversion_limits)
                 if os.path.lexists(destination):
+                    # It may have appeared during verification.
+                    _refuse_unusable_output(parent_fd, destination.name)
                     _report_progress(progress, "verify-existing")
                     rows, resources = _check_existing(destination, work_path, receipt, conversion_limits)
                     status = "unchanged"

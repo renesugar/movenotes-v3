@@ -1,8 +1,8 @@
 # Plan: Reorganize the repository, then the Notrios import follow-ups
 
 Status: **opened 2026-10-26.** L0 (opening) and **L1 to L7 are complete**
-(L4 ran before L3), **L8** is published and **H1** is complete. The next
-slice is **D1**, not yet authorized. The user
+(L4 ran before L3), **L8** is published, and **H1** and **D1** are complete.
+The next slice is **R1**, not yet authorized. The user
 confirmed this plan's assignments for the session on 2026-10-26; see
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 
@@ -101,8 +101,7 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 <!-- PLAN-ASSIGNMENTS:END -->
 
-Next slice: **D1 — clearer output refusals**, assigned to Main; not yet
-authorized.
+Next slice: **R1 — the link report**, assigned to Main; not yet authorized.
 
 ## Execution rules
 
@@ -809,7 +808,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
-<details><summary>D1 — pending; planned parent</summary>
+<details><summary>D1 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -817,21 +816,21 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27; D1 authorized on 2026-10-27 (Push commits. Then, start D1.). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | notrios2sql.py: _open_output_parent walks the output's parent with no-follow descriptors, as the archive reader's opener does, and names the problem as destination: parent does not exist, is not a directory, has a symlink in its path (Linux reports ENOTDIR for O_DIRECTORY&#124;O_NOFOLLOW on a symlink, so the component is checked), or cannot be opened (permission denied); other errors stay io. _refuse_unusable_output, run before the lock and verification, refuses an existing output that is a symlink, not a directory, or a directory without a regular completion marker; it runs again before verify-existing, for an output that appears during verification. A completed import of another publication is still compared after verification. Test: one subprocess test with seven cases and the other-publication case. Docs: docs/notrios.md output rules; CHANGELOG. |
+| Validation | Each case exits 1 with exactly one stderr line, error [destination]: <message>, no phase reported and the parent directory's entries unchanged; a completed v1.0.0 import refused for the loose fixture after phase verify with completion receipt or shape differs, its files unchanged. Existing refusal, rerun, race and recovery tests pass unchanged (NotriosCLITest and NotriosObjectSpoolTest, 49 tests). Required gate 330 tests passed in 254.651 s, harness 43 tests in 17.382 s, no __pycache__ written; 41 documents, 0 broken links; 66 fences, 0 registry problems. |
 | Delegation failure or reassignment | Moved 2026-10-26 from the Notrios import plan (status pending there, never started) at the user's direction; the original record stays in the archived ledger. |
 | Planned assignment evidence | 7d finding, 2026-10-26; moved from the Notrios import plan 2026-10-26. |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Push commits. Then, start D1.; Private scratchpad d1/required.log, d1/harness.log |
+| Commit | Git commit containing this record: fix: name what is wrong with an unusable notrios2sql output (D1) |
 
 </details>
 
@@ -909,3 +908,4 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-27 | L8 complete | The user: "I enabled force pushes on `main`; Force-push when ready." `develop` (`659aa41` to `547b289`) and `main` (`cb7ddc0` to `526c073`) were pushed with leases against their old tips. A fresh clone of GitHub holds the account name in no blob or message. Left to the user: turning force pushes off on `main`, asking GitHub Support to remove `refs/pull/1-3/head` and the cached views, and saying when the backup can go. The next pull request from `develop` brings `main` up to date. Next: ask to proceed to H1. |
 | 2026-10-27 | Branches synced; H1 authorized | The user turned force pushes off on `main` and asked to push `develop`, open a pull request to `main`, merge back into `develop`, then start H1. Pull request #4 merged as `5970504`, and `develop` fast-forwarded to it. For H1 the user chose that an exported HTML image stays HTML with only its `src` rewritten, and that H1 also owns the site's `src` resolution and the reimport's mapping back to `:/id`. |
 | 2026-10-27 | H1 complete | An exported HTML image keeps its tag, with only `src` changed to the attachment's path relative to the note, on both the Joplin and the Notrios paths. The site resolves it to the asset URL, including a tag that spans lines, which the line-at-a-time conversion would have missed. A native reimport maps it back to `:/id`, and a bundled one returns the note byte for byte. A real Hugo build shows the image. 329 required and 43 harness tests pass. Next: ask to proceed to D1. |
+| 2026-10-27 | H1 pushed; D1 complete | `b0d3dbe` pushed. `notrios2sql.py` now refuses an unusable `--output` before reading the archive, as `error [destination]` naming the problem: a parent that does not exist, is not a directory, cannot be opened or has a symlink in its path, or an output that exists and is not a directory or not a completed import. A completed import of another publication is still refused after verification. 330 required and 43 harness tests pass. Next: ask to proceed to R1. |

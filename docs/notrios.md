@@ -44,7 +44,12 @@ it nothing ties the import to the review.
 - `--output` must not exist yet, and its parent must. There is no merge and no
   overwrite. Rerunning into a completed import of the same publication verifies
   it and reports `unchanged` without writing. A different publication there is
-  refused.
+  refused after the archive is verified (`completion receipt or shape
+  differs`). An output that cannot be used is refused before the archive is
+  read, as `error [destination]`, saying why: its parent does not exist, is not
+  a directory, cannot be opened or has a symlink in its path; or the output
+  exists and is not a directory, or is a directory that is not a completed
+  import.
 - Only loose `publication_handoff` archives are read. A packed archive (one
   exported with `--pack`), another export target, and an archive carrying
   source bundles or provenance are refused.
