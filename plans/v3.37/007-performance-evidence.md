@@ -177,7 +177,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/notrios_p7a_profile.py run --output
 PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/notrios_p7a_profile.py timing --inputs NEW_PROFILE_ROOT --output NEW_TIMING_ROOT
 PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/notrios_p7a_probes.py
 PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/notrios_p7a_artifacts.py --root NEW_PROFILE_ROOT --root NEW_TIMING_ROOT
-PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios_p7a.py
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests/test_notrios_p7a.py
 ```
 
 Completed private roots (not repository artifacts):

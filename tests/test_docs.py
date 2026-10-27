@@ -6,7 +6,7 @@ import sys
 import tempfile
 import unittest
 
-PROJECT_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = Path(__file__).resolve().parent.parent
 CHECKER = PROJECT_DIR / "scripts" / "check_doc_links.py"
 
 

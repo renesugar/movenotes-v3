@@ -13,7 +13,7 @@ from pathlib import Path
 import notesdb
 
 
-SCRIPT = Path(__file__).parent / "scripts" / "notrios_p7b_benchmark.py"
+SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "notrios_p7b_benchmark.py"
 SPEC = importlib.util.spec_from_file_location("notrios_p7b_benchmark", SCRIPT)
 assert SPEC and SPEC.loader
 benchmark = importlib.util.module_from_spec(SPEC)

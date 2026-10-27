@@ -15,7 +15,7 @@ from pathlib import Path
 
 import obsidian2site
 
-PROJECT_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = Path(__file__).resolve().parent.parent
 
 
 def run(*args: str, check: bool = True) -> subprocess.CompletedProcess:

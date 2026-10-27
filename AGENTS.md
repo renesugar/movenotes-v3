@@ -137,22 +137,22 @@ check `zg help index` for the installed version's options.
 The required gate is seven modules:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_movenotes.py test_image_resources.py \
-  test_obsidian2sql.py test_obsidian2site.py test_notrios2sql.py test_notrios_7c.py test_docs.py
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests/test_movenotes.py tests/test_image_resources.py \
+  tests/test_obsidian2sql.py tests/test_obsidian2site.py tests/test_notrios2sql.py tests/test_notrios_7c.py tests/test_docs.py
 ```
 
 A full gate adds the four modules that test the performance and comparison
 harnesses in `scripts/`:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios_c7c.py test_notrios_p7a.py \
-  test_notrios_p7b.py test_notrios_p7c.py
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests/test_notrios_c7c.py tests/test_notrios_p7a.py \
+  tests/test_notrios_p7b.py tests/test_notrios_p7c.py
 ```
 
 Run both before a release, and before completing a plan slice that changes
-code. `test_docs.py` runs `scripts/check_doc_links.py`, which refuses a relative
+code. `tests/test_docs.py` runs `scripts/check_doc_links.py`, which refuses a relative
 link in any document whose file or `#anchor` does not exist; a file moved
-without updating the links to it fails there. `test_notrios2sql.py` needs no Notrios binary: it reads the committed
+without updating the links to it fails there. `tests/test_notrios2sql.py` needs no Notrios binary: it reads the committed
 publications under `testdata/notrios/`.
 
 The scripts change often and the tests run them as subprocesses, so a

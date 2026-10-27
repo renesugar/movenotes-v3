@@ -33,6 +33,11 @@ import time
 import unicodedata
 import zlib
 
+# This tool lives in scripts/; the shared modules it imports are at the root.
+REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+
 import notrios_archive
 
 import joplin2sql
@@ -2495,7 +2500,7 @@ def _file_fingerprint(path: Path) -> dict[str, object]:
 
 
 def _dependency_code_inventory() -> list[dict[str, object]]:
-    """Fingerprint every repository-level Python module used by the harness.
+    """Fingerprint every repository-level Python module used by the harness, and this tool.
 
     The comparator imports local modules for source decoding and publication
     verification.  Hashing all top-level Python files is intentionally
@@ -2503,11 +2508,11 @@ def _dependency_code_inventory() -> list[dict[str, object]]:
     checkpoint merely because this entry point is unchanged.
     """
 
-    root = Path(__file__).resolve().parent
     inventory: list[dict[str, object]] = []
-    for path in sorted(root.glob("*.py"), key=lambda item: item.name):
+    own = Path(__file__).resolve()
+    for path in sorted([*REPOSITORY_ROOT.glob("*.py"), own], key=lambda item: item.name):
         entry = _file_fingerprint(path)
-        entry["path"] = path.name
+        entry["path"] = path.relative_to(REPOSITORY_ROOT).as_posix()
         inventory.append(entry)
     return inventory
 

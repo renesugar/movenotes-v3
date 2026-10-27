@@ -38,7 +38,7 @@ cap remains unchanged.
 
 ## Regression evidence
 
-`test_notrios2sql.NotriosSiteTagTest` imports the unmodified
+`tests.test_notrios2sql.NotriosSiteTagTest` imports the unmodified
 [schema-28 text publication](../../testdata/notrios/schema28/publication-text/),
 exports its vault and runs `obsidian2site.py` twice: with default taxonomy
 settings, then with `--max-taxonomy-tags 1`.
@@ -61,10 +61,10 @@ tag promotion test and uncapped taxonomy test. Run from the repository root:
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v \
-  test_notrios2sql.NotriosSiteTagTest \
-  test_obsidian2site.ObsidianSiteGenerationTest.test_tag_searches_agree_with_the_tag_archive \
-  test_obsidian2site.ObsidianSiteGenerationTest.test_taxonomy_tag_cap_promotes_the_most_frequent_tags \
-  test_obsidian2site.ObsidianSiteGenerationTest.test_uncapped_taxonomy_keeps_every_explicit_tag
+  tests.test_notrios2sql.NotriosSiteTagTest \
+  tests.test_obsidian2site.ObsidianSiteGenerationTest.test_tag_searches_agree_with_the_tag_archive \
+  tests.test_obsidian2site.ObsidianSiteGenerationTest.test_taxonomy_tag_cap_promotes_the_most_frequent_tags \
+  tests.test_obsidian2site.ObsidianSiteGenerationTest.test_uncapped_taxonomy_keeps_every_explicit_tag
 ```
 
 All four focused tests passed in 3.991 seconds. The first test attempt included

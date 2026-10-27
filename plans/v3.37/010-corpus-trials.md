@@ -223,7 +223,7 @@ its search-source rows (2,385, 18,448 and 3,493 of 103,378, 382,206 and
 killed run left no destination, the stale lock refused, cleanup removed only
 token-checked directories, and the fresh and unchanged reruns matched.
 
-**Comparison** (`notrios_c7c.py`, rules `c7c-recipe-semantic-v6`, 5,270 s,
+**Comparison** (`scripts/notrios_c7c.py`, rules `c7c-recipe-semantic-v6`, 5,270 s,
 158,888 KiB). Every one of the 382,206 identities per route is joined, with no
 missing, extra or duplicate rows, and every unexplained-difference count is
 zero. C7c's documented differences come out at its accepted figures:

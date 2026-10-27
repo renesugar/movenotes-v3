@@ -55,14 +55,14 @@ id, plus a `resources/` directory holding attachment files.
 | `notrios_links.py` | Notrios link checking and projection to `:/id` links    |
 | `notrios_mapping.py` | Notrios identity and database row mapping            |
 | `notrios_receipt.py` | Notrios import receipt validation and copying         |
-| `notrios_c7c.py`  | Development tool: compares a Notrios import with a movenotes import of the same source |
-| `test_movenotes.py` | End-to-end verification suite (see Testing)            |
-| `test_image_resources.py` | Image localization and quarantine regressions   |
-| `test_obsidian2sql.py` | Obsidian import regressions                         |
-| `test_obsidian2site.py` | Hugo/Bluge/Pagefind site generation regressions    |
-| `test_notrios2sql.py` | Notrios verification, import, vault and site regressions |
-| `test_notrios_7c.py` | Tests for the corpus trial harness in `scripts/`      |
-| `test_docs.py`    | Documentation link checks (`scripts/check_doc_links.py`) |
+| `scripts/notrios_c7c.py`  | Development tool: compares a Notrios import with a movenotes import of the same source |
+| `tests/test_movenotes.py` | End-to-end verification suite (see Testing)            |
+| `tests/test_image_resources.py` | Image localization and quarantine regressions   |
+| `tests/test_obsidian2sql.py` | Obsidian import regressions                         |
+| `tests/test_obsidian2site.py` | Hugo/Bluge/Pagefind site generation regressions    |
+| `tests/test_notrios2sql.py` | Notrios verification, import, vault and site regressions |
+| `tests/test_notrios_7c.py` | Tests for the corpus trial harness in `scripts/`      |
+| `tests/test_docs.py`    | Documentation link checks (`scripts/check_doc_links.py`) |
 
 # Setup
 
@@ -783,20 +783,20 @@ attachment-directory indexing, Twitter media fallback lookup, and bulk
 image-link replacement:
 
 ```
-PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_movenotes.py test_image_resources.py \
-  test_obsidian2sql.py test_obsidian2site.py test_notrios2sql.py test_notrios_7c.py test_docs.py
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests/test_movenotes.py tests/test_image_resources.py \
+  tests/test_obsidian2sql.py tests/test_obsidian2site.py tests/test_notrios2sql.py tests/test_notrios_7c.py tests/test_docs.py
 ```
 
 The tests run the scripts as subprocesses, so both the variable and `-B` are
 needed: `-B` covers only the test process, and a `__pycache__` left by an
 earlier run can shadow the script under test.
 
-`test_notrios2sql.py` checks the Notrios importer against committed synthetic
+`tests/test_notrios2sql.py` checks the Notrios importer against committed synthetic
 publications under `testdata/notrios/`, made with real Notrios commands:
 verification and its refusals, the import and its reruns, links, attachments,
 and the vault and site built from the result. It needs no Notrios binary.
-`test_notrios_7c.py` tests the corpus trial harness in `scripts/`, and
-`test_docs.py` checks that every relative link and `#anchor` in the
+`tests/test_notrios_7c.py` tests the corpus trial harness in `scripts/`, and
+`tests/test_docs.py` checks that every relative link and `#anchor` in the
 documentation resolves.
 
 The image-resource suite uses a local HTTP server to verify successful

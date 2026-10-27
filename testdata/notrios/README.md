@@ -119,7 +119,7 @@ baseline assertions. They do not establish runtime importer acceptance.
 From the movenotes repository root, run:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.NotriosPublicationFixtureTest
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests.test_notrios2sql.NotriosPublicationFixtureTest
 ```
 
 The nine baseline tests use only Python's standard library and committed
@@ -132,7 +132,7 @@ bytes and associations, retained UTF-8 link spans, excluded sentinels, and desig
 vector shape/fixture linkage. Mapper behavior and hostile-input verification
 remain assigned to later slices.
 
-[test_notrios2sql.py](../../test_notrios2sql.py) exposes `copy_publication` for a
+[tests/test_notrios2sql.py](../../tests/test_notrios2sql.py) exposes `copy_publication` for a
 new caller-owned destination, `fixture_inventory` for exact small-file hashes,
 and `read_fixture_records` for reading the known fixture's records. Future
 mutation tests must change the copy, never the committed archive. These helpers
@@ -143,7 +143,7 @@ are deliberately fixture-specific, not an alternate archive verifier.
 Run the staged notebook/note and vault-export integration cases:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.NotriosNoteIntegrationTest
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests.test_notrios2sql.NotriosNoteIntegrationTest
 ```
 
 `make_text_publication` derives a relation-free archive in an owned temporary
@@ -169,7 +169,7 @@ RAW round trips and link adaptation. Tag mapping and round trips are covered by
 ## Link projection and exporter checks — slice 3d
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.NotriosLinkProjectionTest test_notrios2sql.NotriosLinkIntegrationTest
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests.test_notrios2sql.NotriosLinkProjectionTest tests.test_notrios2sql.NotriosLinkIntegrationTest
 ```
 
 The projection tests use independently constructed byte spans and full expected
@@ -196,7 +196,7 @@ heading-slug behavior. No public importer CLI is exposed.
 ## Tag mapping checks — slice 4a
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.NotriosTagMappingIntegrationTest
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests.test_notrios2sql.NotriosTagMappingIntegrationTest
 ```
 
 The owned text-only archive retains the original fixture's four tag identities
@@ -210,7 +210,7 @@ Step 4b below covers the broader name/YAML/reimport and malformed-membership mat
 ## Tag-name and YAML round trips — slice 4b
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.NotriosTagRoundTripTest
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests.test_notrios2sql.NotriosTagRoundTripTest
 ```
 
 The owned test archive has ten tag identities and fourteen memberships, including
@@ -232,7 +232,7 @@ missing targets; all must refuse during archive verification before conversion.
 Run all current Notrios tests, including the nine fixture baselines:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.py
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests/test_notrios2sql.py
 ```
 
 The 2a cases exercise `ArchiveLimits`, strict byte/depth-bounded JSON, exact
@@ -421,7 +421,7 @@ remain searchable through Bluge and Browse Tags.
 ## Resource storage checks — slice 5a
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.NotriosResourceStorageTest
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests.test_notrios2sql.NotriosResourceStorageTest
 ```
 
 These four tests exercise the real verifier and staged resource storage. They
@@ -438,7 +438,7 @@ with resource link and association projection. The public CLI remains Step 6.
 ## Resource links and vault attachments — slice 5b
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios2sql.NotriosResourceProjectionTest
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests.test_notrios2sql.NotriosResourceProjectionTest
 ```
 
 The full publication is compared against the frozen projected-body vectors and
@@ -555,7 +555,7 @@ The run found and fixed Bluge subpath result links in Ledger commit `85ac1b0`.
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v \
-  test_notrios2sql.NotriosPublicationToVaultAcceptanceTest
+  tests.test_notrios2sql.NotriosPublicationToVaultAcceptanceTest
 ```
 
 This regression runs `notrios2sql.py` and `sql2obsidian.py` as subprocesses over

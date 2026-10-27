@@ -36,7 +36,8 @@ from notrios_links import ConversionLimits
 import notesdb
 
 
-FIXTURE_ROOT = Path(__file__).resolve().parent / "testdata" / "notrios"
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+FIXTURE_ROOT = PROJECT_DIR / "testdata" / "notrios"
 PUBLICATION_ROOT = FIXTURE_ROOT / "publication-loose"
 PUBLICATION_ARCHIVE = PUBLICATION_ROOT / "archive"
 EXPECTED_COUNTS = {
@@ -2330,7 +2331,7 @@ class NotriosNoteIntegrationTest(unittest.TestCase):
     def export(self, name="vault", *args):
         vault = self.root / name
         vault.mkdir()
-        result = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "sql2obsidian.py"),
+        result = subprocess.run([sys.executable, "-B", str(PROJECT_DIR / "sql2obsidian.py"),
                                  "--input", str(self.destination), "--output", str(vault),
                                  "--no-simplify-urls", "--progress-every", "0", *args],
                                 env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
@@ -2530,7 +2531,7 @@ class NotriosNoteIntegrationTest(unittest.TestCase):
         self.assertIn(body, (vault / ".movenotes" / raw_item["raw_path"]).read_bytes())
         restored = self.root / "control-restored"
         restored.mkdir()
-        run = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "joplin2sql.py"),
+        run = subprocess.run([sys.executable, "-B", str(PROJECT_DIR / "joplin2sql.py"),
                               "--input", str(vault / ".movenotes" / "joplin-raw"), "--output", str(restored),
                               "--progress-every", "0"], env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
                              capture_output=True, text=True, timeout=60)
@@ -2542,7 +2543,7 @@ class NotriosNoteIntegrationTest(unittest.TestCase):
         self.assertTrue(links.is_generated_note(restored_row))
         self.assertEqual(links.projected_note_body(restored_row).encode(), body + b"\n")
         site = self.root / "control-site"
-        run = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "obsidian2site.py"),
+        run = subprocess.run([sys.executable, "-B", str(PROJECT_DIR / "obsidian2site.py"),
                               "--input", str(vault), "--output", str(site), "--progress-every", "0"],
                              env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, capture_output=True, text=True, timeout=60)
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
@@ -3255,7 +3256,7 @@ class NotriosLinkIntegrationTest(unittest.TestCase):
                 self.assertTrue(raw.startswith((row["note_title"] + "\n\n" + row["note_data"]).encode()))
         restored = self.root / "restored"
         restored.mkdir()
-        run = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "joplin2sql.py"),
+        run = subprocess.run([sys.executable, "-B", str(PROJECT_DIR / "joplin2sql.py"),
                               "--input", str(first_vault / ".movenotes" / "joplin-raw"),
                               "--output", str(restored), "--progress-every", "0"],
                              env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, capture_output=True, text=True, timeout=60)
@@ -3308,7 +3309,7 @@ class NotriosLinkIntegrationTest(unittest.TestCase):
         self.import_notes()
         output = self.root / "direct-raw"
         output.mkdir()
-        result = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "sql2joplin.py"),
+        result = subprocess.run([sys.executable, "-B", str(PROJECT_DIR / "sql2joplin.py"),
                                  "--input", str(self.destination), "--output", str(output), "--progress-every", "0"],
                                 env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, capture_output=True, text=True, timeout=60)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -3470,7 +3471,7 @@ class NotriosTagRoundTripTest(unittest.TestCase):
     def reimport_vault(self, vault, name):
         destination = self.root / name
         destination.mkdir()
-        result = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "obsidian2sql.py"),
+        result = subprocess.run([sys.executable, "-B", str(PROJECT_DIR / "obsidian2sql.py"),
                                  "--input", str(vault), "--output", str(destination), "--progress-every", "0"],
                                 env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
                                 capture_output=True, text=True, timeout=60)
@@ -3805,7 +3806,7 @@ class NotriosV1TitledTest(unittest.TestCase):
         self.export()
         joplin = self.root / "joplin"
         joplin.mkdir()
-        subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "sql2joplin.py"),
+        subprocess.run([sys.executable, "-B", str(PROJECT_DIR / "sql2joplin.py"),
                         "--input", str(self.destination), "--output", str(joplin)],
                        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, check=True,
                        capture_output=True, text=True, timeout=60)
@@ -4024,7 +4025,7 @@ class NotriosReceiptPropagationTest(unittest.TestCase):
 
     def run_script(self, script, source, output, *args):
         return subprocess.run(
-            [sys.executable, "-B", str(Path(__file__).parent / script), "--input", str(source),
+            [sys.executable, "-B", str(PROJECT_DIR / script), "--input", str(source),
              "--output", str(output), "--progress-every", "0", *args],
             capture_output=True, text=True, timeout=60,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
@@ -4172,7 +4173,7 @@ class NotriosCLITest(unittest.TestCase):
 
     def cli(self, *extra, output=None):
         return subprocess.run(
-            [sys.executable, "-B", str(Path(__file__).parent / "notrios2sql.py"),
+            [sys.executable, "-B", str(PROJECT_DIR / "notrios2sql.py"),
              "--input", str(self.fixture.archive), "--output", str(output or self.destination), *extra],
             capture_output=True, text=True, timeout=30,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
@@ -4221,7 +4222,7 @@ class NotriosCLITest(unittest.TestCase):
 
     def test_cli_help_is_quiet_and_describes_only_safe_contract(self):
         result = subprocess.run(
-            [sys.executable, "-B", str(Path(__file__).parent / "notrios2sql.py"), "--help"],
+            [sys.executable, "-B", str(PROJECT_DIR / "notrios2sql.py"), "--help"],
             capture_output=True, text=True, timeout=30,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
@@ -4241,7 +4242,7 @@ class NotriosCLITest(unittest.TestCase):
 
     def test_cli_version_prints_the_release_and_imports_nothing(self):
         result = subprocess.run(
-            [sys.executable, "-B", str(Path(__file__).parent / "notrios2sql.py"), "--version"],
+            [sys.executable, "-B", str(PROJECT_DIR / "notrios2sql.py"), "--version"],
             capture_output=True, text=True, timeout=30,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
@@ -4297,7 +4298,7 @@ with mock.patch.object(notrios2sql, '_complete', side_effect=OSError('injected s
         result = subprocess.run(
             [sys.executable, "-B", "-c", sealing_script, "--input", str(self.fixture.archive),
              "--output", str(self.destination)],
-            cwd=Path(__file__).parent, capture_output=True, text=True, timeout=30,
+            cwd=PROJECT_DIR, capture_output=True, text=True, timeout=30,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
         self.assert_refused(result)
@@ -4316,7 +4317,7 @@ with mock.patch.object(notrios2sql, '_preflight', side_effect=NotriosError('conv
         result = subprocess.run(
             [sys.executable, "-B", "-c", preflight_script, "--input", str(self.fixture.archive),
              "--output", str(self.destination)],
-            cwd=Path(__file__).parent, capture_output=True, text=True, timeout=30,
+            cwd=PROJECT_DIR, capture_output=True, text=True, timeout=30,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
         self.assert_refused(result)
@@ -4341,7 +4342,7 @@ with mock.patch.object(notrios2sql.os, 'fsync', fail_parent_sync):
         result = subprocess.run(
             [sys.executable, "-B", "-c", durability_script, "--input", str(self.fixture.archive),
              "--output", str(self.destination)],
-            cwd=Path(__file__).parent, capture_output=True, text=True, timeout=30,
+            cwd=PROJECT_DIR, capture_output=True, text=True, timeout=30,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
         self.assert_refused(result)
@@ -4365,7 +4366,7 @@ with mock.patch.object(notrios2sql._OwnedDirectory, 'remove', fail_work_cleanup)
         result = subprocess.run(
             [sys.executable, "-B", "-c", script, "--input", str(self.fixture.archive),
              "--output", str(self.destination)],
-            cwd=Path(__file__).parent, capture_output=True, text=True, timeout=30,
+            cwd=PROJECT_DIR, capture_output=True, text=True, timeout=30,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
@@ -4392,7 +4393,7 @@ class NotriosPublicationToVaultAcceptanceTest(unittest.TestCase):
         source_before = fixture_inventory(source)
         publication = self.root / f"{name}-publication"
         result = subprocess.run(
-            [sys.executable, "-B", str(Path(__file__).parent / "notrios2sql.py"),
+            [sys.executable, "-B", str(PROJECT_DIR / "notrios2sql.py"),
              "--input", str(source), "--output", str(publication),
              "--expected-selection-sha256", expected["selection_manifest_sha256"]],
             capture_output=True, text=True, timeout=60,
@@ -4415,7 +4416,7 @@ class NotriosPublicationToVaultAcceptanceTest(unittest.TestCase):
         vault = self.root / f"{name}-vault"
         vault.mkdir()
         result = subprocess.run(
-            [sys.executable, "-B", str(Path(__file__).parent / "sql2obsidian.py"),
+            [sys.executable, "-B", str(PROJECT_DIR / "sql2obsidian.py"),
              "--input", str(publication), "--output", str(vault),
              "--no-simplify-urls", "--include-notrios-receipt", "--progress-every", "0"],
             capture_output=True, text=True, timeout=60,
@@ -4632,7 +4633,7 @@ with mock.patch.object(importer, "_copy_resource", interrupt):
 '''
         result = subprocess.run(
             [sys.executable, "-B", "-c", script, str(self.fixture.archive), str(self.destination)],
-            cwd=Path(__file__).parent, capture_output=True, text=True, timeout=30,
+            cwd=PROJECT_DIR, capture_output=True, text=True, timeout=30,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
         self.assertEqual(result.returncode, 73, result.stdout + result.stderr)
@@ -4793,7 +4794,7 @@ class NotriosResourceProjectionTest(unittest.TestCase):
             conn.execute("DELETE FROM notes WHERE joplin_id=?", (self.ids["resource"]["res_image"],))
         missing_restored = self.root / "row-missing-restored-vault"
         missing_restored.mkdir()
-        result = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "sql2obsidian.py"),
+        result = subprocess.run([sys.executable, "-B", str(PROJECT_DIR / "sql2obsidian.py"),
                                  "--input", str(self.destination), "--output", str(missing_restored)],
                                 capture_output=True, text=True,
                                 env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
@@ -4812,7 +4813,7 @@ class NotriosResourceProjectionTest(unittest.TestCase):
         with self.assertRaises(archive_v2.NotriosError):
             importer.import_publication(self.fixture.archive, self.destination)
         (self.root / "missing-vault").mkdir()
-        result = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "sql2obsidian.py"),
+        result = subprocess.run([sys.executable, "-B", str(PROJECT_DIR / "sql2obsidian.py"),
                                  "--input", str(self.destination), "--output", str(self.root / "missing-vault")],
                                 capture_output=True, text=True, env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
         self.assertNotEqual(result.returncode, 0)
@@ -4824,7 +4825,7 @@ class NotriosResourceProjectionTest(unittest.TestCase):
             conn.execute("DELETE FROM notes WHERE joplin_id=?", (image,))
         row_missing_vault = self.root / "row-missing-vault"
         row_missing_vault.mkdir()
-        result = subprocess.run([sys.executable, "-B", str(Path(__file__).parent / "sql2obsidian.py"),
+        result = subprocess.run([sys.executable, "-B", str(PROJECT_DIR / "sql2obsidian.py"),
                                  "--input", str(row_missing), "--output", str(row_missing_vault)],
                                 capture_output=True, text=True,
                                 env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
@@ -5104,7 +5105,7 @@ class NotriosSiteTagTest(unittest.TestCase):
         for cap in (None, 1):
             with self.subTest(taxonomy_cap=cap):
                 site = self.root / ("site-default" if cap is None else "site-capped")
-                command = [sys.executable, "-B", str(Path(__file__).parent / "obsidian2site.py"),
+                command = [sys.executable, "-B", str(PROJECT_DIR / "obsidian2site.py"),
                            "--input", str(vault), "--output", str(site), "--progress-every", "0"]
                 if cap is not None:
                     command.extend(["--max-taxonomy-tags", str(cap)])

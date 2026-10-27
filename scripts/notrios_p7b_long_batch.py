@@ -48,7 +48,7 @@ def main(argv: list[str]) -> int:
         save()
         benchmark = [sys.executable, "-B", str(Path(__file__).with_name("notrios_p7b_benchmark.py")), "--baseline-source", str(args.baseline_source), "--candidate-source", str(args.candidate_source), "--vault", str(args.vault), "--raw", str(args.raw), "--preserved", str(args.preserved), "--output", str(args.output / "python-comparison"), "--pairs", str(args.pairs)]
         checks = [
-        ("python-suite", [sys.executable, "-B", "-m", "unittest", "-v", "test_movenotes.py", "test_image_resources.py", "test_obsidian2sql.py", "test_obsidian2site.py", "test_notrios2sql.py", "test_notrios_c7c.py", "test_notrios_p7a.py", "test_notrios_p7b.py"], args.candidate_source),
+        ("python-suite", [sys.executable, "-B", "-m", "unittest", "-v", "tests/test_movenotes.py", "tests/test_image_resources.py", "tests/test_obsidian2sql.py", "tests/test_obsidian2site.py", "tests/test_notrios2sql.py", "tests/test_notrios_c7c.py", "tests/test_notrios_p7a.py", "tests/test_notrios_p7b.py"], args.candidate_source),
         ("python-comparison", benchmark, args.candidate_source),
         ("go-baseline-test", ["go", "test", "./..."], args.go_baseline),
         ("go-candidate-test", ["go", "test", "./..."], args.go_candidate),

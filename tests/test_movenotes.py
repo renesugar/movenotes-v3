@@ -36,7 +36,7 @@ import notesdb
 import sql2obsidian
 import twitterx2sql
 
-PROJECT_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = Path(__file__).resolve().parent.parent
 SAMPLE_SOURCE1 = PROJECT_DIR / "sample" / "source1"
 SAMPLE_SOURCE2 = PROJECT_DIR / "sample" / "source2"
 PRESERVATION_DIR_NAME = ".movenotes"

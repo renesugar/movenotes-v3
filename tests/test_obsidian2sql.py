@@ -26,7 +26,7 @@ import notesdb
 import obsidian2sql
 import sql2obsidian
 
-PROJECT_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = Path(__file__).resolve().parent.parent
 
 
 def run(script: str, *args: str, check: bool = True) -> subprocess.CompletedProcess:

@@ -154,7 +154,7 @@ def consumer_hashes(modules: tuple[str, ...], child: str | None = None) -> dict[
         return hashes
     if modules not in _CONSUMER_CACHE:
         probe = (
-            "import json,sys\nsys.path.insert(0,sys.argv[1])\n"
+            "import json,sys\nsys.path[:0]=[sys.argv[1],sys.argv[1]+'/scripts']\n"
             "for name in sys.argv[2:]: __import__(name)\n"
             "root=sys.argv[1]\n"
             "print(json.dumps(sorted({m.__file__ for m in list(sys.modules.values())"
@@ -581,7 +581,7 @@ class Trials:
                         for label, route in (("joplin", "joplin"), ("raw", "recipe-raw"),
                                              ("vault", "recipe-vault"))}
         revision = f"notrios v1.0.0 {self.config['notriosctl_revision']}"
-        argv = [sys.executable, "-B", str(REPO / "notrios_c7c.py"),
+        argv = [sys.executable, "-B", str(REPO / "scripts" / "notrios_c7c.py"),
                 "--raw-db", str(raw / "library" / "notes.sqlite"),
                 "--vault-db", str(vault / "library" / "notes.sqlite"),
                 "--joplin-db", str(joplin / "library" / "notes.sqlite"),

@@ -22,8 +22,8 @@ Two repositories are involved and each step below names the one it touches:
 - One step per session. Every step ends with the repo building, its tests
   passing, and a commit whose subject carries the step number.
 - Ask before starting the next step.
-- `python3 -m unittest -v test_movenotes.py test_image_resources.py
-  test_obsidian2sql.py test_obsidian2site.py` must pass at the end of every
+- `python3 -m unittest -v tests/test_movenotes.py tests/test_image_resources.py
+  tests/test_obsidian2sql.py tests/test_obsidian2site.py` must pass at the end of every
   step that touches `movenotes-v3`.
 - `hugo --source exampleSite --themesDir ../..` must succeed at the end of
   every step that touches the theme.
@@ -501,7 +501,7 @@ directories.
 Note front matter is still Relearn-shaped, so the sidebar and `/tags/` are empty
 — step 23 fills them. Tests updated to assert the Ledger structure, including
 that none of the deleted partial overrides comes back; 19 pass in
-`test_obsidian2site.py`, 87 across the suite.
+`tests/test_obsidian2site.py`, 87 across the suite.
 
 ### Step 23 — Generator: note front matter and taxonomy *(movenotes)*  ✅
 `_frontmatter_json` now emits `categories`, `tags`, and
@@ -534,7 +534,7 @@ in the document outline but off the screen, no meta row, and no hero. At 5,000
 notes in one over-limit category the archive emits **zero pager directories** and
 the sidebar is byte-identical between `/` and note 4,999 — decision D2 and the
 `partialCached` invariant both holding through generated config. 23 tests in
-`test_obsidian2site.py`, 91 across the suite.
+`tests/test_obsidian2site.py`, 91 across the suite.
 
 ### Step 24 — Generator: Browse Tags and exact-tag results on Ledger *(movenotes)*  ✅
 **The generated project now has no shortcodes at all**, and 451 lines of
@@ -622,7 +622,7 @@ Verified against the generated site with the real server: category filter, two
 tags ANDed, phrase, free terms, date window, `offset`/`limit` paging, a generated
 word tag, and a rejected bad date — first over HTTP, then through the theme's
 search UI, where `tag:housing` returns the same 9 notes the Browse Tags badge
-claims. 23 tests in `test_obsidian2site.py`, 91 across the Python suite, and the
+claims. 23 tests in `tests/test_obsidian2site.py`, 91 across the Python suite, and the
 Go server's own tests pin the parsing rules two clients depend on.
 
 ### Step 26 — Build pipeline, `auto` backend, and backend validation  ✅
@@ -1811,7 +1811,7 @@ nothing in the reports asks for it.
 |---|---|
 | `obsidian2site.py` | scaffolding, front matter, taxonomy, categories, shortcodes, CSS, build, validation, flags |
 | `site_server/` → `server/` + `cmd/` + `api/` | package split, superset contract, Vercel entry points |
-| `test_obsidian2site.py` | Relearn assertions → Ledger; new taxonomy/category/contract regressions |
+| `tests/test_obsidian2site.py` | Relearn assertions → Ledger; new taxonomy/category/contract regressions |
 | `STATIC_SITE.md` | rewritten |
 | `DEPLOY_VERCEL.md`, `DEPLOY_GITHUB_PAGES.md` | new |
 | `AGENTS.md` | invariants restated for Ledger |

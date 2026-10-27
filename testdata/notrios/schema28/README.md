@@ -90,12 +90,12 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B testdata/notrios/audit_verifier.py \
 /tmp/movenotes-s28b-notriosctl compatibility archive-v2 testdata/notrios/publication-loose/archive
 /tmp/movenotes-s28b-notriosctl verify archive-v2 testdata/notrios/publication-loose/archive
 PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v \
-  test_notrios2sql.NotriosManifestTest \
-  test_notrios2sql.CollectionCapabilitiesOptionalTest \
-  test_notrios2sql.NotriosSchema28Test
+  tests.test_notrios2sql.NotriosManifestTest \
+  tests.test_notrios2sql.CollectionCapabilitiesOptionalTest \
+  tests.test_notrios2sql.NotriosSchema28Test
 PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v \
-  test_movenotes.py test_image_resources.py test_obsidian2sql.py \
-  test_obsidian2site.py test_notrios2sql.py
+  tests/test_movenotes.py tests/test_image_resources.py tests/test_obsidian2sql.py \
+  tests/test_obsidian2site.py tests/test_notrios2sql.py
 ```
 
 The generator refuses a binary without the exact clean VCS pin. The audit

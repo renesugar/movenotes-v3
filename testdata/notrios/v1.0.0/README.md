@@ -112,9 +112,9 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B testdata/notrios/audit_verifier.py \
   --cases testdata/notrios/schema28-audit-cases.json \
   --output /tmp/movenotes-s43b/audit.json
 PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v \
-  test_notrios2sql.NotriosLinkProjectionTest \
-  test_notrios2sql.NotriosLinkIntegrationTest \
-  test_notrios2sql.NotriosV1TitledTest
+  tests.test_notrios2sql.NotriosLinkProjectionTest \
+  tests.test_notrios2sql.NotriosLinkIntegrationTest \
+  tests.test_notrios2sql.NotriosV1TitledTest
 ```
 
 The generator refuses a binary without the exact clean VCS pin. The audit

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 SPEC = importlib.util.spec_from_file_location(
-    "p7a_artifacts", Path(__file__).parent / "scripts/notrios_p7a_artifacts.py")
+    "p7a_artifacts", Path(__file__).resolve().parent.parent / "scripts/notrios_p7a_artifacts.py")
 artifacts = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(artifacts)
 

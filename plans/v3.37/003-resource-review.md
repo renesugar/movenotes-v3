@@ -98,9 +98,9 @@ The identical-output path hashes the actual inventory and opens SQLite with
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v \
-  test_notrios2sql.NotriosResourceSafetyTest \
-  test_notrios2sql.NotriosResourceStorageTest \
-  test_notrios2sql.NotriosPublicationLifecycleTest
+  tests.test_notrios2sql.NotriosResourceSafetyTest \
+  tests.test_notrios2sql.NotriosResourceStorageTest \
+  tests.test_notrios2sql.NotriosPublicationLifecycleTest
 ```
 
 All fixtures and abrupt-exit artifacts are created in disposable test directories.

@@ -166,7 +166,7 @@ seconds. See `PERFORMANCE_REVIEW.md`; these figures are not runtime promises.
   files) covering nested notebooks, duplicate titles, titles needing
   sanitization, image and PDF attachments, tags/note_tags, a duplicate
   note body, an orphan resource, and every link variety.
-* Added `test_movenotes.py`, an end-to-end unittest suite (15 tests,
+* Added `tests/test_movenotes.py`, an end-to-end unittest suite (15 tests,
   stdlib only) that drives the actual command-line scripts: merge import,
   removedups, cleanres, Joplin round trip (property-order-insensitive file
   comparison plus byte comparison of resources), URL simplification on and
@@ -176,7 +176,7 @@ seconds. See `PERFORMANCE_REVIEW.md`; these figures are not runtime promises.
 
 ## Status
 
-All steps (1–13) complete. Run `python3 -m unittest -v test_movenotes.py test_image_resources.py` to verify the project.
+All steps (1–13) complete. Run `python3 -m unittest -v tests/test_movenotes.py tests/test_image_resources.py` to verify the project.
 
 ### Step 8 — Twitter/X archive import (`twitterx2sql.py`)  ✅
 

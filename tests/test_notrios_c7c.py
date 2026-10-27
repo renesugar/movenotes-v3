@@ -16,6 +16,8 @@ import unittest
 import zlib
 from unittest import mock
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+
 import obsidianmeta
 from notrios_c7c import (
     C7CError,
@@ -46,7 +48,7 @@ from notrios_c7c import (
 )
 
 
-REPO = Path(__file__).resolve().parent
+REPO = Path(__file__).resolve().parent.parent
 
 
 def _make_producer_db(path: Path, route: str, rows: list[dict[str, object]]) -> None:
