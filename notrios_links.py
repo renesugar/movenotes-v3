@@ -642,12 +642,17 @@ def rewrite_projected_links(body: str, *, note_id: str, note_path: PurePosixPath
             raise NotriosError("limit", "projected link count exceeds limit")
         match = _MAPPED.fullmatch(token.destination)
         if token.html:
-            # Left as `:/id`, as the native Joplin export leaves an HTML
-            # image; the relation already materialises the attachment.
-            if (match is None or match[2] is not None or attachments is None
-                    or lookup_item_type(match[1].decode("ascii")) != 4
-                    or attachments.vault_name(match[1].decode("ascii"), required=True) is None):
+            # The tag stays HTML, as the native export keeps one: only the
+            # source becomes the attachment's path relative to the note (H1).
+            name = None
+            if (match is not None and match[2] is None and attachments is not None
+                    and lookup_item_type(match[1].decode("ascii")) == 4):
+                name = attachments.vault_name(match[1].decode("ascii"), required=True)
+            if name is None:
                 _refuse("HTML image has no mapped resource")
+            destination = quote(posixpath.relpath("attachments/" + name, start=str(note_path.parent)),
+                                safe="/-._~").encode("ascii")
+            replacements.append((token.destination_start, token.destination_end, destination))
             continue
         if match is None:
             kind, _ = _target(token, limits)

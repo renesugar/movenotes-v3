@@ -417,8 +417,11 @@ def rewrite_resource_links(
     """Rewrite Joplin ``(:/resource_id)`` links for Obsidian.
 
     Images become wiki-style embeds (``![[file.png]]``); other files become
-    markdown links with a path relative to the note's directory.
+    markdown links with a path relative to the note's directory. An HTML
+    image (``<img src=":/id">``) stays HTML: only its ``src`` value becomes
+    that relative path, and every other byte of the tag is kept (H1).
     """
+    relative_dir = PurePosixPath(*([".."] * len(note_dir.parts))) / ATTACHMENTS_DIR_NAME
 
     def replace(match: re.Match) -> str:
         link, display, resource_id = match.group(0), match.group(1), match.group(2)
@@ -426,9 +429,6 @@ def rewrite_resource_links(
         name = attachments.vault_name(resource_id)
         if name is None:
             return link  # Unknown resource: leave the link unchanged.
-        relative_dir = PurePosixPath(
-            *([".."] * len(note_dir.parts))
-        ) / ATTACHMENTS_DIR_NAME
         href = urllib.parse.quote(str(relative_dir / name))
         if link.startswith("!") and attachments.is_image(resource_id):
             # A wiki embed has nowhere to keep a title, so only a titled
@@ -437,7 +437,12 @@ def rewrite_resource_links(
         display = display or name
         return f"[{display}]({href}{title})"
 
-    return common.RESOURCE_LINK_RE.sub(replace, body)
+    def replace_source(value: str) -> str | None:
+        match = re.fullmatch(r":/([a-fA-F0-9]{32})", value)
+        name = attachments.vault_name(match.group(1)) if match else None
+        return urllib.parse.quote(str(relative_dir / name)) if name is not None else None
+
+    return common.replace_html_image_sources(common.RESOURCE_LINK_RE.sub(replace, body), replace_source)
 
 
 def _yaml_string(value: str) -> str:

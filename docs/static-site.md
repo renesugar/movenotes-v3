@@ -458,6 +458,12 @@ SVG's own `<title>` and `<style>` elements are kept. Code spans, code blocks
 and indented code are not touched, and the search text is unchanged. The run
 prints how many tags it showed as text.
 
+An `<img>` whose `src` names a vault attachment, as `sql2obsidian.py` exports
+a Joplin HTML image, gets the attachment's URL on the site, the same URL a
+Markdown image of that file gets. Only the `src` value changes. A tag inside
+code, an external source and a path that is not an attachment are left as
+written.
+
 Dot directories are excluded unless `--include-hidden` is used. `.movenotes` is
 always excluded from publishing.
 

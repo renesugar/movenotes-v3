@@ -110,7 +110,12 @@ duplicate titles within a folder are deduplicated (`Title.md`,
 aborting a large export. Attachments are copied to an `attachments` folder under
 their human-readable names; Joplin resource links are rewritten to
 wiki-style embeds (`![[photo.png]]`) for images and relative markdown links
-for other files. Each note gets YAML front matter with Obsidian-friendly
+for other files. An HTML image stays HTML: in `<img src=":/id" width="300">`
+only the `src` value changes, to the attachment's path relative to the note
+(`../attachments/photo.png`), and every other byte of the tag is kept.
+`obsidian2sql.py` maps such a `src` back to `:/id` when it imports the vault
+natively, and through the preservation bundle the note comes back byte for
+byte. Each note gets YAML front matter with Obsidian-friendly
 `title`, `created`, `updated`, `source-url`, and `tags` properties. Every source
 property is also retained in legacy flat `joplin-*` fields and in a structured
 `joplin` object. The exact ordered property list, including duplicate keys, is

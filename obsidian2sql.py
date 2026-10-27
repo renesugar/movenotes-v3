@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import codecs
 import hashlib
+import html
 import json
 import mimetypes
 import os
@@ -366,7 +367,12 @@ def rewrite_obsidian_links(
     basename_paths: dict[str, list[str]],
     resource_paths: set[str],
 ) -> str:
-    """Translate resolvable Obsidian local links to Joplin ``:/id`` links."""
+    """Translate resolvable Obsidian local links to Joplin ``:/id`` links.
+
+    An HTML image whose ``src`` names a vault attachment gets ``:/id`` as its
+    source, and keeps every other byte of the tag, which is how sql2obsidian.py
+    exports a Joplin HTML image (H1).
+    """
     def wiki_replace(match: re.Match[str]) -> str:
         embed, inside = match.group(1), match.group(2)
         target, separator, alias = inside.partition("|")
@@ -392,7 +398,12 @@ def rewrite_obsidian_links(
             return f"![{display}](:/{item_id}{title})"
         return f"[{display or PurePosixPath(resolved).name}](:/{item_id}{title})"
 
-    return _MARKDOWN_LINK_RE.sub(markdown_replace, _WIKI_LINK_RE.sub(wiki_replace, body))
+    def source_replace(value: str) -> str | None:
+        resolved = _resolve_vault_target(html.unescape(value), note_path, path_to_id, basename_paths)
+        return f":/{path_to_id[resolved]}" if resolved in resource_paths else None
+
+    return common.replace_html_image_sources(
+        _MARKDOWN_LINK_RE.sub(markdown_replace, _WIKI_LINK_RE.sub(wiki_replace, body)), source_replace)
 
 
 def _file_sha256(path: Path, chunk_size: int = 1024 * 1024) -> bytes:

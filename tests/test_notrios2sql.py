@@ -3020,7 +3020,7 @@ class NotriosLinkProjectionTest(unittest.TestCase):
         code = b"`" + tag + b"`"
         self.assertEqual(self.project(code).encode(), code)
 
-    def test_projected_html_images_keep_their_mapped_source(self):
+    def test_projected_html_images_point_at_their_attachment(self):
         from pathlib import PurePosixPath
         image = "b" * 32
         attachments = mock.Mock()
@@ -3029,8 +3029,11 @@ class NotriosLinkProjectionTest(unittest.TestCase):
             return links.rewrite_projected_links(body, note_id="d" * 32, note_path=PurePosixPath("Deep/Source.md"),
                 lookup_item_type=lambda ident: kind, lookup_note_path=lambda ident: None, attachments=attachments)
         body = f'<img width="4" src=":/{image}"/> and ![Shot](:/{image})'
-        # Left as the native Joplin export leaves an HTML image.
-        self.assertEqual(rewrite(body), f'<img width="4" src=":/{image}"/> and ![[Shot.png]]')
+        # The tag stays HTML, as the native export keeps one; only its source changes (H1).
+        self.assertEqual(rewrite(body), '<img width="4" src="../attachments/Shot.png"/> and ![[Shot.png]]')
+        self.assertEqual(rewrite(f"<IMG\n  alt='x'\n  src=':/{image}'>"), "<IMG\n  alt='x'\n  src='../attachments/Shot.png'>")
+        # Inside code it is text, and stays as written.
+        self.assertEqual(rewrite(f'`<img src=":/{image}">`'), f'`<img src=":/{image}">`')
         for bad, kind in ((f'<img src=":/{"c" * 32}">', 4), (f'<img src=":/{image}">', 1),
                           ('<img src="resource://default/resources/res_y">', 4)):
             with self.subTest(bad=bad), self.assertRaises(archive_v2.NotriosError):

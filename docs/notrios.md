@@ -122,8 +122,8 @@ and the reader and mapper versions, with no paths, times or note content. On the
 at `movenotes/notrios-receipt.json`, where anyone can download it, so leave
 the flag off `obsidian2site.py` if you don't want that.
 
-An `<img>` written in HTML imports correctly, but the exported vault still
-points its `src` at `:/id`, so Obsidian and the site do not show the image.
+An `<img>` written in HTML stays HTML in the exported vault, with its `src`
+pointing at the copied attachment, so Obsidian and the site show the image.
 
 ## Keeping notes out of a publication
 

@@ -886,6 +886,9 @@ def _transform_inline_code(line: str, transform) -> str:
     return "".join(output)
 
 
+_HTML_IMAGE_OPENER_RE = re.compile(r"<img\b", re.IGNORECASE)
+
+
 def _transform_outside_code(text: str, transform, *, keep_indented: bool = False) -> str:
     """Apply *transform* outside fenced and inline Markdown code.
 
@@ -1213,7 +1216,39 @@ def _convert_body(
             converted = converted.replace(f"@@MOVENOTES-PROTECTED-LINK-{index}@@", value)
         return converted
 
+    def source_replace(value: str) -> str | None:
+        # An exported Joplin HTML image keeps its tag, with a source relative to
+        # the note in the vault (H1); the site's asset URL replaces it.
+        target = html.unescape(value)
+        if re.match(r"[A-Za-z][A-Za-z0-9+.-]*:|//|#", target):
+            return None
+        resolved_asset = _resolve_target(target, source_relative, asset_exact, asset_basenames)
+        if resolved_asset is None or resolved_asset not in asset_map:
+            return None
+        return _asset_link(output_relative, asset_map[resolved_asset])
+
+    body = _rewrite_html_image_sources(body, source_replace)
     return _escape_hugo_shortcodes(_transform_outside_code(body, transform_segment))
+
+
+def _rewrite_html_image_sources(body: str, replace) -> str:
+    """Apply *replace* to each HTML image's source outside Markdown code.
+
+    The rest of the conversion goes a line at a time, but a tag may span lines,
+    so this pass reads the whole note. A tag with any byte inside code is text
+    and stays as written. A note with no ``<img`` costs one search.
+    """
+    if _HTML_IMAGE_OPENER_RE.search(body) is None:
+        return body
+    # Same length as the body: NUL wherever the text is outside code.
+    outside = _transform_outside_code(body, lambda segment: "\0" * len(segment))
+    if len(outside) != len(body):
+        return body
+
+    def in_prose(start: int, end: int) -> bool:
+        return all(outside[index] == "\0" or body[index] in "\r\n" for index in range(start, end))
+
+    return common.replace_html_image_sources(body, replace, in_prose)
 
 
 def _show_raw_text_elements(body: str) -> tuple[str, int]:

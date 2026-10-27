@@ -51,7 +51,7 @@ The image-resource suite uses a local HTTP server to verify successful
 retrieval, HEAD fallback, redirect MIME changes, byte-signature mismatches,
 stop lists, malformed data URIs, deterministic deduplication, quarantine
 selection, replacement reuse, and both export paths. The eight modules contain
-325 tests and use only the standard library.
+329 tests and use only the standard library.
 On environments where the combined
 notebook-filtering class stalls during subprocess cleanup, each test method can
 be run independently; the conversion commands themselves complete normally.

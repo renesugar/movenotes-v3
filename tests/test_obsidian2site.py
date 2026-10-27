@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import posixpath
 import re
 import subprocess
 import sys
@@ -783,6 +784,34 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             # An undelimited suffix is dropped, as before; external titles stay.
             self.assertEqual(untitled[3], untitled[0])
             self.assertEqual(titled[3], '[W](https://example.test/x "Web")')
+
+    def test_html_image_sources_resolve_to_the_asset_url_and_keep_the_tag(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-html-image-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            site = root / "site"
+            (vault / "Deep").mkdir(parents=True)
+            (vault / "assets").mkdir()
+            (vault / "assets" / "picture.png").write_bytes(b"\x89PNG\r\n\x1a\nimage")
+            (vault / "Deep" / "Note.md").write_text(
+                "# Note\n\n"
+                "P ![P](../assets/picture.png)\n\n"
+                'H <img width="9" src="../assets/picture.png" alt="P">\n\n'
+                "S <img src='../assets/picture.png'/>\n\n"
+                "U <img\n  alt=x\n  src=../assets/picture.png>\n\n"
+                'W <img src="https://example.test/x.png"> M <img src="../assets/missing.png">\n\n'
+                'C `<img src="../assets/picture.png">`\n',
+                encoding="utf-8",
+            )
+            run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+            _metadata, body = read_json_frontmatter(site / "content" / "notes" / "deep" / "note.md")
+            url = re.search(r"!\[P\]\(([^)]+)\)", body).group(1)
+            self.assertTrue((site / "static" / posixpath.normpath(posixpath.join("notes/deep", url))).is_file())
+            self.assertIn(f'H <img width="9" src="{url}" alt="P">', body)
+            self.assertIn(f"S <img src='{url}'/>", body)
+            self.assertIn(f"U <img\n  alt=x\n  src={url}>", body)
+            self.assertIn('W <img src="https://example.test/x.png"> M <img src="../assets/missing.png">', body)
+            self.assertIn('C `<img src="../assets/picture.png">`', body)
 
     def test_repairs_malformed_external_urls_without_losing_visible_text(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-url-") as temporary:

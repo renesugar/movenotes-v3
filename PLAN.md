@@ -1,8 +1,8 @@
 # Plan: Reorganize the repository, then the Notrios import follow-ups
 
 Status: **opened 2026-10-26.** L0 (opening) and **L1 to L7 are complete**
-(L4 ran before L3), and **L8** is published. The next slice is **H1**, not
-yet authorized. The user
+(L4 ran before L3), **L8** is published and **H1** is complete. The next
+slice is **D1**, not yet authorized. The user
 confirmed this plan's assignments for the session on 2026-10-26; see
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 
@@ -101,7 +101,7 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 <!-- PLAN-ASSIGNMENTS:END -->
 
-Next slice: **H1 — HTML images after export**, assigned to Main; not yet
+Next slice: **D1 — clearer output refusals**, assigned to Main; not yet
 authorized.
 
 ## Execution rules
@@ -480,6 +480,18 @@ whether an exported image stays HTML or becomes an embed. Owns
 copied attachment, on both paths, byte-identical elsewhere; the vault reimports
 to the same database except for the rewritten bytes; the site shows the image.
 
+*Decided 2026-10-27.* Asked whether an exported image stays HTML or becomes an
+embed, the user chose **stay HTML**: only the `src` value changes, to the
+attachment's path relative to the note, and every other byte of the tag stays.
+Today `obsidian2site.py` copies HTML tags verbatim, so the site cannot resolve
+a vault path. `obsidian2sql.py` maps Markdown and wiki attachment links back to
+`:/id`, but not `src`. With the user's agreement, H1 also owns:
+
+- `obsidian2site.py`: resolving an `<img>` `src` that names a vault attachment
+  to the site's asset URL;
+- `obsidian2sql.py`: mapping such a `src` back to `:/id`, so a native reimport
+  returns the original tag.
+
 ### D1 — Clearer output refusals
 
 Carried from the Notrios import plan, proposed 2026-10-26 during 7d.
@@ -771,7 +783,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
-<details><summary>H1 — pending; planned parent</summary>
+<details><summary>H1 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -779,21 +791,21 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27; H1 authorized on 2026-10-27 (Then, start H1.), with the user's choices: the image stays HTML, and H1 also owns obsidian2site.py's src resolution and obsidian2sql.py's mapping back to :/id. |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Asked the user to choose HTML or embed and the scope (stay HTML; H1 also owns the site and reimport). common.py: HTML_IMAGE_SRC_RE (double-, single- or unquoted src after whitespace, so not data-src) and replace_html_image_sources, which changes only the value's bytes and takes an optional span predicate. sql2obsidian.rewrite_resource_links rewrites an <img> src of a known :/id to the attachment's path relative to the note. notrios_links.rewrite_projected_links does the same for projected notes, still refusing an HTML image without a mapped resource. obsidian2site.py resolves an <img> src naming a vault attachment to its asset URL in one pass over the whole note, so a tag spanning lines works, leaving tags with any byte in code, external sources and non-attachments unchanged; notes without <img skip it. obsidian2sql.rewrite_obsidian_links maps such a src back to :/id (percent-encoding and entities decoded). Tests: unit cases for each direction, the site, and the Notrios projection (renamed from keep_their_mapped_source), and one end-to-end Joplin RAW to vault, bundle and native reimport, and site test. Docs: obsidian.md, notrios.md, static-site.md, notrios-import-design.md, testing.md count; CHANGELOG. |
+| Validation | New tests pass: the vault tag keeps every byte but src, which opens the copied attachment (same bytes as the resource); the bundled reimport returns the note byte for byte; the native reimport returns the tag with src=:/id of the reimported resource; the site's src resolves to the static asset, as the Markdown image's URL does, for quoted, single-quoted and multi-line unquoted tags, with external, missing and code forms unchanged; the Notrios projection rewrites src and refuses as before. A real Hugo v0.164.0 build with the Ledger theme: the built page's img src resolves to a file in public/. Required gate 329 tests passed in 229.222 s, harness 43 tests in 15.336 s, no __pycache__ written; 41 documents, 0 broken links; 66 fences, 0 registry problems. |
 | Delegation failure or reassignment | Moved 2026-10-26 from the Notrios import plan (status pending there, never started) at the user's direction; the original record stays in the archived ledger. |
 | Planned assignment evidence | C7d finding, 2026-10-24; moved from the Notrios import plan 2026-10-26. |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Then, start H1.; User answers 2026-10-27: Stay HTML (Recommended); Yes, both (Recommended); Private scratchpad h1/required.log, h1/harness.log, h1/site/build.log |
+| Commit | Git commit containing this record: feat: keep exported HTML images as HTML pointing at their attachment (H1) |
 
 </details>
 
@@ -895,3 +907,5 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-27 | New session; L8 authorized | The user re-confirmed the assignments for the new session, and: "I installed `git filter-repo`. `gh` is also available. Start L8." A read-only check found GitHub's `main` at `cb7ddc0` with the old paths, and pull-request refs that cannot be rewritten; the user chose to rewrite `develop` and `main`, and said `main` is protected and is updated by merging a pull request, then merging back into `develop`. Publishing needs separate permission. |
 | 2026-10-27 | L8 rewritten locally | `git filter-repo` rewrote `develop` and `main` after a mirror backup. No blob or message on either branch holds the account name, the tip tree is unchanged, and every commit differs from its original only by L1's replacements. 210 references to rewritten commits are mapped, and the map is committed. Nothing is pushed: publishing needs the user's permission, and force pushes enabled on `main`. |
 | 2026-10-27 | L8 complete | The user: "I enabled force pushes on `main`; Force-push when ready." `develop` (`659aa41` to `547b289`) and `main` (`cb7ddc0` to `526c073`) were pushed with leases against their old tips. A fresh clone of GitHub holds the account name in no blob or message. Left to the user: turning force pushes off on `main`, asking GitHub Support to remove `refs/pull/1-3/head` and the cached views, and saying when the backup can go. The next pull request from `develop` brings `main` up to date. Next: ask to proceed to H1. |
+| 2026-10-27 | Branches synced; H1 authorized | The user turned force pushes off on `main` and asked to push `develop`, open a pull request to `main`, merge back into `develop`, then start H1. Pull request #4 merged as `5970504`, and `develop` fast-forwarded to it. For H1 the user chose that an exported HTML image stays HTML with only its `src` rewritten, and that H1 also owns the site's `src` resolution and the reimport's mapping back to `:/id`. |
+| 2026-10-27 | H1 complete | An exported HTML image keeps its tag, with only `src` changed to the attachment's path relative to the note, on both the Joplin and the Notrios paths. The site resolves it to the asset URL, including a tag that spans lines, which the line-at-a-time conversion would have missed. A native reimport maps it back to `:/id`, and a bundled one returns the note byte for byte. A real Hugo build shows the image. 329 required and 43 harness tests pass. Next: ask to proceed to D1. |
