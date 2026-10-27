@@ -10,7 +10,7 @@ plans/v<major>.<minor>/<NNN>-<slug>.md
 when it has one, sits beside it, and its working records (evidence, reviews,
 trial reports) follow as `001-…`, `002-…` in the order their slices ran. The
 plan being implemented now is [`PLAN.md`](../PLAN.md) at the repository root,
-and the rules for archiving it are in [`AGENTS.md`](../AGENTS.md).
+and the rules for archiving it are in [`AGENTS.md`](../AGENTS.md#plans-the-roadmap-and-the-archive).
 
 | Release | Plan | Working records |
 |---|---|---|

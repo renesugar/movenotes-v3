@@ -3,31 +3,40 @@
 ## Repository orientation
 
 `movenotes` is a dependency-free Python toolkit using `notesdb.sqlite` as the
-intermediate representation between Joplin RAW, Obsidian vaults, and Twitter/X
-archives.
+intermediate representation between Joplin RAW, Obsidian vaults, Twitter/X
+archives and Notrios publications.
 
 Read these files first:
 
-1. `README.md` — supported workflows, lossless guarantees, and command usage.
-2. `notesdb.py` — schema, migrations, indexes, Joplin property serialization,
+1. `PLAN.md` and `ROADMAP.md` — the plan being implemented and its next slice,
+   and what releases are meant to do. How they are kept, and when a plan is
+   archived to `plans/`, is under
+   [Plans, the roadmap and the archive](#plans-the-roadmap-and-the-archive).
+2. `README.md` — supported workflows, lossless guarantees, and command usage.
+3. `notesdb.py` — schema, migrations, indexes, Joplin property serialization,
    exact-source checks, and batch insert helpers.
-3. `joplin2sql.py` / `sql2joplin.py` — authoritative Joplin RAW parsing and
+4. `joplin2sql.py` / `sql2joplin.py` — authoritative Joplin RAW parsing and
    serialization behavior.
-4. `obsidian2sql.py` / `sql2obsidian.py` / `obsidianmeta.py` — native Obsidian
+5. `obsidian2sql.py` / `sql2obsidian.py` / `obsidianmeta.py` — native Obsidian
    snapshots, preservation bundles, path restoration, attachment mappings, and
    metadata carried through `application_data`.
-5. `obsidian2site.py`, `site_server/`, and `STATIC_SITE.md` — scalable
+6. `obsidian2site.py`, `site_server/`, and `STATIC_SITE.md` — scalable
    Hugo/Ledger generation, canonical note URLs, disk-backed tags, server-side
-   Bluge search, and the Pagefind static fallback. `plans/v3.36/000-ledger-migration-plan.md`
-   holds the in-progress migration from the Relearn theme, its decisions, and
-   which step is next; `STATIC_SITE.md` is rewritten at the end of it, so where
-   the two disagree the plan is current and `STATIC_SITE.md` is not.
+   Bluge search, and the Pagefind static fallback. The migration from the
+   Relearn theme is complete and archived as
+   `plans/v3.36/000-ledger-migration-plan.md`; its decisions (M2, M3 and the
+   rest) still explain several invariants below.
    `DEPLOY_VERCEL.md` and `DEPLOY_GITHUB_PAGES.md` document deployment, and
    carry the measured platform limits that decide which archives can be deployed
    where — do not restate those numbers elsewhere from memory.
-6. `image_resources.py`, `images2resources.py`, and `quarantinelinks.py` —
+7. `image_resources.py`, `images2resources.py`, and `quarantinelinks.py` —
    Markdown image parsing, network safety, reports, resources, and quarantine.
-7. `CHANGELOG.md` and `PERFORMANCE_REVIEW.md` — revision history and complexity
+8. `notrios2sql.py` and `notrios_archive.py`, `notrios_links.py`,
+   `notrios_mapping.py`, `notrios_receipt.py`, with `NOTRIOS_IMPORT_CONTRACT.md`
+   and `NOTRIOS_IMPORT_DESIGN.md` — Notrios publication verification, link
+   projection, row mapping and receipts. The plan that built them, and its
+   evidence, is archived in `plans/v3.37/`.
+9. `CHANGELOG.md` and `PERFORMANCE_REVIEW.md` — revision history and complexity
    decisions.
 
 ## Invariants
@@ -171,6 +180,88 @@ inherit it.
 Some environments intermittently stall when all subprocess-heavy notebook
 filtering tests share one process; running test classes independently is an
 accepted diagnostic, but every class and method must pass before release.
+
+## Plans, the roadmap and the archive
+
+Three places hold planning, and each holds one kind of fact:
+
+| Place | The home for | Not here |
+|---|---|---|
+| `PLAN.md` | the plan being implemented: what each slice is for, its acceptance, and a dated log of what happened | what is left, in prose; that is generated from its ledger |
+| `ROADMAP.md` | what each release is meant to do, and the deferred features with why they wait | per-slice status; that is the plan's |
+| `plans/` | finished plans, verbatim, with their ledgers and working records | anything still being worked on |
+
+**Keeping the plan current.** `PLAN.md` is a journal, and its ledger,
+`docs/plan/ledger.json`, is authoritative for each slice's status, assignment and
+execution record (see [Mandatory planned delegation](#mandatory-planned-delegation)).
+When a slice starts or finishes, update the ledger first, then regenerate and
+check the plan's generated sections, and commit them with the work:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/render_plan_ledger.py
+PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/render_plan_ledger.py --check
+```
+
+The slice's own section keeps its specification, and the dated log says what
+happened and why. A finding that needs fixing becomes a slice in the plan,
+rather than a note that it exists.
+
+**Keeping the roadmap current.** The roadmap says what a release *means*, and
+the plan says how far along it is. Keep that line, or the roadmap goes on
+claiming work is next long after it finished.
+
+- The roadmap carries no slice status. It names the release the active plan is
+  for and points to `PLAN.md`.
+- New work enters the roadmap when it enters the plan, under the release it is
+  planned for. A deferred feature stays listed when it is planned, and moves
+  under that release.
+- Scope that moves between releases says where it came from and why, in the
+  release it moved to.
+
+**Archiving a plan.** When every slice of `PLAN.md` is complete, or moved on
+with the user's agreement, archive it under the release it shipped in:
+
+```text
+plans/v<major>.<minor>/000-<slug>-plan.md
+plans/v<major>.<minor>/<slug>-ledger.json
+plans/v<major>.<minor>/<NNN>-<slug>.md
+```
+
+The plan is `000`, its ledger sits beside it with its `plan` field pointing at
+the archived plan, and its working records (evidence, reviews, trial reports)
+follow as `001`, `002`, … in the order their slices ran. Archive verbatim:
+update only the paths to files that moved, so every link still resolves, and
+`--check` still passes in place
+(`scripts/render_plan_ledger.py --ledger plans/v<major>.<minor>/<slug>-ledger.json --check`).
+Add the plan to `plans/README.md`, and release the version in `CHANGELOG.md`.
+
+**Starting the next plan.** Write a new `PLAN.md` from `ROADMAP.md` and ask the
+user before starting it. It needs the coding-agent assignment section and a
+fresh `docs/plan/ledger.json` seeded with its slices, and it must point back to
+this section, because these rules outlive any one plan.
+
+## Repository layout and moved files
+
+- Scripts and the modules they share are at the root, so `python3 -B
+  joplin2sql.py` works from a checkout.
+- `tests/` holds the `unittest` modules. They are run from the root by path
+  (`python3 -B -m unittest tests/test_movenotes.py`), or by dotted name
+  (`tests.test_notrios2sql.NotriosV1TitledTest`). The directory needs no
+  `__init__.py`. Do not name it, or any directory at the root, after a
+  standard-library module: a `unittest/` directory breaks the runner.
+- `scripts/` holds development tools: trial harnesses, the ledger renderer, the
+  link checker.
+- `docs/` holds documentation.
+- `plans/` holds finished plans.
+- `testdata/` and `sample/` hold fixtures. Their notes are data whose bytes the
+  tests pin. Never rewrite one to fix a link.
+
+Move a file with `git mv`, and change every reference to it in the same commit:
+Markdown links relative to each file's location, and bare mentions by their
+repository-relative path. Archived plans included. `tests/test_docs.py` runs
+`scripts/check_doc_links.py`, which refuses any relative link whose file or
+`#anchor` does not exist. It also refuses a link that leaves the repository; link
+to another repository on GitHub at a pinned commit instead.
 
 ## Mandatory planned delegation
 

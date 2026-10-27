@@ -1,10 +1,14 @@
 # Plan: Reorganize the repository, then the Notrios import follow-ups
 
 Status: **opened 2026-10-26.** L0 (opening), **L1 and L2 are complete**; the
-**L4** is complete too. The next slice is **L3**,
-authorized by the user to follow L4. The user confirmed this plan's assignments for the session
+**L4** and **L3** are complete too. The next slice is
+**L5**, not yet authorized. The user confirmed this plan's assignments for the session
 on 2026-10-26; see
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
+
+How this plan, [`ROADMAP.md`](ROADMAP.md) and the archive in [`plans/`](plans/)
+are kept current, and when this plan is archived, is in `AGENTS.md` under
+[Plans, the roadmap and the archive](AGENTS.md#plans-the-roadmap-and-the-archive).
 
 ## Goal
 
@@ -97,8 +101,8 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 <!-- PLAN-ASSIGNMENTS:END -->
 
-Next slice: **L3 — `ROADMAP.md` and the rules for plans**, assigned to Main;
-authorized 2026-10-26 ("then L3").
+Next slice: **L5 — documentation in `docs/`**, assigned to Main; not yet
+authorized.
 
 ## Execution rules
 
@@ -124,7 +128,7 @@ authorized 2026-10-26 ("then L3").
 | L1 / Main | *Complete 2026-10-26.* Remove the account name from committed paths; update the `AGENTS.md` test command. See [L1](#l1--remove-the-account-name-from-committed-paths). | L0 | No tracked file holds a path with the account name; both ledgers check; the full gate passes. |
 | L2 / Main | *Complete 2026-10-26.* Release 3.37 and archive the finished plans, with a link checker. See [L2](#l2--release-337-and-archive-the-finished-plans). | L1 | Every relative link and anchor in every tracked Markdown file resolves; the archived ledger checks in place; the full gate passes. |
 | L4 / Main | *Complete 2026-10-26.* Move the test modules into `tests/` and `notrios_c7c.py` into `scripts/`. See [L4](#l4--tests-in-tests-and-tools-in-scripts). | L2 | The same 321 and 43 tests, by name, pass from `tests/`, run from the repository root; no `test_*.py` or `notrios_c7c.py` at the root. |
-| L3 / Main | Add `ROADMAP.md`, and the plan, roadmap and archive rules in `AGENTS.md`. See [L3](#l3--roadmapmd-and-the-rules-for-plans). | L4 | Each deferred feature has its scope, why it is deferred and what it needs; `AGENTS.md` states the rules; links resolve. |
+| L3 / Main | *Complete 2026-10-26.* Add `ROADMAP.md`, and the plan, roadmap and archive rules in `AGENTS.md`. See [L3](#l3--roadmapmd-and-the-rules-for-plans). | L4 | Each deferred feature has its scope, why it is deferred and what it needs; `AGENTS.md` states the rules; links resolve. |
 | L5 / Main | Move the documentation into `docs/`, and split the README's usage sections into pages there. See [L5](#l5--documentation-in-docs). | L3 | Root holds only the files listed in L5; every old README paragraph exists in exactly one page; links resolve. |
 | L6 / Main | Document private data and publications over 100,000 notes. See [L6](#l6--private-data-and-large-publications). | L5 | Each documented command was run on a synthetic library and behaved as written. |
 | L7 / Main | Check that documented examples are executable. See [L7](#l7--executable-documentation). | L6 | Every fence is registered; Python-only examples pass in the gate; the `--with-tools` run passes here; an edited fence fails. |
@@ -561,7 +565,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
-<details><summary>L3 — pending; planned parent</summary>
+<details><summary>L3 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -569,21 +573,21 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; L3 authorized by the user on 2026-10-26 (do L4 next ... then L3). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Wrote ROADMAP.md: the 3.38 release the active plan is for (no slice status) and the three deferred features, packed publications, multiple handoffs and merges, and full and subset archives, each with what it is, why it waits (from the importer's actual refusals in notrios_archive.py and notrios2sql.py), what it needs and what it depends on. AGENTS.md: a new 'Plans, the roadmap and the archive' section adapted from the Notrios repository's plan, roadmap and archival rules (homes table, keeping the plan and roadmap current, the archive layout and verbatim rule, starting the next plan); a 'Repository layout and moved files' section (root scripts, tests/ without __init__.py and why not unittest/, scripts/, docs/, plans/, fixture data never rewritten, git mv plus references in the same commit, the link checker); the reading list now starts with PLAN.md and ROADMAP.md, describes the migration plan as archived, and names the Notrios modules. PLAN.md, the README and plans/README.md point back to the new section. |
+| Validation | check_doc_links.py: 32 documents, 0 broken links (ROADMAP.md and the new AGENTS.md anchors included); tests/test_docs.py passes; ROADMAP.md holds no slice status. Documentation only; no code changed. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: do L4 next, including notrios_c7c.py, then L3; ~/projects/notrios/AGENTS.md (Keeping the plan current, Keeping the roadmap current, Plan archival) |
+| Commit | Git commit containing this record: docs: add ROADMAP.md and the rules for plans (L3) |
 
 </details>
 
@@ -807,3 +811,4 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-26 | L2 complete | Released 3.37: CHANGELOG heading, five scripts at 3.37 (`cleanres.py` from 2.10), `notrios2sql.py --version`. Archived the migration plan to `plans/v3.36/` and the Notrios plan, ledger and ten records to `plans/v3.37/`, with every reference updated; 26 links into a sibling Notrios checkout now go to GitHub at the cited commit. `scripts/check_doc_links.py` and `test_docs.py` check every link and anchor, and found one already broken, now fixed. 321 and 43 tests pass. Next: ask to proceed to L3. |
 | 2026-10-26 | L4 revised and moved before L3 | The user: "Add a `unittest` directory for those files and update any necessary files in the plan for L4. Then, do L4 next, including notrios_c7c.py, then L3." and then "Pick a different name if `unittest` would cause problems." A directory named `unittest` breaks `python3 -m unittest unittest/test_x.py`, and with an `__init__.py` would shadow the standard library, so the tests go to `tests/`; `notrios_c7c.py` goes to `scripts/`. Order: L4, then L3, then L5. |
 | 2026-10-26 | L4 complete | The eleven test modules are in `tests/` and `notrios_c7c.py` in `scripts/`; every reference outside the active plan was rewritten, dotted test names included. The same 364 test IDs load; 321 and 43 pass from `tests/`. Next: L3, already authorized. |
+| 2026-10-26 | L3 complete | `ROADMAP.md` gives the 3.38 release this plan is for and the three deferred Notrios features. `AGENTS.md` gains the rules for plans, the roadmap and the archive, and for the repository layout and moving files; its reading list starts with `PLAN.md` and `ROADMAP.md`. Documentation only. Next: ask to proceed to L5. |
