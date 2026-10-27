@@ -104,7 +104,9 @@ python3 -B obsidian2site.py --input ~/public_vault --output ~/public_site \
 `~/plan.json` lists every note the publication will hold, with counts that
 include `selected_documents`, `private_links` and `broken_links`. Notrios
 leaves out notes tagged `private`, `draft` or `confidential`, read-only
-notebooks and the Trash by default. Read the plan before step 3:
+notebooks and the Trash by default; see
+[Keeping notes out of a publication](#keeping-notes-out-of-a-publication).
+Read the plan before step 3:
 `--reviewed-plan` publishes that plan or nothing, and step 4 refuses any other
 selection. Serve the site as the
 [static-site guide](static-site.md#3-recommended-build-and-run-the-bluge-server) describes.
@@ -123,25 +125,125 @@ the flag off `obsidian2site.py` if you don't want that.
 An `<img>` written in HTML imports correctly, but the exported vault still
 points its `src` at `:/id`, so Obsidian and the site do not show the image.
 
-**Over 100,000 notes.** At `v1.0.0`, `publish plan` and `publish run` select at
-most 100,000 notes, and a profile holds at most 100 notebook and tag
-selectors. For a larger publication, export the handoff directly and take the
-selection digest from its report:
+## Keeping notes out of a publication
+
+A publication holds what its profile selects, minus what Notrios withholds. At
+`v1.0.0` a publication handoff withholds, without being asked:
+
+- notes tagged `private`, `draft` or `confidential`;
+- notes in read-only notebooks, such as Notrios's own Help and Reports;
+- notes in the Trash, and every earlier revision of every note;
+- source provenance, exact source bundles and private metadata.
+
+Notrios decides by tag, not by where a note is filed: a notebook named
+`Private` is published like any other if a profile selects it. To keep a note
+out, tag it. `search` prints each matching note's `document_id`:
 
 ```bash
+notriosctl search 'Secret'
+notriosctl tags add --tag private --document doc_obsidian_private_secret
+```
+
+To tag every note a query matches, such as a whole notebook, run the command
+once to see what it would tag, then again with `--apply`:
+
+```bash
+notriosctl tags add --tag private --query 'notebook:"Private"'
+notriosctl tags add --tag private --query 'notebook:"Private"' --apply
+```
+
+Then plan again: the note is gone from the plan's `documents` and counted in
+`excluded_documents`. The `export archive-v2` route applies the same defaults;
+see [Publications over 100,000 notes](#publications-over-100000-notes).
+
+A profile can change the list, and the two options behave differently:
+
+- `--exclude-tags a,b` **adds** tags: `--exclude-tags internal` withholds
+  `internal` notes as well as `private`, `draft` and `confidential` ones.
+- `--private-tags a,b` **replaces** the three defaults: with
+  `--private-tags secret`, a note tagged `private` is published. Name every
+  tag you still want withheld when you use it.
+
+Both were checked on a synthetic library with `notriosctl` `v1.0.0`; read the
+plan's `policy` (`exclude_tags`, `private_tags`) to see what a profile
+actually withholds.
+
+## What tagging cannot catch
+
+Tags are a decision about whole notes. Neither Notrios nor movenotes reads a
+note for personal data, so anything in a published note is published as
+written:
+
+- a phone number, address, account number or name in a sentence, a list or a
+  table. `tel:` and `mailto:` are only the forms a link happens to take, and
+  most phone numbers are not links;
+- the contents of code blocks and inline code, which are copied unchanged;
+- titles, file names and attachment names;
+- link URLs, which can carry tokens, user names or session IDs in their query
+  strings, and are searchable on the site;
+- attachments, which are copied byte for byte. An image publishes whatever it
+  shows, a screenshot of a message included, and whatever metadata it
+  carries, such as a photo's location; a PDF publishes its text and its
+  document properties.
+
+If private data in a publication would matter, scan the publication or the
+exported vault before generating or deploying the site, with software built
+for it:
+
+- [Presidio](https://github.com/data-privacy-stack/presidio)
+  ([presidio.dataprivacystack.org](https://presidio.dataprivacystack.org))
+  detects, redacts, masks and anonymizes personal data in text, images and
+  structured data, with pattern matching, NLP and customizable pipelines;
+- [hawk-eye](https://github.com/rohitcoder/hawk-eye) scans filesystems and
+  storage (S3, Google Cloud Storage, Firebase, MySQL, Redis) for personal and
+  sensitive data.
+
+Change what they find in Notrios, not in the vault: the next publication is
+made from the library, so an edit to the vault is lost when you publish again.
+
+## Publications over 100,000 notes
+
+At `v1.0.0`, `publish plan` and `publish run` select at most 100,000 notes,
+and a profile holds at most 100 notebook and tag selectors. A larger library
+can still be published in one piece, the way movenotes' own trials published
+382,206 notes: export the handoff directly, over the root notebooks, which
+bring their subnotebooks with them.
+
+```bash
+roots=$(notriosctl notebooks list --json | python3 -c 'import json,sys; print(",".join(n["notebook_id"] for n in json.load(sys.stdin)["notebooks"] if not n["parent_id"]))')
 notriosctl export archive-v2 --target publication_handoff \
-  --notebooks nb_a,nb_b --max-documents 1000000 ~/publication > ~/export.json
+  --notebooks "$roots" --max-documents 1000000 ~/publication > ~/export.json
 selection=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["selection_manifest_sha256"])' < ~/export.json)
 ```
 
-Step 3's `verify archive-v2` and step 4 are unchanged. The export has no profile and no
-plan to review. Check the report's `selected_documents`, `excluded_documents`,
-`rewritten_links` and `skipped_rewrites` before importing. Notes that belong
-to no notebook cannot be selected this way. Selecting them by ID hits the
-8,192-byte limit on a Notrios job's parameters long before 100,000 notes.
+Then verify and import exactly as in steps 3 and 4 of the recipe above. What
+the export route does and does not do:
+
+- It applies the same default policy as `publish`. For the same notebooks, its
+  selection digest equals the reviewed plan's, and it withheld a
+  `private`-tagged note. It has no `--exclude-tags` or `--private-tags`, so on
+  this route, tag a note `private` to withhold it.
+- It has no profile and no reviewed plan. Read the report before importing:
+  `selected_documents` and `excluded_documents` should be what you expect, and
+  `skipped_rewrites` should be 0.
+- Root notebooks must number 100 or fewer, as for a profile. To publish only
+  part of a large library, name the notebooks that hold that part.
+- A note in no notebook is not selected by any notebook. If
+  `selected_documents` falls short of the notes you meant to publish and
+  `excluded_documents` does not explain it, file those notes into a notebook
+  first, with `notriosctl notes move --notebook <id> --document <id>`. Listing
+  them by ID instead hits the 8,192-byte limit on a Notrios job's parameters
+  long before 100,000 notes.
+
+The other way is to split the library into several publications of at most
+100,000 notes each, by notebook, and publish each through the reviewed
+`publish` path. Each must then be imported into its own database and becomes
+its own site, because publications cannot yet be merged; see "Multiple
+handoffs and merges" in [`ROADMAP.md`](../ROADMAP.md#multiple-handoffs-and-merges).
 
 Measured end to end on three real libraries (one Linux workstation, internal
-disk, Hugo `v0.164.0`, Go 1.27.0), with every note published. Each cell is
+disk, Hugo `v0.164.0`, Go 1.27.0), with every note published through
+`export archive-v2`. Each cell is
 wall-clock time and peak memory for that step alone:
 
 | Step | Joplin, 103,349 notes | Recipes from RAW, 382,206 | Recipes from a vault, 382,206 |

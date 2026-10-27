@@ -1,5 +1,14 @@
 # Changelog
 
+Unreleased changes:
+- Documented how to keep notes out of a Notrios publication. Measured on Notrios `v1.0.0`: the `private`, `draft` and `confidential` tags are withheld by default; `--exclude-tags` adds to that list, while `--private-tags` replaces it, so `--private-tags secret` publishes a note tagged `private`. A notebook named `Private` is not private. Also documented what tags cannot catch (personal data in prose, code, titles, URLs and attachments), with Presidio and hawk-eye recommended for scanning a publication first.
+- Documented publishing more than 100,000 notes from Notrios: export the handoff over the root notebooks with `--max-documents`. The export applies the same default policy (its selection digest equals the reviewed plan's), but has no profile and no plan review.
+- Moved the documentation into `docs/`, one page per workflow, with `docs/index.md`; the README keeps an overview and a short example per workflow. The tests moved to `tests/`, development tools to `scripts/`, and finished plans to `plans/` by release, with `ROADMAP.md` for deferred features.
+- Added `scripts/check_doc_links.py`, run by `tests/test_docs.py`, which refuses a relative link or `#anchor` that does not resolve, and a link that leaves the repository.
+- Removed the account name from every committed path.
+
+---
+
 Changes in 3.37:
 - Added `notrios2sql.py`, which verifies a Notrios publication handoff (a loose archive-v2 directory) and imports it into a new database: notebooks with their nesting, each note's current revision, tags and memberships, and attachments with their exact bytes. IDs are derived from the publication's own identities, so one publication always produces the same IDs. Tested against Notrios `v1.0.0`.
 - Verified the whole archive before writing anything: every object's size and SHA-256, the manifest's digests, the records and how they refer to each other, and the publication's own rules. Reads go through no-follow directory handles with bounded JSON and fixed size limits, and a packed archive, another export target, source bundles or provenance are refused.

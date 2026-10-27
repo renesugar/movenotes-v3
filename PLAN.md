@@ -2,7 +2,7 @@
 
 Status: **opened 2026-10-26.** L0 (opening), **L1 and L2 are complete**; the
 **L4**, **L3** and **L5** are complete too. The
-next slice is **L6**, not yet authorized. The user confirmed this plan's assignments for the session
+next slice is **L7**, not yet authorized. The user confirmed this plan's assignments for the session
 on 2026-10-26; see
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 
@@ -101,8 +101,8 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 <!-- PLAN-ASSIGNMENTS:END -->
 
-Next slice: **L6 — private data and large publications**, assigned to Main;
-not yet authorized.
+Next slice: **L7 — executable documentation**, assigned to Main; not yet
+authorized.
 
 ## Execution rules
 
@@ -130,7 +130,7 @@ not yet authorized.
 | L4 / Main | *Complete 2026-10-26.* Move the test modules into `tests/` and `notrios_c7c.py` into `scripts/`. See [L4](#l4--tests-in-tests-and-tools-in-scripts). | L2 | The same 321 and 43 tests, by name, pass from `tests/`, run from the repository root; no `test_*.py` or `notrios_c7c.py` at the root. |
 | L3 / Main | *Complete 2026-10-26.* Add `ROADMAP.md`, and the plan, roadmap and archive rules in `AGENTS.md`. See [L3](#l3--roadmapmd-and-the-rules-for-plans). | L4 | Each deferred feature has its scope, why it is deferred and what it needs; `AGENTS.md` states the rules; links resolve. |
 | L5 / Main | *Complete 2026-10-26.* Move the documentation into `docs/`, and split the README's usage sections into pages there. See [L5](#l5--documentation-in-docs). | L3 | Root holds only the files listed in L5; every old README paragraph exists in exactly one page; links resolve. |
-| L6 / Main | Document private data and publications over 100,000 notes. See [L6](#l6--private-data-and-large-publications). | L5 | Each documented command was run on a synthetic library and behaved as written. |
+| L6 / Main | *Complete 2026-10-26.* Document private data and publications over 100,000 notes. See [L6](#l6--private-data-and-large-publications). | L5 | Each documented command was run on a synthetic library and behaved as written. |
 | L7 / Main | Check that documented examples are executable. See [L7](#l7--executable-documentation). | L6 | Every fence is registered; Python-only examples pass in the gate; the `--with-tools` run passes here; an edited fence fails. |
 | L8 / Main | *Added 2026-10-26 at the user's request; needs authorization, and separate permission to force-push.* Rewrite the old paths in the Git history. See [L8](#l8--rewrite-the-old-paths-in-the-git-history). | L7 | No commit on any branch holds a path with the account name; the tip's tree is unchanged by the rewrite; every reference to a rewritten commit is mapped. |
 | H1 / Main | *Proposed 2026-10-24 (C7d); not authorized.* Make HTML images render after export. See [H1](#h1--html-images-after-export). | L7 | As in H1. |
@@ -293,7 +293,9 @@ In `docs/notrios.md`:
   are excluded by default, along with read-only notebooks and the Trash.
   `--exclude-tags` replaces the default list, so a profile that sets it must
   name the defaults it still wants. Review the plan's list of notes before
-  publishing.
+  publishing. *(Corrected in L6 by reading and measuring `v1.0.0`:
+  `--exclude-tags` adds tags; it is `--private-tags` that replaces the three
+  defaults.)*
 - **What tagging cannot catch.** Neither Notrios nor movenotes reads a note
   for personal data. A phone number, address or account number written in a
   sentence, in a code block, in a table, in a title or file name, or in a
@@ -619,7 +621,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
-<details><summary>L6 — pending; planned parent</summary>
+<details><summary>L6 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -627,21 +629,21 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; L6 authorized by the user on 2026-10-26 (Start L6). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Read Notrios v1.0.0's selection policy (internal/store/sqlite_selection.go: defaultSelectionPolicy, the ExcludeTags/PrivateTags union, MaxSelectionSelectors) and found the plan's assumption wrong: --exclude-tags adds to the withheld tags, --private-tags replaces the three defaults. Measured on a synthetic library imported from testdata/notrios/vault-titled-v1 with the pinned binary: default plan withholds a private-tagged note; --exclude-tags internal withholds both; --private-tags secret publishes the private-tagged note; export archive-v2 withholds it and its selection digest equals the default plan's for the same notebook; both routes over every root notebook select 3 and exclude 1; a note in a notebook named Private is published unless tagged; tags add --query ... --apply tags a notebook; notes move files a note. docs/notrios.md: new sections 'Keeping notes out of a publication', 'What tagging cannot catch' (prose, code, titles, file names, URLs, attachments and their metadata; Presidio and hawk-eye; fix findings in Notrios, not the vault) and 'Publications over 100,000 notes' (export over root notebooks found with notebooks list --json, what the export route does and does not do, the 100-selector and unfiled-note limits, or splitting into separate sites until merges exist), replacing the recipe's short paragraph. CHANGELOG gains an Unreleased section for L2 to L6's user-visible changes. |
+| Validation | The three new fences ran as written in a fresh scratch library: search found the note IDs, tags add tagged it (plan 4 selected/0 excluded to 3/1), the query dry run and --apply ran, the export over every root notebook selected 3 and excluded 1 with skipped_rewrites 0, withheld the tagged note, verified, and imported with notrios2sql.py. The --exclude-tags and --private-tags behaviour was measured in a separate probe. check_doc_links.py: 41 documents, 0 broken links. Documentation only; no code changed. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Start L6; ~/projects/notrios at v1.0.0: internal/store/sqlite_selection.go, cmd/notriosctl/publish.go; Private scratchpad l6/probe.sh, l6/probe2.sh, l6/doc-fences.sh |
+| Commit | Git commit containing this record: docs: document private data and publications over 100,000 notes (L6) |
 
 </details>
 
@@ -815,3 +817,5 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-26 | L4 complete | The eleven test modules are in `tests/` and `notrios_c7c.py` in `scripts/`; every reference outside the active plan was rewritten, dotted test names included. The same 364 test IDs load; 321 and 43 pass from `tests/`. Next: L3, already authorized. |
 | 2026-10-26 | L3 complete | `ROADMAP.md` gives the 3.38 release this plan is for and the three deferred Notrios features. `AGENTS.md` gains the rules for plans, the roadmap and the archive, and for the repository layout and moving files; its reading list starts with `PLAN.md` and `ROADMAP.md`. Documentation only. Next: ask to proceed to L5. |
 | 2026-10-26 | L5 complete | Seven reference documents moved into `docs/` in lowercase, with every reference updated. The README's usage sections are eight pages in `docs/`, listed by `docs/index.md`; the README keeps what movenotes is, the script table, setup and a short example per workflow, and is 197 lines instead of 863. Every old paragraph has one home, apart from the repeated examples and the site summary that `docs/static-site.md` already covered. Next: ask to proceed to L6. |
+| 2026-10-26 | Caches removed; L6 authorized | The user: "Remove unused __pycache__/ directories; there is another __pycache__/ directory in the scripts/ directory. Start L6." Both held only compiled files and nothing tracked; one, `scripts/__pycache__/check_doc_links.cpython-314.pyc`, came from a check run without `-B` during L2. Both removed. |
+| 2026-10-26 | L6 complete | `docs/notrios.md` documents keeping notes out of a publication, what tagging cannot catch (with Presidio and hawk-eye), and publishing over 100,000 notes. Found while reading Notrios `v1.0.0`'s selection code, and confirmed by measurement: `--exclude-tags` adds tags, and `--private-tags` replaces the defaults, so it can publish a `private` note; the plan's L6 text said otherwise and is corrected. Every new command ran as written. Next: ask to proceed to L7. |
