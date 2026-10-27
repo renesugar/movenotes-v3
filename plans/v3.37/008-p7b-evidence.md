@@ -1,6 +1,6 @@
 # P7b isolated import candidates
 
-P7b implements candidates selected by [P7a](NOTRIOS_PERFORMANCE_EVIDENCE.md).
+P7b implements candidates selected by [P7a](007-performance-evidence.md).
 Full-corpus performance adoption remains P7c; no acceptance producer pin changes.
 Python baseline is `f0b218a`. The Go experiment uses current Notrios
 `f478da7f1065d95d47cf21612833cef991bb8255`, not historical acceptance pin
@@ -77,7 +77,7 @@ for implementation; `/root/p7a_monitor` used configured Luna (gpt-5.6-luna, fixe
 max) for the long sequential validation batch. Actual child model/effort were not
 independently exposed. Existing session billing suitability confirmation applies;
 billing route is not exposed. The authoritative ledger is
-`NOTRIOS_IMPORT_EXECUTION.json`. Two-slot capacity required staged workers.
+`plans/v3.37/notrios-import-ledger.json`. Two-slot capacity required staged workers.
 
 ## First completed batch (retained, initially failed comparison)
 

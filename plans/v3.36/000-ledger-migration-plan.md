@@ -423,7 +423,7 @@ already working.
 Numbering continues the movenotes `PLAN.md`, which ends at Step 19.
 
 ### Step 20 — This plan  ✅
-Write `LEDGER_MIGRATION_PLAN.md`; add a pointer from `PLAN.md`. No code.
+Write `plans/v3.36/000-ledger-migration-plan.md`; add a pointer from `PLAN.md`. No code.
 
 ### Step 21 — Theme-side prerequisites *(theme repo)*  ✅
 M5, M6 and the theme half of M7, committed as the theme's step 16 (`10f31cc`).
@@ -1167,7 +1167,7 @@ two backends, because Pagefind indexes the rendered HTML:
 | where the URL is | Bluge | Pagefind |
 |---|---|---|
 | bare URL (rendered as an autolink) | ✗ stripped from the source | ✓ indexed as visible text |
-| markdown/HTML link target (`[label](url)`) | ✗ stripped | ✗ `href` is not visible text |
+| markdown/HTML link target (`[label](../../url)`) | ✗ stripped | ✗ `href` is not visible text |
 
 So `--search-backend bluge` is strictly worse than `pagefind` here, and the user
 asked for both cases: *"whether it is a bare link or in an HTML link."*

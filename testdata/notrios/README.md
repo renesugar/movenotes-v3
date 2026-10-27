@@ -22,7 +22,7 @@ invented test data.
 | [manifest-vectors.json](manifest-vectors.json) / [manifest_vectors.go](manifest_vectors.go) | Slice 2a semantic manifest bytes/digests and their independent Go standard-library oracle. Includes serializer-only cases that the loose-publication reader must refuse. |
 | [storage-mime-vectors.json](storage-mime-vectors.json) / [storage_mime_vectors.go](storage_mime_vectors.go) | Slice 2b Go-generated MIME syntax acceptance cases for noncanonical storage hints. These do not establish canonical record/reference MIME equality. |
 | [semantic-mime-vectors.json](semantic-mime-vectors.json) / [semantic_mime_vectors.go](semantic_mime_vectors.go) | Slice 2d normalization oracle: 56 Go 1.27.0 cases matching the pinned Notrios `normalizeMediaType` rule, including quoting, duplicate parameters, RFC2231 continuations, invalid percent sequences, raw decoded bytes and length bounds. Tests read the frozen output without Go. |
-| [verifier-audit-cases.json](verifier-audit-cases.json), [verifier-audit.json](verifier-audit.json), [verifier-memory.json](verifier-memory.json) / [audit_verifier.py](audit_verifier.py) | Slice 2e: pinned-CLI differential results, boundedness observations and a development-only reproducer. See the [audit](../../NOTRIOS_VERIFIER_AUDIT.md) for the scope and two lifetime fixes. |
+| [verifier-audit-cases.json](verifier-audit-cases.json), [verifier-audit.json](verifier-audit.json), [verifier-memory.json](verifier-memory.json) / [audit_verifier.py](audit_verifier.py) | Slice 2e: pinned-CLI differential results, boundedness observations and a development-only reproducer. See the [audit](../../plans/v3.37/001-verifier-audit.md) for the scope and two lifetime fixes. |
 
 Only `archive/` is the handoff. The surrounding reports and expectations are test
 evidence and include synthetic withheld IDs on purpose; they must never be
@@ -412,7 +412,7 @@ conversion/no-op/vault regressions that check the titles survive byte for byte.
 
 ## Vault-to-site tag semantics — slice 4c
 
-[The tag review](../../NOTRIOS_TAG_REVIEW.md) traces the real schema-28 text
+[The tag review](../../plans/v3.37/002-tag-review.md) traces the real schema-28 text
 publication through vault export and site generation. `NotriosSiteTagTest`
 checks default and capped taxonomy against search-source tags and the posting
 index. Generated words remain outside both tag fields; capped written tags
@@ -465,7 +465,7 @@ hash exported bytes in chunks. No large fixture or generated output is committed
 
 ## Resource safety review — slice 5d
 
-[The resource review](../../NOTRIOS_RESOURCE_REVIEW.md) traces reachability,
+[The resource review](../../plans/v3.37/003-resource-review.md) traces reachability,
 rehashing at consumption, stage confinement, no-replace publication and recovery.
 `NotriosResourceSafetyTest` adds full-import checks for a rehashed orphan
 resource, same-size private resource corruption and a symlink immediately before
@@ -548,7 +548,7 @@ malformed/oversized metadata, symlink refusal and failed atomic replacement.
 Actual Hugo/search build acceptance was performed in slice 7b.
 
 Completed 7b evidence, exact tool/theme pins and reproducible live browser/build
-commands are in [NOTRIOS_SITE_ACCEPTANCE.md](../../NOTRIOS_SITE_ACCEPTANCE.md).
+commands are in [plans/v3.37/004-site-acceptance.md](../../plans/v3.37/004-site-acceptance.md).
 The run found and fixed Bluge subpath result links in Ledger commit `85ac1b0`.
 
 ### Offline publication-to-vault acceptance (7a)

@@ -18,7 +18,7 @@ Read these files first:
    metadata carried through `application_data`.
 5. `obsidian2site.py`, `site_server/`, and `STATIC_SITE.md` — scalable
    Hugo/Ledger generation, canonical note URLs, disk-backed tags, server-side
-   Bluge search, and the Pagefind static fallback. `LEDGER_MIGRATION_PLAN.md`
+   Bluge search, and the Pagefind static fallback. `plans/v3.36/000-ledger-migration-plan.md`
    holds the in-progress migration from the Relearn theme, its decisions, and
    which step is next; `STATIC_SITE.md` is rewritten at the end of it, so where
    the two disagree the plan is current and `STATIC_SITE.md` is not.
@@ -50,7 +50,7 @@ Read these files first:
   it is handed, so capping only the links changes nothing.
 - Generated word tags never become Hugo taxonomy terms. Explicit tags may; the
   count that reaches the taxonomy is capped. See decisions M2 and M3 in
-  `LEDGER_MIGRATION_PLAN.md`.
+  `plans/v3.36/000-ledger-migration-plan.md`.
 - Generated word tags never reach `search-source.jsonl` either. `tag:` matches
   the tags written in a note, so it returns the same count as the tag archive
   and as Pagefind's filter — one query, one answer, on all three. They stay
@@ -134,11 +134,11 @@ check `zg help index` for the installed version's options.
 
 ## Tests
 
-The required gate is six modules:
+The required gate is seven modules:
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_movenotes.py test_image_resources.py \
-  test_obsidian2sql.py test_obsidian2site.py test_notrios2sql.py test_notrios_7c.py
+  test_obsidian2sql.py test_obsidian2site.py test_notrios2sql.py test_notrios_7c.py test_docs.py
 ```
 
 A full gate adds the four modules that test the performance and comparison
@@ -150,7 +150,9 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios_c7c.py test_not
 ```
 
 Run both before a release, and before completing a plan slice that changes
-code. `test_notrios2sql.py` needs no Notrios binary: it reads the committed
+code. `test_docs.py` runs `scripts/check_doc_links.py`, which refuses a relative
+link in any document whose file or `#anchor` does not exist; a file moved
+without updating the links to it fails there. `test_notrios2sql.py` needs no Notrios binary: it reads the committed
 publications under `testdata/notrios/`.
 
 The scripts change often and the tests run them as subprocesses, so a

@@ -45,7 +45,7 @@ expectations and add six schema-bound cases plus three present-array cases.
 The new fixture itself exercises absent collection capabilities. Results:
 **9 shared acceptances, 30 shared refusals, 17 documented consumer-only
 refusals**, with no unexpected disagreement. The stricter publication/metadata
-rules remain those described in the [original audit](../../../NOTRIOS_VERIFIER_AUDIT.md).
+rules remain those described in the [original audit](../../../plans/v3.37/001-verifier-audit.md).
 No memory benchmark was repeated for this compatibility change.
 
 `NotriosSchema28Test` checks the immutable fixture inventories and producer

@@ -1,7 +1,7 @@
 # Plan: Reorganize the repository, then the Notrios import follow-ups
 
-Status: **opened 2026-10-26.** L0 (opening) and **L1 are complete**; the next
-slice, **L2**, is authorized and in progress. The user confirmed this plan's assignments for the session
+Status: **opened 2026-10-26.** L0 (opening), **L1 and L2 are complete**; the
+next slice is **L3**, not yet authorized. The user confirmed this plan's assignments for the session
 on 2026-10-26; see
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 
@@ -36,7 +36,7 @@ The request: rewrite local paths holding the account name as `~/…` and
 `ROADMAP.md` for the deferred items (packed publications, multiple handoffs and
 merges, full or subset archives); explain in `AGENTS.md` how `PLAN.md` and
 `ROADMAP.md` are used and archived; name the active plan `PLAN.md`; archive
-`PLAN.md`, `LEDGER_MIGRATION_PLAN.md` and `NOTRIOS_IMPORT_PLAN.md` under
+`PLAN.md`, `plans/v3.36/000-ledger-migration-plan.md` and `plans/v3.37/000-notrios-import-plan.md` under
 `plans/` by version; put documentation in `docs/` and test scripts in
 `scripts/`; check that documented examples are executable; document the
 100,000-note workaround, Notrios's private marking, and the limits of tagging,
@@ -49,7 +49,7 @@ Answers to the four questions asked before writing this plan:
 
 | Question | Answer |
 |---|---|
-| Archive versions | **3.34 / 3.36 / 3.37**: the old `PLAN.md` (refocus, steps 1–19, last shipped as 3.34) goes to `plans/v3.34/`, `LEDGER_MIGRATION_PLAN.md` to `plans/v3.36/`, and `NOTRIOS_IMPORT_PLAN.md` with its ledger and renderer to `plans/v3.37/`. The CHANGELOG's "Unreleased changes" becomes "Changes in 3.37", and the changed scripts' `__version__` values go to 3.37. |
+| Archive versions | **3.34 / 3.36 / 3.37**: the old `PLAN.md` (refocus, steps 1–19, last shipped as 3.34) goes to `plans/v3.34/`, `plans/v3.36/000-ledger-migration-plan.md` to `plans/v3.36/`, and `plans/v3.37/000-notrios-import-plan.md` with its ledger and renderer to `plans/v3.37/`. The CHANGELOG's "Unreleased changes" becomes "Changes in 3.37", and the changed scripts' `__version__` values go to 3.37. |
 | H1, R1, R2, D1 | **New `PLAN.md`**, after the reorganization, each still needing authorization. `ROADMAP.md` holds only deferred features. |
 | Notrios evidence documents | **Archived with their plan** in `plans/v3.37/`. Reference documents go to `docs/`: the static-site and deployment guides, the performance review, the implementation review, and the Notrios import contract and design. |
 | Documented examples | **A registry, and run what can run.** Every fence in `README.md` and `docs/` is registered with its hash; an edited or unregistered fence fails the gate. Python-only examples run in the unit gate against `sample/` and synthetic fixtures in a temporary home. Examples needing Hugo, Go, `notriosctl` or the network run in a separate `--with-tools` check, which names any missing tool and does not count those examples as passed. Every other fence records why it is not run. |
@@ -94,8 +94,8 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 <!-- PLAN-ASSIGNMENTS:END -->
 
-Current slice: **L2 — release 3.37 and archive the finished plans**, assigned
-to Main; authorized 2026-10-26.
+Next slice: **L3 — `ROADMAP.md` and the rules for plans**, assigned to Main;
+not yet authorized.
 
 ## Execution rules
 
@@ -107,7 +107,8 @@ to Main; authorized 2026-10-26.
 - Keep `.zvec-grep/` out of commits; `git ls-files .zvec-grep` prints nothing.
   After each slice run `zg index` and `zg status --check-ready`.
 - The regression gate runs with `PYTHONDONTWRITEBYTECODE=1` and `-B`. It is the
-  six required modules, plus the four other harness modules for a full gate;
+  required modules (six, and seven from L2 with `test_docs.py`), plus the four
+  other harness modules for a full gate;
   from L4 on, both run from `scripts/`.
 - Private data stays out of Git: aggregate evidence only, no note content.
 - When a slice finds something that needs fixing, add it to this plan rather
@@ -119,9 +120,9 @@ to Main; authorized 2026-10-26.
 |---|---|---|---|
 | L0 / Main | *Complete 2026-10-26.* Open this plan: archive the old `PLAN.md` to `plans/v3.34/000-refocus-plan.md`, write this plan and its ledger, and turn `render_notrios_execution.py` into `scripts/render_plan_ledger.py`, which takes `--ledger` and serves both ledgers. | — | Both ledgers render and `--check` passes; the README and `requirements.txt` point at the archived plan. |
 | L1 / Main | *Complete 2026-10-26.* Remove the account name from committed paths; update the `AGENTS.md` test command. See [L1](#l1--remove-the-account-name-from-committed-paths). | L0 | No tracked file holds a path with the account name; both ledgers check; the full gate passes. |
-| L2 / Main | Release 3.37 and archive the finished plans, with a link checker. See [L2](#l2--release-337-and-archive-the-finished-plans). | L1 | Every relative link and anchor in every tracked Markdown file resolves; the archived ledger checks in place; the full gate passes. |
+| L2 / Main | *Complete 2026-10-26.* Release 3.37 and archive the finished plans, with a link checker. See [L2](#l2--release-337-and-archive-the-finished-plans). | L1 | Every relative link and anchor in every tracked Markdown file resolves; the archived ledger checks in place; the full gate passes. |
 | L3 / Main | Add `ROADMAP.md`, and the plan, roadmap and archive rules in `AGENTS.md`. See [L3](#l3--roadmapmd-and-the-rules-for-plans). | L2 | Each deferred feature has its scope, why it is deferred and what it needs; `AGENTS.md` states the rules; links resolve. |
-| L4 / Main | Move the test modules and tools into `scripts/`. See [L4](#l4--tests-and-tools-in-scripts). | L3 | The same 318 and 43 tests pass from `scripts/`, run from the repository root; no test or script at the root. |
+| L4 / Main | Move the test modules and tools into `scripts/`. See [L4](#l4--tests-and-tools-in-scripts). | L3 | The same 321 and 43 tests pass from `scripts/`, run from the repository root; no test or script at the root. |
 | L5 / Main | Move the documentation into `docs/`, and split the README's usage sections into pages there. See [L5](#l5--documentation-in-docs). | L4 | Root holds only the files listed in L5; every old README paragraph exists in exactly one page; links resolve. |
 | L6 / Main | Document private data and publications over 100,000 notes. See [L6](#l6--private-data-and-large-publications). | L5 | Each documented command was run on a synthetic library and behaved as written. |
 | L7 / Main | Check that documented examples are executable. See [L7](#l7--executable-documentation). | L6 | Every fence is registered; Python-only examples pass in the gate; the `--with-tools` run passes here; an edited fence fails. |
@@ -160,15 +161,15 @@ expanding `$USER`, prints nothing; both ledgers check; the full gate passes.
 3.x line: `obsidian2site.py`, `obsidian2sql.py`, `sql2obsidian.py` and
 `sql2joplin.py`. `cleanres.py` changed too (S43c); its own 2.x line (2.10)
 is synced with the rest of the project at 3.37 (user, 2026-10-26).
-`notrios2sql.py` gains `--version`, printing `notrios2sql.py 3.37` like the
-other scripts (user, 2026-10-26); its help test and the documented CLI rules
-change with it.
+`notrios2sql.py` gains `--version`, printing `notrios2sql 3.37` in the same
+form as the other scripts (user, 2026-10-26), with a test; the README's
+`notrios2sql.py` rules mention it.
 
 *Archive*, in the Notrios layout `plans/v<major>.<minor>/<NNN>-<slug>.md`, with
 `plans/README.md` describing it:
 
-- `plans/v3.36/000-ledger-migration-plan.md` ← `LEDGER_MIGRATION_PLAN.md`;
-- `plans/v3.37/000-notrios-import-plan.md` ← `NOTRIOS_IMPORT_PLAN.md`, with
+- `plans/v3.36/000-ledger-migration-plan.md` ← `plans/v3.36/000-ledger-migration-plan.md`;
+- `plans/v3.37/000-notrios-import-plan.md` ← `plans/v3.37/000-notrios-import-plan.md`, with
   its ledger beside it as `plans/v3.37/notrios-import-ledger.json`;
 - the plan's working records, numbered in the order their slices ran:
   `001-verifier-audit.md`, `002-tag-review.md`, `003-resource-review.md`,
@@ -232,7 +233,7 @@ becomes `python3 -B -m unittest scripts/test_movenotes.py …`, run from the
 root. `AGENTS.md`, the README's Testing section and this plan change with it.
 The Go module's tests stay in `site_server/`.
 
-*Acceptance:* the same 318 and 43 tests, by name, pass from `scripts/`; no
+*Acceptance:* the same 321 and 43 tests, by name, pass from `scripts/`; no
 `test_*.py` remains at the root; nothing writes `__pycache__`.
 
 ### L5 — Documentation in docs
@@ -407,7 +408,7 @@ refusal, rerun and recovery tests pass unchanged.
 
 Carried from the Notrios import plan, proposed 2026-10-25 at the user's
 request; the full specification is in
-the archived plan's R1 row (`NOTRIOS_IMPORT_PLAN.md` until L2 archives it). In short: during site
+the [archived plan's R1 row](plans/v3.37/000-notrios-import-plan.md#producer-link-syntax-prerequisites--titles-in-projected-bodies). In short: during site
 generation, write one CSV per run listing every link a web reader cannot reach
 (`file:`, drive and UNC paths, browser and app schemes, unresolved relative
 and wiki links, internal forms left unresolved), every malformed HTTP(S)
@@ -430,7 +431,7 @@ reports, while doing itself what `plain_text` does for a link to a withheld
 note. A bounded probe of what `retain` emits for a withheld-note link comes
 first; if it leaks withheld identities in a way the import cannot contain, fall
 back to option (b), a producer change. The full specification is in the
-archived plan's R2 row.
+[archived plan's R2 row](plans/v3.37/000-notrios-import-plan.md#producer-link-syntax-prerequisites--titles-in-projected-bodies).
 
 *Acceptance:* every non-internal destination in a publication reaches the
 vault and site byte-identical to the source note and appears in R1's report;
@@ -459,7 +460,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
 | Parent reasoning effort | not exposed |
 | Parent contribution | Read the Notrios repository's plans/, docs/ and scripts/ layout and its AGENTS.md plan, roadmap and archival rules; asked the four layout questions; archived the old PLAN.md as plans/v3.34/000-refocus-plan.md; wrote PLAN.md and docs/plan/ledger.json; moved render_notrios_execution.py to scripts/render_plan_ledger.py with --ledger and per-ledger markers, and repointed the Notrios plan's commands; pointed the README and requirements.txt at the archived plan. |
-| Validation | scripts/render_plan_ledger.py --check passes for docs/plan/ledger.json and for NOTRIOS_IMPORT_EXECUTION.json; documentation and tooling only. |
+| Validation | scripts/render_plan_ledger.py --check passes for docs/plan/ledger.json and for plans/v3.37/notrios-import-ledger.json; documentation and tooling only. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
 | Execution evidence | User request and answers, 2026-10-26 |
@@ -493,7 +494,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
-<details><summary>L2 — pending; planned parent</summary>
+<details><summary>L2 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -502,20 +503,20 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
 | Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; L2 authorized by the user on 2026-10-26 (Start L2). |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Release: CHANGELOG heading Changes in 3.37; __version__ 3.37 in obsidian2site.py, obsidian2sql.py, sql2obsidian.py, sql2joplin.py and cleanres.py (from 2.10, user decision); notrios2sql.py --version printing 'notrios2sql 3.37', with a test. Archive: git mv of LEDGER_MIGRATION_PLAN.md to plans/v3.36/000-ledger-migration-plan.md and of the Notrios plan, its ledger and ten working records to plans/v3.37/ (000 to 010 and notrios-import-ledger.json); plans/README.md. A one-off scratchpad mover re-relativized every Markdown link from each file's new location (a ledger's links from its plan's), rewrote bare mentions to repository-relative paths, and left fixture data untouched. The 26 links into a sibling ../notrios checkout became GitHub links at the commit each document cites (bdecfeda for the contract and the plan's original-pin section, 7662fdd for its schema-28 section, the only pin holding 0028_fts_rowid_map.sql). H1, D1, R1 and R2 are marked moved to PLAN.md in the archived plan and ledger. Added scripts/check_doc_links.py and test_docs.py (seventh required module); fixed one anchor that was already broken (2026-102223 for 2026-10-2223). |
+| Validation | check_doc_links.py: 30 documents, 0 broken links; its test refuses a missing file, a missing anchor, a link leaving the repository and a site-absolute link, and ignores code spans, fences, schemes and fixture notes. Both ledgers pass --check, the archived one in place. 321 required tests (seven modules) passed in 184.423 s and 43 harness tests in 17.912 s, no __pycache__ written. All six scripts print 3.37 for --version. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Start L2; User: Sync version number for cleanres.py with rest of project; Add --version support to notrios2sql.py; Private scratchpad move_docs.py, l2-moves.json, l2/required.log, l2/harness.log |
+| Commit | Git commit containing this record: chore: release 3.37 and archive the finished plans (L2) |
 
 </details>
 
@@ -788,3 +789,4 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-26 | Confirmed; L1 authorized | The user: "The assignments are current for this session; Sync version number for cleanres.py with rest of project; Add --version support to notrios2sql.py; Start L1." L2's release text now syncs `cleanres.py` at 3.37 and adds `notrios2sql.py --version`. |
 | 2026-10-26 | L1 complete | Every committed path with the account name now uses `~/`, `$USER` or a `<session>` placeholder: 70 lines in 11 files. Two links to files outside the repository became code spans. `AGENTS.md` gives the six-module gate and the four harness modules. 318 and 43 tests pass. Next: ask to proceed to L2. |
 | 2026-10-26 | L8 added; L2 authorized | The user: "Update the plan to rewrite the old paths in the Git history. Start L2." L8, after L7, rewrites every commit with L1's replacements, maps the rewritten commit hashes cited in the tip's files, and needs its own authorization plus separate permission to force-push `develop`. |
+| 2026-10-26 | L2 complete | Released 3.37: CHANGELOG heading, five scripts at 3.37 (`cleanres.py` from 2.10), `notrios2sql.py --version`. Archived the migration plan to `plans/v3.36/` and the Notrios plan, ledger and ten records to `plans/v3.37/`, with every reference updated; 26 links into a sibling Notrios checkout now go to GitHub at the cited commit. `scripts/check_doc_links.py` and `test_docs.py` check every link and anchor, and found one already broken, now fixed. 321 and 43 tests pass. Next: ask to proceed to L3. |

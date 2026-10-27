@@ -407,7 +407,7 @@ Steps 20–36 replace the Relearn theme with `hugo-theme-ledger`, make
 Orama and FlexSearch against Pagefind before deciding whether either becomes a
 static-hosting search option. They are planned in detail, with the
 architectural decisions and the per-step verification, in
-[`LEDGER_MIGRATION_PLAN.md`](../../LEDGER_MIGRATION_PLAN.md).
+[`plans/v3.36/000-ledger-migration-plan.md`](../v3.36/000-ledger-migration-plan.md).
 
 Steps 20–35 are done (`obsidian2site.py` 3.36). The theme swap, the two-tier tag
 model, the one Bluge contract, the serverless split, and both deployment documents

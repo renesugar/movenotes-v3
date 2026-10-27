@@ -62,6 +62,7 @@ id, plus a `resources/` directory holding attachment files.
 | `test_obsidian2site.py` | Hugo/Bluge/Pagefind site generation regressions    |
 | `test_notrios2sql.py` | Notrios verification, import, vault and site regressions |
 | `test_notrios_7c.py` | Tests for the corpus trial harness in `scripts/`      |
+| `test_docs.py`    | Documentation link checks (`scripts/check_doc_links.py`) |
 
 # Setup
 
@@ -273,7 +274,7 @@ it nothing ties the import to the review.
 On success stdout is one JSON line: `status` (`created` or `unchanged`),
 `commit_sha256`, `selection_manifest_sha256`, `row_count` and
 `resource_count`. It holds no paths or note content. Progress phases and
-errors go to stderr. The exit status is 0 on success, 1 when the import is
+errors go to stderr. `--version` prints the release. The exit status is 0 on success, 1 when the import is
 refused or fails, and 2 for a usage error.
 
 An error or Ctrl-C removes everything the run created. A run that is killed
@@ -681,7 +682,7 @@ memory of any step, so it decides the machine a large library needs. The
 Joplin library's 757 attachments arrived byte for byte, and both recipe
 libraries were compared note by note against movenotes' own imports of the
 same sources. Every step and its measurements are in
-[`NOTRIOS_CORPUS_TRIALS.md`](NOTRIOS_CORPUS_TRIALS.md).
+[`plans/v3.37/010-corpus-trials.md`](plans/v3.37/010-corpus-trials.md).
 
 # Publishing with Quartz
 
@@ -783,7 +784,7 @@ image-link replacement:
 
 ```
 PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_movenotes.py test_image_resources.py \
-  test_obsidian2sql.py test_obsidian2site.py test_notrios2sql.py test_notrios_7c.py
+  test_obsidian2sql.py test_obsidian2site.py test_notrios2sql.py test_notrios_7c.py test_docs.py
 ```
 
 The tests run the scripts as subprocesses, so both the variable and `-B` are
@@ -794,13 +795,15 @@ earlier run can shadow the script under test.
 publications under `testdata/notrios/`, made with real Notrios commands:
 verification and its refusals, the import and its reruns, links, attachments,
 and the vault and site built from the result. It needs no Notrios binary.
-`test_notrios_7c.py` tests the corpus trial harness in `scripts/`.
+`test_notrios_7c.py` tests the corpus trial harness in `scripts/`, and
+`test_docs.py` checks that every relative link and `#anchor` in the
+documentation resolves.
 
 The image-resource suite uses a local HTTP server to verify successful
 retrieval, HEAD fallback, redirect MIME changes, byte-signature mismatches,
 stop lists, malformed data URIs, deterministic deduplication, quarantine
-selection, replacement reuse, and both export paths. The six modules contain
-318 tests and use only the standard library.
+selection, replacement reuse, and both export paths. The seven modules contain
+321 tests and use only the standard library.
 On environments where the combined
 notebook-filtering class stalls during subprocess cleanup, each test method can
 be run independently; the conversion commands themselves complete normally.

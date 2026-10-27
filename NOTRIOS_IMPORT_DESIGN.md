@@ -4,7 +4,7 @@ Frozen on 2026-09-06. This specifies future implementation; it does not add a
 supported command. The [admission contract](NOTRIOS_IMPORT_CONTRACT.md) remains
 authoritative for archive verification. This document adds stricter conversion
 rules and freezes the interfaces needed by the
-[remaining slices](NOTRIOS_IMPORT_PLAN.md). The real
+[remaining slices](plans/v3.37/000-notrios-import-plan.md). The real
 [publication fixture](testdata/notrios/README.md) is the positive input.
 
 S28a amendment (2026-09-13): the admission contract now declares database
@@ -258,7 +258,7 @@ are exported once and both inline embeds refer to them.
 
 ## C7a admission and comparison revision
 
-The [C7a compatibility review](NOTRIOS_COMPATIBILITY_REVIEW.md) freezes the
+The [C7a compatibility review](plans/v3.37/005-compatibility-review.md) freezes the
 admission-only extension, reference/prose boundary, independent acceptance cases
 and recipe comparison contract. C7b implements the body/literal admission
 revision; C7c still owns the refined whole-corpus comparison. Retain

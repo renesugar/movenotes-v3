@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "plan": "NOTRIOS_IMPORT_PLAN.md",
+  "plan": "plans/v3.37/000-notrios-import-plan.md",
   "markers": "NOTRIOS",
   "updated": "2026-10-26",
   "session": {
@@ -133,7 +133,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -142,11 +142,11 @@
       "parent": "unknown — not recorded",
       "parent_underlying_model_family": "unknown — not recorded",
       "parent_reasoning_effort": "unknown — not recorded",
-      "parent_contribution": "Reviewed pinned schemas, verifier, producer and CLI; froze [consumer contract](NOTRIOS_IMPORT_CONTRACT.md).",
+      "parent_contribution": "Reviewed pinned schemas, verifier, producer and CLI; froze [consumer contract](../../NOTRIOS_IMPORT_CONTRACT.md).",
       "validation": "Parent checked contract fields, limits, links and reference pin; documentation only.",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "9e936b7:NOTRIOS_IMPORT_PLAN.md progress log",
+        "9e936b7:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "9e936b7"
@@ -160,7 +160,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -169,11 +169,11 @@
       "parent": "unknown — not recorded",
       "parent_underlying_model_family": "unknown — not recorded",
       "parent_reasoning_effort": "unknown — not recorded",
-      "parent_contribution": "Generated [synthetic publication fixture and reproduction evidence](testdata/notrios/README.md) using the clean pinned CLI's real import/plan/publish commands.",
+      "parent_contribution": "Generated [synthetic publication fixture and reproduction evidence](../../testdata/notrios/README.md) using the clean pinned CLI's real import/plan/publish commands.",
       "validation": "Parent generated the real fixture and checked producer compatibility, full verification and independent byte/selection expectations.",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "b0e9ac9:NOTRIOS_IMPORT_PLAN.md progress log",
+        "b0e9ac9:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "b0e9ac9"
@@ -187,7 +187,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -196,11 +196,11 @@
       "parent": "unknown — not recorded",
       "parent_underlying_model_family": "unknown — not recorded",
       "parent_reasoning_effort": "unknown — not recorded",
-      "parent_contribution": "Froze [APIs, row/property mapping, conversion limits, identity, staging and link/attachment design](NOTRIOS_IMPORT_DESIGN.md), with [machine-readable vectors](testdata/notrios/design-v1.json).",
+      "parent_contribution": "Froze [APIs, row/property mapping, conversion limits, identity, staging and link/attachment design](../../NOTRIOS_IMPORT_DESIGN.md), with [machine-readable vectors](../../testdata/notrios/design-v1.json).",
       "validation": "Parent checked 13 identity vectors, eight link spans and three projected bodies; no runtime suite.",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "9110d74:NOTRIOS_IMPORT_PLAN.md progress log",
+        "9110d74:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "9110d74"
@@ -214,7 +214,7 @@
       "configured_reasoning_effort": "medium",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": true,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -223,11 +223,11 @@
       "parent": "unknown — not recorded",
       "parent_underlying_model_family": "unknown — not recorded",
       "parent_reasoning_effort": "unknown — not recorded",
-      "parent_contribution": "Implemented directly despite planned worker assignment. Added [offline fixture-copy/inventory/record helpers and baseline assertions](test_notrios2sql.py), plus [baseline and regeneration instructions](testdata/notrios/README.md).",
+      "parent_contribution": "Implemented directly despite planned worker assignment. Added [offline fixture-copy/inventory/record helpers and baseline assertions](../../test_notrios2sql.py), plus [baseline and regeneration instructions](../../testdata/notrios/README.md).",
       "validation": "Parent ran nine focused tests and all 112 regressions (56.142s).",
       "delegation_failure_or_reassignment": "Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded.",
       "evidence": [
-        "b22d2e6:NOTRIOS_IMPORT_PLAN.md progress log",
+        "b22d2e6:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "b22d2e6"
@@ -241,7 +241,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -250,11 +250,11 @@
       "parent": "unknown — not recorded",
       "parent_underlying_model_family": "unknown — not recorded",
       "parent_reasoning_effort": "unknown — not recorded",
-      "parent_contribution": "Added strict bounded JSON, immutable manifest model, Go-compatible canonicalization and declaration/target gates in [notrios_archive.py](notrios_archive.py).",
+      "parent_contribution": "Added strict bounded JSON, immutable manifest model, Go-compatible canonicalization and declaration/target gates in [notrios_archive.py](../../notrios_archive.py).",
       "validation": "Parent ran 22 focused tests and all 125 regressions (52.843s).",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "62fc682:NOTRIOS_IMPORT_PLAN.md progress log",
+        "62fc682:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "62fc682"
@@ -268,7 +268,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -281,7 +281,7 @@
       "validation": "Parent ran 34 focused tests and all 137 regressions (55.635s).",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "7c965f9:NOTRIOS_IMPORT_PLAN.md progress log",
+        "7c965f9:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "7c965f9"
@@ -295,7 +295,7 @@
       "configured_reasoning_effort": "medium",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": true,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -308,7 +308,7 @@
       "validation": "Parent ran 40 focused tests within all 143 regressions (57.046s).",
       "delegation_failure_or_reassignment": "Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded.",
       "evidence": [
-        "6f4b026:NOTRIOS_IMPORT_PLAN.md progress log",
+        "6f4b026:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "6f4b026"
@@ -322,7 +322,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -335,7 +335,7 @@
       "validation": "Parent ran 56 focused tests within all 159 regressions (69.902s).",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "7cd6c2a:NOTRIOS_IMPORT_PLAN.md progress log",
+        "7cd6c2a:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "7cd6c2a"
@@ -349,7 +349,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -358,11 +358,11 @@
       "parent": "unknown — not recorded",
       "parent_underlying_model_family": "unknown — not recorded",
       "parent_reasoning_effort": "unknown — not recorded",
-      "parent_contribution": "Completed the [pinned-verifier audit](NOTRIOS_VERIFIER_AUDIT.md), froze 47 differential cases and measured streaming behavior. Fixed failed-read state and file/directory handle lifetime.",
+      "parent_contribution": "Completed the [pinned-verifier audit](001-verifier-audit.md), froze 47 differential cases and measured streaming behavior. Fixed failed-read state and file/directory handle lifetime.",
       "validation": "Parent ran 47 differential cases, memory/lifetime checks and all 166 regressions (76.097s).",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "9fb8e99:NOTRIOS_IMPORT_PLAN.md progress log",
+        "9fb8e99:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "9fb8e99"
@@ -376,7 +376,7 @@
       "configured_reasoning_effort": "medium",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": true,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -389,7 +389,7 @@
       "validation": "Parent ran nine mapping tests within all 175 regressions (76.209s).",
       "delegation_failure_or_reassignment": "Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded.",
       "evidence": [
-        "86e3a1e:NOTRIOS_IMPORT_PLAN.md progress log",
+        "86e3a1e:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "86e3a1e"
@@ -403,7 +403,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -416,7 +416,7 @@
       "validation": "Parent ran lifecycle tests within all 189 regressions (86.318s).",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "e331238:NOTRIOS_IMPORT_PLAN.md progress log",
+        "e331238:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "e331238"
@@ -430,7 +430,7 @@
       "configured_reasoning_effort": "medium",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": true,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -443,7 +443,7 @@
       "validation": "Parent ran nine focused tests and all 198 regressions (100.849s).",
       "delegation_failure_or_reassignment": "Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded.",
       "evidence": [
-        "5c84068:NOTRIOS_IMPORT_PLAN.md progress log",
+        "5c84068:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "5c84068"
@@ -457,7 +457,7 @@
       "configured_reasoning_effort": "medium",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": true,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -470,7 +470,7 @@
       "validation": "Parent ran 16 focused tests and all 214 regressions (93.100s).",
       "delegation_failure_or_reassignment": "Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded.",
       "evidence": [
-        "5acbf58:NOTRIOS_IMPORT_PLAN.md progress log",
+        "5acbf58:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "5acbf58"
@@ -484,7 +484,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": false,
-      "planned_assignment_evidence": "93755ac:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "93755ac:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -497,7 +497,7 @@
       "validation": "Parent ran 13 focused tests; all 226 distinct regressions passed across sandbox and HTTP reruns.",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "f07192c:NOTRIOS_IMPORT_PLAN.md progress log",
+        "f07192c:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "f07192c"
@@ -511,7 +511,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": false,
-      "planned_assignment_evidence": "93755ac:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "93755ac:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -524,7 +524,7 @@
       "validation": "Parent ran 56 differential cases, 17 focused tests and all 230 regressions (101.920s).",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "10024cc:NOTRIOS_IMPORT_PLAN.md progress log",
+        "10024cc:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "10024cc"
@@ -538,7 +538,7 @@
       "configured_reasoning_effort": "medium",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": true,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -551,7 +551,7 @@
       "validation": "Parent ran four focused tests and all 218 regressions (91.317s).",
       "delegation_failure_or_reassignment": "Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded.",
       "evidence": [
-        "b987ed5:NOTRIOS_IMPORT_PLAN.md progress log",
+        "b987ed5:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "b987ed5"
@@ -565,7 +565,7 @@
       "configured_reasoning_effort": "medium",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": true,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -578,7 +578,7 @@
       "validation": "Parent ran four focused tests and all 222 regressions (96.398s).",
       "delegation_failure_or_reassignment": "Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded.",
       "evidence": [
-        "6dc7ba2:NOTRIOS_IMPORT_PLAN.md progress log",
+        "6dc7ba2:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "6dc7ba2"
@@ -592,7 +592,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -601,11 +601,11 @@
       "parent": "unknown — not recorded",
       "parent_underlying_model_family": "unknown — not recorded",
       "parent_reasoning_effort": "unknown — not recorded",
-      "parent_contribution": "Reviewed [vault/site tag semantics](NOTRIOS_TAG_REVIEW.md), added real-publication integration coverage and corrected the superseded M2 search description.",
+      "parent_contribution": "Reviewed [vault/site tag semantics](002-tag-review.md), added real-publication integration coverage and corrected the superseded M2 search description.",
       "validation": "Parent ran four focused tests and all 231 regressions (104.534s).",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "280a6f8:NOTRIOS_IMPORT_PLAN.md progress log",
+        "280a6f8:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "280a6f8"
@@ -619,7 +619,7 @@
       "configured_reasoning_effort": "medium",
       "assignment_confirmation": "historical assignment; not retroactive approval",
       "delegation_required": true,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -632,7 +632,7 @@
       "validation": "Parent ran four storage tests and all 235 regressions (103.850s).",
       "delegation_failure_or_reassignment": "Historical deviation: parent implemented assigned worker work; no child execution. Progress mentions a session delegation constraint where present; explicit reassignment approval unknown — not recorded.",
       "evidence": [
-        "cef03a7:NOTRIOS_IMPORT_PLAN.md progress log",
+        "cef03a7:plans/v3.37/000-notrios-import-plan.md progress log",
         "Conversation execution record: parent-only implementation; no worker threads recorded."
       ],
       "commit": "cef03a7"
@@ -646,7 +646,7 @@
       "configured_reasoning_effort": "medium",
       "assignment_confirmation": "confirmed for current Codex session on 2026-09-14; implementation still requires slice authorization",
       "delegation_required": true,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "terra_worker",
       "child_thread": "/root/notrios_5b (native canonical task identifier; separate thread UUID not exposed)",
       "actual_model": "not exposed — configured worker model gpt-5.6-terra",
@@ -677,7 +677,7 @@
       "configured_reasoning_effort": "medium",
       "assignment_confirmation": "Confirmed unchanged Codex session; user explicitly authorized 5c.",
       "delegation_required": true,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "terra_worker",
       "child_thread": "/root/notrios_5c (native canonical task identifier; separate thread UUID not exposed)",
       "actual_model": "not exposed — configured worker model gpt-5.6-terra",
@@ -709,7 +709,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "Confirmed unchanged Codex session; user explicitly authorized 5d.",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -718,12 +718,12 @@
       "parent": "Codex; exact model not exposed",
       "parent_underlying_model_family": "GPT-6 (runtime-reported)",
       "parent_reasoning_effort": "not exposed",
-      "parent_contribution": "Reviewed indexed resource reachability, authenticated private-copy consumption, exclusive descriptor-relative resource writes, completion/no-replace publication, ownership cleanup and immutable reruns. Added three full-import safety regressions and NOTRIOS_RESOURCE_REVIEW.md; updated plan/provenance/fixture documentation. No runtime changes.",
+      "parent_contribution": "Reviewed indexed resource reachability, authenticated private-copy consumption, exclusive descriptor-relative resource writes, completion/no-replace publication, ownership cleanup and immutable reruns. Added three full-import safety regressions and plans/v3.37/003-resource-review.md; updated plan/provenance/fixture documentation. No runtime changes.",
       "validation": "21 focused safety/storage/lifecycle tests passed (5.912s). All 246 tests across the five regression modules passed (124.044s), with PYTHONDONTWRITEBYTECODE=1 and python3 -B; localhost sockets permitted. New tests cover orphan refusal, same-size corruption and symlink at second-resource use, abrupt resource-write process exit, stale-state refusal and inspected manual recovery. Diff, generated attribution and document links checked; runtime code and immutable fixtures unchanged.",
       "delegation_failure_or_reassignment": "none — parent-owned slice",
       "evidence": [
         "User: Proceed with 5d",
-        "NOTRIOS_RESOURCE_REVIEW.md",
+        "plans/v3.37/003-resource-review.md",
         "/tmp/movenotes-5d-focused.log",
         "/tmp/movenotes-5d-tests.log"
       ],
@@ -738,7 +738,7 @@
       "configured_reasoning_effort": "max",
       "assignment_confirmation": "Confirmed unchanged Codex session; user explicitly authorized 6a.",
       "delegation_required": true,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "luna_worker",
       "child_thread": "/root/notrios_6a (native canonical task identifier; separate thread UUID not exposed)",
       "actual_model": "not exposed — configured worker model gpt-5.6-luna",
@@ -769,7 +769,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "Confirmed unchanged Codex session; user explicitly authorized 6b.",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -797,7 +797,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "Confirmed unchanged Codex session; user explicitly authorized 6c.",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -827,7 +827,7 @@
       "configured_reasoning_effort": "medium",
       "assignment_confirmation": "Confirmed unchanged Codex session; user explicitly authorized 6d.",
       "delegation_required": true,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "terra_worker",
       "child_thread": "/root/notrios_6d",
       "actual_model": "GPT-5 family (worker runtime report); exact execution model alias not exposed",
@@ -860,7 +860,7 @@
       "configured_reasoning_effort": "medium",
       "assignment_confirmation": "Confirmed unchanged Codex session; user explicitly authorized 7a.",
       "delegation_required": true,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "terra_worker",
       "child_thread": "/root/notrios_7a",
       "actual_model": "GPT-5 family (worker runtime report); exact execution model alias not exposed",
@@ -892,7 +892,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "Confirmed unchanged Codex session; user explicitly authorized 7b.",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "none",
       "child_thread": "none",
       "actual_model": "none",
@@ -902,11 +902,11 @@
       "parent_underlying_model_family": "GPT-6 (runtime-reported)",
       "parent_reasoning_effort": "not exposed",
       "parent_contribution": "Ran actual schema-28 fixture import/vault/Hugo builds, compiled and queried Bluge, indexed Pagefind and drove desktop/mobile Chromium under /archive/. Found Bluge result URLs losing the prefix; fixed and tested the Ledger adapter in theme commit 85ac1b0, then rebuilt both sites and reran browser acceptance. Added reproducible fixture-only acceptance helpers and report; reviewed screenshots, inventories, tag counts, attachment hashes, receipt exclusion and backend isolation; updated plan/provenance.",
-      "validation": "Both real builds passed (24 HTML pages each); Pagefind indexed 3 pages/74 words. Four explicit tag counts matched taxonomy and both live backends (3/1/1/1); 12 excluded-sentinel/digest searches per backend returned no results. No browser console errors, HTTP failures or horizontal overflow at 1365x900 and 390x844. Artifact scans passed (103 Bluge, 122 Pagefind files). All 16 theme JS tests passed with --test-isolation=none. All 262 Python regressions passed in 150.295s with both bytecode flags and localhost sockets permitted. Saved browser/artifact helpers rerun successfully. See NOTRIOS_SITE_ACCEPTANCE.md.",
+      "validation": "Both real builds passed (24 HTML pages each); Pagefind indexed 3 pages/74 words. Four explicit tag counts matched taxonomy and both live backends (3/1/1/1); 12 excluded-sentinel/digest searches per backend returned no results. No browser console errors, HTTP failures or horizontal overflow at 1365x900 and 390x844. Artifact scans passed (103 Bluge, 122 Pagefind files). All 16 theme JS tests passed with --test-isolation=none. All 262 Python regressions passed in 150.295s with both bytecode flags and localhost sockets permitted. Saved browser/artifact helpers rerun successfully. See plans/v3.37/004-site-acceptance.md.",
       "delegation_failure_or_reassignment": "none — parent-owned slice; user resumed after usage limit. Theme write outside workspace explicitly approved through filesystem escalation.",
       "evidence": [
         "User: Proceed with 7b; continue with 7b after usage limit",
-        "NOTRIOS_SITE_ACCEPTANCE.md",
+        "plans/v3.37/004-site-acceptance.md",
         "Ledger theme commit 85ac1b070c657b975629ed728c700694811d6e80",
         "/tmp/movenotes-7b/browser-results.json",
         "/tmp/movenotes-7b/artifact-results.json",
@@ -934,13 +934,13 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "User authorized C7a on 2026-09-17; unchanged Codex assignments and long notification monitoring confirmed.",
       "delegation_required": false,
-      "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md compatibility prerequisites added 2026-09-17",
+      "planned_assignment_evidence": "plans/v3.37/000-notrios-import-plan.md compatibility prerequisites added 2026-09-17",
       "delegation_failure_or_reassignment": "Audit attempt1 failed due missing verifier work directory; parent fixed harness and worker resumed without repeating completed scan. Usage limit removed worker threads before final housekeeping; user requested liveness check, then parent spawned same Luna role /root/c7a_evidence_resume. No silent model/owner substitution.",
       "evidence": [
         "User: revise the plan to address these compatibility gaps before resuming 7c",
         "User explicitly required the same long-notification monitoring for data-heavy updated slices.",
         "Native spawn /root/notrios_c7a_monitor; /tmp/movenotes-c7a-audit.py",
-        "NOTRIOS_COMPATIBILITY_REVIEW.md",
+        "plans/v3.37/005-compatibility-review.md",
         "Private /media/$USER/HD2/movenotes-c7a-20260917/notification.json and execution-time.log",
         "User resumed C7a after usage limit and requested checking agent liveness before waits",
         "Native spawn /root/c7a_evidence_resume; final evidence housekeeping handoff"
@@ -981,7 +981,7 @@
       "configured_reasoning_effort": "medium",
       "assignment_confirmation": "User: Proceed with C7b; unchanged confirmed Codex assignments and long notification monitoring.",
       "delegation_required": true,
-      "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md compatibility prerequisites added 2026-09-17",
+      "planned_assignment_evidence": "plans/v3.37/000-notrios-import-plan.md compatibility prerequisites added 2026-09-17",
       "delegation_failure_or_reassignment": "No implementation reassignment. Initial live harness output/checkpoint collision and overstrict minified-HTML assertion were corrected with historical failures retained. Usage limit removed completed worker threads; no agents survived on registry check. Parent performed remaining small final validation within its existing review/validation scope, without repeating data-heavy runs. Resumed runtime now has one active-agent slot; future delegation requires restored capacity or approved reassignment.",
       "evidence": [
         "User: revise the plan to address these compatibility gaps before resuming 7c",
@@ -989,7 +989,7 @@
         "User: Proceed with C7b",
         "Native spawn /root/notrios_c7b and /root/c7b_validation",
         "Baseline 5b2a7e2; /tmp/movenotes-c7b-validate.py and /tmp/movenotes-c7b-live.py",
-        "NOTRIOS_COMPATIBILITY_REVIEW.md C7b implementation and validation",
+        "plans/v3.37/005-compatibility-review.md C7b implementation and validation",
         "Private /media/$USER/HD2/movenotes-c7b-20260917 baseline/candidate/live notifications and regression log",
         "Worker final handoff /root/notrios_c7b; monitor handoffs /root/c7b_validation",
         "User resumed C7b after usage limit and required liveness check; registry returned only parent",
@@ -1032,11 +1032,11 @@
       "configured_reasoning_effort": "max",
       "assignment_confirmation": "User authorized C7c conditional on sufficient capacity; runtime reports two total slots and Luna spawn succeeded on 2026-09-17. Existing Codex model/effort and billing suitability confirmation retained.",
       "delegation_required": true,
-      "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md compatibility prerequisites added 2026-09-17",
+      "planned_assignment_evidence": "plans/v3.37/000-notrios-import-plan.md compatibility prerequisites added 2026-09-17",
       "delegation_failure_or_reassignment": "No reassignment. Previous one-slot capacity limitation resolved; native Luna spawn succeeded.",
       "evidence": [
         "Native worker /root/c7c_harness; configured Luna/max; execution backend model/effort not independently exposed.",
-        "NOTRIOS_C7C_EVIDENCE.md",
+        "plans/v3.37/006-c7c-evidence.md",
         "Historical completed run /tmp/movenotes-c7c-20260918-final; failed attempts /tmp/movenotes-c7c-20260917-corrected and /tmp/movenotes-c7c-20260918-indexed.",
         "Accepted v6 attempt /tmp/movenotes-c7c-20260918-rules-v6b-final: launch.json, comparison/result.json, checkpoint.json, comparison-progress.json, monitor receipt and terminal-notification.json. Run 652f8054ca8f2cef29879813; monitor 9560ea9c593e43309e14a700ae460a00.",
         "Final comparator semantic corpus fingerprint 8304857a5e1fa79b3f8cbac61a323abb3e52498f1f56d45314e7db2f06ee3ea0; later fingerprint/disk-only hardening has 26 passing focused tests."
@@ -1069,7 +1069,7 @@
       "parent_underlying_model_family": "GPT-6",
       "parent_reasoning_effort": "not exposed",
       "parent_contribution": "Audited three reviews, pinned/current sources and profiles; authored sequential profile/timing harness, probes, artifact inventories, tests and evidence report; froze candidate ownership and benchmark protocol. No production importer edits.",
-      "validation": "30-note smoke; completed 2000-note Python/pinned-Go multi-route profiling; three unprofiled fresh imports; five baseline probes; two artifact-inventory tests. See NOTRIOS_PERFORMANCE_EVIDENCE.md.",
+      "validation": "30-note smoke; completed 2000-note Python/pinned-Go multi-route profiling; three unprofiled fresh imports; five baseline probes; two artifact-inventory tests. See plans/v3.37/007-performance-evidence.md.",
       "id": "P7a",
       "coding_agent": "codex",
       "status": "complete",
@@ -1078,12 +1078,12 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "User: Proceed with P7a. Existing confirmed Codex roles/efforts/billing suitability retained; two slots permit parent and auxiliary Luna monitor.",
       "delegation_required": false,
-      "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17",
+      "planned_assignment_evidence": "plans/v3.37/000-notrios-import-plan.md performance prerequisites added 2026-09-17",
       "delegation_failure_or_reassignment": "No reassignment. Parent owns P7a investigation; auxiliary Luna owns data-heavy execution and monitoring.",
       "evidence": [
         "User authorization: Proceed with P7a; additional requested Notrios review ~/projects/notrios/performance-code-review.md.",
         "Native monitor /root/p7a_monitor; scripts/notrios_p7a_profile.py and scripts/notrios_p7a_probes.py.",
-        "NOTRIOS_PERFORMANCE_EVIDENCE.md",
+        "plans/v3.37/007-performance-evidence.md",
         "Private completed monitor and unprofiled roots under /media/$USER/HD2/movenotes-p7a-20260918-*: manifests, notification.json, profiles/results and ARTIFACT_MANIFEST.json."
       ],
       "commit": "P7a completion commit (contains this ledger)",
@@ -1125,7 +1125,7 @@
       "parent_underlying_model_family": "GPT-6",
       "parent_reasoning_effort": "not exposed",
       "parent_contribution": "Reviewed resource validation barrier, index lifecycle and merge cost, output comparator completeness, durable status, source pin isolation; prepared frozen baseline/candidate source copies and staged Luna execution.",
-      "validation": "299 Python tests passed; all18 imports completed, corrected comparison matches all pairs with unchanged source/input hashes; both disposable Go full suites passed; G08 microbench regressions reject current candidate. Four final comparator tests pass. NOTRIOS_P7B_EVIDENCE.md.",
+      "validation": "299 Python tests passed; all18 imports completed, corrected comparison matches all pairs with unchanged source/input hashes; both disposable Go full suites passed; G08 microbench regressions reject current candidate. Four final comparator tests pass. plans/v3.37/008-p7b-evidence.md.",
       "id": "P7b",
       "coding_agent": "codex",
       "status": "complete",
@@ -1134,12 +1134,12 @@
       "configured_reasoning_effort": "medium",
       "assignment_confirmation": "User: Proceed with P7b. Unchanged confirmed Codex roles/efforts/billing suitability; two total slots allow staged Terra implementation and Luna monitoring.",
       "delegation_required": true,
-      "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17",
+      "planned_assignment_evidence": "plans/v3.37/000-notrios-import-plan.md performance prerequisites added 2026-09-17",
       "delegation_failure_or_reassignment": "Usage limit stopped Terra; registry confirmed error then same assigned worker resumed. Original Luna monitor unavailable after interruption; same configured role resumed as /root/p7b_monitor_resume. No implementation reassignment.",
       "evidence": [
         "User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement.",
         "Native spawn /root/p7b_candidates following user authorization: Proceed with P7b.",
-        "NOTRIOS_P7B_EVIDENCE.md",
+        "plans/v3.37/008-p7b-evidence.md",
         "Private /media/$USER/HD2/movenotes-p7b-20260918 and -go notifications/logs/manifests; python-comparison/RECOMPARE_REPORT.json preserves original failed comparison.",
         "User continued P7b after usage limit; registry checked before worker recovery."
       ],
@@ -1181,7 +1181,7 @@
       "parent": "Claude Code",
       "parent_underlying_model_family": "Claude Opus 5.5 (runtime-reported model ID claude-opus-5-5)",
       "parent_reasoning_effort": "not exposed",
-      "parent_contribution": "Measured two bounded treatments against the previous code (joplinididx created with a new database; an in-memory map of this run's IDs) on 10,000- and 40,000-file recipe subsets and a ten-note merge, adopted the index treatment in obsidian2sql.py, updated the notesdb.ensure_joplin_id_index docstring, added a query-plan regression test, ran a full-corpus scale check, and updated PERFORMANCE_REVIEW.md, NOTRIOS_P7C_EVIDENCE.md and the resumed P7c plan (F02 subsumed; full-corpus memory and unchanged-rerun cost; evidence mount path).",
+      "parent_contribution": "Measured two bounded treatments against the previous code (joplinididx created with a new database; an in-memory map of this run's IDs) on 10,000- and 40,000-file recipe subsets and a ten-note merge, adopted the index treatment in obsidian2sql.py, updated the notesdb.ensure_joplin_id_index docstring, added a query-plan regression test, ran a full-corpus scale check, and updated PERFORMANCE_REVIEW.md, plans/v3.37/009-p7c-evidence.md and the resumed P7c plan (F02 subsumed; full-corpus memory and unchanged-rerun cost; evidence mount path).",
       "validation": "All outputs fingerprint-identical across treatments: 10,000-file fresh/unchanged (2 runs each), 40,000-file fresh, ten-note merge into a 10,000-file library (3 runs per side). 40,000-file fresh import: 330.45 s previous, 130.08 s adopted, 136.81 s in-memory map (+~50 MiB). Full corpus 382,206 files / 1,237,552 items: fresh 1,628.36 s (peak RSS 774,844 KiB), identical rerun skipped all items in 1,388.56 s; interrupted P7c baseline ran 17,943.11 s without finishing. New query-plan regression test fails on the previous code. All 286 tests in the five required modules passed (180.679s) with PYTHONDONTWRITEBYTECODE=1 and -B; test_notrios_p7c.py 10 tests pass.",
       "id": "P7b2",
       "coding_agent": "claude",
@@ -1191,7 +1191,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-22; user authorized: Proceed (after the E1 report asking whether to proceed to P7b2).",
       "delegation_required": false,
-      "planned_assignment_evidence": "P7c full-scale finding; NOTRIOS_P7C_EVIDENCE.md; 2026-10-22 user reassignment to the Claude Code parent",
+      "planned_assignment_evidence": "P7c full-scale finding; plans/v3.37/009-p7c-evidence.md; 2026-10-22 user reassignment to the Claude Code parent",
       "delegation_failure_or_reassignment": "2026-10-22 user reassignment from codex terra_worker (gpt-5.6-terra, fixed medium) to the Claude Code parent before any work started; previous assignment kept in assignment_history. Not a delegation failure.",
       "assignment_history": [
         {
@@ -1207,7 +1207,7 @@
         "P7c stopped full baseline in _existing_import_hashes; EXPLAIN SCAN notes before index.",
         "User: Proceed",
         "Private /run/media/$USER/HD2/movenotes-p7b2-20261022-full-native (P7B2_SCALE_CHECK.json, logs, times, source tree)",
-        "NOTRIOS_P7C_EVIDENCE.md P7b2 resolution"
+        "plans/v3.37/009-p7c-evidence.md P7b2 resolution"
       ],
       "commit": "Git commit containing this completion record: perf: index item IDs before a fresh Obsidian import (P7b2)",
       "planned_work": "Bound fresh-import ID lookup, preserve collision/rollback semantics, measure total import cost before resumed P7c.",
@@ -1222,8 +1222,8 @@
       "parent": "Codex (partial run to 2026-09-19); Claude Code parent (remaining work)",
       "parent_underlying_model_family": "GPT-6 (Codex partial run); Claude Opus 5.5, runtime-reported claude-opus-5-5 (remaining work)",
       "parent_reasoning_effort": "not exposed",
-      "parent_contribution": "Reviewed resume/input/metric correctness; launched real10k and fullnative/final prepared tests after worker external-tool approval stalls; long tool-side waits. Interrupted full baseline at17,943.11s, traced unindexed batch lookup and confirmed EXPLAIN/VM scaling. Added P7b2 prerequisite; no production edits. 2026-10-22/23, Claude Code parent: froze the resumed design (R1-R6) before running; fixed notrios_p7c_prepare.py's F02 marker for P7b2 and recorded the P7b2 constant; ran R3 (five alternating 10,000-file pairs), R1 (full native pair), R2 (full RAW control pair), R4 (full sql2obsidian export and preserved import, plus a column comparison with the RAW library), R5 (SIGINT recovery at 40,000 files, plus new-versus-empty-library checks) and R6 (cProfile of an unchanged rerun); recorded the results in NOTRIOS_P7C_EVIDENCE.md; planned U1, I1 and M1 from R6, R5 and R4. Corrected the Go-target report (stale, not unmet) and recorded the user's decisions in the plan and evidence.",
-      "validation": "Isolated synthetic and real10k comparisons match. Corrected prepared-seed5pairs match; smallmerge slower/noisy remains unresolved. Fullbaseline interrupted17943.11s in unindexed lookup, candidate not run. Ten focused harness tests pass. Full acceptance blocked; NOTRIOS_P7C_EVIDENCE.md. 2026-10-23 resumed P7c: every comparison fingerprint-identical. R3 10,000 files, five alternating pairs, f04/base medians fresh 0.834, unchanged 0.823, merge 1.000; RSS +0.5%. R1 full native single pair: fresh 0.969, unchanged 0.859, ungated fresh setup 0.803; RSS +2.4-3.4%. R2 RAW control (identical joplin2sql.py): 1.307, 0.755, 0.933, so single-pair noise reaches 31%. F04 meets the subset gate; its full-scale gate (R1 >=5%) could not be resolved by one pair, and the user accepted F04 at full scale on 2026-10-23. R4: export 1,406 s at 3,668,096 KiB, preserved import 2,256 s at 1,936,788 KiB; all 1,237,553 items present and 69 of 75 columns identical, only the note_obsidian_* snapshot columns differ on the 382,206 notes. R5: SIGINT in inventory and in batch insert both leave 0 notes, and both reruns match the uninterrupted fingerprint. Go producer targets were stale (set on Notrios 7662fdd, not v1.0.0) and never measured here; the user removed them from the plan on 2026-10-23. 286 tests in the five required modules pass (149.366 s) with PYTHONDONTWRITEBYTECODE=1 and -B; test_notrios_p7c.py 11 tests pass.",
+      "parent_contribution": "Reviewed resume/input/metric correctness; launched real10k and fullnative/final prepared tests after worker external-tool approval stalls; long tool-side waits. Interrupted full baseline at17,943.11s, traced unindexed batch lookup and confirmed EXPLAIN/VM scaling. Added P7b2 prerequisite; no production edits. 2026-10-22/23, Claude Code parent: froze the resumed design (R1-R6) before running; fixed notrios_p7c_prepare.py's F02 marker for P7b2 and recorded the P7b2 constant; ran R3 (five alternating 10,000-file pairs), R1 (full native pair), R2 (full RAW control pair), R4 (full sql2obsidian export and preserved import, plus a column comparison with the RAW library), R5 (SIGINT recovery at 40,000 files, plus new-versus-empty-library checks) and R6 (cProfile of an unchanged rerun); recorded the results in plans/v3.37/009-p7c-evidence.md; planned U1, I1 and M1 from R6, R5 and R4. Corrected the Go-target report (stale, not unmet) and recorded the user's decisions in the plan and evidence.",
+      "validation": "Isolated synthetic and real10k comparisons match. Corrected prepared-seed5pairs match; smallmerge slower/noisy remains unresolved. Fullbaseline interrupted17943.11s in unindexed lookup, candidate not run. Ten focused harness tests pass. Full acceptance blocked; plans/v3.37/009-p7c-evidence.md. 2026-10-23 resumed P7c: every comparison fingerprint-identical. R3 10,000 files, five alternating pairs, f04/base medians fresh 0.834, unchanged 0.823, merge 1.000; RSS +0.5%. R1 full native single pair: fresh 0.969, unchanged 0.859, ungated fresh setup 0.803; RSS +2.4-3.4%. R2 RAW control (identical joplin2sql.py): 1.307, 0.755, 0.933, so single-pair noise reaches 31%. F04 meets the subset gate; its full-scale gate (R1 >=5%) could not be resolved by one pair, and the user accepted F04 at full scale on 2026-10-23. R4: export 1,406 s at 3,668,096 KiB, preserved import 2,256 s at 1,936,788 KiB; all 1,237,553 items present and 69 of 75 columns identical, only the note_obsidian_* snapshot columns differ on the 382,206 notes. R5: SIGINT in inventory and in batch insert both leave 0 notes, and both reruns match the uninterrupted fingerprint. Go producer targets were stale (set on Notrios 7662fdd, not v1.0.0) and never measured here; the user removed them from the plan on 2026-10-23. 286 tests in the five required modules pass (149.366 s) with PYTHONDONTWRITEBYTECODE=1 and -B; test_notrios_p7c.py 11 tests pass.",
       "id": "P7c",
       "coding_agent": "codex (partial execution to 2026-09-19); claude (remaining work)",
       "status": "complete",
@@ -1232,7 +1232,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "Codex partial run: User: Proceed with P7c. Existing Codex roles, efforts and billing suitability confirmed for unchanged session. Remaining work: Claude Code session assignments confirmed by user on 2026-10-22; resume authorized by the user on 2026-10-22 (Proceed).",
       "delegation_required": false,
-      "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md performance prerequisites added 2026-09-17; 2026-10-22 user reassignment to the Claude Code parent",
+      "planned_assignment_evidence": "plans/v3.37/000-notrios-import-plan.md performance prerequisites added 2026-09-17; 2026-10-22 user reassignment to the Claude Code parent",
       "delegation_failure_or_reassignment": "Worker external ps/approval calls stalled; parent final-validation launches and long tool waits used after confirming no active process. Worker could not access parent terminal session. No implementation reassignment. 2026-10-22: user reassigned the remaining P7c work from codex luna_worker (gpt-5.6-luna, fixed max) to the Claude Code parent and retired the Luna monitor; the partial Luna record above is unchanged. No worker was used for the remaining work.",
       "assignment_history": [
         {
@@ -1247,11 +1247,11 @@
       "evidence": [
         "User requested investigation of Union Alpha and Grok 4.6 performance reviews and adoption only after demonstrated improvement.",
         "User: Proceed with P7c; native spawn /root/p7c_validation",
-        "NOTRIOS_P7C_EVIDENCE.md",
+        "plans/v3.37/009-p7c-evidence.md",
         "Private movenotes-p7c-* HD2 manifests, source hashes, results, failed full trial and child traceback.",
         "User: Proceed (resumed P7c, 2026-10-22)",
         "Private /run/media/$USER/HD2/movenotes-p7c-20261022-{sources,variants,r3-subset,r1r2-full,r4-preserved,r5-recovery}",
-        "NOTRIOS_P7C_EVIDENCE.md, Resumed P7c — F04 with P7b2 constant",
+        "plans/v3.37/009-p7c-evidence.md, Resumed P7c — F04 with P7b2 constant",
         "User, 2026-10-23: Remove the Go targets from the plan ; Accept F04 at full scale."
       ],
       "commit": "P7c partial-evidence checkpoint; 6f010c6 resumed-P7c results; P7c completion commit (contains this ledger)",
@@ -1295,7 +1295,7 @@
       "validation": "All 289 tests in the five required modules pass (172.590 s) with PYTHONDONTWRITEBYTECODE=1 and -B, including test_unchanged_rerun_converts_no_note (fails on the previous code), test_skipped_notes_still_restore_missing_tags and test_unreadable_note_after_unchanged_notes_reports_utf8_error. Paired alternating runs, base 9c25e2a against U1, every output fingerprint-identical: 10,000-file subset, five pairs each, median U1/base unchanged rerun 0.472, fresh import 0.938, ten-note merge 1.038 (0.02 s on 0.55 s, pairs -0.04 to +0.08 s); full vault, one pair, unchanged rerun 0.524 (983.03 s to 515.14 s). Ungated setup imports: subset fresh 0.86-0.98 in all five, full-vault fresh 1.042 (1,537.89 s to 1,601.87 s, one run). Peak RSS: unchanged -2.1 MB subset and -1.9 MB full; fresh +2.1 MB (+4.0%) subset and +5.9 MB (+0.8%) full, from one batch of read-ahead notes; merge +0.5 MB. The user accepted U1 as measured on 2026-10-23. RAW (joplin2sql.py) and preserved-bundle items are unchanged code; R2 and R4 stand for them.",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "NOTRIOS_P7C_EVIDENCE.md, section U1 — unchanged notes skipped before conversion",
+        "plans/v3.37/009-p7c-evidence.md, section U1 — unchanged notes skipped before conversion",
         "/run/media/$USER/HD2/movenotes-u1-20261023-sources (SOURCES.txt, harness copies, run_u1.sh, run_u1.log)",
         "/run/media/$USER/HD2/movenotes-u1-20261023-subset/results.json",
         "/run/media/$USER/HD2/movenotes-u1-20261023-full/results.json",
@@ -1327,7 +1327,7 @@
       "validation": "All 292 tests in the five required modules pass (181.434 s) with PYTHONDONTWRITEBYTECODE=1 and -B, including test_import_into_empty_library_defers_indexes and test_interrupted_imports_recover_with_the_same_indexes (both fail on the previous code) and test_import_into_non_empty_library_keeps_its_indexes. Alternating pairs, base 902bad2 against I1, every output fingerprint-identical: empty-library import median I1/base 0.799 at 10,000 files (five pairs, 0.761-0.874) and 0.667 at 40,000 files (three pairs, 0.533-0.670), same fingerprint and index set as a new-database import. SIGINT 60 s into a 40,000-file I1 import left 0 rows and only joplinididx; the rerun took 140.41 s at 126,140 KiB and matched the new-database fingerprint, ending with all nine indexes. Regression cases on code I1 does not change (one added SELECT): fresh 1.020 (10,000, 0.966-1.041) and 1.025 (40,000, 0.991-1.029), unchanged 1.041 (0.908-1.101), merge 0.930 (0.889-1.000); peak RSS unchanged. joplin2sql.py not changed.",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "NOTRIOS_P7C_EVIDENCE.md, section I1 — empty existing library imported like a new one",
+        "plans/v3.37/009-p7c-evidence.md, section I1 — empty existing library imported like a new one",
         "/run/media/$USER/HD2/movenotes-i1-20261023-sources (SOURCES.txt, i1_empty.py, run_i1.sh, run_i1.log, harness copies)",
         "/run/media/$USER/HD2/movenotes-i1-20261023-runs (empty-10k, empty-40k, harness-10k, harness-40k, interrupt-40k)"
       ],
@@ -1357,7 +1357,7 @@
       "validation": "All 294 tests in the five required modules pass (138.691 s) with PYTHONDONTWRITEBYTECODE=1 and -B. fuzz.py: 140,000 comparisons of the reader with a json.loads reference, read sizes 1 character to 1 MiB, damaged documents included, 0 mismatches. Alternating pairs against 4dec69b, every exit zero and every output identical: 40,000-file export (132,775 items) manifest 5a315af0... and vault 30f45283..., final writer median time 0.986 and peak RSS 0.279 (384,852 -> 107,500 KiB); its preserved import fingerprint a6f1f307... with the same summary, time 1.063 (1.018-1.121) and RSS 0.393; synthetic bundle fresh 1.038 (0.962-1.087), unchanged 0.999. Full library (1,237,553 items), one pair: export manifest 61daef6c..., byte-identical to R4's, vault b7770fad..., RSS 3,637,316 -> 816,632 KiB, time 1.099 with the per-item writer; preserved import of R4's old-code vault fingerprint 8c0991bf... (R4's) with the same summary, RSS 1,936,876 -> 515,968 KiB, time 0.932. Isolated on R4's manifest: read 25.4 s against json.loads 21.7 s (302,700 against 1,933,600 KiB); final write 24.9 s against json.dumps 26.2 s, same bytes. Paired time changes are within the gate's noise (R2 control up to 31%).",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "NOTRIOS_P7C_EVIDENCE.md, section M1 — preservation manifest streamed both ways",
+        "plans/v3.37/009-p7c-evidence.md, section M1 — preservation manifest streamed both ways",
         "/run/media/$USER/HD2/movenotes-m1-20261023-sources (SOURCES.txt, SOURCES-m1b.txt, m1_pairs.py, m1b_pairs.py, run_m1.sh, run_m1.log, micro.py, micro-results.txt, fuzz.py, harness copies)",
         "/run/media/$USER/HD2/movenotes-m1-20261023-runs (export-40k, export-40k-m1b, import-40k, harness-preserved, export-full, import-full, full-manifests.txt)"
       ],
@@ -1387,7 +1387,7 @@
       "validation": "All 304 tests in the five required modules pass (184.010 s) with PYTHONDONTWRITEBYTECODE=1 and -B; the 15 harness tests pass. Every new DamagedBundleTest test except the valid-bundle one fails on 7d9a879. Eleven refusal cases refuse against a new and an existing library and write nothing to either; the full message is checked exactly; every printed command runs as printed from a fixture with spaces in its paths and succeeds (restore, RAW copy, --ignore-preservation, and a re-export that reproduces the original vault byte for byte with its recorded --notebooks and --no-frontmatter). Export-record tests cover ~/, $USER segments, a segment merely containing the name, expansion under another HOME and USER with the not-found label, literal ~ and $USER directories, missing, unreadable, foreign and control-character records. fuzz-v1.py: 140,000 comparisons with a json.loads reference, 0 mismatches; truncating two real manifests at every offset is always refused as cut short. Against 7d9a879 on the 40,000-file library: exports differ only in .movenotes/export.json and README.md, manifests byte-identical (5a315af0...), import fingerprints identical (a6f1f307...) with the same summary; harness preserved, preserved-unchanged, native, native-unchanged and native-small-merge fingerprint-identical over three alternating pairs.",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
-        "NOTRIOS_P7C_EVIDENCE.md, section V1 — damaged preservation bundles refused",
+        "plans/v3.37/009-p7c-evidence.md, section V1 — damaged preservation bundles refused",
         "/run/media/$USER/HD2/movenotes-v1-20261023-sources (SOURCES.txt, v1_roundtrip.py, run_v1.sh, run_v1.log, fuzz-v1.py, harness copies)",
         "/run/media/$USER/HD2/movenotes-v1-20261023-runs (roundtrip-40k, harness)"
       ],
@@ -1403,7 +1403,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-22; proposed by Main on 2026-10-24 from resumed 7c's phase 2 refusals; authorized by the user on 2026-10-24 (Start C7d).",
       "delegation_required": false,
-      "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md C7d row and Resumed 7c results so far, added 2026-10-24",
+      "planned_assignment_evidence": "plans/v3.37/000-notrios-import-plan.md C7d row and Resumed 7c results so far, added 2026-10-24",
       "planned_work": "Census the full publications' link forms without converting, then admit multi-line and unclosed literal bracket prose, flat pairs followed by whitespace and ( or [, inline-link labels with nested brackets and escapes, http(s) reference links, and URL-fragment validation for http(s) links, with internal-target accounting unchanged; rewrite producer-converted HTML <img src=\"resource://…\"> to the mapped :/id when the note references the resource; pass every non-internal destination through unchanged.",
       "actual_worker": "none",
       "child_thread": "none",
@@ -1413,7 +1413,7 @@
       "parent": "Claude Code parent",
       "parent_underlying_model_family": "Claude Opus 5.5, runtime-reported claude-opus-5-5",
       "parent_reasoning_effort": "not exposed",
-      "parent_contribution": "Read the producer's internal/markdownlinks parser and publish/export limits at 2aab9a8. notrios_links.py: inline links recognised exactly as the producer's parser (label to the first ] on its line, balanced or angle destinations, Go-whitespace trim, J37 literal hrefs); any other bracket is prose and scanning resumes after it; internal destinations keep the strict form; unrecorded wiki links are text and recorded ones refuse (user decision 2026-10-24); a producer record inside protected code or at an escaped bracket is accepted unchanged when it is one external link with no internal target in its span (user decision 2026-10-24); non-internal destinations pass through unless they name an internal target, percent-encoded included; heading-fragment rules only on internal targets; anchors compared as the producer's splitAnchor; HTML <img src=resource://...> mapped through the note's attachment relation and kept as :/id on projected export. Rewrote three C7a link-grammar tests and added producer-shaped, pass-through and HTML-image tests. Added the census command and child to the 7c harness. Amended NOTRIOS_IMPORT_DESIGN.md and NOTRIOS_COMPATIBILITY_REVIEW.md; proposed H1. The 7c harness's full tier uses export archive-v2 --target publication_handoff on each library's root notebooks (user decision 2026-10-24), checked to select every document and exclude none; equivalence with publish run checked on one 12,052-document notebook. notrios_archive.py: an external link record needs only a nonempty destination without control characters and no internal target ID, any scheme (phase 3 found 59 mailto, 33 backslash and 4 malformed-port producer records the HTTP(S) rule refused); contract link row updated. The frozen differential reports keep their recorded results; the live checks apply REVISED_AFTER_AUDIT, which now expects external_file_uri to be accepted, agreeing with the producer's recorded Go acceptance; only the v1.0.0 binary is still available, and the case spec is shared with the schema-28 report. Third decision (2026-10-25): resolved-by-name records with a non-internal destination are copied as written; an unrecorded strict internal destination directly after ]( maps back to :/id when its target is in the publication (projected export rewrites only that destination); recorded wiki links are text; self-anchor records inside protected code are accepted unchanged; an ambiguous container fence refuses only for an internal target after it. Five tests added, two updated. A record starting at an escaped [ accounts for the token or unrecorded destination ending with its span (2 further Joplin notes); two more tests. Ran phase 3c (bounded, recovery, full census, full pipelines, full live-site) on 12a09fe and recorded it; traced Joplin's Hugo failure to raw <script> prose already in the Joplin RAW source and proposed T1.",
+      "parent_contribution": "Read the producer's internal/markdownlinks parser and publish/export limits at 2aab9a8. notrios_links.py: inline links recognised exactly as the producer's parser (label to the first ] on its line, balanced or angle destinations, Go-whitespace trim, J37 literal hrefs); any other bracket is prose and scanning resumes after it; internal destinations keep the strict form; unrecorded wiki links are text and recorded ones refuse (user decision 2026-10-24); a producer record inside protected code or at an escaped bracket is accepted unchanged when it is one external link with no internal target in its span (user decision 2026-10-24); non-internal destinations pass through unless they name an internal target, percent-encoded included; heading-fragment rules only on internal targets; anchors compared as the producer's splitAnchor; HTML <img src=resource://...> mapped through the note's attachment relation and kept as :/id on projected export. Rewrote three C7a link-grammar tests and added producer-shaped, pass-through and HTML-image tests. Added the census command and child to the 7c harness. Amended NOTRIOS_IMPORT_DESIGN.md and plans/v3.37/005-compatibility-review.md; proposed H1. The 7c harness's full tier uses export archive-v2 --target publication_handoff on each library's root notebooks (user decision 2026-10-24), checked to select every document and exclude none; equivalence with publish run checked on one 12,052-document notebook. notrios_archive.py: an external link record needs only a nonempty destination without control characters and no internal target ID, any scheme (phase 3 found 59 mailto, 33 backslash and 4 malformed-port producer records the HTTP(S) rule refused); contract link row updated. The frozen differential reports keep their recorded results; the live checks apply REVISED_AFTER_AUDIT, which now expects external_file_uri to be accepted, agreeing with the producer's recorded Go acceptance; only the v1.0.0 binary is still available, and the case spec is shared with the schema-28 report. Third decision (2026-10-25): resolved-by-name records with a non-internal destination are copied as written; an unrecorded strict internal destination directly after ]( maps back to :/id when its target is in the publication (projected export rewrites only that destination); recorded wiki links are text; self-anchor records inside protected code are accepted unchanged; an ambiguous container fence refuses only for an internal target after it. Five tests added, two updated. A record starting at an escaped [ accounts for the token or unrecorded destination ending with its span (2 further Joplin notes); two more tests. Ran phase 3c (bounded, recovery, full census, full pipelines, full live-site) on 12a09fe and recorded it; traced Joplin's Hugo failure to raw <script> prose already in the Joplin RAW source and proposed T1.",
       "validation": "Differential check: every producer Markdown record outside protected code is a token with the same span, target and label (75,776/75,776 Joplin; all recipe records); both recipe libraries scan with no refusal. Bounded phase 2 rerun passed every stage on all three routes, plus live-site and recovery. 311 tests (five modules plus harness) passed in 184.443s with both bytecode controls. Phase 3 first attempt: both recipe routes passed every full stage; Joplin full verification refused 96 non-HTTP(S) external records, now admitted. 313 tests (five modules plus harness) passed in 167.955s with both bytecode controls after the verifier change. Phase 3b: both recipe routes passed every full stage; Joplin refused 14 notes in five forms, all admitted by the third decision. 317 tests passed in 217.995s after it; the private diagnostic found no refusal over all 103,349 Joplin notes. Phase 3c on 12a09fe: bounded tier and recovery passed; the full census found 0 refused documents on all three routes; all three full conversions passed with no refusal (103,349, 382,206 and 382,206 documents), as did vault export, asset check and site generation. Both recipe routes passed every full stage. Joplin's Hugo build failed on three notes whose Joplin RAW source holds raw <script> in prose, outside C7d's scope and planned as T1; the full live-site check therefore stopped at Joplin.",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
@@ -1477,7 +1477,7 @@
         }
       ],
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md",
       "actual_worker": "Codex partial run: luna_worker (harness/monitoring only). Resumed work 2026-10-23 to 2026-10-26: none",
       "child_thread": "Codex partial run: /root/notrios_7c_monitor. Resumed work: none",
       "actual_model": "Codex partial run: not exposed — configured worker model is not execution evidence. Resumed work: none",
@@ -1486,17 +1486,17 @@
       "parent": "Codex parent (partial run, exact model not exposed); Claude Code parent (resumed work)",
       "parent_underlying_model_family": "Codex partial run: GPT-6 (runtime-reported). Resumed work: Claude Opus 5.5, runtime-reported claude-opus-5-5",
       "parent_reasoning_effort": "not exposed",
-      "parent_contribution": "Codex partial run: Inspected producer pin and source sizes, prepared initial harness and isolated measurements, investigated Joplin lexical refusal, reviewed terminal evidence and recorded partial acceptance; used 25-minute native notification waits with occasional fallback checks. Corrected nondeterministic receipt-test search row comparison; sampled control characters and embedded frontmatter differences; retained 7c as incomplete. Resumed work (Claude Code parent): froze the resumed design in the plan before any run; rebuilt the durable checkpointed harness for the v1.0.0 producer (producer, pipeline, census, live-site, recovery, compare and summary commands, fresh-directory reruns on changed inputs, failed attempts kept); ran phases 1 to 5 as harness-tracked background commands without polling; diagnosed each refusal with aggregate or masked private diagnostics; proposed C7d and T1 and implemented both on the user's decisions; recorded every phase in the plan and the resumed section of NOTRIOS_CORPUS_TRIALS.md.",
-      "validation": "Codex partial run: Partial corpus acceptance: both 382,206-document recipe imports succeeded; three bounded real publications passed both verifiers but conversion refused. Full real tiers skipped. Synthetic 10,000 pipeline and recovery passed. Initial semantic multisets differ and include embedded frontmatter; refined semantic audit pending. Corrected full regression passed all 262 tests in 139.150s. Historical failure proven to be JSONL row permutation. See NOTRIOS_CORPUS_TRIALS.md. Resumed (2026-10-23 to 2026-10-26): every stage exits 0 on all three routes at bounded and full scale (103,349, 382,206 and 382,206 documents); each full export selects every document; Joplin's 757 attachments exact with equal reachable sets, recipes none; live-site and recovery pass; comparison joins all 382,206 identities per recipe route with zero unexplained differences and C7c's accepted figures (842,813 RAW tag associations against 0, 382,206 RAW metadata not projected, 3,682 pinned titles; Joplin publication 987 exact plus 13 privacy projections); per-stage times and RSS recorded at both scales; 318 tests passed in 222.826s with both bytecode controls after the final change.",
+      "parent_contribution": "Codex partial run: Inspected producer pin and source sizes, prepared initial harness and isolated measurements, investigated Joplin lexical refusal, reviewed terminal evidence and recorded partial acceptance; used 25-minute native notification waits with occasional fallback checks. Corrected nondeterministic receipt-test search row comparison; sampled control characters and embedded frontmatter differences; retained 7c as incomplete. Resumed work (Claude Code parent): froze the resumed design in the plan before any run; rebuilt the durable checkpointed harness for the v1.0.0 producer (producer, pipeline, census, live-site, recovery, compare and summary commands, fresh-directory reruns on changed inputs, failed attempts kept); ran phases 1 to 5 as harness-tracked background commands without polling; diagnosed each refusal with aggregate or masked private diagnostics; proposed C7d and T1 and implemented both on the user's decisions; recorded every phase in the plan and the resumed section of plans/v3.37/010-corpus-trials.md.",
+      "validation": "Codex partial run: Partial corpus acceptance: both 382,206-document recipe imports succeeded; three bounded real publications passed both verifiers but conversion refused. Full real tiers skipped. Synthetic 10,000 pipeline and recovery passed. Initial semantic multisets differ and include embedded frontmatter; refined semantic audit pending. Corrected full regression passed all 262 tests in 139.150s. Historical failure proven to be JSONL row permutation. See plans/v3.37/010-corpus-trials.md. Resumed (2026-10-23 to 2026-10-26): every stage exits 0 on all three routes at bounded and full scale (103,349, 382,206 and 382,206 documents); each full export selects every document; Joplin's 757 attachments exact with equal reachable sets, recipes none; live-site and recovery pass; comparison joins all 382,206 identities per recipe route with zero unexplained differences and C7c's accepted figures (842,813 RAW tag associations against 0, 382,206 RAW metadata not projected, 3,682 pinned titles; Joplin publication 987 exact plus 13 privacy projections); per-stage times and RSS recorded at both scales; 318 tests passed in 222.826s with both bytecode controls after the final change.",
       "delegation_failure_or_reassignment": "User explicitly added Luna harness/monitoring delegation to parent-owned 7c to reduce model usage; no silent substitution. 2026-10-22: user moved the remaining 7c work to the Claude Code parent and retired the Luna harness/monitoring delegation. Resumed work ran with no worker, as reassigned.",
       "evidence": [
         "User: Proceed with 7c",
         "User request for Luna monitoring with long notification waits; native spawn /root/notrios_7c_monitor",
-        "NOTRIOS_CORPUS_TRIALS.md",
+        "plans/v3.37/010-corpus-trials.md",
         "Private /media/$USER/HD2/movenotes-7c-20260916/notification.json and resume/final-regressions.log",
         "2ea17ca: committed receipt-test ordering correction; 7c remains incomplete",
-        "2026-10-23: resumed 7c design frozen in NOTRIOS_IMPORT_PLAN.md before any run",
-        "2026-10-24: phase 1 complete (103,349 / 382,206 / 382,206 documents, all imports exit 0); phase 2 bounded conversions refused unsupported or unaccounted active link syntax on all three routes (7, 8 and 3 of 1,000), dependent stages skipped; aggregate diagnostic and full-library census in NOTRIOS_IMPORT_PLAN.md, Resumed 7c results so far; blocked pending C7d or a user scope revision",
+        "2026-10-23: resumed 7c design frozen in plans/v3.37/000-notrios-import-plan.md before any run",
+        "2026-10-24: phase 1 complete (103,349 / 382,206 / 382,206 documents, all imports exit 0); phase 2 bounded conversions refused unsupported or unaccounted active link syntax on all three routes (7, 8 and 3 of 1,000), dependent stages skipped; aggregate diagnostic and full-library census in plans/v3.37/000-notrios-import-plan.md, Resumed 7c results so far; blocked pending C7d or a user scope revision",
         "2026-10-24: phase 2 passed with the C7d scanner; phase 3 blocked by the v1.0.0 publish caps, pending a user scope decision",
         "2026-10-26: phase 3c: every full conversion passed with no refusal; both recipe routes passed every full stage; Joplin full Hugo failed on raw <script> prose in three source notes; blocked pending T1 or a user scope revision",
         "2026-10-26: phase 3d: with T1, every full stage and the full live-site check passed on all three routes; phase 4 next",
@@ -1526,7 +1526,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-22; 7d authorized by the user on 2026-10-26 (Start 7d).",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md; 2026-10-22 user reassignment to the Claude Code parent",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md; 2026-10-22 user reassignment to the Claude Code parent",
       "assignment_history": [
         {
           "coding_agent": "codex",
@@ -1546,7 +1546,7 @@
       "parent_underlying_model_family": "Claude Opus 5.5, runtime-reported claude-opus-5-5",
       "parent_reasoning_effort": "not exposed",
       "parent_contribution": "Read the 7c harness's stage commands, the measured per-stage results, the plan's completed-slice records, the contract and design limits, and notriosctl v1.0.0's help. README: About and Scripts table entries for notrios2sql.py and its modules and test files; an 'Import a Notrios publication into SQLite' usage section (verification before writing, no-replace publication, links, --expected-selection-sha256, fresh-output, loose-only and Linux limits, summary and exit codes, killed-run recovery); a 'Publishing a Notrios library' recipe (notebooks list, profile save, plan, run with --reviewed-plan, verify, notrios2sql.py, sql2obsidian.py and obsidian2site.py --build with the receipt and --no-simplify-urls), the plain_text and HTML-image limitations, the over-100,000-note export archive-v2 path and its unfiled-note limit, and the full-scale time and memory table from resumed 7c; T1's behaviour in the site section; the Testing command and count. CHANGELOG: an 'Unreleased changes' section covering the Notrios importer, receipts, C7d, S43c, E1, the index.md fix, P7b2, F04, U1, I1, M1, V1, C01/C02 and T1. Ran the recipe as written with the pinned v1.0.0 binary on the synthetic titled-link vault in the scratchpad; found D1 and added it to the plan.",
-      "validation": "The README recipe ran as written (HOME pointed at a scratch home, default library) on the synthetic vault-titled-v1: import obsidian, notebooks list, profile save, plan, run with the reviewed plan, verify, notrios2sql.py created then unchanged, sql2obsidian.py, obsidian2site.py --build (Hugo, Go server, Bluge index), and notrios2sql.py still unchanged after both exports. The export archive-v2 path produced the same selection digest as the reviewed plan (eda3ffaa...), verified, and imported to identical note rows. A packed export, a wrong digest, an occupied output and another publication were each refused with exit 1. Every figure in the README table was recomputed from NOTRIOS_CORPUS_TRIALS.md. 318 tests in the six modules passed in 214.288 s on 2bd2de0 plus these documentation changes, with PYTHONDONTWRITEBYTECODE=1 and -B; no code changed.",
+      "validation": "The README recipe ran as written (HOME pointed at a scratch home, default library) on the synthetic vault-titled-v1: import obsidian, notebooks list, profile save, plan, run with the reviewed plan, verify, notrios2sql.py created then unchanged, sql2obsidian.py, obsidian2site.py --build (Hugo, Go server, Bluge index), and notrios2sql.py still unchanged after both exports. The export archive-v2 path produced the same selection digest as the reviewed plan (eda3ffaa...), verified, and imported to identical note rows. A packed export, a wrong digest, an occupied output and another publication were each refused with exit 1. Every figure in the README table was recomputed from plans/v3.37/010-corpus-trials.md. 318 tests in the six modules passed in 214.288 s on 2bd2de0 plus these documentation changes, with PYTHONDONTWRITEBYTECODE=1 and -B; no code changed.",
       "delegation_failure_or_reassignment": "2026-10-22 user reassignment from codex luna_worker (gpt-5.6-luna, fixed max) to the Claude Code parent before any work started; previous assignment kept in assignment_history. Not a delegation failure. Ran with no worker, as reassigned.",
       "evidence": [
         "User: Start 7d",
@@ -1565,7 +1565,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-22; 7e authorized by the user on 2026-10-26 (Start 7e).",
       "delegation_required": false,
-      "planned_assignment_evidence": "e3af032:NOTRIOS_IMPORT_PLAN.md; 2026-10-22 coding-agent change to Claude Code",
+      "planned_assignment_evidence": "e3af032:plans/v3.37/000-notrios-import-plan.md; 2026-10-22 coding-agent change to Claude Code",
       "assignment_history": [
         {
           "coding_agent": "codex",
@@ -1602,7 +1602,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-22; user authorized: Commit the plan amendment, then proceed with S43a.",
       "delegation_required": false,
-      "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md producer link-syntax prerequisites added 2026-09-26; 2026-10-22 coding-agent change to Claude Code",
+      "planned_assignment_evidence": "plans/v3.37/000-notrios-import-plan.md producer link-syntax prerequisites added 2026-09-26; 2026-10-22 coding-agent change to Claude Code",
       "planned_work": "Admit an optional link title after a validated destination and preserve it byte for byte through projection.",
       "actual_worker": "none",
       "child_thread": "none",
@@ -1632,7 +1632,7 @@
       "configured_reasoning_effort": "not exposed",
       "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-22; user authorized: proceed to S43b.",
       "delegation_required": false,
-      "planned_assignment_evidence": "NOTRIOS_IMPORT_PLAN.md producer link-syntax prerequisites added 2026-09-26; 2026-10-22 coding-agent change to Claude Code",
+      "planned_assignment_evidence": "plans/v3.37/000-notrios-import-plan.md producer link-syntax prerequisites added 2026-09-26; 2026-10-22 coding-agent change to Claude Code",
       "planned_work": "Add a separately pinned publication fixture from Notrios v1.0.0 (2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a) with titled internal links; extend the differential audit and converter/no-op evidence.",
       "actual_worker": "none",
       "child_thread": "none",
@@ -1716,7 +1716,7 @@
     {
       "id": "H1",
       "coding_agent": "claude",
-      "status": "pending",
+      "status": "moved to PLAN.md",
       "planned_worker": "parent",
       "configured_model": "not exposed; runtime reports claude-opus-5-5",
       "configured_reasoning_effort": "not exposed",
@@ -1734,14 +1734,14 @@
       "parent_reasoning_effort": "pending",
       "parent_contribution": "pending",
       "validation": "pending",
-      "delegation_failure_or_reassignment": "none recorded",
+      "delegation_failure_or_reassignment": "2026-10-26: moved, not started, to PLAN.md at the user's direction (follow-ups carried into the reorganization plan); its record continues in docs/plan/ledger.json.",
       "evidence": [],
       "commit": "pending"
     },
     {
       "id": "R1",
       "coding_agent": "claude",
-      "status": "pending",
+      "status": "moved to PLAN.md",
       "planned_worker": "parent",
       "configured_model": "not exposed; runtime reports claude-opus-5-5",
       "configured_reasoning_effort": "not exposed",
@@ -1759,14 +1759,14 @@
       "parent_reasoning_effort": "pending",
       "parent_contribution": "pending",
       "validation": "pending",
-      "delegation_failure_or_reassignment": "none recorded",
+      "delegation_failure_or_reassignment": "2026-10-26: moved, not started, to PLAN.md at the user's direction (follow-ups carried into the reorganization plan); its record continues in docs/plan/ledger.json.",
       "evidence": [],
       "commit": "pending"
     },
     {
       "id": "R2",
       "coding_agent": "claude",
-      "status": "pending",
+      "status": "moved to PLAN.md",
       "planned_worker": "parent",
       "configured_model": "not exposed; runtime reports claude-opus-5-5",
       "configured_reasoning_effort": "not exposed",
@@ -1784,14 +1784,14 @@
       "parent_reasoning_effort": "pending",
       "parent_contribution": "pending",
       "validation": "pending",
-      "delegation_failure_or_reassignment": "none recorded",
+      "delegation_failure_or_reassignment": "2026-10-26: moved, not started, to PLAN.md at the user's direction (follow-ups carried into the reorganization plan); its record continues in docs/plan/ledger.json.",
       "evidence": [],
       "commit": "pending"
     },
     {
       "id": "D1",
       "coding_agent": "claude",
-      "status": "pending",
+      "status": "moved to PLAN.md",
       "planned_worker": "parent",
       "configured_model": "not exposed; runtime reports claude-opus-5-5",
       "configured_reasoning_effort": "not exposed",
@@ -1809,7 +1809,7 @@
       "parent_reasoning_effort": "pending",
       "parent_contribution": "pending",
       "validation": "pending",
-      "delegation_failure_or_reassignment": "none recorded",
+      "delegation_failure_or_reassignment": "2026-10-26: moved, not started, to PLAN.md at the user's direction (follow-ups carried into the reorganization plan); its record continues in docs/plan/ledger.json.",
       "evidence": [],
       "commit": "pending"
     }

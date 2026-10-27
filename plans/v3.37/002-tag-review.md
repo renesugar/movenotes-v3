@@ -31,7 +31,7 @@ Pagefind indexing run, browser session or live Bluge query.
   documented cap exception to tag-surface equality; it never admits generated
   words to any `tag:` field. No Notrios-specific bypass is necessary.
 
-The early M2 table in [the Ledger migration plan](LEDGER_MIGRATION_PLAN.md)
+The early M2 table in [the Ledger migration plan](../v3.36/000-ledger-migration-plan.md)
 still described generated words in Bluge tag fields. It now reflects the
 completed Step 46 behavior rather than the superseded proposal. M3's taxonomy
 cap remains unchanged.
@@ -39,7 +39,7 @@ cap remains unchanged.
 ## Regression evidence
 
 `test_notrios2sql.NotriosSiteTagTest` imports the unmodified
-[schema-28 text publication](testdata/notrios/schema28/publication-text/),
+[schema-28 text publication](../../testdata/notrios/schema28/publication-text/),
 exports its vault and runs `obsidian2site.py` twice: with default taxonomy
 settings, then with `--max-taxonomy-tags 1`.
 
@@ -72,5 +72,5 @@ section index files in note assertions; correcting that test selection required
 no runtime change. All 231 tests in the five-module regression suite passed
 in 104.534 seconds with localhost sockets permitted and both bytecode-suppression
 flags. Full-suite results are recorded in the
-[import plan](NOTRIOS_IMPORT_PLAN.md). Resources remain Step 5; this review does
+[import plan](000-notrios-import-plan.md). Resources remain Step 5; this review does
 not enable their conversion or expose a public importer CLI.

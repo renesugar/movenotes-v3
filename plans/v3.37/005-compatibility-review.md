@@ -16,7 +16,7 @@ housekeeping without rerunning scans. The worker waited for OS completion; paren
 ## Corpus evidence
 
 Read-only sources and producer libraries are those recorded in
-[the trial report](NOTRIOS_CORPUS_TRIALS.md). Producer code was inspected at
+[the trial report](010-corpus-trials.md). Producer code was inspected at
 `7662fdd5b55d6f34f14874f70ba6db9f9e7676ac`, not inferred from the newer checkout.
 Private aggregate evidence and scripts live at
 `/media/$USER/HD2/movenotes-c7a-20260917/`.
@@ -272,7 +272,7 @@ acceptance; C7c must quantify comparison differences without hiding those limits
 ## C7d: the producer's link grammar, prose brackets and pass-through destinations
 
 Resumed 7c's bounded conversions refused 7, 8 and 3 of 1,000 notes on C7a's
-narrow literal-bracket boundary (see NOTRIOS_IMPORT_PLAN.md, "Resumed 7c
+narrow literal-bracket boundary (see plans/v3.37/000-notrios-import-plan.md, "Resumed 7c
 results so far"). A census of the three `v1.0.0` producer libraries put the
 same boundary at 1,768 of 103,349 Joplin notes, an upper bound, and at 2,621
 and 2,622 of 382,206 recipe notes. On 2026-10-24 the user decided the two open

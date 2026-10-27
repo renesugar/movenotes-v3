@@ -2,21 +2,21 @@
 
 The loose publication verifier was audited against Notrios commit
 `bdecfeda00e582d5aa6170d15b37ba27c9656f1d`, using the exact CLI binary recorded by
-the [synthetic publication generator](testdata/notrios/publication-loose/generation.json).
+the [synthetic publication generator](../../testdata/notrios/publication-loose/generation.json).
 The audit covers archive admission and verified-byte consumption. Database
 conversion, body limits and Markdown span/target translation remain in Step 3.
 The final regression run passed all 166 tests (63 focused Notrios tests) in
 76.097 seconds on 2026-09-07.
 
-The [consumer contract](NOTRIOS_IMPORT_CONTRACT.md) and
-[frozen design](NOTRIOS_IMPORT_DESIGN.md) remain authoritative.
+The [consumer contract](../../NOTRIOS_IMPORT_CONTRACT.md) and
+[frozen design](../../NOTRIOS_IMPORT_DESIGN.md) remain authoritative.
 
 ## Differential results
 
 All 47 cases matched their declared outcomes: six shared acceptances, 24 shared
 refusals and 17 intentional consumer refusals that the general Notrios verifier
-accepts. The [case specifications](testdata/notrios/verifier-audit-cases.json)
-and [captured results](testdata/notrios/verifier-audit.json) bind the cases to the
+accepts. The [case specifications](../../testdata/notrios/verifier-audit-cases.json)
+and [captured results](../../testdata/notrios/verifier-audit.json) bind the cases to the
 producer commit, CLI hash and Python verifier source hash. Each mutation is made
 in a disposable copy, with record counts, object/index hashes and manifest
 checksums regenerated. Both verifiers leave the input unchanged.
@@ -30,7 +30,7 @@ checksums regenerated. Both verifiers leave the input unchanged.
 | Missing/null integer fields, empty optional parent ID and null blob counts | The consumer refuses Go zero-value decoding allowances explicitly excluded by its strict shape rules. |
 | Search notebooks, provenance and source bundles | The general verifier accepts valid records; this publication profile refuses their nonzero counts. |
 
-The prior 56 [Go MIME vectors](testdata/notrios/semantic-mime-vectors.json)
+The prior 56 [Go MIME vectors](../../testdata/notrios/semantic-mime-vectors.json)
 remain passing regression evidence for parameter normalization, including
 RFC2231 decoding and non-UTF-8 decoded bytes. The complete offline tests retain
 the manifest, JSON, byte-limit, inventory, shape, graph and publication mutation
@@ -77,7 +77,7 @@ Static review against the pinned `scanIndex`, `addRecord`,
   while consuming the private file. SQLite retains its 8 MiB page-cache target
   and disk-backed temporary storage.
 
-The [memory observations](testdata/notrios/verifier-memory.json) were collected
+The [memory observations](../../testdata/notrios/verifier-memory.json) were collected
 in separate Python processes. Tracing begins after synthetic fixture creation
 and covers verification, ordered tag iteration and 64 KiB blob consumption.
 The cases contain 504 tags/1 MiB of body bytes and 8,004 tags/32 MiB of body bytes.

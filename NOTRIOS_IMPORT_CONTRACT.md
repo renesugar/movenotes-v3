@@ -2,7 +2,7 @@
 
 Status: design frozen on 2026-09-05 for the first importer implementation.
 No importer or verifier is implemented by this document. This is the admission
-checklist for [NOTRIOS_IMPORT_PLAN.md](NOTRIOS_IMPORT_PLAN.md), not a claim that
+checklist for [plans/v3.37/000-notrios-import-plan.md](plans/v3.37/000-notrios-import-plan.md), not a claim that
 movenotes already supports archive-v2.
 
 ## Reference pin and authority
@@ -10,8 +10,8 @@ movenotes already supports archive-v2.
 Original reviewed Notrios commit: `bdecfeda00e582d5aa6170d15b37ba27c9656f1d`.
 The local checkout at `~/projects/notrios` matched this commit and had
 no working-tree changes at review. Its registry and store both reported schema 27.
-The links below refer to that adjacent checkout; inspect the pinned revision if
-it later advances. No changes to Notrios are part of this slice.
+The links below go to that commit on GitHub (they first named the adjacent
+checkout, which only resolved on one machine). No changes to Notrios are part of this slice.
 
 S28a update (2026-09-13): current reference pin is
 `7662fdd5b55d6f34f14874f70ba6db9f9e7676ac`, with registry/store schema 28.
@@ -34,22 +34,22 @@ differential evidence.
 
 | Reference | Rules used here |
 |---|---|
-| [Registry](../notrios/contracts/archive-v2/contract.json) | Contract version, capabilities, hard limits and separate formats. |
-| [Manifest schema](../notrios/contracts/archive-v2/schemas/manifest.schema.json) | Exact manifest/nested fields and required members. |
-| [Index schema](../notrios/contracts/archive-v2/schemas/index-entry.schema.json) | Exact index-entry fields. |
-| [Record schema](../notrios/contracts/archive-v2/schemas/record-envelope.schema.json) | Envelope and all twelve payload field sets. |
-| [format.go](../notrios/internal/archivev2/format.go) | `Manifest`, nested structs, `ComputeCommitSHA256`, `validateManifest`, `DefaultLimits`. |
-| [index.go](../notrios/internal/archivev2/index.go) | `ObjectLocation`, `IndexObject`, `IndexEntry.validate`, `ObjectTotals`. |
-| [records.go](../notrios/internal/archivev2/records.go) | Payload types and `countForRecordType`. |
-| [verify.go](../notrios/internal/archivev2/verify.go) | `VerifyDirectory`, `addRecord`, `validateContainers`, `reconcile`, JSON/MIME/path helpers. |
-| [compatibility.go](../notrios/internal/archivev2/compatibility.go) | `EvaluateCompatibility`, schema inequalities and capability-name grammar. |
-| [export.go](../notrios/internal/archivev2/export.go) | `writeDocuments`, `writeRevision`, `writeLink`, `writeResources`, `writeHeaderRecords`, `buildManifest`. |
-| [publish.go](../notrios/internal/archivev2/publish.go) | Rewrite decisions, stale spans and byte-offset adjustments. |
-| [Publication tests](../notrios/internal/archivev2/publish_test.go) | Default projection, retained links, metadata stripping, stale rewrites, unevaluated query blocks. |
-| [Selection implementation](../notrios/internal/store/sqlite_selection.go) | Policy defaults/overrides, reachable resources and `selectionManifestDigest`. |
-| [Store export](../notrios/internal/store/sqlite_export.go) | Current revision selection and resource/tag relation reads. |
-| [Profiles](../notrios/internal/publish/profiles.go) | `Validate` and `RequireReviewedPlan`. |
-| [Publication CLI](../notrios/cmd/notriosctl/publish.go) / [CLI tests](../notrios/cmd/notriosctl/publish_test.go) | Profile/plan/run flags, JSON nesting and digest comparisons. |
+| [Registry](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/contracts/archive-v2/contract.json) | Contract version, capabilities, hard limits and separate formats. |
+| [Manifest schema](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/contracts/archive-v2/schemas/manifest.schema.json) | Exact manifest/nested fields and required members. |
+| [Index schema](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/contracts/archive-v2/schemas/index-entry.schema.json) | Exact index-entry fields. |
+| [Record schema](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/contracts/archive-v2/schemas/record-envelope.schema.json) | Envelope and all twelve payload field sets. |
+| [format.go](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/internal/archivev2/format.go) | `Manifest`, nested structs, `ComputeCommitSHA256`, `validateManifest`, `DefaultLimits`. |
+| [index.go](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/internal/archivev2/index.go) | `ObjectLocation`, `IndexObject`, `IndexEntry.validate`, `ObjectTotals`. |
+| [records.go](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/internal/archivev2/records.go) | Payload types and `countForRecordType`. |
+| [verify.go](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/internal/archivev2/verify.go) | `VerifyDirectory`, `addRecord`, `validateContainers`, `reconcile`, JSON/MIME/path helpers. |
+| [compatibility.go](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/internal/archivev2/compatibility.go) | `EvaluateCompatibility`, schema inequalities and capability-name grammar. |
+| [export.go](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/internal/archivev2/export.go) | `writeDocuments`, `writeRevision`, `writeLink`, `writeResources`, `writeHeaderRecords`, `buildManifest`. |
+| [publish.go](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/internal/archivev2/publish.go) | Rewrite decisions, stale spans and byte-offset adjustments. |
+| [Publication tests](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/internal/archivev2/publish_test.go) | Default projection, retained links, metadata stripping, stale rewrites, unevaluated query blocks. |
+| [Selection implementation](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/internal/store/sqlite_selection.go) | Policy defaults/overrides, reachable resources and `selectionManifestDigest`. |
+| [Store export](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/internal/store/sqlite_export.go) | Current revision selection and resource/tag relation reads. |
+| [Profiles](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/internal/publish/profiles.go) | `Validate` and `RequireReviewedPlan`. |
+| [Publication CLI](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/cmd/notriosctl/publish.go) / [CLI tests](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/cmd/notriosctl/publish_test.go) | Profile/plan/run flags, JSON nesting and digest comparisons. |
 
 Use the published schemas for field presence/types and the executable verifier
 for semantic checks. Deliberate stricter consumer rules are labeled below;
@@ -368,7 +368,7 @@ reviewed bounded selections); do not infer that full-library `publish plan`
 works merely because `Export` has a higher cap. This is not an importer limit.
 
 Published contract goldens remain format-verifier inputs and importer refusals;
-see the [fixture matrix](../notrios/contracts/archive-v2/fixtures/fixture-matrix.json).
+see the [fixture matrix](https://github.com/renesugar/notrios/blob/bdecfeda00e582d5aa6170d15b37ba27c9656f1d/contracts/archive-v2/fixtures/fixture-matrix.json).
 An optional-capability manifest probe is not a complete positive archive. Slice
 1b generates the first real publication; 1c freezes conversion APIs/ID vectors,
 Markdown/body limits and exact link syntax. None of those later slices is marked

@@ -41,7 +41,7 @@ import notesdb
 
 __program_name__ = "cleanres"
 __author__ = "Rene Sugar"
-__version__ = "2.10"
+__version__ = "3.37"
 __license__ = "MIT License (https://opensource.org/licenses/MIT)"
 __website__ = "https://github.com/renesugar"
 

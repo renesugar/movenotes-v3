@@ -5,19 +5,19 @@ The review found no required runtime change within the frozen importer boundary.
 Three additional integration tests cover orphan-resource refusal, private-copy
 mutation immediately before resource consumption, and abrupt process exit
 during a real resource write. Validation results are recorded in the
-[plan](NOTRIOS_IMPORT_PLAN.md) and its
-[execution ledger](NOTRIOS_IMPORT_EXECUTION.json).
+[plan](000-notrios-import-plan.md) and its
+[execution ledger](notrios-import-ledger.json).
 
 ## Reachability and projection
 
-[`notrios_archive._reconcile_records`](notrios_archive.py) checks record
+[`notrios_archive._reconcile_records`](../../notrios_archive.py) checks record
 endpoints, blob hash/size references, and the absence of unreferenced blobs.
 Every resource must have an included document-resource relation; the reference
 target index supports these joins. This establishes membership in the supplied
 publication, not independent authorization to publish its content.
 
-[`notrios2sql._project_note`](notrios2sql.py) obtains each note's bounded relation
-set through indexed lookups. [`notrios_links.validate_links`](notrios_links.py)
+[`notrios2sql._project_note`](../../notrios2sql.py) obtains each note's bounded relation
+set through indexed lookups. [`notrios_links.validate_links`](../../notrios_links.py)
 requires each retained inline resource link to agree with its target and have
 an owning relation. `project_body` emits each remaining resource once, following
 the frozen ordinal/type/ID order. All original relations remain in the auxiliary

@@ -18,7 +18,7 @@ sections up to it are the historical record of the first run.
 ## Inputs and isolation
 
 The three source paths and comparison contract remain those in
-[NOTRIOS_IMPORT_PLAN.md](NOTRIOS_IMPORT_PLAN.md#corpus-and-measurement-procedure).
+[plans/v3.37/000-notrios-import-plan.md](000-notrios-import-plan.md#corpus-and-measurement-procedure).
 Initial allocated sizes: Joplin 1.5 GiB, recipe RAW 5.1 GiB, recipe vault 1.6 GiB.
 The isolated, owner-only work directory is
 `/media/$USER/HD2/movenotes-7c-20260916/`; HD2 initially had about 59 GiB free.
@@ -171,7 +171,7 @@ The plan separates those tracks, profiles both, and adopts changes only after
 controlled speedup and correctness evidence. Historical libraries remain intact;
 new disposable imports are permitted for the planned paired experiments.
 
-C7a is complete: [compatibility decisions](NOTRIOS_COMPATIBILITY_REVIEW.md).
+C7a is complete: [compatibility decisions](005-compatibility-review.md).
 It explains observed control provenance, a reliable recipe source join and
 producer metadata/tag differences. C7b implementation and C7c full comparison
 remain pending; original 7c refusals and skipped stages are not acceptance passes.
@@ -181,7 +181,7 @@ remain pending; original 7c refusals and skipped stages are not acceptance passe
 Claude Code parent (Main), runtime-reported model `claude-opus-5-5`; reasoning
 effort, client version and billing route not exposed; no worker. The frozen
 design, every phase's results and the decisions taken on the way are in
-[NOTRIOS_IMPORT_PLAN.md](NOTRIOS_IMPORT_PLAN.md) under "Resumed 7c". This
+[plans/v3.37/000-notrios-import-plan.md](000-notrios-import-plan.md) under "Resumed 7c". This
 section summarizes the final state. Work root `~/movenotes-work/7c-20261023` on
 the internal disk; producer `v1.0.0` (2aab9a8); Hugo v0.164.0 extended; Go
 1.27.0. Times are GNU time wall seconds; RSS is peak KiB. Only aggregate

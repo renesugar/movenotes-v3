@@ -25,7 +25,7 @@ performed. Movenotes' canonical path maps and source-row URLs were unchanged.
 - Pagefind: `1.5.2`; indexed **3 pages, 74 words, 2 filters, 1 sort**.
 - Playwright: `1.61.1`, installed Chromium; Browser plugin not available.
 - Viewports: desktop **1365 × 900**, mobile **390 × 844**.
-- Fixture: [schema-28 resource publication](testdata/notrios/schema28/publication-loose/expected.json).
+- Fixture: [schema-28 resource publication](../../testdata/notrios/schema28/publication-loose/expected.json).
   Archive digest `c1cebd8da881cc30cf921ae903b6816ddb3a859280f3f3c6dc69073f1f20e8d4`;
   reviewed selection `9e06e07e6e57499f1f11577d2aefc8f97fc7370ceeb04f3dac2d17f38cabd97f`.
 - Local work/evidence: `/tmp/movenotes-7b/`; logs `import.log`, `vault.log`,

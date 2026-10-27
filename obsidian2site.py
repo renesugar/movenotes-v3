@@ -36,7 +36,7 @@ import obsidian2sql
 import notrios_receipt
 
 __program_name__ = "obsidian2site"
-__version__ = "3.36"
+__version__ = "3.37"
 
 _IGNORED_DIRECTORY_NAMES = frozenset({
     ".git", ".hg", ".svn", ".obsidian", ".movenotes", ".trash", ".Trash",
@@ -714,7 +714,7 @@ def _searchable_parts(body: str) -> tuple[str, list[str]]:
 
     Removing them used to be the whole story, and it made every URL unfindable on
     the Bluge backend — the built page showed a link the index did not have. See
-    step 37 in LEDGER_MIGRATION_PLAN.md.
+    step 37 in plans/v3.36/000-ledger-migration-plan.md.
     """
     lines: list[str] = []
     fence: str | None = None

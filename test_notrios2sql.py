@@ -4239,6 +4239,17 @@ class NotriosCLITest(unittest.TestCase):
         self.assertNotIn("--merge", result.stdout)
         self.assertFalse(self.destination.exists())
 
+    def test_cli_version_prints_the_release_and_imports_nothing(self):
+        result = subprocess.run(
+            [sys.executable, "-B", str(Path(__file__).parent / "notrios2sql.py"), "--version"],
+            capture_output=True, text=True, timeout=30,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "notrios2sql 3.37\n")
+        self.assertEqual(result.stderr, "")
+        self.assertFalse(self.destination.exists())
+
     def test_cli_digest_mismatch_and_changed_source_refuse_without_output_changes(self):
         self.assert_refused(self.cli("--expected-selection-sha256", "0" * 64))
         self.assertFalse(self.destination.exists())

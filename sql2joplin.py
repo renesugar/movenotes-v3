@@ -46,7 +46,7 @@ import notesdb
 
 __program_name__ = "sql2joplin"
 __author__ = "Rene Sugar"
-__version__ = "3.20"
+__version__ = "3.37"
 __license__ = "MIT License (https://opensource.org/licenses/MIT)"
 __website__ = "https://github.com/renesugar"
 

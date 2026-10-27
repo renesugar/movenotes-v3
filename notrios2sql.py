@@ -27,6 +27,7 @@ from notrios_receipt import RECEIPT_KEY
 from notrios_links import ConversionLimits, DEFAULT_CONVERSION_LIMITS
 from notrios_links import validate_links, project_body, Attachment
 
+__version__ = "3.37"
 
 INVENTORY = "notrios-inventory.jsonl"
 COMPLETE = "notrios-complete.json"
@@ -629,6 +630,7 @@ def _build_argument_parser() -> argparse.ArgumentParser:
                "contains one JSON summary line; phase/count progress and errors use stderr. "
                "Usage errors exit 2 and import errors exit 1.",
     )
+    parser.add_argument("--version", action="version", version=f"notrios2sql {__version__}")
     parser.add_argument("--input", required=True, type=Path, dest="input_path",
                         help="Loose Notrios publication archive directory")
     parser.add_argument("--output", required=True, type=Path, dest="output_path",

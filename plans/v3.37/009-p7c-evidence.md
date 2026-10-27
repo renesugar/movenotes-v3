@@ -103,7 +103,7 @@ this was parent final validation, not an implementation reassignment.
 Configured worker: Codex `luna_worker`, `gpt-5.6-luna`, fixed `max`; actual child
 model/effort not independently exposed. Parent runtime family GPT-6; exact parent
 model/effort and billing route not exposed. Existing session suitability remains
-confirmed. Structured provenance is in `NOTRIOS_IMPORT_EXECUTION.json`.
+confirmed. Structured provenance is in `plans/v3.37/notrios-import-ledger.json`.
 
 ## Full-scale blocker — P7c remains incomplete
 
