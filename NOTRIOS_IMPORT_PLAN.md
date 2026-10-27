@@ -48,22 +48,29 @@ instead of 3.5 GiB and its preserved import at 0.5 GiB instead of 1.8 GiB,
 with identical output. **V1 is complete**: a damaged preservation bundle is
 refused before the output is touched, with the next steps printed as complete
 commands, and exports record their source library in `.movenotes/export.json`.
-Next is **resumed 7c**.
 Plan revised on **2026-10-22**: all remaining work is assigned to the Claude Code
 main model (**Main**), and the user confirmed this for the session. No Codex
 worker or monitor remains in the plan. See
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
-S43b and resumed 7c pin the released Notrios **`v1.0.0`** (`2aab9a8`). The
-remaining order is resumed 7c → 7d → 7e.
-Slice **7c remains incomplete**; isolated work
-and checkpoints are under `/media/$USER/HD2/movenotes-7c-20260916/`.
-Both recipe imports succeeded (382,206 documents each), but bounded real
-conversions refused input and semantic comparison differed. Full real trials
-remain skipped; see [partial trial evidence](NOTRIOS_CORPUS_TRIALS.md).
+S43b and resumed 7c pin the released Notrios **`v1.0.0`** (`2aab9a8`).
 Compatibility prerequisites C7a–C7c and measured performance prerequisites
-P7a–P7c precede resumed 7c. The performance investigation distinguishes Go
+P7a–P7c preceded resumed 7c. The performance investigation distinguishes Go
 producer timings from Python importer review claims and adopts only measured
-winners. Do not proceed to 7d until the outstanding acceptance gates are resolved.
+winners. **Resumed 7c is complete** (2026-10-26): every stage passes on all
+three libraries (103,349, 382,206 and 382,206 documents) at bounded and full
+scale, after **C7d** admitted the remaining link forms and **T1** showed raw
+`<script>` and similar tags in prose as text on the site. The Codex partial
+run's failures (2026-09-17) are retained; see the
+[corpus trials](NOTRIOS_CORPUS_TRIALS.md). **7d is complete**: the README
+documents `notrios2sql.py` and the publication → import → vault → site recipe
+with measured times, and the CHANGELOG records every change. **7e is
+complete** (2026-10-26): all 318 tests in the six required modules and all 43
+in the other four harness modules pass, with no skips, on `e399827`, and the
+branch diff against `main` was reviewed. Every planned slice is complete.
+Proposed follow-ups, each awaiting the user's authorization: **H1** (HTML
+images after export), **R1** (the link report), **R2** (non-internal
+destinations on the Notrios route; option (a) chosen) and **D1** (clearer
+`--output` refusals).
 
 The frozen admission checklist is
 [NOTRIOS_IMPORT_CONTRACT.md](NOTRIOS_IMPORT_CONTRACT.md). It distinguishes
@@ -303,14 +310,12 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - Completed slices keep their recorded Codex attribution. The earlier Codex session is under previous_sessions and its assignments under assignment_history.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **7e — full regression gate, evidence and diff review, final
-status and commit**, assigned to the Claude Code parent (**Main**); not yet
-authorized. 7d completed on 2026-10-26: the README documents `notrios2sql.py`
-and the publication → import → vault → site recipe, run as written on the
-synthetic titled-link vault, with resumed 7c's full-scale measurements, and the
-CHANGELOG records every change since its last entry. 7d found D1, proposed
-below. Resumed 7c completed on 2026-10-26, after C7d and T1; see "Resumed 7c
-results" and
+No planned slice remains. 7e completed on 2026-10-26: all 318 required
+tests and 43 further harness tests pass with no skips on `e399827`, and the
+branch diff against `main` was reviewed. Proposed follow-ups, each needing the
+user's authorization: **H1**, **R1**, **R2** (option (a) chosen) and **D1**,
+all assigned to the Claude Code parent (**Main**). Resumed 7c and 7d completed
+on 2026-10-26; see "Resumed 7c results" and
 [the corpus trials](NOTRIOS_CORPUS_TRIALS.md#resumed-trials-2026-10-23-to-2026-10-26).
 
 **Resumed P7c, complete (2026-10-23).** R1–R6 ran as frozen below; every
@@ -403,8 +408,7 @@ at full scale by the user's decision; F02 is subsumed by P7b2. Rejected Go G08
 stays out of full trials; no Go candidate is approved. Any producer implementation needs an explicit handoff naming its
 files and checkout, plus the user's approval to write to the Notrios checkout.
 
-Remaining sequence (U1, I1, M1 and V1 complete): resumed 7c → 7d → 7e, subject to the
-unresolved compatibility gates. Every data-heavy
+Sequence (complete 2026-10-26): U1, I1, M1 and V1, then resumed 7c → 7d → 7e. Every data-heavy
 run follows the background-run rule under
 [Execution and handoff rules](#execution-and-handoff-rules). Preserve C7c's documented differences: RAW's 842,813 tag
 associations versus vault zero, RAW metadata projection omission, and 3,682
@@ -863,7 +867,7 @@ Target refusal is mandatory in 2a, not deferred to this step.
 | 7b / Main — complete | Actual local Hugo/Ledger + Bluge build and bounded Pagefind fixture; test search/subpath URLs. | 7a | Canonical URLs, links, attachments, explicit tag counts and backend isolation correct; excluded sentinel absent from publishable files/index sources. |
 | 7c / Main | *Complete 2026-10-26.* Resume after C7a–C7c and P7a–P7c; large-corpus trials below; record time/RSS/disk/counts/hashes and failure recovery. Partial Codex execution is retained; remaining work is Claude Code Main. Resumed trials use the Notrios `v1.0.0` pin. | P7c, S43b, E1, U1, I1, M1, V1, C7d, T1 | Importer bounds demonstrated; stage bottlenecks separated; no unmeasured whole-pipeline memory claim. |
 | 7d / Main | *Authorized 2026-10-26 (Start 7d); complete 2026-10-26.* README script list/usage and CHANGELOG from measured accepted commands. The CHANGELOG also records S43c's generic fixes: `cleanres.py` no longer deletes resources referenced only by titled links, and native vault reimport no longer leaves a stray `)` or an unresolved titled link. It also records E1: `sql2obsidian.py` and `sql2joplin.py` no longer rewrite the database they read, P7b2's bounded fresh-import lookups, F04's faster native inventory and, if adopted, U1's faster unchanged reruns, I1's faster recovery after an interrupted fresh import, M1's bounded preservation-manifest memory and V1's refusal of a damaged preservation bundle, with its recovery commands and `--ignore-preservation`. It also records T1: `obsidian2site.py` shows `<script>`, `<style>`, `<title>` and similar tags written in a note's prose as text, which used to run on the page or fail `hugo --minify`, and prints how many it escaped. Reassigned from Codex Luna on 2026-10-22. | 7c, S43b, S43c, E1, U1, I1, M1, V1, T1 | Reproducible publication → import → vault → site recipe; loose/fresh-output limitations; no private content in public examples. |
-| 7e / Main | Full regression gate, evidence/diff review, final status and commit. | 7d | Every required method passes; skipped integrations not counted as acceptance. |
+| 7e / Main | *Authorized 2026-10-26 (Start 7e); complete 2026-10-26.* Full regression gate, evidence/diff review, final status and commit. | 7d | Every required method passes; skipped integrations not counted as acceptance. |
 
 ### Compatibility prerequisites added after partial 7c trials
 
@@ -2965,7 +2969,7 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 </details>
 
-<details><summary>7e — pending; planned parent</summary>
+<details><summary>7e — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -2973,21 +2977,21 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
-| Delegation failure or reassignment | 2026-10-22: coding agent changed from the Codex parent to the Claude Code parent by user; planned owner unchanged. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; 7e authorized by the user on 2026-10-26 (Start 7e). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Ran the six required test modules and the four other harness test modules verbosely as one background run on e399827. Reviewed the branch diff against main (108 commits, 194 files): git diff --check (only context lines inside the committed G08 .patch file), no tracked generated files, .zvec-grep or __pycache__, standard-library-only imports in every runtime module, --help exit 0 for all eleven scripts, no TODO or debug leftovers in added Python, no email or note content; listed the local evidence paths that contain the account name for the user. Rewrote the plan's stale status paragraph and remaining-sequence line to the final state and recorded the follow-ups. |
+| Validation | 318 tests in test_movenotes, test_image_resources, test_obsidian2sql, test_obsidian2site, test_notrios2sql and test_notrios_7c passed in 192.936 s; 43 tests in test_notrios_c7c, test_notrios_p7a, test_notrios_p7b and test_notrios_p7c passed in 20.461 s; no skipped, failed, errored or expected-failure test; PYTHONDONTWRITEBYTECODE=1 and -B, and no __pycache__ written. Skipped integrations: none counted; the full-corpus integrations were run in resumed 7c, not skipped. |
+| Delegation failure or reassignment | 2026-10-22: coding agent changed from the Codex parent to the Claude Code parent by user; planned owner unchanged. Ran with no worker. |
 | Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md; 2026-10-22 coding-agent change to Claude Code |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Start 7e; Private scratchpad 7e/required.log, 7e/harness.log, 7e/head.txt (e399827) |
+| Commit | Git commit containing this completion record: docs: complete 7e with the final gate and review (7e) |
 
 </details>
 
