@@ -59,8 +59,11 @@ it nothing ties the import to the review.
   exporting it does not change it and a rerun still reports `unchanged`.
 
 On success stdout is one JSON line: `status` (`created` or `unchanged`),
-`commit_sha256`, `selection_manifest_sha256`, `row_count` and
-`resource_count`. It holds no paths or note content. Progress phases and
+`commit_sha256`, `selection_manifest_sha256`, `row_count`, `resource_count`
+and `withheld_links`, the number of links to notes the publication leaves out
+that the import replaced with their text (see
+[Which link action to use](#which-link-action-to-use)). It holds no paths or
+note content. Progress phases and
 errors go to stderr. `--version` prints the release. The exit status is 0 on success, 1 when the import is
 refused or fails, and 2 for a usage error.
 
@@ -119,8 +122,8 @@ selection. Serve the site as the
 The `plain_text` link action replaces a link to an unpublished note with its
 label. At `v1.0.0` it does the same to every link Notrios could not resolve
 (`file:`, `tel:`, `data:` and relative destinations), so those never reach
-movenotes. `--no-simplify-urls` keeps the remaining links as they were
-published. `--include-notrios-receipt` copies the import's receipt to
+movenotes; `retain` keeps them, as the next section explains.
+`--no-simplify-urls` keeps the remaining links as they were published. `--include-notrios-receipt` copies the import's receipt to
 `.movenotes/notrios-receipt.json` in the vault. The receipt identifies the
 publication: its commit and selection digests, its snapshot and library IDs,
 and the reader and mapper versions, with no paths, times or note content. On the site it is published
@@ -129,6 +132,51 @@ the flag off `obsidian2site.py` if you don't want that.
 
 An `<img>` written in HTML stays HTML in the exported vault, with its `src`
 pointing at the copied attachment, so Obsidian and the site show the image.
+
+### Which link action to use
+
+`notrios2sql.py` reads a publication made with either link action, and neither
+puts a withheld note into the vault or the site. They differ in what the
+handoff itself holds, so the choice depends on who will see it:
+
+| Link action | Links Notrios could not resolve | The handoff holds a withheld note's ID | Use it when |
+|---|---|---|---|
+| `plain_text` (the default) | Replaced with their text | No, except for one case below | The handoff leaves your control: a site admin builds the site, or it sits on a shared drive, a build server or in a repository |
+| `retain` | Kept as written, and listed in the site's [link report](static-site.md#the-link-report) | Yes | The handoff never leaves your machine, or only you can read it |
+
+With `retain`, Notrios keeps every link's bytes. A link to a note the
+publication leaves out keeps that note's URI, `document://default/documents/<id>`,
+in the published body, with a record saying the target was excluded. For a
+library imported from Joplin the ID is the note's Joplin ID; for one imported
+from Obsidian it spells the note's folder and title, such as
+`doc_obsidian_private_hidden_plan`. The import replaces each such link with
+its text, or with `[redacted]` when the text is empty or is the URI itself, as
+an unaliased wiki link's is, before it writes anything. It counts them in
+`withheld_links`. Keep a `retain` handoff as private as the library it came
+from.
+
+`notriosctl export archive-v2 --target publication_handoff` has no
+`--link-action` and always uses `plain_text`. Only `publish` with a saved
+profile can use `retain`:
+
+```bash
+notriosctl publish profile save \
+  --profiles ~/profiles.json --name local \
+  --target publication_handoff --notebooks nb_public \
+  --link-action retain
+```
+
+`plain_text` has one exception at `v1.0.0`: a wiki link to a withheld note
+with no alias, such as `[[Hidden Plan]]`, is replaced with the note's URI,
+which names it. `notrios2sql.py` refuses such a publication whole, so it never
+reaches a vault or site, but the handoff holds the ID. A Notrios change that
+fixes this and keeps every other link under `plain_text` is
+[on the roadmap](../ROADMAP.md#a-plain_text-that-keeps-every-non-internal-link).
+
+Any wiki link to a published note also refuses the import at present, with
+either action, because Notrios stores it as `[[document://…]]`. A library
+imported into Notrios from an Obsidian vault with wiki links cannot be
+published to movenotes yet; that is planned as W1.
 
 ## Keeping notes out of a publication
 

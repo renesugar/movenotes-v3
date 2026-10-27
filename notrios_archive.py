@@ -955,6 +955,8 @@ _KEY_FIELDS = {kind: ("id",) for kind in ("collection", "notebook", "tag", "docu
 _KEY_FIELDS.update(document_tag=("document_id", "tag_id"),
                    document_resource=("document_id", "resource_id", "relation_type", "ordinal"))
 _FORBIDDEN_RECORDS = ("search_notebook", "provenance", "source_bundle")
+# What the producer records for a link it could not resolve (R2).
+UNRESOLVED_LINK_STATUSES = ("unresolved", "ambiguous", "invalid")
 
 
 def _freeze_json(value):
@@ -1011,12 +1013,16 @@ def _validate_link_publication(p):
     if p.get("context"):
         raise NotriosError("publication", "link context must be empty")
     status = p["resolution_status"]
-    if status not in ("resolved", "external"):
+    if status not in ("resolved", "external", *UNRESOLVED_LINK_STATUSES, "target_excluded"):
         raise NotriosError("publication", "link status is not publishable")
-    if status == "external":
+    if status != "resolved":
         # C7d: an external destination is text the import passes through
         # unchanged, whatever its scheme, so only its shape is checked here.
-        # validate_links refuses one that holds an internal target.
+        # validate_links refuses one that holds an internal target. With the
+        # producer's `retain` link action (R2), a link it could not resolve
+        # arrives the same way, and a link to a note or attachment the
+        # publication leaves out arrives as `target_excluded` with its target
+        # cleared; validate_links replaces that one with its text.
         uris = (p["raw_target"],) + ((p["target_uri"],) if p.get("target_uri") else ())
         if (targets or not p["raw_target"]
                 or any(ord(c) < 32 or ord(c) == 127 for uri in uris for c in uri)):

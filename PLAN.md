@@ -135,7 +135,7 @@ Next slice: **R1 — the link report**, assigned to Main; not yet authorized.
 | H1 / Main | *Proposed 2026-10-24 (C7d); not authorized.* Make HTML images render after export. See [H1](#h1--html-images-after-export). | L7 | As in H1. |
 | D1 / Main | *Proposed 2026-10-26 (7d); not authorized.* Clearer `notrios2sql.py` refusals for an unusable `--output`. See [D1](#d1--clearer-output-refusals). | L7 | As in D1. |
 | R1 / Main | *Complete 2026-10-27.* Report links a web reader cannot reach. See [R1](#r1--the-link-report). | L7 | As in R1. |
-| R2 / Main | *Started 2026-10-27; the probe is done, and option (a) or (b) awaits the user.* Keep non-internal destinations on the Notrios route. See [R2](#r2--non-internal-destinations-on-the-notrios-route). | R1 | As in R2. |
+| R2 / Main | *Complete 2026-10-27; option (a), with (b) on the roadmap, chosen by the user.* Keep non-internal destinations on the Notrios route. See [R2](#r2--non-internal-destinations-on-the-notrios-route). | R1 | As in R2. |
 | R3 / Main | *Proposed 2026-10-27, found by R1's corpus run; not authorized.* Resolve a same-folder link on the site when another note shares its name. See [R3](#r3--same-folder-links-on-the-site). | R1 | As in R3. |
 | W1 / Main | *Proposed 2026-10-27, found by R2's probe; not authorized.* Import a Notrios publication that holds resolved wiki links. See [W1](#w1--resolved-wiki-links-on-the-notrios-route). | — | As in W1. |
 
@@ -607,6 +607,34 @@ Option (a) works for the vault and site, but not for the handoff archive, which
 would carry withheld IDs. Whether that is acceptable, or R2 falls back to
 option (b), is the user's decision.
 
+*Decided 2026-10-27.* Asked how the choice maps to a site on the author's own
+machine, on a company intranet and on the Internet, the user chose both:
+(a) now, and (b) as a Notrios follow-up on the roadmap
+([A `plain_text` that keeps every non-internal link](ROADMAP.md#a-plain_text-that-keeps-every-non-internal-link)).
+`plain_text` stays the documented default; `retain` is documented for a
+handoff that never leaves its author's control. movenotes reads both. With a
+`retain` handoff it keeps every record that names no internal target as
+written, and replaces each link to a note or attachment the publication leaves
+out with its text, or with `[redacted]` when its text is empty or is itself an
+internal URI, as `plain_text` does for an empty label. The import summary
+counts those as `withheld_links`. `notriosctl export archive-v2` has no
+`--link-action` and always uses `plain_text` for a handoff, so `retain` comes
+only through `publish`, which is what the bounded 7c tier runs.
+
+*Bounded 7c tier with `retain`, 2026-10-27*, 1,000 documents per route, every
+stage exit 0:
+
+| Library | Rewritten by the producer | Withheld links replaced at import | Links Notrios could not resolve, now kept | Site link report |
+|---|---|---|---|---|
+| Joplin | 0 | 15 | 10: 4 relative, 2 `file:`, 4 `data:` | 7 unreachable, 1 malformed, 32 insecure; 4 `data:` counted |
+| Recipes from RAW | 0 | 0 | 0 | 71 insecure |
+| Recipes from the vault | 0 | 0 | 0 | 1,000 insecure |
+
+None of the 15 withheld notes' IDs appears in any file of the Joplin vault or
+site. The full tier still exports with `plain_text`, which `export archive-v2`
+cannot change, so its 2,318 Joplin links stay replaced until the roadmap's
+producer change.
+
 ### W1 — Resolved wiki links on the Notrios route
 
 Found 2026-10-27 by R2's probe. Notrios stores a resolved wiki link with its
@@ -962,7 +990,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
-<details><summary>R2 — in progress; planned parent</summary>
+<details><summary>R2 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -979,12 +1007,12 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Parent | Claude Code parent (Main) |
 | Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
 | Parent reasoning effort | not exposed |
-| Parent contribution | Bounded probe only, no implementation: a synthetic Obsidian library (the titled v1 vault plus a withheld note, a private attachment, two notes named alike and a probe note) imported and published by Notrios v1.0.0 (2aab9a8) with plain_text and with retain; link records and bodies compared; notrios2sql.py run on each; the three bounded 7c publications checked for body URIs to unpublished documents (0 each) and for document ID shapes. Plan: probe results in R2, W1 proposed. |
-| Validation | Partial: probe only. retain: every non-internal destination byte-identical in the body, records unresolved/ambiguous/external; four target_excluded records carry the withheld ID, each inside a recorded span; movenotes refuses at verification (link status is not publishable). plain_text: an unaliased withheld wiki link publishes as the withheld document URI with no record, and notrios2sql.py refuses the archive (unsupported or unaccounted active link syntax); a resolved wiki link alone refuses the same way. No code changed. |
+| Parent contribution | Bounded probe only, no implementation: a synthetic Obsidian library (the titled v1 vault plus a withheld note, a private attachment, two notes named alike and a probe note) imported and published by Notrios v1.0.0 (2aab9a8) with plain_text and with retain; link records and bodies compared; notrios2sql.py run on each; the three bounded 7c publications checked for body URIs to unpublished documents (0 each) and for document ID shapes. Plan: probe results in R2, W1 proposed. Then, after the user chose (a) now and (b) on the roadmap: notrios_archive.py admits unresolved, ambiguous, invalid and target_excluded link records, each with no target ID and a clean destination (UNRESOLVED_LINK_STATUSES). notrios_links.py: _withheld and _withheld_text; validate_links blanks withheld one-line wiki spans before scanning, replaces each withheld Markdown or wiki span with its text or [redacted] (empty text or an internal URI), refuses one in code or one that still names a target, copies other unresolved records as written, and returns withheld_links. notrios2sql.py: the summary's withheld_links, counted in preflight so a rerun reports it too. Fixture: testdata/notrios/vault-retain-v1, generate_v1_retain.py and v1.0.0/publication-retain from the pinned v1.0.0 binary (same SHA-256 as publication-titled). Tests: NotriosV1RetainTest (3), a validate_links unit test with five refusals, archive refusals for the new statuses with a target, four pinned summaries updated. Harness: PUBLISH_LINK_ACTION = retain for the bounded tier. Docs: docs/notrios.md (Which link action to use, registered and run with notriosctl), the contract's link rule, the design, the fixture README, CHANGELOG, ROADMAP (b). |
+| Validation | Probe as recorded. Fixture generator's raw-byte checks: every body line once, 19 statuses as expected, nothing rewritten, five targets cleared, the withheld note's body absent. Import: created then unchanged with the same summary, withheld_links 6; database body equals the published body with only the withheld spans and the one resolved destination changed; database, vault and site hold none of doc_obsidian_private, hidden_plan, Hidden Plan, Hidden%20Plan or either sentinel; the site's link report lists exactly the 11 kept destinations and counts the data: link. Each validate_links refusal checked for its own message. Bounded 7c tier with retain, every stage exit 0: Joplin 0 rewritten, 15 withheld replaced, 10 unresolved kept (4 relative, 2 file:, 4 data:), site report 7 unreachable, 1 malformed, 32 insecure, 4 data: counted, none of the 15 withheld IDs in any vault or site file; both recipe routes 0 withheld and 0 unresolved. docs/notrios.md examples: 6 of 6 pass with --with-tools. Required gate 335 tests passed in 281.877 s, harness 43 tests in 23.111 s; a root __pycache__ from the probe's own import (12:08, not the gate) was removed. |
 | Delegation failure or reassignment | Moved 2026-10-26 from the Notrios import plan (status pending there, never started) at the user's direction; the original record stays in the archived ledger. |
 | Planned assignment evidence | User chose option (a) 2026-10-25; moved from the Notrios import plan 2026-10-26. |
-| Execution evidence | User: Push commits to develop. Start R2 next.; Private scratchpad r2/probe.sh, r2/links.py, r2/leak.py and the probe archives |
-| Commit | pending |
+| Execution evidence | User: Push commits to develop. Start R2 next.; Private scratchpad r2/probe.sh, r2/links.py, r2/leak.py and the probe archives; User: add (b) to the roadmap as a Notrios follow-up, and continue R2 with (a).; Private 7c work root: bounded publish, convert, vault-export and site-generate stages; scratchpad r2/bounded.log, r2/required.log, r2/harness.log |
+| Commit | Git commit containing this record: feat: read Notrios publications made with retain (R2) |
 
 </details>
 
@@ -1066,3 +1094,5 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-27 | H1 checked in Obsidian | With the user's agreement, Obsidian ran with a separate scratch profile, after two launches with the default profile had opened the user's large `obsidian_vault` instead (the first by mistake, through `--version`; the second because `obsidian://open?path=` knows only listed vaults). Both instances were closed. Obsidian showed the exported `<img>` in Reading view and Live Preview, resolved to the vault's attachment, at its natural size, with `width` and `alt` kept. The user's own vault list is unchanged. |
 | 2026-10-27 | R1 complete | `obsidian2site.py` writes `movenotes-link-report.csv` beside the project on every run: one row per link a web reader cannot rely on, `unreachable`, `malformed`, `insecure` or `verify`, with the note, line, column, label, destination and what the site did, and the counts per category on stdout. A link never fails generation, nothing in code is listed, and the report stays outside `content/` and `static/` and is listed in the generated `.gitignore` and `.vercelignore`. The rest of the site is byte-identical apart from timestamps, the build ID and the known search-source row order. The 7c run listed 72 in-page anchors as unrewritten vault links; that is fixed. It also found 5 same-folder links the site cannot resolve, proposed as R3. Counts are in [R1](#r1--the-link-report). 331 required and 43 harness tests pass. Next: ask to proceed to R2. |
 | 2026-10-27 | R1 pushed; R2 probe | The user: "Push commits to develop. Start R2 next." `ad675cf` pushed. R2's probe published a synthetic Obsidian library with both link actions. `retain` keeps every non-internal destination byte for byte, but puts each withheld note's ID into the handoff, inside spans the import could replace. `plain_text` already leaks that ID for a wiki link without an alias, which movenotes contains by refusing the publication. Any resolved wiki link refuses the import, proposed as W1. Next: the user's choice between option (a), with a handoff that carries withheld IDs, and option (b), a producer change. |
+| 2026-10-27 | R2 decided | Asked how (a) and (b) map to a site on the author's machine, an intranet and the Internet, and recommended both, the user: "add (b) to the roadmap as a Notrios follow-up, and continue R2 with (a)." (b) is on the roadmap; R2 continues with `retain` through `publish`. |
+| 2026-10-27 | R2 complete | `notrios2sql.py` reads a `retain` publication: unresolved, ambiguous and invalid records naming no internal target are copied as written, and each `target_excluded` link, or one naming an internal target that does not exist, becomes its text or `[redacted]` before anything is written, counted as `withheld_links` in the summary. A new fixture from the pinned producer, `testdata/notrios/v1.0.0/publication-retain`, covers each form; its database, vault and site hold no form of the withheld note's identity. The bounded 7c tier now publishes with `retain`: Joplin's 10 links Notrios could not resolve arrive and are reported, its 15 withheld links are replaced, and no withheld ID reaches its vault or site. `docs/notrios.md` says which action suits which site. 335 required and 43 harness tests pass. Next: ask whether to push, and whether to start R3 or W1. |

@@ -380,7 +380,7 @@
     {
       "id": "R2",
       "coding_agent": "claude",
-      "status": "in progress",
+      "status": "complete",
       "planned_worker": "parent",
       "configured_model": "not exposed; runtime reports claude-opus-5-5",
       "configured_reasoning_effort": "not exposed",
@@ -396,14 +396,16 @@
       "parent": "Claude Code parent (Main)",
       "parent_underlying_model_family": "Claude Opus 5.5, runtime-reported claude-opus-5-5",
       "parent_reasoning_effort": "not exposed",
-      "parent_contribution": "Bounded probe only, no implementation: a synthetic Obsidian library (the titled v1 vault plus a withheld note, a private attachment, two notes named alike and a probe note) imported and published by Notrios v1.0.0 (2aab9a8) with plain_text and with retain; link records and bodies compared; notrios2sql.py run on each; the three bounded 7c publications checked for body URIs to unpublished documents (0 each) and for document ID shapes. Plan: probe results in R2, W1 proposed.",
-      "validation": "Partial: probe only. retain: every non-internal destination byte-identical in the body, records unresolved/ambiguous/external; four target_excluded records carry the withheld ID, each inside a recorded span; movenotes refuses at verification (link status is not publishable). plain_text: an unaliased withheld wiki link publishes as the withheld document URI with no record, and notrios2sql.py refuses the archive (unsupported or unaccounted active link syntax); a resolved wiki link alone refuses the same way. No code changed.",
+      "parent_contribution": "Bounded probe only, no implementation: a synthetic Obsidian library (the titled v1 vault plus a withheld note, a private attachment, two notes named alike and a probe note) imported and published by Notrios v1.0.0 (2aab9a8) with plain_text and with retain; link records and bodies compared; notrios2sql.py run on each; the three bounded 7c publications checked for body URIs to unpublished documents (0 each) and for document ID shapes. Plan: probe results in R2, W1 proposed. Then, after the user chose (a) now and (b) on the roadmap: notrios_archive.py admits unresolved, ambiguous, invalid and target_excluded link records, each with no target ID and a clean destination (UNRESOLVED_LINK_STATUSES). notrios_links.py: _withheld and _withheld_text; validate_links blanks withheld one-line wiki spans before scanning, replaces each withheld Markdown or wiki span with its text or [redacted] (empty text or an internal URI), refuses one in code or one that still names a target, copies other unresolved records as written, and returns withheld_links. notrios2sql.py: the summary's withheld_links, counted in preflight so a rerun reports it too. Fixture: testdata/notrios/vault-retain-v1, generate_v1_retain.py and v1.0.0/publication-retain from the pinned v1.0.0 binary (same SHA-256 as publication-titled). Tests: NotriosV1RetainTest (3), a validate_links unit test with five refusals, archive refusals for the new statuses with a target, four pinned summaries updated. Harness: PUBLISH_LINK_ACTION = retain for the bounded tier. Docs: docs/notrios.md (Which link action to use, registered and run with notriosctl), the contract's link rule, the design, the fixture README, CHANGELOG, ROADMAP (b).",
+      "validation": "Probe as recorded. Fixture generator's raw-byte checks: every body line once, 19 statuses as expected, nothing rewritten, five targets cleared, the withheld note's body absent. Import: created then unchanged with the same summary, withheld_links 6; database body equals the published body with only the withheld spans and the one resolved destination changed; database, vault and site hold none of doc_obsidian_private, hidden_plan, Hidden Plan, Hidden%20Plan or either sentinel; the site's link report lists exactly the 11 kept destinations and counts the data: link. Each validate_links refusal checked for its own message. Bounded 7c tier with retain, every stage exit 0: Joplin 0 rewritten, 15 withheld replaced, 10 unresolved kept (4 relative, 2 file:, 4 data:), site report 7 unreachable, 1 malformed, 32 insecure, 4 data: counted, none of the 15 withheld IDs in any vault or site file; both recipe routes 0 withheld and 0 unresolved. docs/notrios.md examples: 6 of 6 pass with --with-tools. Required gate 335 tests passed in 281.877 s, harness 43 tests in 23.111 s; a root __pycache__ from the probe's own import (12:08, not the gate) was removed.",
       "delegation_failure_or_reassignment": "Moved 2026-10-26 from the Notrios import plan (status pending there, never started) at the user's direction; the original record stays in the archived ledger.",
       "evidence": [
         "User: Push commits to develop. Start R2 next.",
-        "Private scratchpad r2/probe.sh, r2/links.py, r2/leak.py and the probe archives"
+        "Private scratchpad r2/probe.sh, r2/links.py, r2/leak.py and the probe archives",
+        "User: add (b) to the roadmap as a Notrios follow-up, and continue R2 with (a).",
+        "Private 7c work root: bounded publish, convert, vault-export and site-generate stages; scratchpad r2/bounded.log, r2/required.log, r2/harness.log"
       ],
-      "commit": "pending"
+      "commit": "Git commit containing this record: feat: read Notrios publications made with retain (R2)"
     },
     {
       "id": "R3",

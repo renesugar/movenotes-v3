@@ -12,6 +12,7 @@ and their audit evidence are unchanged.
 | Handoff | Contents | Archive commit SHA-256 | Reviewed selection SHA-256 |
 |---|---|---|---|
 | [publication-titled](publication-titled/) | 3 notes, 2 notebooks, 3 tags, 4 tag memberships, 1 resource, 1 resource relation, 11 links | `7f093e27d5d7ab18cac5d97324ae08c8509f4467954220911df7f9c799b206d9` | `a8537bb0582b7bcd9f01c0074923175ad04380930db66e7dafd23a32717b6dc2` |
+| [publication-retain](publication-retain/) | 4 notes, 3 notebooks, 19 links, published with `--link-action retain` (R2, 2026-10-27) | `5b9d517c660d6baaddc9690502854f32d7624b7403fea2a5789c9c28ff410435` | `a681ac22100ae29f631e66ef55b38dea28377c985071a882870bf4afee674498` |
 
 Pass only the `archive/` directory to the consumer. Reports, `expected.json`,
 `generation.json` and this README are evidence outside the archive. The
@@ -121,3 +122,36 @@ The generator refuses a binary without the exact clean VCS pin. The audit
 runner checks its binary hash against the fixture's generation record. For a
 rebuilt binary with different build metadata, generate a fresh fixture and audit
 that pair instead of editing the committed hash.
+
+## The `retain` publication (R2)
+
+Generated on 2026-10-27 by the same binary (same SHA-256) with
+[generate_v1_retain.py](../generate_v1_retain.py), from the synthetic vault
+[vault-retain-v1](../vault-retain-v1/). Its `Links` note links to a note in the
+unselected `Private` notebook five ways (a titled Markdown link, a wiki link, an
+aliased one, one to a heading and an embed), to an internal URI that names no
+note, to `file:`, `tel:`, `data:`, relative, missing, `javascript:`,
+app-scheme and drive-letter destinations, and to two notes named `Dup` and a
+note that does not exist by wiki link.
+
+`retain` keeps every link's bytes, so the archive holds the withheld note's
+URI, `document://default/documents/doc_obsidian_private_hidden_plan`, five
+times, each with a `target_excluded` record whose target is cleared. Its body
+and `WITHHELD-BODY-SENTINEL` are absent. The generator checks every body line,
+the 19 link statuses (5 `target_excluded`, 10 `unresolved`, 1 `ambiguous`,
+2 `external`, 1 `resolved`) and that nothing was rewritten, against raw archive
+bytes. `expected.json` holds the lines a movenotes import must write in their
+place.
+
+`NotriosV1RetainTest` checks that the import replaces the six withheld links
+with their text or `[redacted]`, keeps every other link byte for byte, reruns
+unchanged, and that the database, the vault and the generated site hold no
+form of the withheld note's ID, path or title, while the site's link report
+lists each kept link.
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B testdata/notrios/generate_v1_retain.py \
+  --notriosctl /tmp/movenotes-s43b/notriosctl \
+  --work-dir /tmp/movenotes-r2/gen-work \
+  --output /tmp/movenotes-r2/gen-out
+```

@@ -348,7 +348,15 @@ compatibility is tested downstream, not certified for every renderer at import.
 
 Every active internal token and self-anchor must have one matching retained
 record. Ordinary unrecorded links, and external records of any scheme, remain
-untouched. Refuse missing
+untouched. So does a `retain` publication's unresolved, ambiguous or invalid
+record naming no internal target (R2). A `target_excluded` record, or an
+unresolved one naming an internal target, is a link a reader must not follow:
+its whole span, Markdown or a one-line wiki link with no backtick, becomes its
+text, or `[redacted]` when that is empty or an internal URI, as the producer's
+`plain_text` does. Such a record that still names a target, or whose span is
+in code, refuses. A withheld wiki link is blanked before the scan, which would
+otherwise refuse its internal target; the import counts these as
+`withheld_links`. Refuse missing
 internal records even when their target happens to be included. After accounting
 for accepted tokens, scan unprotected bytes case-insensitively for
 `document://`, `resource://`, `notrios://` and `:/` followed by 32 hex digits;

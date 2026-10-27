@@ -45,6 +45,9 @@ class ImportResult:
     selection_manifest_sha256: str
     row_count: int
     resource_count: int
+    # Links to a note or attachment the publication leaves out, replaced with
+    # their text (R2); none unless it was published with `retain`.
+    withheld_links: int = 0
 
     def summary(self) -> dict[str, object]:
         """Return the content-free result fields emitted by the successful CLI."""
@@ -54,6 +57,7 @@ class ImportResult:
             "selection_manifest_sha256": self.selection_manifest_sha256,
             "row_count": self.row_count,
             "resource_count": self.resource_count,
+            "withheld_links": self.withheld_links,
         }
 
 
@@ -191,16 +195,18 @@ def _project_note(archive, document, revision, limits, resolve):
         attachments.append(Attachment(item_id, row["joplin_filename"], p["relation_type"], p["ordinal"]))
     plan = validate_links(body, archive.iter_relations("link", document.key[0]), resolve=resolve, limits=limits,
                           resource_ids=(a.resource_id for a in attachments))
-    return project_body(body, plan, related_resources=attachments)
+    return project_body(body, plan, related_resources=attachments), plan.withheld_links
 
 
 def _preflight(archive, limits):
     def resolve(kind, source_id):
         archive.get_record(kind, (source_id,))
         return mapping.mapped_id(archive.manifest.snapshot["database_id"], kind, (source_id,))
+    withheld = 0
     for document in archive.iter_records("document"):
         revision = archive.get_record("revision", (document.payload["current_revision_id"],))
-        _project_note(archive, document, revision, limits, resolve)
+        withheld += _project_note(archive, document, revision, limits, resolve)[1]
+    return withheld
 
 
 class _RowBatch:
@@ -348,7 +354,7 @@ def _build_payload(archive, stage, receipt, limits):
             revision = archive.get_record("revision", (document.payload["current_revision_id"],))
             batch.add(mapping.build_note_row(document, revision, item_id=lookup("document", document.key[0]),
                       parent_id=lookup("notebook", document.payload["notebook_id"]),
-                      body=_project_note(archive, document, revision, limits, lookup)))
+                      body=_project_note(archive, document, revision, limits, lookup)[0]))
         for tag in archive.iter_records("tag"):
             batch.add(mapping.build_tag_row(tag, item_id=lookup("tag", tag.key[0])))
         for relation in archive.iter_records("document_tag"):
@@ -629,7 +635,7 @@ def import_publication(source: Path, destination: Path, *, expected_selection_sh
                         or expected_selection_sha256 != receipt["selection_manifest_sha256"]):
                     raise NotriosError("selection", "expected selection digest is malformed or differs")
                 _report_progress(progress, "preflight")
-                _preflight(archive, conversion_limits)
+                withheld = _preflight(archive, conversion_limits)
                 if os.path.lexists(destination):
                     # It may have appeared during verification.
                     _refuse_unusable_output(parent_fd, destination.name)
@@ -660,7 +666,8 @@ def import_publication(source: Path, destination: Path, *, expected_selection_sh
                     os.fsync(parent_fd)
                 except OSError:
                     raise NotriosError("io", "publication completed but parent fsync failed; durability is uncertain") from None
-            return ImportResult(status, destination, receipt["commit_sha256"], receipt["selection_manifest_sha256"], rows, resources)
+            return ImportResult(status, destination, receipt["commit_sha256"], receipt["selection_manifest_sha256"], rows, resources,
+                                withheld)
         except (OSError, sqlite3.Error) as exc:
             failure = NotriosError("io", f"publication I/O failed: {exc}")
             raise failure from exc

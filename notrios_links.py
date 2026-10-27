@@ -15,7 +15,7 @@ import re
 import string
 from urllib.parse import quote, unquote_to_bytes
 
-from notrios_archive import NotriosError
+from notrios_archive import NotriosError, UNRESOLVED_LINK_STATUSES
 
 
 @dataclass(frozen=True)
@@ -70,6 +70,11 @@ _BARE = re.compile(rb"(document://default/documents/[a-z0-9][a-z0-9_.:-]{1,127}(
                    rb"|resource://default/resources/[a-z0-9][a-z0-9_.:-]{1,127}"
                    rb"|:/[0-9a-f]{32}(?:#[^()\\\s<>]*)?)\)")
 _CODE_MASK = bytes(c if c in (10, 13) else 32 for c in range(256))
+# A recorded wiki link the import replaces (R2): one line, and no backtick, so
+# blanking it cannot change which bytes are code.
+_WITHHELD_WIKI = re.compile(rb"!?\[\[[^\[\]\n`]+\]\]")
+# The producer's plain_text placeholder for a link with no text (replacementFor).
+_REDACTED = b"[redacted]"
 
 
 @dataclass(frozen=True)
@@ -101,6 +106,7 @@ class LinkPlan:
     inline_resources: tuple[str, ...] = ()
     max_links: int = 10000
     max_resource_relations: int = 10000
+    withheld_links: int = 0
 
 
 @dataclass(frozen=True)
@@ -375,6 +381,34 @@ def _wiki_record(body, start, end, p, token_starts):
         _refuse("archived link does not match a complete active token")
 
 
+def _withheld(p):
+    """Whether a record's link is one the import replaces with its text (R2).
+
+    A `retain` publication keeps the bytes of a link to a note or attachment it
+    leaves out, and records it as ``target_excluded``; a link to an internal
+    target that does not exist arrives as unresolved. Either names something a
+    reader must not see, so the import does what the producer's ``plain_text``
+    does to it.
+    """
+    status = p["resolution_status"]
+    raw = p["raw_target"].encode("utf-8")
+    withheld = status == "target_excluded" or status in UNRESOLVED_LINK_STATUSES and bool(
+        _INTERNAL_ANYWHERE.search(raw) or _INTERNAL_ANYWHERE.search(unquote_to_bytes(raw)))
+    if withheld and ("target_document_id" in p or "target_resource_id" in p):
+        _refuse("withheld link record names a target")
+    return withheld
+
+
+def _withheld_text(label):
+    """The producer's plain_text replacement: the link's text, or the
+    placeholder when it has none. A text that is itself an internal URI, as an
+    unaliased wiki link's is, would name the target, so it gets the placeholder
+    too."""
+    if not label.decode("utf-8").strip(_GO_SPACE) or _INTERNAL_ANYWHERE.search(label):
+        return _REDACTED
+    return label
+
+
 def _record_anchor(fragment):
     """The anchor the producer records for a fragment (splitAnchor)."""
     if not fragment:
@@ -430,11 +464,6 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
         body.decode("utf-8")
     except UnicodeDecodeError:
         _refuse("body is not UTF-8")
-    tokens = []
-    for token in scan_markdown(body):
-        if len(tokens) >= limits.max_links_per_note:
-            raise NotriosError("limit", "active link count exceeds limit")
-        tokens.append(token)
     retained = []
     for record in records:
         if len(retained) >= limits.max_links_per_note:
@@ -443,12 +472,28 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
             _refuse("link validation requires link records")
         retained.append(record.payload)
     retained.sort(key=lambda p: (p["source_start_byte"], p["source_end_byte"], p["id"]))
+    # A withheld wiki link holds its internal target, which the scanner refuses
+    # outside a token, so it is blanked for the scan and replaced below. The
+    # span checks in the loop still run on it.
+    scanned, visible = body, None
+    for p in retained:
+        start, end = p["source_start_byte"], p["source_end_byte"]
+        if p["source_format"] == "obsidian-wikilink" and _withheld(p) and 0 <= start < end <= len(body):
+            if visible is None:
+                visible, scanned = _protected_body(body), bytearray(body)
+            if visible[start:end] != body[start:end]:
+                _refuse("withheld link inside protected code")
+            scanned[start:end] = b" " * (end - start)
+    tokens = []
+    for token in scan_markdown(bytes(scanned)):
+        if len(tokens) >= limits.max_links_per_note:
+            raise NotriosError("limit", "active link count exceeds limit")
+        tokens.append(token)
     by_start = {token.start: token for token in tokens}
     token_starts = sorted(by_start)
     bare_by_end = {token.end: token for token in tokens if token.bare}
     accounted, replacements, previous, owner = set(), [], 0, None
-    related, inline_resources = set(), set()
-    visible = None
+    related, inline_resources, withheld = set(), set(), set()
     for count, ident in enumerate(resource_ids, 1):
         if count > limits.max_resource_relations_per_note:
             raise NotriosError("limit", "resource relation count exceeds limit")
@@ -460,7 +505,15 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
             _refuse("invalid, overlapping or non-UTF-8 link span")
         previous = end
         if p["source_format"] == "obsidian-wikilink":
-            _wiki_record(body, start, end, p, token_starts)
+            if _withheld(p):
+                span, label = body[start:end], p.get("display_text", "").encode("utf-8")
+                if (not _WITHHELD_WIKI.fullmatch(span) or p["raw_target"].encode("utf-8") not in span
+                        or label not in span):
+                    _refuse("archived link does not match a complete active token")
+                replacements.append((start, end, _withheld_text(label)))
+                withheld.add(start)
+            else:
+                _wiki_record(body, start, end, p, token_starts)
             accounted.add(start)
             continue
         token = by_start.get(start)
@@ -487,6 +540,15 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
             _refuse("link record disagrees with active token")
         if (p.get("anchor_type") or "", p.get("anchor_value") or "") != _record_anchor(token.fragment):
             _refuse("link anchor disagrees with link record")
+        if _withheld(p):
+            # The whole link becomes its text, so its destination's grammar
+            # does not matter; code is never changed.
+            if protected:
+                _refuse("withheld link inside protected code")
+            replacements.append((start, end, _withheld_text(token.label)))
+            withheld.add(start)
+            accounted.add(start)
+            continue
         kind, target_id = _target(token, limits)
         if protected and kind not in ("external", "self"):
             _refuse("internal link record inside protected code")
@@ -515,11 +577,16 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
             # any other non-internal one; the match is not applied (C7d).
             if ("target_document_id" in p) == ("target_resource_id" in p):
                 _refuse("external target disagrees with link record")
-        elif (p["resolution_status"] != "external" or "target_document_id" in p or "target_resource_id" in p
+        elif (p["resolution_status"] not in ("external", *UNRESOLVED_LINK_STATUSES)
+              or "target_document_id" in p or "target_resource_id" in p
               or "target_uri" in p and p["target_uri"] != token.base.decode("utf-8")):
+            # An unresolved link naming no internal target is copied as
+            # written, like an external one (R2).
             _refuse("external target disagrees with link record")
         accounted.add(start)
     for token in tokens:
+        if token.start in withheld:
+            continue
         if token.html:
             # The producer records an HTML image's resource as an attachment
             # relation and no link span, so the relation is what accounts for it.
@@ -556,7 +623,8 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
             _refuse("active internal link has no retained record")
     replacements.sort()
     return LinkPlan(tuple(tokens), tuple(replacements), limits.max_projected_body_bytes,
-                    tuple(sorted(inline_resources)), limits.max_links_per_note, limits.max_resource_relations_per_note)
+                    tuple(sorted(inline_resources)), limits.max_links_per_note, limits.max_resource_relations_per_note,
+                    len(withheld))
 
 
 def _replace(body, replacements, maximum):

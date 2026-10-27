@@ -1,0 +1,79 @@
+{
+  "counts": {
+    "collections": 1,
+    "notebooks": 3,
+    "search_notebooks": 0,
+    "tags": 0,
+    "documents": 4,
+    "revisions": 4,
+    "document_tags": 0,
+    "resources": 0,
+    "document_resources": 0,
+    "links": 19,
+    "provenance": 0,
+    "source_bundles": 0
+  },
+  "archive_files": {
+    "manifest.json": {
+      "sha256": "7eb4bbbc5587157d010a8692b87bd336ffa5740abdf6c542b451c96f337be236",
+      "size_bytes": 1731
+    },
+    "objects/sha256/11/3d/113d17a5881cc8dbe56d7f6beada1042214bbe126ba38cb8ecda749d7ae2d254": {
+      "sha256": "113d17a5881cc8dbe56d7f6beada1042214bbe126ba38cb8ecda749d7ae2d254",
+      "size_bytes": 106
+    },
+    "objects/sha256/32/46/3246c3dfc07fa05145a78b8add9fcd94848f6a55a0feb4393c0408be507cea7d": {
+      "sha256": "3246c3dfc07fa05145a78b8add9fcd94848f6a55a0feb4393c0408be507cea7d",
+      "size_bytes": 10814
+    },
+    "objects/sha256/83/a1/83a1b5978720446c509f84703c1fce88e41ddfd7998eba5722c4055c0a4591bc": {
+      "sha256": "83a1b5978720446c509f84703c1fce88e41ddfd7998eba5722c4055c0a4591bc",
+      "size_bytes": 1579
+    },
+    "objects/sha256/be/60/be60f62b2317451ee71b951340246858505325753c73706ec6684bd17efc8f60": {
+      "sha256": "be60f62b2317451ee71b951340246858505325753c73706ec6684bd17efc8f60",
+      "size_bytes": 106
+    },
+    "objects/sha256/c3/21/c321cd5e6b51519fd9a853bba8835e367638204d56887d1fc5a00548b14defd9": {
+      "sha256": "c321cd5e6b51519fd9a853bba8835e367638204d56887d1fc5a00548b14defd9",
+      "size_bytes": 998
+    },
+    "objects/sha256/d7/f0/d7f008fac034d758fac8e9efae363d3c4619377e0084fb9eed9ba551d4435791": {
+      "sha256": "d7f008fac034d758fac8e9efae363d3c4619377e0084fb9eed9ba551d4435791",
+      "size_bytes": 110
+    }
+  },
+  "commit_sha256": "5b9d517c660d6baaddc9690502854f32d7624b7403fea2a5789c9c28ff410435",
+  "selection_manifest_sha256": "a681ac22100ae29f631e66ef55b38dea28377c985071a882870bf4afee674498",
+  "database_id": "db_fg3ynapptat6dc7ja6a6n4prou",
+  "snapshot_id": "snap_dnwoxwiub3st7jmy6uavuip2sy",
+  "producer_commit": "2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a",
+  "producer_tag": "v1.0.0",
+  "body_lines": [
+    "Withheld [Plan](document://default/documents/doc_obsidian_private_hidden_plan \"WITHHELD-TITLE-SENTINEL\"), [[document://default/documents/doc_obsidian_private_hidden_plan]], [[document://default/documents/doc_obsidian_private_hidden_plan|alias text]], [[document://default/documents/doc_obsidian_private_hidden_plan#Heading]] and ![[document://default/documents/doc_obsidian_private_hidden_plan]].",
+    "Stale [gone](document://default/documents/doc_no_such_note).",
+    "Kept [file](file:///C:/Users/x/report.pdf), [tel](tel:+15551234567), ![data](data:image/png;base64,AAAA), [missing](Missing.md), [rel](notes/x.txt \"Rel title\"), [js](javascript:void(0)), [app](joplin://x-callback-url/openNote?id=1), [drive](C:\\Users\\x\\a.txt), [[Dup]] and [[No Such Note]].",
+    "External [mail](mailto:someone@example.com) and [web](http://example.com/).",
+    "Resolved [Other](document://default/documents/doc_obsidian_public_other)."
+  ],
+  "projected_lines": [
+    "Withheld Plan, [redacted], alias text, [redacted] and [redacted].",
+    "Stale gone.",
+    "Kept [file](file:///C:/Users/x/report.pdf), [tel](tel:+15551234567), ![data](data:image/png;base64,AAAA), [missing](Missing.md), [rel](notes/x.txt \"Rel title\"), [js](javascript:void(0)), [app](joplin://x-callback-url/openNote?id=1), [drive](C:\\Users\\x\\a.txt), [[Dup]] and [[No Such Note]].",
+    "External [mail](mailto:someone@example.com) and [web](http://example.com/).",
+    null
+  ],
+  "link_statuses": {
+    "target_excluded": 5,
+    "unresolved": 10,
+    "ambiguous": 1,
+    "external": 2,
+    "resolved": 1
+  },
+  "withheld_links": 6,
+  "withheld_uri": "document://default/documents/doc_obsidian_private_hidden_plan",
+  "absent": [
+    "WITHHELD-BODY-SENTINEL",
+    "Private/Hidden Plan.md"
+  ]
+}

@@ -57,6 +57,10 @@ BOUNDED_DOCUMENTS = 1000
 # every full route exceeds, so the full tier exports instead (user decision,
 # 2026-10-24); a one-notebook check found the two paths' payloads identical.
 FULL_MAX_DOCUMENTS = 1_000_000
+# R2: the bounded tier publishes with `retain`, so every link the producer could
+# not resolve reaches movenotes as written. `export archive-v2` has no link
+# action and always uses `plain_text` for a handoff, so the full tier cannot.
+PUBLISH_LINK_ACTION = "retain"
 MIN_FREE_BYTES = 20 * 1024**3
 TIME_FORMAT = '{"wall_seconds":%e,"user_seconds":%U,"system_seconds":%S,"max_rss_kib":%M,"exit":%x}'
 
@@ -444,7 +448,7 @@ class Trials:
             f"{base}/profile",
             [str(self.binary), "publish", "profile", "save", *shared,
              "--profiles", "{stage}/profiles.json", "--name", tier,
-             "--target", "publication_handoff", "--link-action", "plain_text", *selection],
+             "--target", "publication_handoff", "--link-action", PUBLISH_LINK_ACTION, *selection],
             inputs={"producer": binary, "library": produced, "selection": _digest(selection)},
             outputs={"profiles": "{stage}/profiles.json"},
         )

@@ -34,6 +34,30 @@ These are not in any plan yet. Each says what it is, why it waits, what it
 needs, and what it depends on. When one is planned, it goes into `PLAN.md` and
 stays listed here, under the release it is planned for.
 
+### A `plain_text` that keeps every non-internal link
+
+**What.** A Notrios change, so that the `plain_text` link action replaces only
+a link to a note or attachment the publication leaves out, keeps every other
+link as written (`file:`, `tel:`, `data:`, relative and the rest), and never
+uses a target URI as a link's text. The one handoff then serves a site on the
+author's machine, on an intranet and on the Internet alike.
+
+**Why it waits.** It is a producer change, in Notrios rather than movenotes.
+R2 meets the need for now with `--link-action retain`, which keeps every link
+but puts each withheld note's ID into the handoff, so a handoff made that way
+must stay as private as the library; movenotes replaces each such link with
+its text before writing anything. R2's probe also found that `plain_text` at
+`v1.0.0` replaces a wiki link with no alias to a withheld note with that
+note's URI, `document://default/documents/<id>`, which for a library imported
+from Obsidian spells the note's folder and title. movenotes refuses such a
+publication, so it reaches no vault or site, but the handoff holds it.
+
+**What it needs.** The change in Notrios' `publicationLinkNeedsRewrite` and
+`replacementFor`, a release, a new producer pin here, and fixtures regenerated
+from it. movenotes then reads both actions' handoffs the same way.
+
+**Depends on** R2 (option (a)), decided by the user on 2026-10-27.
+
 ### Packed publications
 
 **What.** Import a Notrios archive-v2 that stores its objects in pack files,
