@@ -832,8 +832,10 @@ API's note representation and frontmatter operations.
 
 # Development plan
 
-`PLAN.md` records the step-by-step plan used to refocus and modernize this
-project. All steps are complete.
+[`PLAN.md`](PLAN.md) is the plan being implemented now. Finished plans are
+archived under [`plans/`](plans/) by the version they shipped in; the first,
+which refocused and modernized this project, is
+[`plans/v3.34/000-refocus-plan.md`](plans/v3.34/000-refocus-plan.md).
 
 # History
 

@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "plan": "NOTRIOS_IMPORT_PLAN.md",
+  "markers": "NOTRIOS",
   "updated": "2026-10-26",
   "session": {
     "coding_agent": "claude",

@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""Render/check plan attribution from NOTRIOS_IMPORT_EXECUTION.json (stdlib only)."""
+"""Render/check a plan's generated attribution sections from its JSON ledger (stdlib only).
+
+The ledger names its plan (relative to the repository root) and, optionally, the
+prefix of its marker pairs (default ``PLAN``, giving ``PLAN-ASSIGNMENTS`` and
+``PLAN-EXECUTION``).
+"""
 import argparse
 import json
 from pathlib import Path
 import re
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_LEDGER = "docs/plan/ledger.json"
 FIELDS = (
     ("coding_agent", "Coding agent"),
     ("planned_worker", "Planned worker"),
@@ -45,6 +51,7 @@ def section(text, name, content):
 
 
 def render(text, ledger):
+    prefix = ledger.get("markers", "PLAN")
     rows = re.findall(r"^\| (\w+) / (Main|Luna|Terra)(?: — complete)? \|", text, re.M)
     slices = ledger["slices"]
     ids = [s["id"] for s in slices]
@@ -76,28 +83,30 @@ def render(text, ledger):
                    f"Product/client version: {cell(session['product_client_version'])}; "
                    f"model provider: {cell(session['model_provider'])}.", ""]
     assignment.extend("- " + cell(note) for note in session["notes"])
-    text = section(text, "NOTRIOS-ASSIGNMENTS", "\n".join(assignment))
+    text = section(text, f"{prefix}-ASSIGNMENTS", "\n".join(assignment))
     records = []
     for s in slices:
         records += [f"<details><summary>{s['id']} — {cell(s['status'])}; planned {cell(s['planned_worker'])}</summary>",
                     "", "| Property | Value |", "|---|---|"]
         records.extend(f"| {label} | {cell(s[key])} |" for key, label in FIELDS)
         records += ["", "</details>", ""]
-    return section(text, "NOTRIOS-EXECUTION", "\n".join(records))
+    return section(text, f"{prefix}-EXECUTION", "\n".join(records))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="refuse stale generated sections; write nothing")
+    parser.add_argument("--ledger", default=DEFAULT_LEDGER,
+                        help=f"ledger path relative to the repository root (default {DEFAULT_LEDGER})")
     args = parser.parse_args()
-    ledger = json.loads((ROOT / "NOTRIOS_IMPORT_EXECUTION.json").read_text(encoding="utf-8"))
+    ledger = json.loads((ROOT / args.ledger).read_text(encoding="utf-8"))
     path = ROOT / ledger["plan"]
     text = path.read_text(encoding="utf-8")
     updated = render(text, ledger)
     if args.check:
         if updated != text:
-            raise SystemExit("Plan attribution is stale; run python3 -B render_notrios_execution.py")
-        print(f"Attribution current: {len(ledger['slices'])} slices; planned owners and actual records checked.")
+            raise SystemExit(f"Plan attribution is stale; run python3 -B scripts/render_plan_ledger.py --ledger {args.ledger}")
+        print(f"{ledger['plan']}: attribution current: {len(ledger['slices'])} slices; planned owners and actual records checked.")
     else:
         path.write_text(updated, encoding="utf-8")
 

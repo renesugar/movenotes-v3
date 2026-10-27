@@ -310,7 +310,8 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - Completed slices keep their recorded Codex attribution. The earlier Codex session is under previous_sessions and its assignments under assignment_history.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-No planned slice remains. 7e completed on 2026-10-26: all 318 required
+No planned slice remains, and this plan is superseded by [`PLAN.md`](PLAN.md),
+which carries H1, D1, R1 and R2 forward and will archive this plan. 7e completed on 2026-10-26: all 318 required
 tests and 43 further harness tests pass with no skips on `e399827`, and the
 branch diff against `main` was reviewed. Proposed follow-ups, each needing the
 user's authorization: **H1**, **R1**, **R2** (option (a) chosen) and **D1**,
@@ -470,13 +471,13 @@ and helper APIs were frozen in 1c.
 
 [NOTRIOS_IMPORT_EXECUTION.json](NOTRIOS_IMPORT_EXECUTION.json) is authoritative
 for planned assignments, session confirmation and actual execution records.
-[render_notrios_execution.py](render_notrios_execution.py) renders the assignment
+[scripts/render_plan_ledger.py](scripts/render_plan_ledger.py) renders the assignment
 table and per-slice execution appendix, and checks coverage and planned-owner
 agreement with the task tables:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B render_notrios_execution.py
-PYTHONDONTWRITEBYTECODE=1 python3 -B render_notrios_execution.py --check
+PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/render_plan_ledger.py --ledger NOTRIOS_IMPORT_EXECUTION.json
+PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/render_plan_ledger.py --ledger NOTRIOS_IMPORT_EXECUTION.json --check
 ```
 
 Update the structured data first, then regenerate the plan. Actual worker/model

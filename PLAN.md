@@ -1,420 +1,715 @@
-# Plan: Refocus movenotes on Joplin import/export
+# Plan: Reorganize the repository, then the Notrios import follow-ups
+
+Status: **opened 2026-10-26.** L0 (opening) is complete. The next slice is
+**L1**, which is not yet authorized. Session confirmation of this plan's
+assignments is pending; see
+[Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 
 ## Goal
 
-Convert the general-purpose migration toolkit (Apple Notes / GMail / Twitter →
-Joplin) into a small, modern set of scripts focused on Joplin RAW directories:
+The Notrios import plan is complete, and the repository root has grown to 25
+Markdown documents, a JSON ledger and ten test modules beside the scripts.
+This plan:
 
-* **Import:** Joplin RAW Directory → SQLite
-* **Export:** SQLite → Joplin RAW Directory; SQLite → Obsidian vault
-* Multiple Joplin RAW sources can be imported into one SQLite database and
-  merged into a single Joplin export with multiple notebooks.
+1. removes the account name from every committed path;
+2. archives the finished plans under `plans/` by version, and releases 3.37;
+3. adds `ROADMAP.md` for the deferred Notrios features, and the rules in
+   `AGENTS.md` for how `PLAN.md`, `ROADMAP.md` and the archive are used;
+4. moves the test modules and tools into `scripts/` and the documentation into
+   `docs/`, updating every reference to a moved file;
+5. documents how to keep private data out of a Notrios publication, what
+   tagging cannot catch, and how to publish more than 100,000 notes;
+6. checks that every documented example is either executable, and executed,
+   or recorded with the reason it is not;
+7. then carries the four proposed Notrios follow-ups (H1, D1, R1 and R2), each
+   still needing its own authorization.
 
-Final scripts:
+The layout follows the Notrios repository's conventions
+(`~/projects/notrios/plans`, `docs/` and `scripts/`), at the scale this
+standard-library-only Python repository needs.
 
-| Script          | Purpose                                             |
-|-----------------|-----------------------------------------------------|
-| `joplin2sql.py` | Import a Joplin RAW directory into SQLite           |
-| `sql2joplin.py` | Export SQLite to a Joplin RAW directory             |
-| `sql2obsidian.py` | Export SQLite to an Obsidian vault (new)          |
-| `removedups.py` | Remove duplicate notes after merging sources        |
-| `cleanres.py`   | Remove unused files from a resources directory      |
-| `notesdb.py`, `common.py`, `constants.py` | Shared library code       |
+## Decisions (user, 2026-10-26)
 
-## Steps
+The request: rewrite local paths holding the account name as `~/…` and
+`$USER`; update the `AGENTS.md` test command; declutter the root; add
+`ROADMAP.md` for the deferred items (packed publications, multiple handoffs and
+merges, full or subset archives); explain in `AGENTS.md` how `PLAN.md` and
+`ROADMAP.md` are used and archived; name the active plan `PLAN.md`; archive
+`PLAN.md`, `LEDGER_MIGRATION_PLAN.md` and `NOTRIOS_IMPORT_PLAN.md` under
+`plans/` by version; put documentation in `docs/` and test scripts in
+`scripts/`; check that documented examples are executable; document the
+100,000-note workaround, Notrios's private marking, and the limits of tagging,
+recommending dedicated PII software
+([Presidio](https://github.com/data-privacy-stack/presidio),
+[hawk-eye](https://github.com/rohitcoder/hawk-eye)); and update the paths in
+every file that refers to a moved one.
 
-Each step leaves the project in a working state so work can stop and resume
-at any step boundary.
+Answers to the four questions asked before writing this plan:
 
-### Step 1 — Prune to a Joplin-only project  ✅ (this step)
+| Question | Answer |
+|---|---|
+| Archive versions | **3.34 / 3.36 / 3.37**: the old `PLAN.md` (refocus, steps 1–19, last shipped as 3.34) goes to `plans/v3.34/`, `LEDGER_MIGRATION_PLAN.md` to `plans/v3.36/`, and `NOTRIOS_IMPORT_PLAN.md` with its ledger and renderer to `plans/v3.37/`. The CHANGELOG's "Unreleased changes" becomes "Changes in 3.37", and the changed scripts' `__version__` values go to 3.37. |
+| H1, R1, R2, D1 | **New `PLAN.md`**, after the reorganization, each still needing authorization. `ROADMAP.md` holds only deferred features. |
+| Notrios evidence documents | **Archived with their plan** in `plans/v3.37/`. Reference documents go to `docs/`: the static-site and deployment guides, the performance review, the implementation review, and the Notrios import contract and design. |
+| Documented examples | **A registry, and run what can run.** Every fence in `README.md` and `docs/` is registered with its hash; an edited or unregistered fence fails the gate. Python-only examples run in the unit gate against `sample/` and synthetic fixtures in a temporary home. Examples needing Hugo, Go, `notriosctl` or the network run in a separate `--with-tools` check, which names any missing tool and does not count those examples as passed. Every other fence records why it is not run. |
 
-* Delete scripts not needed for the Joplin workflow: `eml2mbox.py`,
-  `eml2sql.py`, `gyb2eml.py`, `mbox2eml.py`, `sql2eml.py`, `icloud2sql.py`,
-  `macapt2sql.py`, `twitterlikes2sql.py`, `twitterarchivelikes2sql.py`,
-  `url2sql.py`, `expandurls.py`.
-* Keep `cleanres.py` and `removedups.py` (useful for merged Joplin data).
-* Rewrite `README.md` for the Joplin-only workflow.
-* Trim `requirements.txt` to what the remaining scripts use.
-* Shared modules (`common.py`, `notesdb.py`, `constants.py`) are left
-  untouched in this step so everything keeps working; they are cleaned up in
-  Steps 2–3.
+## Coding-agent assignments and session confirmation
 
-### Step 2 — Modernize the Python  ✅
+Every slice is planned for the Claude Code parent, called **Main** in the
+table. No worker or subagent is planned; spawning one needs an explicit user
+request and a plan amendment first. At the start of each implementation
+session, follow
+[Mandatory planned delegation](AGENTS.md#mandatory-planned-delegation): show
+the active coding agent, this plan's model and effort assignments (marking
+which are runtime-reported and which configured), and the billing route or
+`not exposed`, then ask whether they are current, and wait for the answer
+before implementing. Plan and provenance edits and read-only inspection may
+proceed while confirmation is pending. A new session, coding agent, model or
+billing route invalidates the confirmation; compaction alone does not.
 
-* Replaced `optparse` with `argparse`; `os.path` with `pathlib.Path`.
-* f-strings; removed `== True` / `== False` comparisons; removed unused
-  imports and dead code (`NotesColumns`, macapt/email/apple database
-  functions, Twitter URL helpers).
-* Replaced deprecated `datetime.utcnow()` with `datetime.now(timezone.utc)`.
-* 4-space indentation, type hints, docstrings, `main() -> int` /
-  `sys.exit(main())` entry points; snake_case helper names.
-* **Removed all third-party dependencies** (mistune, html2txt,
-  beautifulsoup4, requests). The text/html→markdown conversion and link
-  rewriting in `sql2joplin.py` only ran for rows created by the removed
-  Apple/email/Twitter importers; since `joplin2sql.py` is now the only
-  importer, every row is markdown already. `sql2joplin.py` reports a clear
-  error if it meets a legacy-format row (movenotes 1.0 handles those).
-* Bug fixes found during the rewrite:
-  * Both resource-copy loops joined filenames against the parent directory
-    instead of the `resources` directory, so attachments were never
-    actually copied. Fixed.
-  * `sql2joplin.py` previously always emitted a default "Notes" notebook
-    even when the database already had notebooks, producing a spurious
-    empty notebook on import; it is now only created when the database
-    contains no folders.
-  * `cleanres.py` built SQL by string concatenation; now parameterized.
-  * `removedups.py` now reports how many duplicates were removed.
+The table below is generated from the ledger, [`docs/plan/ledger.json`](docs/plan/ledger.json),
+which is authoritative for assignments, confirmation and execution records.
+Update the ledger first, then regenerate and check:
 
-### Step 3 — Remove Apple Notes / email leftovers from the Joplin path  ✅
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/render_plan_ledger.py
+PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/render_plan_ledger.py --check
+```
 
-* Dropped all `apple_*` and `email_*` columns; folders are first-class
-  (`note_folder` holds the Joplin parent folder title).
-* New SQLite schema v2 containing only `note_*` and `joplin_*` columns.
-  Schema versioning now lives in `notesdb.py` (`DB_SCHEMA_VERSION = "2"`)
-  with a new `open_database()` helper used by every script. Opening a v1
-  database produces a clear error telling the user to re-import from the
-  Joplin RAW source (databases are disposable interchange files, so there
-  is no migration).
-* Removed the `--email` option from all scripts and the `email_address`
-  setting from the database; removed `check_email_address` and the
-  attachment-picking helpers (`get_file_mime_type`,
-  `get_resource_file_names`, `format_universally_unique_identifier`) from
-  `common.py`, along with the orphaned `string_to_datetime`.
-* `cleanres.py` now checks only markdown resource links, not the removed
-  `apple_attachment_path` column.
-* `common.get_resource_links()` now scans whole note text instead of
-  whitespace-split words (the old approach missed resource links whose
-  display filename contained spaces); it is kept for the Obsidian export
-  in Step 6.
-* Script versions bumped to 2.00.
+<!-- PLAN-ASSIGNMENTS:START -->
+Session confirmation: **pending**.
 
-### Step 4 — Simplify URL-only links in exported markdown  ✅
+Pending for this plan. The Claude Code session confirmed on 2026-10-22 for the Notrios import plan continues unchanged (same coding agent, runtime-reported model and billing route); this plan's assignments are the same parent-only Main, and will be shown to the user for confirmation before L1.
 
-* `sql2joplin.py` now writes links whose display text is just the URL
-  itself (`[https://x](https://x)` or `<https://x>`) as the bare URL;
-  Joplin auto-links plain URLs and the markdown stays readable. On by
-  default; `--no-simplify-urls` keeps the original link syntax.
-* Left untouched: links with meaningful titles, image links
-  (`![...](...)`), resource links (`[name](:/32-hex-id)`), and anything
-  inside fenced code blocks or inline code spans. Only note bodies are
-  transformed (never folders, resources, or tags).
-* Implemented as `common.simplify_url_links()` so the Obsidian export
-  (Step 6) can reuse it; covered by unit-style edge-case tests during
-  development.
+| Coding agent | Execution owner | Configured model | Reasoning effort | Availability | Billing route |
+|---|---|---|---|---|---|
+| claude | parent | not exposed; runtime reports claude-opus-5-5 | not exposed | Main for every slice; no workers planned | not exposed; confirmation pending for this plan |
 
-### Step 5 — Performance improvements  ✅
+Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID claude-opus-5-5)**. Product/client version: not exposed; model provider: Anthropic (runtime-reported).
 
-The original batching and single transaction were retained, then the remaining
-large-library scaling paths were reviewed again in release 3.10.
+- Every slice is planned for the Claude Code parent, called Main in the slice table. No worker or subagent is planned.
+- Spawning a worker or subagent requires an explicit user request and a recorded plan amendment first.
+- Main runs long data-heavy commands as harness-tracked background commands, is re-invoked once when they exit, and does not poll.
+- The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
+<!-- PLAN-ASSIGNMENTS:END -->
 
-* `joplin2sql.py` no longer performs one unindexed `joplin_id` query per input
-  file. Schema v4 stores a compact SHA-256 of the exact RAW bytes and adds
-  indexes for IDs, item types, parents, UUIDs, dates, and hashes. Existing
-  fingerprints are loaded once; duplicate checks are expected O(1).
-* In-run duplicate detection stores one 32-byte digest per item ID instead of
-  retaining every complete RAW file. Exact RAW bytes remain in SQLite for
-  lossless export.
-* New databases defer secondary-index construction until after the bulk insert;
-  existing v2/v3 databases are migrated and fingerprinted in bounded batches.
-* Folder titles are populated with one indexed, set-based update after import,
-  eliminating repeated parent-file parsing. Title extraction also avoids a
-  second full-body split.
-* Per-item output is replaced by periodic progress (`--progress-every`), with
-  `--verbose` available when detailed logging is needed. Batch size is
-  configurable with `--batch-size`.
-* `cleanres.py` already collects referenced resource IDs in one pass, and
-  `sql2joplin.py` streams rows. Resource copies continue to reject collisions
-  and skip byte-identical destinations.
-* Similar superlinear paths were removed elsewhere: filtered Obsidian
-  preservation uses a pre-indexed dependency graph; duplicate filenames use
-  forward counters; image replacements are applied in one pass; remote image
-  futures and Twitter resource batches are bounded.
+Next slice: **L1 — remove the account name from committed paths, and update
+the `AGENTS.md` test command**, assigned to Main; not yet authorized.
 
-A local generated 5,000-item import improved from 11.07 seconds with the 3.05
-importer to about 1.8–2.0 seconds with 3.10. A 10,000-item old-version run did
-not finish within 180 seconds in that environment; 3.10 completed in 2.66
-seconds. See `PERFORMANCE_REVIEW.md`; these figures are not runtime promises.
+## Execution rules
 
-### Step 6 — New Obsidian vault export (`sql2obsidian.py`)  ✅
+- One slice at a time. Commit each slice, then ask before starting the next and
+  wait for the answer. No push without permission.
+- A moved file moves with `git mv`, and every reference to it, in any tracked
+  file, changes in the same commit. From L2 on, `scripts/check_doc_links.py`
+  proves it.
+- Keep `.zvec-grep/` out of commits; `git ls-files .zvec-grep` prints nothing.
+  After each slice run `zg index` and `zg status --check-ready`.
+- The regression gate runs with `PYTHONDONTWRITEBYTECODE=1` and `-B`. It is the
+  six required modules, plus the four other harness modules for a full gate;
+  from L4 on, both run from `scripts/`.
+- Private data stays out of Git: aggregate evidence only, no note content.
+- When a slice finds something that needs fixing, add it to this plan rather
+  than only reporting it.
 
-* Notebooks → vault subdirectories with nesting preserved (parent cycles
-  and missing parents fall back to the vault root); notes → `Title.md`.
-* Titles sanitized for the filesystem (Windows-illegal characters plus
-  `# ^ [ ] |` which break wiki links; reserved device names; 100-char
-  limit) and deduplicated case-insensitively per folder (`Title.md`,
-  `Title 2.md`, ...). The `attachments` name is reserved at the vault root
-  so a notebook cannot collide with it.
-* Referenced resources copied to `attachments/` under their human-readable
-  titles (deduplicated, change-aware copy); `(:/resourceid)` links
-  rewritten to `![[file.png]]` wiki embeds for images and relative
-  markdown links (correct `../` depth, percent-encoded) for other files.
-  Links to unknown resource ids are left unchanged.
-* YAML front matter (default on, `--no-frontmatter` to disable) preserves
-  the Joplin id, created/updated timestamps, source URL, and tags —
-  resolved from the tag and note_tag items in the database.
-* The leading body line duplicating the note title is stripped, since in
-  Obsidian the file name is the title. URL-only links are simplified as in
-  `sql2joplin.py` (`--no-simplify-urls` to disable).
-* Bug found during testing: `RESOURCE_LINK_RE` used a greedy `(.*)` with
-  DOTALL, merging two resource links on one line into a single match. The
-  display text is now `[^\]]*`, and the Joplin round trip was re-verified
-  after the change.
+## Slices
 
-### Step 7 — Round-trip verification and final docs  ✅
+| Slice | Work | Depends on | Acceptance |
+|---|---|---|---|
+| L0 / Main | *Complete 2026-10-26.* Open this plan: archive the old `PLAN.md` to `plans/v3.34/000-refocus-plan.md`, write this plan and its ledger, and turn `render_notrios_execution.py` into `scripts/render_plan_ledger.py`, which takes `--ledger` and serves both ledgers. | — | Both ledgers render and `--check` passes; the README and `requirements.txt` point at the archived plan. |
+| L1 / Main | Remove the account name from committed paths; update the `AGENTS.md` test command. See [L1](#l1--remove-the-account-name-from-committed-paths). | L0 | No tracked file holds a path with the account name; both ledgers check; the full gate passes. |
+| L2 / Main | Release 3.37 and archive the finished plans, with a link checker. See [L2](#l2--release-337-and-archive-the-finished-plans). | L1 | Every relative link and anchor in every tracked Markdown file resolves; the archived ledger checks in place; the full gate passes. |
+| L3 / Main | Add `ROADMAP.md`, and the plan, roadmap and archive rules in `AGENTS.md`. See [L3](#l3--roadmapmd-and-the-rules-for-plans). | L2 | Each deferred feature has its scope, why it is deferred and what it needs; `AGENTS.md` states the rules; links resolve. |
+| L4 / Main | Move the test modules and tools into `scripts/`. See [L4](#l4--tests-and-tools-in-scripts). | L3 | The same 318 and 43 tests pass from `scripts/`, run from the repository root; no test or script at the root. |
+| L5 / Main | Move the documentation into `docs/`, and split the README's usage sections into pages there. See [L5](#l5--documentation-in-docs). | L4 | Root holds only the files listed in L5; every old README paragraph exists in exactly one page; links resolve. |
+| L6 / Main | Document private data and publications over 100,000 notes. See [L6](#l6--private-data-and-large-publications). | L5 | Each documented command was run on a synthetic library and behaved as written. |
+| L7 / Main | Check that documented examples are executable. See [L7](#l7--executable-documentation). | L6 | Every fence is registered; Python-only examples pass in the gate; the `--with-tools` run passes here; an edited fence fails. |
+| H1 / Main | *Proposed 2026-10-24 (C7d); not authorized.* Make HTML images render after export. See [H1](#h1--html-images-after-export). | L7 | As in H1. |
+| D1 / Main | *Proposed 2026-10-26 (7d); not authorized.* Clearer `notrios2sql.py` refusals for an unusable `--output`. See [D1](#d1--clearer-output-refusals). | L7 | As in D1. |
+| R1 / Main | *Proposed 2026-10-25 at the user's request; not authorized.* Report links a web reader cannot reach. See [R1](#r1--the-link-report). | L7 | As in R1. |
+| R2 / Main | *Proposed 2026-10-25; option (a) chosen by the user; not authorized.* Keep non-internal destinations on the Notrios route. See [R2](#r2--non-internal-destinations-on-the-notrios-route). | R1 | As in R2. |
 
-* Added `sample/` — a two-source Joplin RAW dataset (11 items, 3 resource
-  files) covering nested notebooks, duplicate titles, titles needing
-  sanitization, image and PDF attachments, tags/note_tags, a duplicate
-  note body, an orphan resource, and every link variety.
-* Added `test_movenotes.py`, an end-to-end unittest suite (15 tests,
-  stdlib only) that drives the actual command-line scripts: merge import,
-  removedups, cleanres, Joplin round trip (property-order-insensitive file
-  comparison plus byte comparison of resources), URL simplification on and
-  off, Obsidian vault structure/links/front matter/attachments, and
-  schema v1 rejection.
-* Final README pass: Testing section, script table, History updated.
+### L1 — Remove the account name from committed paths
 
-## Status
+In every tracked file, rewrite a path under the home directory
+(`/home/<account>/…`) as `~/…`, and the account name as a segment of any other
+path as `$USER`, as V1 does for export records:
+`/run/media/<account>/HD2/…` becomes `/run/media/$USER/HD2/…`, and
+`/media/<account>/…` becomes `/media/$USER/…`. About 70 occurrences, in the
+Notrios plan and ledger, five Notrios evidence documents, the site acceptance
+report and `testdata/notrios/README.md`. A path inside a shell command must
+keep working as written: `~` stays outside quotes, and `$USER` is inside double
+quotes or unquoted. Edit the ledger's JSON, then regenerate the plan. Git
+history keeps the old text; rewriting history is not part of this slice.
 
-All steps (1–13) complete. Run `python3 -m unittest -v test_movenotes.py test_image_resources.py` to verify the project.
+`AGENTS.md`'s Tests section gives the six required modules
+(`test_movenotes.py`, `test_image_resources.py`, `test_obsidian2sql.py`,
+`test_obsidian2site.py`, `test_notrios2sql.py`, `test_notrios_7c.py`), and the
+four harness modules (`test_notrios_c7c.py`, `test_notrios_p7a.py`,
+`test_notrios_p7b.py`, `test_notrios_p7c.py`) for a full gate.
 
-### Step 8 — Twitter/X archive import (`twitterx2sql.py`)  ✅
+*Acceptance:* `git grep -n -E "/home/$USER/|/media/$USER/"`, with the shell
+expanding `$USER`, prints nothing; both ledgers check; the full gate passes.
 
-* Parse the archive users download from X (Settings → "Download an archive
-  of your data"), **without using the Twitter/X API**: `data/tweets*.js`
-  (and legacy `tweet*.js`) files with the `window.YTD.<name>.partN = [...]`
-  wrapper, the username from `data/account.js`, and media files from
-  `data/tweets_media/` (legacy `data/tweet_media/`), named
-  `{tweet_id}-{filename}`. Format verified against
-  timhutton/twitter-archive-parser and doggy8088/x-archive-parser.
-* Tweets are imported as Joplin-style note rows into a notebook named with
-  `--notebook` (default "Twitter"); the notebook is created if missing and
-  reused when it already exists, so several archives can be merged.
-* t.co links are expanded, in two layers:
-  1. offline, from each tweet's `entities.urls[].expanded_url` mapping —
-     this covers almost all links and needs no network;
-  2. any t.co link still left is resolved over the network by issuing a
-     HEAD request and following redirect Location headers (stdlib
-     `urllib`, no API), with results cached in `tco_cache.json` in the
-     output directory so re-runs don't re-fetch. `--no-expand-tco`
-     disables the network step.
-* Tweet media become Joplin resource items copied into `resources/` and
-  embedded with `![name](:/resource_id)` links; the corresponding t.co
-  media URL is removed from the text. HTML entities (`&amp;` …) are
-  unescaped.
-* Each note gets a title derived from the tweet text (truncated preview;
-  media-only tweets fall back to `Tweet <date>`), Joplin timestamps from
-  `created_at`, and `source_url` pointing at the original post.
-* The exporters' provenance check changes from
-  `note_original_format == "joplin"` to "row has a `joplin_id`", since
-  every importer now writes complete `joplin_*` columns; provenance stays
-  accurate (`note_original_format` is `"twitter"` for tweets).
-* Resource ids are derived from the media file's content (first 32 hex
-  digits of its SHA-256), so re-importing the same archive produces
-  byte-identical note bodies and `removedups.py` can remove the
-  duplicates; resource rows are not duplicated across runs.
-* Sample archive in `sample/twitter-archive/` and end-to-end tests
-  (9 new tests): import counts, notebook reuse across imports, entity and
-  network t.co expansion, HTML entity unescaping, media embedding with
-  byte-identical attachment files, Joplin RAW re-parse of every exported
-  item, Obsidian front matter carrying the tweet's source URL, and the
-  redirect-following expander exercised against a local HTTP server
-  (chain following, caching, graceful failure, disabled mode).
+### L2 — Release 3.37 and archive the finished plans
 
-### Step 9 — Obsidian export notebook filtering for publishing  ✅
+*Release.* The CHANGELOG's "Unreleased changes" becomes "Changes in 3.37".
+`__version__` goes to 3.37 in the scripts changed since 3.36 that carry the
+3.x line: `obsidian2site.py`, `obsidian2sql.py`, `sql2obsidian.py` and
+`sql2joplin.py`. `cleanres.py` has its own 2.x line (2.10) and changed too
+(S43c); it goes to 2.11, unless the user wants it moved to 3.37 instead.
+`notrios2sql.py` has no `--version` and gets none here.
 
-* `sql2obsidian.py --notebooks "A,B"` (comma-separated titles, flag
-  repeatable, exact match) exports only the named notebooks and all their
-  subnotebooks, so a vault can be built from public notebooks only and
-  published with Quartz without exporting private notes.
-* Selected notebooks are re-rooted to the vault root, so publishing a
-  nested notebook does not expose its parent notebooks' names; relative
-  attachment links adapt to the new depth.
-* Only attachments referenced by exported notes are copied (verified:
-  exporting one notebook copies only its own attachments).
-* Unknown notebook names are an error listing the available notebooks, so
-  a typo cannot silently publish (or omit) the wrong notes; the summary
-  line reports how many notes were skipped.
-* 5 new tests: re-rooting with link depth, subnotebook inclusion,
-  referenced-only attachments, both flag forms, and the unknown-name
-  error path.
+*Archive*, in the Notrios layout `plans/v<major>.<minor>/<NNN>-<slug>.md`, with
+`plans/README.md` describing it:
 
-### Step 10 — Quartz documentation and final pass  ✅
+- `plans/v3.36/000-ledger-migration-plan.md` ← `LEDGER_MIGRATION_PLAN.md`;
+- `plans/v3.37/000-notrios-import-plan.md` ← `NOTRIOS_IMPORT_PLAN.md`, with
+  its ledger beside it as `plans/v3.37/notrios-import-ledger.json`;
+- the plan's working records, numbered in the order their slices ran:
+  `001-verifier-audit.md`, `002-tag-review.md`, `003-resource-review.md`,
+  `004-site-acceptance.md`, `005-compatibility-review.md`,
+  `006-c7c-evidence.md`, `007-performance-evidence.md`, `008-p7b-evidence.md`,
+  `009-p7c-evidence.md` and `010-corpus-trials.md`.
 
-* README "Publishing with Quartz" section covering both pipelines
-  (Joplin RAW → SQLite → Obsidian vault → Quartz; Twitter/X archive →
-  SQLite → Obsidian vault → Quartz): exporting a publishable vault with
-  `--notebooks`, Quartz 5 setup (verified against the current docs: Node
-  v22+, `npx quartz create`, `npx quartz plugin install --from-config`),
-  the `content/index.md` home page, local preview, `npx quartz sync`
-  deployment, `draft: true` for excluding single notes, and the caveat
-  that exports never delete stale files.
-* `sql2obsidian.py` front matter now includes a `title` field with the
-  original (unsanitized) note title, which Quartz and Obsidian use in
-  place of the sanitized file name.
-* Final documentation and test pass (29 tests).
+In the archived Notrios ledger, H1, D1, R1 and R2 are marked moved to this
+plan; their records continue here. Every reference to a moved file changes in
+the same commit: the README, the CHANGELOG, `AGENTS.md`, the code comments in
+`obsidian2site.py` and `site_server/search/service_test.go`, and the archived
+documents' own links (relative links from `plans/v3.37/` gain `../../`).
 
-### Step 11 — Lossless Joplin preservation across SQLite and Obsidian  ✅
+*Link checker.* `scripts/check_doc_links.py` reads every tracked Markdown file
+and refuses a relative link whose file does not exist, or whose `#anchor`
+names no heading in it (GitHub's slug rules). Anything under `http(s)://` is
+not checked. A unit test runs it in the gate.
 
-* Bumped the interchange schema to v3. SQLite now stores each imported RAW
-  item's exact bytes, original filename, and ordered property list in addition
-  to queryable known Joplin columns. Compatible v2 databases migrate in place.
-* Expanded known columns to the current Joplin Data API note, folder, resource,
-  tag, revision, sharing, deletion, locking, OCR, and user-data fields; future
-  unknown fields remain preserved by the ordered property list and raw bytes.
-* `sql2joplin.py` now emits imported items byte-for-byte by default. URL
-  simplification is explicitly opt-in with `--simplify-urls`.
-* Joplin item-ID and resource filename collisions with different data are
-  rejected instead of silently overwriting one source.
-* `sql2obsidian.py` maps common metadata to Obsidian properties, exposes every
-  source property under a `joplin-` namespace, stores the complete property
-  list as JSON, and writes `.movenotes/joplin-raw/` plus a checksum/path
-  manifest so non-note items, original bodies, ignored properties, and raw
-  resources remain recoverable. Filtered exports preserve only the selected
-  dependency closure.
-* Added byte-exact CRLF, future-property, auxiliary-item, raw-resource,
-  collision, frontmatter, preservation-manifest, and v2-to-v3 migration tests.
-  The suite now contains 33 tests.
+*Acceptance:* the checker passes; a deliberately broken link and anchor each
+fail it; `scripts/render_plan_ledger.py --ledger plans/v3.37/notrios-import-ledger.json --check`
+passes; the full gate passes.
 
-### Step 12 — Comparative implementation review  ✅
+### L3 — ROADMAP.md and the rules for plans
 
-* Reviewed an independent implementation of the same lossless-conversion
-  requirements and retained this project's exact-byte snapshot design,
-  collision checks, complete Joplin item schema, and vault-side RAW recovery
-  bundle.
-* Adopted the independent implementation's strongest usability idea by adding
-  a structured `joplin` frontmatter object. Also added a directly parseable
-  `joplin-properties` array while retaining legacy flat fields and
-  `joplin-properties-json` compatibility.
-* Source property parsing now consumes only the canonical delimiter space and
-  preserves all additional leading/trailing value whitespace. Ordered source
-  pairs remain authoritative, including duplicate and future properties.
-* Sanitized legacy `joplin-*` frontmatter key collisions now receive stable
-  numeric suffixes rather than producing duplicate YAML keys.
-* Expanded the lossless test fixture to cover duplicate unknown fields,
-  significant property whitespace, structured frontmatter, and sanitized-key
-  collisions. The suite remains 33 tests.
+`ROADMAP.md` is the inventory of deferred features, each with its scope, why
+it is deferred, what it would need, and what it depends on:
 
+- **Packed publications.** The importer refuses `objects.pack.v1` archives and
+  pack locations; reading them needs bounded, authenticated pack reading with
+  the same per-object size and digest checks as loose objects.
+- **Multiple handoffs and merges.** An import goes only into a new directory.
+  Importing several publications into one library, or a newer publication of
+  the same selection over an older import, needs rules for identity, updates,
+  deletions and collisions. It is also what would let a library over the
+  publish path's 100,000-note cap be published in parts and merged.
+- **Full and subset archives.** Only the `publication_handoff` target is read.
+  `full_archive` and `subset_transfer` carry history, provenance, source
+  bundles and saved searches; importing them losslessly needs a mapping for
+  each.
 
-### Step 13 — Embedded and remote images to local resources  ✅
+`AGENTS.md` gains the rules, adapted from the Notrios repository's
+"Keeping the plan current", "Keeping the roadmap current" and "Plan archival":
+`PLAN.md` is the active plan and its journal; what is left is in its ledger
+(`docs/plan/ledger.json`), rendered by `scripts/render_plan_ledger.py`;
+`ROADMAP.md` says what a version will mean and carries no per-slice status;
+new work enters the roadmap when it enters the plan; a finished plan is
+archived as `plans/v<major>.<minor>/000-<slug>-plan.md`, with its ledger and
+working records beside it; a new `PLAN.md` is then written from `ROADMAP.md`,
+with the assignment section, a fresh ledger and a pointer back to these rules,
+and the user is asked before it starts. The reading list's entries for
+`PLAN.md` and the migration plan are replaced.
 
-* Added `images2resources.py`, which scans Markdown note bodies in SQLite,
-  decodes base64 image data URIs, performs HEAD-first inspection of HTTP(S)
-  redirects, downloads within configured limits, validates MIME headers against
-  image signatures, creates deterministic Joplin resources, and rewrites only
-  successful image links to `:/resource_id`.
-* Kept the dependency-free Python 3.9+ design: bounded concurrent downloads use
-  `urllib` plus a thread pool rather than requiring `httpx`/`aiofiles`.
-* Added an INI domain stop list, private-address blocking, redirect count,
-  timeout, size, worker, user-agent, report path, and opt-in SVG controls.
-* Added a Markdown problem report with checkboxes, note/file/line context,
-  redirect and MIME details, compact previews, and machine-readable occurrence
-  metadata.
-* Added `quarantinelinks.py`; checked report occurrences are replaced with one
-  local configurable “Image removed” resource. Its ID/path are written back to
-  the INI file and reused on later runs.
-* Added local-server integration tests for successful and failed conversion,
-  deduplication, report categories, exact quarantine selection, placeholder
-  reuse, and SQLite → Joplin/Obsidian attachment exports.
+*Acceptance:* links resolve; the roadmap carries no slice status.
 
-### Step 14 — Comparative performance review and adaptive scaling  ✅
+### L4 — Tests and tools in scripts
 
-* Compared the two 3.10 performance implementations and adopted structural
-  query-plan/index/query-count tests from the alternate implementation.
-* Retained schema-v4 persisted SHA-256 fingerprints, deferred index creation,
-  queue-based preservation traversal, streamed RAW export, bounded image
-  futures, linear replacements, and forward filename counters.
-* Added adaptive existing-ID checks: full re-imports preload fingerprints once;
-  small merges issue bounded indexed queries only for IDs in each input batch.
-* Cached canonical parent folder parsing, reused parsed folder rows in the main
-  loop, loaded existing folder titles once, and limited SQL fallback to newly
-  inserted unresolved notes.
-* Indexed attachment/resource/media directories once in image localization,
-  Obsidian export, and Twitter media fallback paths.
-* Made extension matching case-insensitive and added `.MD` regression coverage.
-* Expanded the suite to 56 tests and documented benchmark/complexity results in
-  `PERFORMANCE_REVIEW.md` and `CHANGELOG.md`.
+`git mv` every `test_*.py` and the remaining root tools into `scripts/`. The
+modules find the repository root as `Path(__file__).resolve().parent.parent`
+instead of their own directory, and run each script from there. The gate
+becomes `python3 -B -m unittest scripts/test_movenotes.py …`, run from the
+root. `AGENTS.md`, the README's Testing section and this plan change with it.
+The Go module's tests stay in `site_server/`.
 
-### Step 15 — Bidirectional Obsidian import and operational hardening  ✅
+*Acceptance:* the same 318 and 43 tests, by name, pass from `scripts/`; no
+`test_*.py` remains at the root; nothing writes `__pycache__`.
 
-* Added `obsidian2sql.py` and `obsidianmeta.py` for native vaults and vaults
-  carrying a movenotes Joplin preservation bundle.
-* Added schema v5 exact Obsidian path/raw/body/frontmatter snapshots plus a
-  compressed restoration envelope that survives Joplin `application_data`.
-* Native vault discovery is one pass; compact path/ID indexes are retained,
-  while note rows stream into bounded SQLite batches and attachment bytes are
-  stored only in `resources/`.
-* Added visible-note hashes and attachment paths to the preservation manifest,
-  exact native-file restoration, edited-visible-note handling, and four-stage
-  round-trip documentation.
-* Added UTF-8 byte-aware filenames and graceful `ENAMETOOLONG` fallback.
-* Added image note-count progress, automatic quarantine domains, canonical
-  managed configuration repair, `CHANGELOG.md`, and `AGENTS.md`.
-* Expanded the suite to 64 tests.
+### L5 — Documentation in docs
 
-### Step 16 — Scalable Obsidian static-site publishing  ✅
+`git mv` the reference documents into `docs/`, renamed in lowercase as the
+Notrios repository does: `static-site.md`, `deploy-vercel.md`,
+`deploy-github-pages.md`, `performance-review.md`, `implementation-review.md`
+(a dated snapshot), `notrios-import-contract.md` and `notrios-import-design.md`.
+`docs/index.md` lists every page.
 
-* Added `obsidian2site.py` to generate Hugo projects using the Relearn theme,
-  Pagefind search, and a fixed sidebar that never enumerates individual notes.
-* Added direct Obsidian wiki-link, local-link, attachment, frontmatter/date,
-  optional transclusion, and deterministic filename conversion.
-* Generated all unique non-filler-word tags with temporary SQLite counts and
-  prefix-bucketed JSON; explicit Obsidian tags also receive Pagefind filter metadata.
-* Bounded pending note conversions, kept tag counting disk-backed, generated a
-  valid Hugo module, and documented Hugo/Pagefind build and local serving.
-* Added `STATIC_SITE.md`, updated repository orientation, and expanded the suite
-  to 73 tests.
+The README keeps what movenotes is, the script list, setup, one short example
+per workflow, and links. Its usage sections move unchanged into pages:
+`docs/joplin.md` (Joplin RAW import and export, duplicates, cleanup),
+`docs/twitter.md`, `docs/obsidian.md` (import, export, the preservation bundle,
+a damaged bundle, round trips), `docs/images.md` (localizing images,
+quarantine), `docs/notrios.md` (import and the publishing recipe),
+`docs/quartz.md`, `docs/testing.md` and `docs/schema.md`. The site section
+merges into `docs/static-site.md` where it does not repeat it.
 
+The root then holds: `README.md`, `CHANGELOG.md`, `LICENSE.md`, `AGENTS.md`,
+`PLAN.md`, `ROADMAP.md`, `requirements.txt`, the scripts and their shared
+modules, `movenotes-images.example.ini` (named by the README's image usage),
+and the directories `docs/`, `plans/`, `scripts/`, `sample/`, `testdata/`,
+`site_server/` and `experiments/`.
 
-### Step 17 — Relearn visual integration and browser responsiveness  ✅
+*Acceptance:* a script compares the paragraphs of the old README with the new
+README and pages, and finds each old paragraph in exactly one place; the link
+checker passes.
 
-* Replaced the incomplete custom `menu.html` with supported Relearn menu
-  configuration and a custom sidebar search element.
-* Added responsive, theme-aware Getting Started, Search, and Browse Tags
-  surfaces while preserving Relearn’s complete shell and variant controls.
-* Removed exact duplicate opening headings, generated the Getting Started date
-  at conversion time, and bounded/concurrent Pagefind result rendering.
-* Expanded the suite to 76 tests.
+### L6 — Private data and large publications
 
-### Step 18 — Exact tag results and X mention links  ✅
+In `docs/notrios.md`:
 
-* Added disk-backed exact tag posting lists and chunked note metadata so Browse
-  Tags counts always match the selected result set without depending on
-  Pagefind stemming.
-* Kept ordinary text search on Pagefind while avoiding Pagefind initialization
-  for exact tag navigation and preloading submitted full-text terms.
-* Linked plain valid-looking `@username` mentions to X while preserving emails,
-  URLs, code, and existing Markdown links.
-* Added tag-count/posting-list and mention-boundary regressions, expanding the
-  suite to 78 tests.
-### Step 19 — Canonical site URLs and optional server-side search
+- **Keeping a note out of a publication.** Tag it `private`, `draft` or
+  `confidential` (`notriosctl tags add --tag private --document <id>`); those
+  are excluded by default, along with read-only notebooks and the Trash.
+  `--exclude-tags` replaces the default list, so a profile that sets it must
+  name the defaults it still wants. Review the plan's list of notes before
+  publishing.
+- **What tagging cannot catch.** Neither Notrios nor movenotes reads a note
+  for personal data. A phone number, address or account number written in a
+  sentence, in a code block, in a table, in a title or file name, or in a
+  link's URL is published as written; `tel:` and `mailto:` are only the forms a
+  link happens to take. Attachments are copied byte for byte, so an image
+  publishes whatever it shows and whatever metadata it carries, such as a
+  photo's location. Anyone concerned about private data should scan the
+  publication or the exported vault with software built for it before building
+  or deploying the site: [Presidio](https://github.com/data-privacy-stack/presidio)
+  ([site](https://presidio.dataprivacystack.org)) detects, redacts, masks and
+  anonymizes personal data in text, images and structured data;
+  [hawk-eye](https://github.com/rohitcoder/hawk-eye) scans filesystems and
+  storage for it.
+- **Publications over 100,000 notes.** The cap and why; the workaround 7c used
+  (`export archive-v2 --target publication_handoff` over the root notebooks
+  with `--max-documents`), how to find the root notebooks, what to do about
+  notes in no notebook (file them first), and what the export does not do that
+  `publish` does (no profile, no reviewed plan). Whether the export applies
+  the private-tag defaults is measured on a synthetic library, not assumed,
+  and documented as found. Splitting a library into several publications
+  under the cap gives several sites, since publications cannot yet be merged
+  (see `ROADMAP.md`).
 
-- Made the generated content path the authoritative note URL and reused it in
-  Hugo frontmatter, exact-tag metadata, Pagefind output, and Bluge records.
-- Added the generated `site_server` Go module, JSONL search source, automatic
-  Bluge index construction, paginated search API, phrase/tag/date operators,
-  and static-file serving with cache headers.
-- Kept Pagefind as an independent static-hosting fallback rather than coupling
-  Bluge to Pagefind's private browser index.
-- Added build-backend selection, a configurable Go executable, prebuilt-index
-  mode, documentation, checksum data, and structural/integration regressions.
-- Expanded the suite to 81 tests.
+*Acceptance:* every command in these sections was run on a synthetic library
+with the pinned `v1.0.0` binary and behaved as documented, including a
+`private`-tagged note on both the publish and the export path.
 
-### Step 20 and later — Ledger theme, Vercel, and static search
+### L7 — Executable documentation
 
-Steps 20–36 replace the Relearn theme with `hugo-theme-ledger`, make
-`movenotes-site-server` deployable on Vercel as well as locally, and benchmark
-Orama and FlexSearch against Pagefind before deciding whether either becomes a
-static-hosting search option. They are planned in detail, with the
-architectural decisions and the per-step verification, in
-[`LEDGER_MIGRATION_PLAN.md`](LEDGER_MIGRATION_PLAN.md).
+`scripts/check_doc_examples.py` finds every fenced block in `README.md` and
+`docs/**/*.md`, and `docs/examples.json` registers each one: its page, heading,
+ordinal, language, SHA-256, and a state:
 
-Steps 20–35 are done (`obsidian2site.py` 3.36). The theme swap, the two-tier tag
-model, the one Bluge contract, the serverless split, and both deployment documents
-are in place. The Orama/FlexSearch benchmark ran and justified adding nothing:
-`--search-backend` still offers `both`, `bluge`, and `pagefind`. Step 36 is the
-real-archive test before release.
+- `executed`: run in the unit gate. A page's executed examples run in order in
+  one temporary home, so a later example can use what an earlier one wrote.
+  The home is seeded from `sample/` and `testdata/` as the registry says (for
+  example `~/joplin_raw_export` from `sample/source1`), and a placeholder such
+  as `<the reviewed plan's manifest_sha256>` is replaced by a value the
+  registry names.
+- `tools`: needs Hugo, Go, `notriosctl` (from `$NOTRIOSCTL`) or the network.
+  Run by `--with-tools`, which reports each missing tool and does not count
+  those examples as passed.
+- `unverified`, with a reason: a synopsis, recorded output, a fragment, or
+  a command that changes something outside the temporary home.
 
-Anything in steps 1–19 above that describes Relearn is history, not current
-behaviour. `STATIC_SITE.md` is the current description.
+`scripts/test_doc_examples.py` fails on an unregistered or changed fence and
+on a stale registry entry, then runs the executed examples. `AGENTS.md`
+describes the process: an edited example is re-run and re-registered in the
+commit that edits it.
 
+*Acceptance:* every fence is registered; the executed examples pass in the
+gate; `--with-tools` passes on this machine with Hugo `v0.164.0`, Go 1.27.0 and
+`notriosctl` `v1.0.0`; an edited fence and an unregistered one each fail.
+
+### H1 — HTML images after export
+
+Carried from the Notrios import plan, proposed 2026-10-24 during C7d. A Joplin
+note can hold `<img src=":/id">` (80 tags in 38 notes of the Joplin corpus).
+`sql2obsidian.py` copies the resource, but `rewrite_resource_links` rewrites
+only Markdown links, so the vault keeps `src=":/id"`, which neither Obsidian nor
+the site resolves. Notrios-generated notes do the same since C7d, on purpose.
+Rewrite the `src` value to the attachment's path relative to the note in both
+export paths, keeping every other byte of the tag, and decide with the user
+whether an exported image stays HTML or becomes an embed. Owns
+`sql2obsidian.py`, `notrios_links.py` (`rewrite_projected_links`) and tests.
+
+*Acceptance:* a note with HTML images exports with each `src` pointing at its
+copied attachment, on both paths, byte-identical elsewhere; the vault reimports
+to the same database except for the rewritten bytes; the site shows the image.
+
+### D1 — Clearer output refusals
+
+Carried from the Notrios import plan, proposed 2026-10-26 during 7d.
+`notrios2sql.py` refuses each of these correctly (exit 1, nothing written), but
+blames the archive, which verified: a missing output parent gives
+`error [io]: cannot read archive directory` before verification; an existing
+regular file gives the same message, and an existing directory that is not a
+completed import gives `error [io]: cannot read regular archive object`, both
+only after the whole archive is verified. Check the destination first: a
+missing parent, or an existing path that is not a completed import, refuses as
+`destination` with a message naming the problem. A completed import of another
+publication keeps `completion receipt or shape differs`. The existing checks
+stay, so a destination that appears during verification is still refused.
+Owns `notrios2sql.py`, its tests and the `notrios2sql.py` rules in the docs.
+
+*Acceptance:* each case has a subprocess test for exit 1, the exact error, no
+`verify` phase reported and nothing written beside the output; existing
+refusal, rerun and recovery tests pass unchanged.
+
+### R1 — The link report
+
+Carried from the Notrios import plan, proposed 2026-10-25 at the user's
+request; the full specification is in
+the archived plan's R1 row (`NOTRIOS_IMPORT_PLAN.md` until L2 archives it). In short: during site
+generation, write one CSV per run listing every link a web reader cannot reach
+(`file:`, drive and UNC paths, browser and app schemes, unresolved relative
+and wiki links, internal forms left unresolved), every malformed HTTP(S)
+destination, every insecure `http:` link, and, for information, `tel:` and
+`mailto:`; never fail generation for a link; keep the report out of everything
+published, uploaded or deployed; print per-category counts.
+
+*Acceptance:* as in the archived R1 row, including the three 7c libraries'
+per-category counts in aggregate only.
+
+### R2 — Non-internal destinations on the Notrios route
+
+Carried from the Notrios import plan, proposed 2026-10-25; the user chose
+option (a). With `plain_text`, Notrios `v1.0.0` replaces every unresolved or
+ambiguous link with its label (2,318 links in the Joplin library: `file:`,
+`tel:`, `data:`, relative and others), so they never reach movenotes. Export
+the handoff with `--link-action retain` and have movenotes admit unresolved and
+ambiguous records whose destination names no internal target, as text that R1
+reports, while doing itself what `plain_text` does for a link to a withheld
+note. A bounded probe of what `retain` emits for a withheld-note link comes
+first; if it leaks withheld identities in a way the import cannot contain, fall
+back to option (b), a producer change. The full specification is in the
+archived plan's R2 row.
+
+*Acceptance:* every non-internal destination in a publication reaches the
+vault and site byte-identical to the source note and appears in R1's report;
+a link to a withheld note never carries that note's identity.
+
+## Execution provenance
+
+Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
+
+<!-- PLAN-EXECUTION:START -->
+<details><summary>L0 — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Plan and provenance edits, allowed while confirmation is pending (AGENTS.md). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Read the Notrios repository's plans/, docs/ and scripts/ layout and its AGENTS.md plan, roadmap and archival rules; asked the four layout questions; archived the old PLAN.md as plans/v3.34/000-refocus-plan.md; wrote PLAN.md and docs/plan/ledger.json; moved render_notrios_execution.py to scripts/render_plan_ledger.py with --ledger and per-ledger markers, and repointed the Notrios plan's commands; pointed the README and requirements.txt at the archived plan. |
+| Validation | scripts/render_plan_ledger.py --check passes for docs/plan/ledger.json and for NOTRIOS_IMPORT_EXECUTION.json; documentation and tooling only. |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
+| Execution evidence | User request and answers, 2026-10-26 |
+| Commit | Git commit containing this record: docs: open the reorganization plan and archive the refocus plan (L0) |
+
+</details>
+
+<details><summary>L1 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>L2 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>L3 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>L4 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>L5 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>L6 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>L7 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>H1 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | Moved 2026-10-26 from the Notrios import plan (status pending there, never started) at the user's direction; the original record stays in the archived ledger. |
+| Planned assignment evidence | C7d finding, 2026-10-24; moved from the Notrios import plan 2026-10-26. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>D1 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | Moved 2026-10-26 from the Notrios import plan (status pending there, never started) at the user's direction; the original record stays in the archived ledger. |
+| Planned assignment evidence | 7d finding, 2026-10-26; moved from the Notrios import plan 2026-10-26. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>R1 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | Moved 2026-10-26 from the Notrios import plan (status pending there, never started) at the user's direction; the original record stays in the archived ledger. |
+| Planned assignment evidence | User request 2026-10-25; moved from the Notrios import plan 2026-10-26. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>R2 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | Moved 2026-10-26 from the Notrios import plan (status pending there, never started) at the user's direction; the original record stays in the archived ledger. |
+| Planned assignment evidence | User chose option (a) 2026-10-25; moved from the Notrios import plan 2026-10-26. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+<!-- PLAN-EXECUTION:END -->
+
+## Progress log
+
+| Date | Event | Summary |
+|---|---|---|
+| 2026-10-26 | Plan opened | At the user's request, after 7e completed the Notrios import plan. The user's four answers are under Decisions. L0: the old `PLAN.md` is archived as `plans/v3.34/000-refocus-plan.md`, this plan and its ledger are written, and `scripts/render_plan_ledger.py` replaces `render_notrios_execution.py` for both ledgers. Documentation and provenance only. Next: confirm this plan's assignments, then ask to proceed to L1. |
