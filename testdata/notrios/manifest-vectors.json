@@ -1,0 +1,420 @@
+[
+  {
+    "name": "publication",
+    "manifest": {
+      "format": "notrios-archive",
+      "version": 2,
+      "commit_sha256": "b998f2fc889fa382cab7a3332663da5b9852de50696e065032ee7c7e168eba26",
+      "snapshot": {
+        "id": "snap_jwa2ax65dqlknybsgzmwieaxki",
+        "created_at": "2026-09-05T21:17:09Z",
+        "target": "publication_handoff",
+        "database_id": "db_74xji7czi6hikwfpysuyjkjaye",
+        "source_replica_id": "replica_sbau6kvs6t35ow5e36pijrgvny",
+        "consistency": "sqlite_read_transaction",
+        "collection_ids": [
+          "default"
+        ],
+        "selection_manifest_sha256": "54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0"
+      },
+      "compatibility": {
+        "minimum_reader_version": 2,
+        "source_schema_version": 27,
+        "minimum_schema_version": 12,
+        "maximum_schema_version": 27,
+        "required_capabilities": [
+          "identity.database-replica.v1",
+          "objects.index.v1",
+          "objects.sha256.v1",
+          "records.jsonl.v1",
+          "revisions.complete.v1"
+        ],
+        "optional_capabilities": []
+      },
+      "index": [
+        {
+          "sha256": "4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3",
+          "size_bytes": 2120,
+          "entries": 7,
+          "media_type": "application/vnd.notrios.archive-v2-index+jsonl",
+          "location": {
+            "layout": "fanout",
+            "path": "objects/sha256/4c/0c/4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3"
+          }
+        }
+      ],
+      "totals": {
+        "objects": 7,
+        "bytes": 9506,
+        "record_chunks": 1,
+        "blobs": 6
+      },
+      "counts": {
+        "collections": 1,
+        "notebooks": 2,
+        "search_notebooks": 0,
+        "tags": 4,
+        "documents": 3,
+        "revisions": 3,
+        "document_tags": 6,
+        "resources": 3,
+        "document_resources": 4,
+        "links": 8,
+        "provenance": 0,
+        "source_bundles": 0
+      }
+    },
+    "canonical_utf8": "{\"format\":\"notrios-archive\",\"version\":2,\"snapshot\":{\"id\":\"snap_jwa2ax65dqlknybsgzmwieaxki\",\"created_at\":\"2026-09-05T21:17:09Z\",\"target\":\"publication_handoff\",\"database_id\":\"db_74xji7czi6hikwfpysuyjkjaye\",\"source_replica_id\":\"replica_sbau6kvs6t35ow5e36pijrgvny\",\"consistency\":\"sqlite_read_transaction\",\"collection_ids\":[\"default\"],\"selection_manifest_sha256\":\"54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0\"},\"compatibility\":{\"minimum_reader_version\":2,\"source_schema_version\":27,\"minimum_schema_version\":12,\"maximum_schema_version\":27,\"required_capabilities\":[\"identity.database-replica.v1\",\"objects.index.v1\",\"objects.sha256.v1\",\"records.jsonl.v1\",\"revisions.complete.v1\"],\"optional_capabilities\":[]},\"index\":[{\"sha256\":\"4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3\",\"size_bytes\":2120,\"entries\":7,\"media_type\":\"application/vnd.notrios.archive-v2-index+jsonl\",\"location\":{\"layout\":\"fanout\",\"path\":\"objects/sha256/4c/0c/4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3\"}}],\"totals\":{\"objects\":7,\"bytes\":9506,\"record_chunks\":1,\"blobs\":6},\"counts\":{\"collections\":1,\"notebooks\":2,\"search_notebooks\":0,\"tags\":4,\"documents\":3,\"revisions\":3,\"document_tags\":6,\"resources\":3,\"document_resources\":4,\"links\":8,\"provenance\":0,\"source_bundles\":0}}",
+    "sha256": "b998f2fc889fa382cab7a3332663da5b9852de50696e065032ee7c7e168eba26"
+  },
+  {
+    "name": "zero_optional_fields",
+    "manifest": {
+      "format": "notrios-archive",
+      "version": 2,
+      "commit_sha256": "b998f2fc889fa382cab7a3332663da5b9852de50696e065032ee7c7e168eba26",
+      "snapshot": {
+        "id": "snap_jwa2ax65dqlknybsgzmwieaxki",
+        "created_at": "2026-09-05T21:17:09Z",
+        "target": "publication_handoff",
+        "database_id": "db_74xji7czi6hikwfpysuyjkjaye",
+        "source_replica_id": "replica_sbau6kvs6t35ow5e36pijrgvny",
+        "consistency": "sqlite_read_transaction",
+        "collection_ids": [
+          "default"
+        ],
+        "selection_manifest_sha256": "54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0"
+      },
+      "compatibility": {
+        "minimum_reader_version": 2,
+        "source_schema_version": 27,
+        "minimum_schema_version": 12,
+        "maximum_schema_version": 27,
+        "required_capabilities": [
+          "identity.database-replica.v1",
+          "objects.index.v1",
+          "objects.sha256.v1",
+          "records.jsonl.v1",
+          "revisions.complete.v1"
+        ],
+        "optional_capabilities": []
+      },
+      "index": [
+        {
+          "sha256": "4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3",
+          "size_bytes": 2120,
+          "entries": 7,
+          "media_type": "application/vnd.notrios.archive-v2-index+jsonl",
+          "location": {
+            "layout": "fanout",
+            "path": "objects/sha256/4c/0c/4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3",
+            "offset": 0,
+            "length": 0,
+            "pack_sha256": ""
+          }
+        }
+      ],
+      "totals": {
+        "objects": 7,
+        "bytes": 9506,
+        "record_chunks": 1,
+        "blobs": 6,
+        "packs": 0
+      },
+      "counts": {
+        "collections": 1,
+        "notebooks": 2,
+        "search_notebooks": 0,
+        "tags": 4,
+        "documents": 3,
+        "revisions": 3,
+        "document_tags": 6,
+        "resources": 3,
+        "document_resources": 4,
+        "links": 8,
+        "provenance": 0,
+        "source_bundles": 0
+      }
+    },
+    "canonical_utf8": "{\"format\":\"notrios-archive\",\"version\":2,\"snapshot\":{\"id\":\"snap_jwa2ax65dqlknybsgzmwieaxki\",\"created_at\":\"2026-09-05T21:17:09Z\",\"target\":\"publication_handoff\",\"database_id\":\"db_74xji7czi6hikwfpysuyjkjaye\",\"source_replica_id\":\"replica_sbau6kvs6t35ow5e36pijrgvny\",\"consistency\":\"sqlite_read_transaction\",\"collection_ids\":[\"default\"],\"selection_manifest_sha256\":\"54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0\"},\"compatibility\":{\"minimum_reader_version\":2,\"source_schema_version\":27,\"minimum_schema_version\":12,\"maximum_schema_version\":27,\"required_capabilities\":[\"identity.database-replica.v1\",\"objects.index.v1\",\"objects.sha256.v1\",\"records.jsonl.v1\",\"revisions.complete.v1\"],\"optional_capabilities\":[]},\"index\":[{\"sha256\":\"4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3\",\"size_bytes\":2120,\"entries\":7,\"media_type\":\"application/vnd.notrios.archive-v2-index+jsonl\",\"location\":{\"layout\":\"fanout\",\"path\":\"objects/sha256/4c/0c/4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3\"}}],\"totals\":{\"objects\":7,\"bytes\":9506,\"record_chunks\":1,\"blobs\":6},\"counts\":{\"collections\":1,\"notebooks\":2,\"search_notebooks\":0,\"tags\":4,\"documents\":3,\"revisions\":3,\"document_tags\":6,\"resources\":3,\"document_resources\":4,\"links\":8,\"provenance\":0,\"source_bundles\":0}}",
+    "sha256": "b998f2fc889fa382cab7a3332663da5b9852de50696e065032ee7c7e168eba26"
+  },
+  {
+    "name": "unicode_html_and_controls_serializer_only",
+    "manifest": {
+      "format": "notrios-archive",
+      "version": 2,
+      "commit_sha256": "b998f2fc889fa382cab7a3332663da5b9852de50696e065032ee7c7e168eba26",
+      "snapshot": {
+        "id": "café 東京 ☕ 😀 \u003c\u003e\u0026\u2028\u2029 \" \\ \b\f\n\r\t\u0000\u001f",
+        "created_at": "2026-09-05T21:17:09Z",
+        "target": "publication_handoff",
+        "database_id": "db_74xji7czi6hikwfpysuyjkjaye",
+        "source_replica_id": "replica_sbau6kvs6t35ow5e36pijrgvny",
+        "consistency": "sqlite_read_transaction",
+        "collection_ids": [
+          "default"
+        ],
+        "selection_manifest_sha256": "54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0"
+      },
+      "compatibility": {
+        "minimum_reader_version": 2,
+        "source_schema_version": 27,
+        "minimum_schema_version": 12,
+        "maximum_schema_version": 27,
+        "required_capabilities": [
+          "identity.database-replica.v1",
+          "objects.index.v1",
+          "objects.sha256.v1",
+          "records.jsonl.v1",
+          "revisions.complete.v1"
+        ],
+        "optional_capabilities": []
+      },
+      "index": [
+        {
+          "sha256": "4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3",
+          "size_bytes": 2120,
+          "entries": 7,
+          "media_type": "application/vnd.notrios.archive-v2-index+jsonl",
+          "location": {
+            "layout": "fanout",
+            "path": "objects/sha256/4c/0c/4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3"
+          }
+        }
+      ],
+      "totals": {
+        "objects": 7,
+        "bytes": 9506,
+        "record_chunks": 1,
+        "blobs": 6
+      },
+      "counts": {
+        "collections": 1,
+        "notebooks": 2,
+        "search_notebooks": 0,
+        "tags": 4,
+        "documents": 3,
+        "revisions": 3,
+        "document_tags": 6,
+        "resources": 3,
+        "document_resources": 4,
+        "links": 8,
+        "provenance": 0,
+        "source_bundles": 0
+      }
+    },
+    "canonical_utf8": "{\"format\":\"notrios-archive\",\"version\":2,\"snapshot\":{\"id\":\"café 東京 ☕ 😀 \\u003c\\u003e\\u0026\\u2028\\u2029 \\\" \\\\ \\b\\f\\n\\r\\t\\u0000\\u001f\",\"created_at\":\"2026-09-05T21:17:09Z\",\"target\":\"publication_handoff\",\"database_id\":\"db_74xji7czi6hikwfpysuyjkjaye\",\"source_replica_id\":\"replica_sbau6kvs6t35ow5e36pijrgvny\",\"consistency\":\"sqlite_read_transaction\",\"collection_ids\":[\"default\"],\"selection_manifest_sha256\":\"54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0\"},\"compatibility\":{\"minimum_reader_version\":2,\"source_schema_version\":27,\"minimum_schema_version\":12,\"maximum_schema_version\":27,\"required_capabilities\":[\"identity.database-replica.v1\",\"objects.index.v1\",\"objects.sha256.v1\",\"records.jsonl.v1\",\"revisions.complete.v1\"],\"optional_capabilities\":[]},\"index\":[{\"sha256\":\"4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3\",\"size_bytes\":2120,\"entries\":7,\"media_type\":\"application/vnd.notrios.archive-v2-index+jsonl\",\"location\":{\"layout\":\"fanout\",\"path\":\"objects/sha256/4c/0c/4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3\"}}],\"totals\":{\"objects\":7,\"bytes\":9506,\"record_chunks\":1,\"blobs\":6},\"counts\":{\"collections\":1,\"notebooks\":2,\"search_notebooks\":0,\"tags\":4,\"documents\":3,\"revisions\":3,\"document_tags\":6,\"resources\":3,\"document_resources\":4,\"links\":8,\"provenance\":0,\"source_bundles\":0}}",
+    "sha256": "d7a9851a5ba25cb008b418f264d73744e434a17664a9a93f41f8989ec170feeb"
+  },
+  {
+    "name": "nonzero_pack_fields_serializer_only",
+    "manifest": {
+      "format": "notrios-archive",
+      "version": 2,
+      "commit_sha256": "b998f2fc889fa382cab7a3332663da5b9852de50696e065032ee7c7e168eba26",
+      "snapshot": {
+        "id": "snap_jwa2ax65dqlknybsgzmwieaxki",
+        "created_at": "2026-09-05T21:17:09Z",
+        "target": "publication_handoff",
+        "database_id": "db_74xji7czi6hikwfpysuyjkjaye",
+        "source_replica_id": "replica_sbau6kvs6t35ow5e36pijrgvny",
+        "consistency": "sqlite_read_transaction",
+        "collection_ids": [
+          "default"
+        ],
+        "selection_manifest_sha256": "54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0"
+      },
+      "compatibility": {
+        "minimum_reader_version": 2,
+        "source_schema_version": 27,
+        "minimum_schema_version": 12,
+        "maximum_schema_version": 27,
+        "required_capabilities": [
+          "identity.database-replica.v1",
+          "objects.index.v1",
+          "objects.sha256.v1",
+          "records.jsonl.v1",
+          "revisions.complete.v1"
+        ],
+        "optional_capabilities": []
+      },
+      "index": [
+        {
+          "sha256": "4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3",
+          "size_bytes": 2120,
+          "entries": 7,
+          "media_type": "application/vnd.notrios.archive-v2-index+jsonl",
+          "location": {
+            "layout": "pack",
+            "path": "",
+            "pack_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "offset": 123,
+            "length": 456
+          }
+        }
+      ],
+      "totals": {
+        "objects": 7,
+        "bytes": 9506,
+        "record_chunks": 1,
+        "blobs": 6,
+        "packs": 1
+      },
+      "counts": {
+        "collections": 1,
+        "notebooks": 2,
+        "search_notebooks": 0,
+        "tags": 4,
+        "documents": 3,
+        "revisions": 3,
+        "document_tags": 6,
+        "resources": 3,
+        "document_resources": 4,
+        "links": 8,
+        "provenance": 0,
+        "source_bundles": 0
+      }
+    },
+    "canonical_utf8": "{\"format\":\"notrios-archive\",\"version\":2,\"snapshot\":{\"id\":\"snap_jwa2ax65dqlknybsgzmwieaxki\",\"created_at\":\"2026-09-05T21:17:09Z\",\"target\":\"publication_handoff\",\"database_id\":\"db_74xji7czi6hikwfpysuyjkjaye\",\"source_replica_id\":\"replica_sbau6kvs6t35ow5e36pijrgvny\",\"consistency\":\"sqlite_read_transaction\",\"collection_ids\":[\"default\"],\"selection_manifest_sha256\":\"54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0\"},\"compatibility\":{\"minimum_reader_version\":2,\"source_schema_version\":27,\"minimum_schema_version\":12,\"maximum_schema_version\":27,\"required_capabilities\":[\"identity.database-replica.v1\",\"objects.index.v1\",\"objects.sha256.v1\",\"records.jsonl.v1\",\"revisions.complete.v1\"],\"optional_capabilities\":[]},\"index\":[{\"sha256\":\"4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3\",\"size_bytes\":2120,\"entries\":7,\"media_type\":\"application/vnd.notrios.archive-v2-index+jsonl\",\"location\":{\"layout\":\"pack\",\"pack_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"offset\":123,\"length\":456}}],\"totals\":{\"objects\":7,\"bytes\":9506,\"record_chunks\":1,\"blobs\":6,\"packs\":1},\"counts\":{\"collections\":1,\"notebooks\":2,\"search_notebooks\":0,\"tags\":4,\"documents\":3,\"revisions\":3,\"document_tags\":6,\"resources\":3,\"document_resources\":4,\"links\":8,\"provenance\":0,\"source_bundles\":0}}",
+    "sha256": "4a78956822c2eb4bf7b19102b0869d1b6eef0235eeca3a1e48dc8eafad1ab7cc"
+  },
+  {
+    "name": "future_optional_capability",
+    "manifest": {
+      "format": "notrios-archive",
+      "version": 2,
+      "commit_sha256": "b998f2fc889fa382cab7a3332663da5b9852de50696e065032ee7c7e168eba26",
+      "snapshot": {
+        "id": "snap_jwa2ax65dqlknybsgzmwieaxki",
+        "created_at": "2026-09-05T21:17:09Z",
+        "target": "publication_handoff",
+        "database_id": "db_74xji7czi6hikwfpysuyjkjaye",
+        "source_replica_id": "replica_sbau6kvs6t35ow5e36pijrgvny",
+        "consistency": "sqlite_read_transaction",
+        "collection_ids": [
+          "default"
+        ],
+        "selection_manifest_sha256": "54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0"
+      },
+      "compatibility": {
+        "minimum_reader_version": 2,
+        "source_schema_version": 27,
+        "minimum_schema_version": 12,
+        "maximum_schema_version": 27,
+        "required_capabilities": [
+          "identity.database-replica.v1",
+          "objects.index.v1",
+          "objects.sha256.v1",
+          "records.jsonl.v1",
+          "revisions.complete.v1"
+        ],
+        "optional_capabilities": [
+          "future.preview.v1"
+        ]
+      },
+      "index": [
+        {
+          "sha256": "4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3",
+          "size_bytes": 2120,
+          "entries": 7,
+          "media_type": "application/vnd.notrios.archive-v2-index+jsonl",
+          "location": {
+            "layout": "fanout",
+            "path": "objects/sha256/4c/0c/4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3"
+          }
+        }
+      ],
+      "totals": {
+        "objects": 7,
+        "bytes": 9506,
+        "record_chunks": 1,
+        "blobs": 6
+      },
+      "counts": {
+        "collections": 1,
+        "notebooks": 2,
+        "search_notebooks": 0,
+        "tags": 4,
+        "documents": 3,
+        "revisions": 3,
+        "document_tags": 6,
+        "resources": 3,
+        "document_resources": 4,
+        "links": 8,
+        "provenance": 0,
+        "source_bundles": 0
+      }
+    },
+    "canonical_utf8": "{\"format\":\"notrios-archive\",\"version\":2,\"snapshot\":{\"id\":\"snap_jwa2ax65dqlknybsgzmwieaxki\",\"created_at\":\"2026-09-05T21:17:09Z\",\"target\":\"publication_handoff\",\"database_id\":\"db_74xji7czi6hikwfpysuyjkjaye\",\"source_replica_id\":\"replica_sbau6kvs6t35ow5e36pijrgvny\",\"consistency\":\"sqlite_read_transaction\",\"collection_ids\":[\"default\"],\"selection_manifest_sha256\":\"54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0\"},\"compatibility\":{\"minimum_reader_version\":2,\"source_schema_version\":27,\"minimum_schema_version\":12,\"maximum_schema_version\":27,\"required_capabilities\":[\"identity.database-replica.v1\",\"objects.index.v1\",\"objects.sha256.v1\",\"records.jsonl.v1\",\"revisions.complete.v1\"],\"optional_capabilities\":[\"future.preview.v1\"]},\"index\":[{\"sha256\":\"4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3\",\"size_bytes\":2120,\"entries\":7,\"media_type\":\"application/vnd.notrios.archive-v2-index+jsonl\",\"location\":{\"layout\":\"fanout\",\"path\":\"objects/sha256/4c/0c/4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3\"}}],\"totals\":{\"objects\":7,\"bytes\":9506,\"record_chunks\":1,\"blobs\":6},\"counts\":{\"collections\":1,\"notebooks\":2,\"search_notebooks\":0,\"tags\":4,\"documents\":3,\"revisions\":3,\"document_tags\":6,\"resources\":3,\"document_resources\":4,\"links\":8,\"provenance\":0,\"source_bundles\":0}}",
+    "sha256": "34028a7cfe6eb21ea28d996f6d3fc741a28b2a6b70db5551f65a48bfe6d14fb8"
+  },
+  {
+    "name": "commit_field_ignored",
+    "manifest": {
+      "format": "notrios-archive",
+      "version": 2,
+      "commit_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "snapshot": {
+        "id": "snap_jwa2ax65dqlknybsgzmwieaxki",
+        "created_at": "2026-09-05T21:17:09Z",
+        "target": "publication_handoff",
+        "database_id": "db_74xji7czi6hikwfpysuyjkjaye",
+        "source_replica_id": "replica_sbau6kvs6t35ow5e36pijrgvny",
+        "consistency": "sqlite_read_transaction",
+        "collection_ids": [
+          "default"
+        ],
+        "selection_manifest_sha256": "54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0"
+      },
+      "compatibility": {
+        "minimum_reader_version": 2,
+        "source_schema_version": 27,
+        "minimum_schema_version": 12,
+        "maximum_schema_version": 27,
+        "required_capabilities": [
+          "identity.database-replica.v1",
+          "objects.index.v1",
+          "objects.sha256.v1",
+          "records.jsonl.v1",
+          "revisions.complete.v1"
+        ],
+        "optional_capabilities": []
+      },
+      "index": [
+        {
+          "sha256": "4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3",
+          "size_bytes": 2120,
+          "entries": 7,
+          "media_type": "application/vnd.notrios.archive-v2-index+jsonl",
+          "location": {
+            "layout": "fanout",
+            "path": "objects/sha256/4c/0c/4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3"
+          }
+        }
+      ],
+      "totals": {
+        "objects": 7,
+        "bytes": 9506,
+        "record_chunks": 1,
+        "blobs": 6
+      },
+      "counts": {
+        "collections": 1,
+        "notebooks": 2,
+        "search_notebooks": 0,
+        "tags": 4,
+        "documents": 3,
+        "revisions": 3,
+        "document_tags": 6,
+        "resources": 3,
+        "document_resources": 4,
+        "links": 8,
+        "provenance": 0,
+        "source_bundles": 0
+      }
+    },
+    "canonical_utf8": "{\"format\":\"notrios-archive\",\"version\":2,\"snapshot\":{\"id\":\"snap_jwa2ax65dqlknybsgzmwieaxki\",\"created_at\":\"2026-09-05T21:17:09Z\",\"target\":\"publication_handoff\",\"database_id\":\"db_74xji7czi6hikwfpysuyjkjaye\",\"source_replica_id\":\"replica_sbau6kvs6t35ow5e36pijrgvny\",\"consistency\":\"sqlite_read_transaction\",\"collection_ids\":[\"default\"],\"selection_manifest_sha256\":\"54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0\"},\"compatibility\":{\"minimum_reader_version\":2,\"source_schema_version\":27,\"minimum_schema_version\":12,\"maximum_schema_version\":27,\"required_capabilities\":[\"identity.database-replica.v1\",\"objects.index.v1\",\"objects.sha256.v1\",\"records.jsonl.v1\",\"revisions.complete.v1\"],\"optional_capabilities\":[]},\"index\":[{\"sha256\":\"4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3\",\"size_bytes\":2120,\"entries\":7,\"media_type\":\"application/vnd.notrios.archive-v2-index+jsonl\",\"location\":{\"layout\":\"fanout\",\"path\":\"objects/sha256/4c/0c/4c0cfd903a0f1d330e7e13292cfa61c3f71b897572f497236a63e472cf55edc3\"}}],\"totals\":{\"objects\":7,\"bytes\":9506,\"record_chunks\":1,\"blobs\":6},\"counts\":{\"collections\":1,\"notebooks\":2,\"search_notebooks\":0,\"tags\":4,\"documents\":3,\"revisions\":3,\"document_tags\":6,\"resources\":3,\"document_resources\":4,\"links\":8,\"provenance\":0,\"source_bundles\":0}}",
+    "sha256": "b998f2fc889fa382cab7a3332663da5b9852de50696e065032ee7c7e168eba26"
+  }
+]

@@ -1,0 +1,59 @@
+{
+  "destination": "<work>/publication",
+  "profile": "fixture",
+  "report": {
+    "target": "publication_handoff",
+    "full_backup": false,
+    "snapshot_id": "snap_jwa2ax65dqlknybsgzmwieaxki",
+    "database_id": "db_74xji7czi6hikwfpysuyjkjaye",
+    "source_replica_id": "replica_sbau6kvs6t35ow5e36pijrgvny",
+    "created_at": "2026-09-05T21:17:09Z",
+    "commit_sha256": "b998f2fc889fa382cab7a3332663da5b9852de50696e065032ee7c7e168eba26",
+    "selection_manifest_sha256": "54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0",
+    "collection_ids": [
+      "default"
+    ],
+    "counts": {
+      "collections": 1,
+      "notebooks": 2,
+      "search_notebooks": 0,
+      "tags": 4,
+      "documents": 3,
+      "revisions": 3,
+      "document_tags": 6,
+      "resources": 3,
+      "document_resources": 4,
+      "links": 8,
+      "provenance": 0,
+      "source_bundles": 0
+    },
+    "index_objects": 1,
+    "pack_objects": 0,
+    "objects": 7,
+    "record_objects": 1,
+    "blob_objects": 6,
+    "deduplicated_objects": 0,
+    "reused_objects": 0,
+    "bytes": 9506,
+    "bytes_written": 11626,
+    "selected_documents": 3,
+    "excluded_documents": 1,
+    "reachable_resources": 3,
+    "cleared_link_targets": 0,
+    "rewritten_links": 3,
+    "rewritten_documents": 1,
+    "skipped_rewrites": 0,
+    "stripped_metadata": 0,
+    "verified": true,
+    "warnings": [
+      "query-backed search notebooks are omitted from a scoped archive because their queries describe the whole library",
+      "this archive is a scoped snapshot, not a complete database backup",
+      "this is a publication projection: current notes only, no revision history, no provenance, and no exact source bundles",
+      "link syntax pointing at withheld or unresolved targets was rewritten, so published bodies differ from the canonical notes",
+      "2 links target notes outside the selected public/subset manifest",
+      "1 selected-note links are unresolved, ambiguous, invalid, or target deleted",
+      "detail arrays are truncated; counts and manifest_sha256 cover the complete bounded plan"
+    ],
+    "elapsed_seconds": 0.065372273
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "counts": {
+    "collections": 1,
+    "notebooks": 2,
+    "search_notebooks": 0,
+    "tags": 4,
+    "documents": 3,
+    "revisions": 3,
+    "document_tags": 6,
+    "resources": 0,
+    "document_resources": 0,
+    "links": 5,
+    "provenance": 0,
+    "source_bundles": 0
+  },
+  "archive_files": {
+    "manifest.json": {
+      "sha256": "fb6273895ca49a950496784be67994fcb3113646c1a9ec54407b3fbf14f4b026",
+      "size_bytes": 1729
+    },
+    "objects/sha256/84/cb/84cb5f3934014df127451fe142727ce04fdc8a5c7ab0fc290582087c4359ff8e": {
+      "sha256": "84cb5f3934014df127451fe142727ce04fdc8a5c7ab0fc290582087c4359ff8e",
+      "size_bytes": 1311
+    },
+    "objects/sha256/85/18/851871f8b2645addf9e4d975eeb392cf0ac41e7e48b5c732f3bda488bacb28f1": {
+      "sha256": "851871f8b2645addf9e4d975eeb392cf0ac41e7e48b5c732f3bda488bacb28f1",
+      "size_bytes": 56
+    },
+    "objects/sha256/cf/a7/cfa7e5609397f5ae49f37690c65f57bed045e7007599ec11ee76cb7bd29ba8dc": {
+      "sha256": "cfa7e5609397f5ae49f37690c65f57bed045e7007599ec11ee76cb7bd29ba8dc",
+      "size_bytes": 5713
+    },
+    "objects/sha256/ef/68/ef6871f4b96be0d1e296f836fcb515ccfe91278ace603a4e8035fbb894504f97": {
+      "sha256": "ef6871f4b96be0d1e296f836fcb515ccfe91278ace603a4e8035fbb894504f97",
+      "size_bytes": 264
+    },
+    "objects/sha256/fe/5d/fe5dd999c7369e4fbd56aa5ce972df33846d7ad533153a43e8957026a7d9be10": {
+      "sha256": "fe5dd999c7369e4fbd56aa5ce972df33846d7ad533153a43e8957026a7d9be10",
+      "size_bytes": 80
+    }
+  },
+  "commit_sha256": "f288ed94a0b9b9340eef4f7022a9f219664cc227e003a7a9c52b8fbf22ece9f7",
+  "selection_manifest_sha256": "5f3c3babe711c2bfd4b7f2603f5ec5cb9cb22032f2eedab97d98e5a147719c03",
+  "database_id": "db_zki6abiu4erawl3lhee3vrb2eu",
+  "snapshot_id": "snap_qvred523kkcb4vbqbwcau7deia",
+  "producer_commit": "7662fdd5b55d6f34f14874f70ba6db9f9e7676ac"
+}

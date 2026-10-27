@@ -1,0 +1,7 @@
+{
+  "next_step": "review it with `notriosctl publish plan --profile fixture`",
+  "profiles": 1,
+  "profiles_path": "<work>/library/profiles.json",
+  "saved": "fixture",
+  "target": "publication_handoff"
+}

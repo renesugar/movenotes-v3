@@ -31,6 +31,9 @@ import hashlib
 import json
 import sqlite3
 import sys
+from pathlib import Path
+
+import common
 
 DATABASE_FILENAME = "notesdb.sqlite"
 
@@ -175,6 +178,28 @@ def ensure_indexes(sqlconn: sqlite3.Connection) -> None:
         sqlconn.execute(statement)
 
 
+def ensure_joplin_id_index(sqlconn: sqlite3.Connection) -> None:
+    """Make importer ID lookups and folder repair's parent lookup bounded.
+
+    This is the existing shared lookup index, created early only for the
+    import paths that need it before the usual final index pass.
+    """
+    sqlconn.execute(
+        'CREATE INDEX IF NOT EXISTS "joplinididx" ON "notes" ("joplin_id");'
+    )
+
+
+def drop_deferred_indexes(sqlconn: sqlite3.Connection) -> None:
+    """Drop the shared indexes a new database defers, keeping ``joplinididx``.
+
+    For a bulk import into a library that holds no rows, so that it inserts
+    as fast as into a new database. ``ensure_indexes`` recreates them.
+    """
+    for name in _INDEX_NAMES:
+        if name != "joplinididx":
+            sqlconn.execute(f'DROP INDEX IF EXISTS "{name}";')
+
+
 def create_database(
     sqlconn: sqlite3.Connection, *, create_indexes: bool = True
 ) -> None:
@@ -315,6 +340,59 @@ def open_database(database_path, prog: str) -> sqlite3.Connection:
     db_settings = get_db_settings(conn.cursor())
     check_db_settings(db_settings, prog)
     migrate_database(conn, db_settings)
+    return conn
+
+
+_INDEX_NAMES = tuple(statement.split('"')[1] for statement in _INDEX_STATEMENTS)
+
+
+def _needs_migration(sqlconn: sqlite3.Connection, db_settings: dict) -> bool:
+    """Whether ``migrate_database`` would change anything, checked read-only."""
+    if _version_number(db_settings["db_version"]) < _version_number(DB_SCHEMA_VERSION):
+        return True
+    columns = {row[1] for row in sqlconn.execute("PRAGMA table_info(notes)")}
+    if any(name not in columns for name in _ALL_COLUMNS):
+        return True
+    indexes = {row[0] for row in sqlconn.execute("SELECT name FROM sqlite_master WHERE type = 'index'")}
+    return any(name not in indexes for name in _INDEX_NAMES)
+
+
+def open_database_for_reading(database_path, prog: str) -> sqlite3.Connection:
+    """Open an existing database for a tool that only reads it.
+
+    ``open_database`` switches the journal mode to WAL, which rewrites the
+    file header even when nothing else changes, so an export would alter the
+    database it reads (and a completed Notrios import would stop being a
+    no-op). A database needing no migration is therefore opened so that it
+    cannot be written: ``mode=ro`` for a rollback-journal database, and
+    ``query_only`` for a WAL one, because a read-only WAL connection leaves its
+    ``-wal``/``-shm`` files behind. Anything else, including a database that
+    needs migration or recovery, takes ``open_database`` as before.
+    """
+    path = Path(database_path)
+    with path.open("rb") as stream:
+        header = stream.read(100)
+    # Byte 18 is the file format write version: 1 is rollback journal, 2 WAL.
+    wal = header[18:19] == b"\x02"
+    if header[18:19] not in (b"\x01", b"\x02"):
+        return open_database(database_path, prog)
+    try:
+        if wal:
+            conn = sqlite3.connect(str(path), detect_types=sqlite3.PARSE_DECLTYPES)
+            conn.execute("PRAGMA query_only=ON;")
+        else:
+            conn = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True,
+                                   detect_types=sqlite3.PARSE_DECLTYPES)
+        conn.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchall()
+    except sqlite3.OperationalError:
+        # For example a hot journal, which only a writer can roll back.
+        return open_database(database_path, prog)
+    conn.row_factory = sqlite3.Row
+    db_settings = get_db_settings(conn.cursor())
+    check_db_settings(db_settings, prog)
+    if _needs_migration(conn, db_settings):
+        conn.close()
+        return open_database(database_path, prog)
     return conn
 
 
@@ -585,6 +663,10 @@ def serialize_joplin_item(
     if body is None:
         body = row["note_data"] if "note_data" in keys else ""
     body = body or ""
+    if ("note_original_format" in keys and row["note_original_format"] == "notrios"
+            and row["joplin_type_"] == 1):
+        title = common.remove_line_breakers(row["note_title"] or "") or "Untitled"
+        body = title + newline + newline + body
     properties = joplin_property_pairs(row)
     property_text = newline.join(f"{key}: {value}" for key, value in properties)
     if body:

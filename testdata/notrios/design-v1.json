@@ -1,0 +1,224 @@
+{
+  "design_version": 1,
+  "mapper": "movenotes-notrios-v1",
+  "fixture_commit_sha256": "b998f2fc889fa382cab7a3332663da5b9852de50696e065032ee7c7e168eba26",
+  "fixture_selection_manifest_sha256": "54f69f1fbc7c75d1077c67d59b524bf3ec81166d10c57024f416ec7638317cb0",
+  "id_vectors": [
+    {
+      "database_id": "db_example",
+      "kind": "document",
+      "parts": [
+        "doc_public"
+      ],
+      "source_key_hex": "4d4e49440000000004000000146d6f76656e6f7465732d6e6f7472696f732d76310000000a64625f6578616d706c6500000008646f63756d656e740000000a646f635f7075626c6963",
+      "sha256": "ced1db0b583d2ba7dcf55b66aacc1ce72f8d60dae38e1b76bfb93d9c5b5a61c5",
+      "mapped_id": "ced1db0b583d2ba7dcf55b66aacc1ce7"
+    },
+    {
+      "database_id": "db_example",
+      "kind": "notebook",
+      "parts": [
+        "nb_public"
+      ],
+      "source_key_hex": "4d4e49440000000004000000146d6f76656e6f7465732d6e6f7472696f732d76310000000a64625f6578616d706c65000000086e6f7465626f6f6b000000096e625f7075626c6963",
+      "sha256": "3d78328023a2707ee23e607670c6739f1b444d53af254535f938de2290aa0da3",
+      "mapped_id": "3d78328023a2707ee23e607670c6739f"
+    },
+    {
+      "database_id": "db_example",
+      "kind": "tag",
+      "parts": [
+        "tag_public"
+      ],
+      "source_key_hex": "4d4e49440000000004000000146d6f76656e6f7465732d6e6f7472696f732d76310000000a64625f6578616d706c65000000037461670000000a7461675f7075626c6963",
+      "sha256": "8f2b48c40baf5a7e1eb2182e787b35fff410609a332c07b8cc626dcf929c244c",
+      "mapped_id": "8f2b48c40baf5a7e1eb2182e787b35ff"
+    },
+    {
+      "database_id": "db_example",
+      "kind": "resource",
+      "parts": [
+        "res_image"
+      ],
+      "source_key_hex": "4d4e49440000000004000000146d6f76656e6f7465732d6e6f7472696f732d76310000000a64625f6578616d706c65000000087265736f75726365000000097265735f696d616765",
+      "sha256": "6be1e3d5952bc7bd4c52238fa27435aa5979aab5290608476baa43d27c27340d",
+      "mapped_id": "6be1e3d5952bc7bd4c52238fa27435aa"
+    },
+    {
+      "database_id": "db_example",
+      "kind": "document_tag",
+      "parts": [
+        "doc_public",
+        "tag_public"
+      ],
+      "source_key_hex": "4d4e49440000000005000000146d6f76656e6f7465732d6e6f7472696f732d76310000000a64625f6578616d706c650000000c646f63756d656e745f7461670000000a646f635f7075626c69630000000a7461675f7075626c6963",
+      "sha256": "5289846d79a67e22529663134d4f96cdc613f3b854213462067731bdf3c42093",
+      "mapped_id": "5289846d79a67e22529663134d4f96cd"
+    },
+    {
+      "database_id": "db_example",
+      "kind": "document_resource",
+      "parts": [
+        "doc_public",
+        "res_image",
+        "attachment",
+        "0"
+      ],
+      "source_key_hex": "4d4e49440000000007000000146d6f76656e6f7465732d6e6f7472696f732d76310000000a64625f6578616d706c6500000011646f63756d656e745f7265736f757263650000000a646f635f7075626c6963000000097265735f696d6167650000000a6174746163686d656e740000000130",
+      "sha256": "b24e658f8c03ac198491ca7a83d674efaf308f4ae1b53a8e89bdb0ab3507e948",
+      "mapped_id": "b24e658f8c03ac198491ca7a83d674ef"
+    },
+    {
+      "database_id": "db_example",
+      "kind": "document_resource",
+      "parts": [
+        "doc_public",
+        "res_image",
+        "a:b",
+        "10"
+      ],
+      "source_key_hex": "4d4e49440000000007000000146d6f76656e6f7465732d6e6f7472696f732d76310000000a64625f6578616d706c6500000011646f63756d656e745f7265736f757263650000000a646f635f7075626c6963000000097265735f696d61676500000003613a62000000023130",
+      "sha256": "91b01f86d68ce373812146efba220f68a4b4d4201eb8c1269c219ccf1599e715",
+      "mapped_id": "91b01f86d68ce373812146efba220f68"
+    },
+    {
+      "database_id": "db_example",
+      "kind": "document_resource",
+      "parts": [
+        "doc_public",
+        "res_image",
+        "a",
+        "10"
+      ],
+      "source_key_hex": "4d4e49440000000007000000146d6f76656e6f7465732d6e6f7472696f732d76310000000a64625f6578616d706c6500000011646f63756d656e745f7265736f757263650000000a646f635f7075626c6963000000097265735f696d6167650000000161000000023130",
+      "sha256": "f0714f5f4b9605587822a6b8103e875b8e4f8ff7d18b0c8e09278d735ce43714",
+      "mapped_id": "f0714f5f4b9605587822a6b8103e875b"
+    },
+    {
+      "database_id": "db_example",
+      "kind": "document_tag",
+      "parts": [
+        "ab",
+        "c"
+      ],
+      "source_key_hex": "4d4e49440000000005000000146d6f76656e6f7465732d6e6f7472696f732d76310000000a64625f6578616d706c650000000c646f63756d656e745f7461670000000261620000000163",
+      "sha256": "cdeb38ce1ad91d50faf0b144a7fffca25877261fc76ce447ae8dda532d0d7d0a",
+      "mapped_id": "cdeb38ce1ad91d50faf0b144a7fffca2"
+    },
+    {
+      "database_id": "db_example",
+      "kind": "document_tag",
+      "parts": [
+        "a",
+        "bc"
+      ],
+      "source_key_hex": "4d4e49440000000005000000146d6f76656e6f7465732d6e6f7472696f732d76310000000a64625f6578616d706c650000000c646f63756d656e745f7461670000000161000000026263",
+      "sha256": "14a8103938b00f59921bdf03334d8ec85fcba7961f1b26c37f93e2495e89a295",
+      "mapped_id": "14a8103938b00f59921bdf03334d8ec8"
+    },
+    {
+      "database_id": "db_example",
+      "kind": "document_resource",
+      "parts": [
+        "doc_public",
+        "res_image",
+        "café 東京",
+        "0"
+      ],
+      "source_key_hex": "4d4e49440000000007000000146d6f76656e6f7465732d6e6f7472696f732d76310000000a64625f6578616d706c6500000011646f63756d656e745f7265736f757263650000000a646f635f7075626c6963000000097265735f696d6167650000000c636166c3a920e69db1e4baac0000000130",
+      "sha256": "cd2df6e16610dd7e2ddf98c8ecfe0caef2aab46c0ec395852bf4d0794965d51c",
+      "mapped_id": "cd2df6e16610dd7e2ddf98c8ecfe0cae"
+    },
+    {
+      "database_id": "db_example",
+      "kind": "document_resource",
+      "parts": [
+        "doc_public",
+        "res_image",
+        "café 東京",
+        "0"
+      ],
+      "source_key_hex": "4d4e49440000000007000000146d6f76656e6f7465732d6e6f7472696f732d76310000000a64625f6578616d706c6500000011646f63756d656e745f7265736f757263650000000a646f635f7075626c6963000000097265735f696d6167650000000d63616665cc8120e69db1e4baac0000000130",
+      "sha256": "ada5b83a55b48c5aaa2aad9e7836fa6c25187583aa1e5d6746c3ecb3e2b66203",
+      "mapped_id": "ada5b83a55b48c5aaa2aad9e7836fa6c"
+    },
+    {
+      "database_id": "db_other",
+      "kind": "document",
+      "parts": [
+        "doc_public"
+      ],
+      "source_key_hex": "4d4e49440000000004000000146d6f76656e6f7465732d6e6f7472696f732d76310000000864625f6f7468657200000008646f63756d656e740000000a646f635f7075626c6963",
+      "sha256": "edd1e3c66022f5d69146c4fe126d91d0333b7f4e2ae736b223e0b0be861088f1",
+      "mapped_id": "edd1e3c66022f5d69146c4fe126d91d0"
+    }
+  ],
+  "fixture_database_id": "db_74xji7czi6hikwfpysuyjkjaye",
+  "fixture_ids": {
+    "document": {
+      "doc_child": "92b24840957493e8dfaf4bbc964765bf",
+      "doc_duplicate": "4c659ba5d7029c03a5694b93e5b50503",
+      "doc_public": "e5db1b8d8451b6fc5e9f32a7f553ca03"
+    },
+    "resource": {
+      "res_image": "adaee395eae4314b8a83a72bc521de73",
+      "res_sidecar": "168e9a6eeb1d7d120a771cfd196c89e8",
+      "res_text": "bd5913a4fe9628868657a13f6c4f9d63"
+    }
+  },
+  "fixture_projected_notes": {
+    "doc_child": {
+      "mapped_id": "92b24840957493e8dfaf4bbc964765bf",
+      "body": "# Details\n\n子ノート café. [Back](:/e5db1b8d8451b6fc5e9f32a7f553ca03).\n![shared image](:/adaee395eae4314b8a83a72bc521de73)\n",
+      "body_sha256": "99a46ce74f16048d2e47d34b7aabc7ccbfe34543fa1a1feda3a99208992d4b72"
+    },
+    "doc_duplicate": {
+      "mapped_id": "4c659ba5d7029c03a5694b93e5b50503",
+      "body": "A second note with the same title in the same notebook.\n",
+      "body_sha256": "851871f8b2645addf9e4d975eeb392cf0ac41e7e48b5c732f3bda488bacb28f1"
+    },
+    "doc_public": {
+      "mapped_id": "e5db1b8d8451b6fc5e9f32a7f553ca03",
+      "body": "# Details\n\nPréface café ☕ before withheld note.\nA draft stays unpublished.\nAn unresolved reference becomes missing label.\n\nRead [child section](:/92b24840957493e8dfaf4bbc964765bf#details) and [same title](:/4c659ba5d7029c03a5694b93e5b50503).\nVisit [example](https://example.com/reading?q=caf%C3%A9&lang=en).\n![café chart](:/adaee395eae4314b8a83a72bc521de73)\nDownload [field notes](:/bd5913a4fe9628868657a13f6c4f9d63).\nReturn to [this section](#details).\n\n```note-query\nquery: tag:private\nfields: title, snippet\nlimit: 5\n```\n\n\n## Attachments\n\n- [related.bin](:/168e9a6eeb1d7d120a771cfd196c89e8)\n",
+      "body_sha256": "9c004bf55e3a055499da66f36571ba0079da413b4acc32287755b3da1f78b38a"
+    }
+  },
+  "resource_extensions": {
+    "res_image": "png",
+    "res_text": "txt",
+    "res_sidecar": "bin"
+  },
+  "relative_path_examples": [
+    {
+      "source_path": "Public/Café & field notes.md",
+      "target_path": "Public/Café & field notes 2.md",
+      "fragment": "",
+      "href": "Caf%C3%A9%20%26%20field%20notes%202.md"
+    },
+    {
+      "source_path": "Public/Café & field notes.md",
+      "target_path": "Public/研究/Child 東京.md",
+      "fragment": "details",
+      "href": "%E7%A0%94%E7%A9%B6/Child%20%E6%9D%B1%E4%BA%AC.md#details"
+    },
+    {
+      "source_path": "Public/研究/Child 東京.md",
+      "target_path": "Public/Café & field notes.md",
+      "fragment": "",
+      "href": "../Caf%C3%A9%20%26%20field%20notes.md"
+    }
+  ],
+  "relative_path_examples_note": "These are explicit final-path inputs, not a promise of duplicate-title assignment order.",
+  "timestamp_vectors": [
+    {
+      "source": "2026-09-05T21:17:09Z",
+      "joplin": "2026-09-05T21:17:09.000Z",
+      "internal": "2026-09-05 21:17:09.000"
+    },
+    {
+      "source": "2026-09-05T21:17:09.123999999+00:00",
+      "joplin": "2026-09-05T21:17:09.123Z",
+      "internal": "2026-09-05 21:17:09.123"
+    }
+  ]
+}

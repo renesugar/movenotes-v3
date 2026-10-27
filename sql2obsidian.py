@@ -42,6 +42,7 @@ import argparse
 import errno
 import hashlib
 import json
+import os
 import re
 import shutil
 import sqlite3
@@ -54,10 +55,12 @@ import common
 import constants
 import notesdb
 import obsidianmeta
+import notrios_links
+import notrios_receipt
 
 __program_name__ = "sql2obsidian"
 __author__ = "Rene Sugar"
-__version__ = "3.20"
+__version__ = "3.37"
 __license__ = "MIT License (https://opensource.org/licenses/MIT)"
 __website__ = "https://github.com/renesugar"
 
@@ -86,6 +89,8 @@ _IMAGE_EXTENSIONS = frozenset(
 
 def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=__program_name__, description=__doc__)
+    parser.add_argument("--include-notrios-receipt", action="store_true",
+                        help="Copy the validated source-publication receipt to .movenotes/notrios-receipt.json")
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}"
     )
@@ -340,7 +345,7 @@ class AttachmentTable:
         self._resources = {
             row["joplin_id"]: row
             for row in sqlcur.execute(
-                "SELECT joplin_id, note_title, joplin_file_extension, joplin_mime "
+                "SELECT joplin_id, note_title, joplin_file_extension, joplin_mime, note_obsidian_path "
                 "FROM notes WHERE joplin_type_ = ?",
                 (int(constants.JoplinType.RESOURCE),),
             )
@@ -366,11 +371,15 @@ class AttachmentTable:
         extension = (row["joplin_file_extension"] or "").lower()
         return extension in _IMAGE_EXTENSIONS
 
-    def vault_name(self, resource_id: str) -> str | None:
+    def vault_name(self, resource_id: str, *, required: bool = False) -> str | None:
         """Return the attachment's vault file name, copying it on first use.
 
         Returns None for resource ids not present in the database.
         """
+        if required:
+            row = self._resources.get(resource_id)
+            if row is None or self._source_file(resource_id, row["joplin_file_extension"] or "") is None:
+                raise notrios_links.NotriosError("conversion", "missing mapped resource file")
         if resource_id in self._names:
             return self._names[resource_id]
         row = self._resources.get(resource_id)
@@ -382,10 +391,14 @@ class AttachmentTable:
         if source is not None and not extension:
             extension = source.suffix.lstrip(".")
 
-        # Prefer the resource's human-readable title for the file name.
-        title = sanitize_name(row["note_title"])
-        stem = title.removesuffix(f".{extension}") if extension else title
-        suffix = f".{extension}" if extension else ""
+        preserved = obsidianmeta.safe_relative_path(row["note_obsidian_path"] or "")
+        if preserved is not None and len(preserved.parts) == 2 and preserved.parts[0] == ATTACHMENTS_DIR_NAME:
+            stem, suffix = Path(preserved.name).stem, Path(preserved.name).suffix
+        else:
+            # Prefer the resource's human-readable title for the file name.
+            title = sanitize_name(row["note_title"])
+            stem = title.removesuffix(f".{extension}") if extension else title
+            suffix = f".{extension}" if extension else ""
         name = self._dedup.reserve(ATTACHMENTS_DIR_NAME, stem, suffix)
         self._names[resource_id] = name
         self.vault_paths[resource_id] = str((PurePosixPath(ATTACHMENTS_DIR_NAME) / name).as_posix())
@@ -409,17 +422,20 @@ def rewrite_resource_links(
 
     def replace(match: re.Match) -> str:
         link, display, resource_id = match.group(0), match.group(1), match.group(2)
+        title = match.group(3) or ""
         name = attachments.vault_name(resource_id)
         if name is None:
             return link  # Unknown resource: leave the link unchanged.
-        if link.startswith("!") and attachments.is_image(resource_id):
-            return f"![[{name}]]"
         relative_dir = PurePosixPath(
             *([".."] * len(note_dir.parts))
         ) / ATTACHMENTS_DIR_NAME
         href = urllib.parse.quote(str(relative_dir / name))
+        if link.startswith("!") and attachments.is_image(resource_id):
+            # A wiki embed has nowhere to keep a title, so only a titled
+            # image becomes a Markdown image; untitled output is unchanged.
+            return f"![{display}]({href}{title})" if title else f"![[{name}]]"
         display = display or name
-        return f"[{display}]({href})"
+        return f"[{display}]({href}{title})"
 
     return common.RESOURCE_LINK_RE.sub(replace, body)
 
@@ -604,6 +620,124 @@ def _select_preserved_rows(
     return [row for index, row in enumerate(rows) if index in included_indexes]
 
 
+class _ManifestWriter:
+    """Write the preservation manifest as its items are produced.
+
+    It is written to ``manifest.json.partial``, fsynced and renamed into place
+    by finish(), so an export that stops part way leaves no manifest rather
+    than a truncated one; the importer refuses a bundle without one.
+
+    The file is byte-for-byte ``json.dumps(manifest, ensure_ascii=False,
+    indent=2) + "\\n"`` of a manifest holding the leading keys, then ``items``,
+    then the trailing keys. Encoded JSON never contains a raw newline, so
+    nesting a value is a matter of indenting its continuation lines.
+
+    Items are encoded a batch at a time: the indenting encoder is rebuilt on
+    every call, which item by item cost as much again as the encoding.
+    """
+
+    _BATCH = 1024
+
+    def __init__(self, path: Path, leading: dict[str, object]) -> None:
+        self._encoder = json.JSONEncoder(ensure_ascii=False, indent=2)
+        self._items = 0
+        self._pending: list[dict[str, object]] = []
+        self._path = path
+        self._partial = path.with_name(path.name + ".partial")
+        self._finished = False
+        self._stream = self._partial.open("w", encoding="utf-8")
+        self._stream.write(
+            "{\n"
+            + "".join(f"  {self._member(key, value)},\n" for key, value in leading.items())
+            + '  "items": ['
+        )
+
+    def _value(self, value: object, indent: str) -> str:
+        return self._encoder.encode(value).replace("\n", "\n" + indent)
+
+    def _member(self, key: str, value: object) -> str:
+        return f"{self._encoder.encode(key)}: {self._value(value, '  ')}"
+
+    def add_item(self, item: dict[str, object]) -> None:
+        self._pending.append(item)
+        if len(self._pending) >= self._BATCH:
+            self._flush()
+
+    def _flush(self) -> None:
+        if not self._pending:
+            return
+        # The batch encodes as "[\n  A,\n  B\n]"; its elements, one level
+        # deeper, are the items.
+        text = self._encoder.encode(self._pending)[2:-2].replace("\n", "\n  ")
+        self._stream.write(("," if self._items else "") + "\n  " + text)
+        self._items += len(self._pending)
+        self._pending.clear()
+
+    def finish(self, trailing: dict[str, object]) -> None:
+        self._flush()
+        self._stream.write(
+            ("\n  ]" if self._items else "]")
+            + "".join(f",\n  {self._member(key, value)}" for key, value in trailing.items())
+            + "\n}\n"
+        )
+        self._stream.flush()
+        os.fsync(self._stream.fileno())
+        self._stream.close()
+        os.replace(self._partial, self._path)
+        self._finished = True
+
+    def __enter__(self) -> _ManifestWriter:
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self._stream.close()
+        if not self._finished:
+            self._partial.unlink(missing_ok=True)
+
+
+def start_preservation_bundle(
+    vault_path: Path, record: dict[str, object] | None, progress: bool
+) -> None:
+    """Remove the previous bundle, then write the export record if one is given.
+
+    This runs before any note is written.  A re-export that stopped part way
+    must not leave the previous export's bundle, complete and valid, beside
+    notes it does not describe: the importer would take the pair for a
+    finished export whose notes were edited since.
+    """
+    preservation_root = vault_path / PRESERVATION_DIR_NAME
+    if preservation_root.exists():
+        # A filtered re-export must never retain stale private items from a
+        # previous full export.
+        if progress:
+            print("removing the previous preservation bundle...", flush=True)
+        shutil.rmtree(preservation_root)
+    if record is not None:
+        preservation_root.mkdir()
+        (preservation_root / obsidianmeta.EXPORT_RECORD_NAME).write_text(
+            json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+
+
+def export_record(input_path: Path, args: argparse.Namespace) -> dict[str, object]:
+    """What a re-export needs: the source library and the options that shape the vault.
+
+    The library's path is recorded without the user's name; see
+    obsidianmeta.portable_path.
+    """
+    return {
+        "format": obsidianmeta.EXPORT_RECORD_FORMAT,
+        "version": 1,
+        "source_database": obsidianmeta.portable_path(input_path),
+        "options": {
+            "notebooks": args.notebooks,
+            "frontmatter": args.frontmatter,
+            "simplify_urls": args.simplify_urls,
+            "include_notrios_receipt": args.include_notrios_receipt,
+        },
+    }
+
+
 def write_preservation_bundle(
     sqlconn: sqlite3.Connection,
     input_resources_path: Path,
@@ -618,7 +752,8 @@ def write_preservation_bundle(
 ) -> tuple[int, int]:
     """Write an importable Joplin RAW copy and a mapping manifest in the vault.
 
-    Four phases, and on a large library each takes long enough to look like a
+    Three phases, after start_preservation_bundle's removal of the previous
+    bundle, and on a large library each takes long enough to look like a
     hang: a full Joplin archive of 166,654 notes produces 173,290 raw item files
     and an 83 MB manifest, 3.6 GB in all. They run after the last `exported N`
     line, so without the reporting below the export appears to stop just before
@@ -629,11 +764,6 @@ def write_preservation_bundle(
             print(message, flush=True)
 
     preservation_root = vault_path / PRESERVATION_DIR_NAME
-    if preservation_root.exists():
-        # A filtered re-export must never retain stale private items from a
-        # previous full export.
-        report("removing the previous preservation bundle...")
-        shutil.rmtree(preservation_root)
     raw_root = preservation_root / PRESERVED_RAW_DIR_NAME
     raw_root.mkdir(parents=True, exist_ok=True)
 
@@ -667,76 +797,83 @@ def write_preservation_bundle(
         )
 
     report("writing preserved Joplin item(s)...")
-    manifest_items = []
-    raw_name_dedup = NameDeduplicator()
-    included_resource_ids: set[str] = set()
-    row_count = 0
-    for row in rows:
-        row_count += 1
-        if progress_every and row_count % progress_every == 0:
-            print(f"preserved {row_count:,} Joplin item(s)", flush=True)
-        item_id = row["joplin_id"] or row["note_uuid"] or f"row-{row['note_id']}"
-        source_name = Path(row["note_source_filename"] or f"{item_id}.md").name
-        if not source_name.lower().endswith(".md"):
-            source_name += ".md"
-        source_path = Path(source_name)
-        name = raw_name_dedup.reserve(
-            str(raw_root), source_path.stem, source_path.suffix, separator="--"
-        )
+    # The manifest is written as the items are produced, so neither the item
+    # list nor the serialized document is held; on a 1.2 million-item library
+    # the two dominated a 3.5 GiB peak.  The bytes are unchanged; see
+    # _ManifestWriter.
+    with _ManifestWriter(
+        preservation_root / "manifest.json",
+        {
+            "format": "movenotes-lossless-joplin-preservation",
+            "version": 1,
+            "raw_directory": PRESERVED_RAW_DIR_NAME,
+            "scope": "full" if selected_folders is None else "selected-notebooks",
+        },
+    ) as manifest:
+        raw_name_dedup = NameDeduplicator()
+        included_resource_ids: set[str] = set()
+        row_count = 0
+        for row in rows:
+            row_count += 1
+            if progress_every and row_count % progress_every == 0:
+                print(f"preserved {row_count:,} Joplin item(s)", flush=True)
+            item_id = row["joplin_id"] or row["note_uuid"] or f"row-{row['note_id']}"
+            source_name = Path(row["note_source_filename"] or f"{item_id}.md").name
+            if not source_name.lower().endswith(".md"):
+                source_name += ".md"
+            source_path = Path(source_name)
+            name = raw_name_dedup.reserve(
+                str(raw_root), source_path.stem, source_path.suffix, separator="--"
+            )
 
-        data = notesdb.exact_source_bytes(row)
-        exact = data is not None and notesdb.source_row_unchanged(row)
-        if not exact:
-            data = notesdb.serialize_joplin_item(row)
-        (raw_root / name).write_bytes(data)
-        digest = hashlib.sha256(data).hexdigest()
-        manifest_items.append(
+            data = notesdb.exact_source_bytes(row)
+            exact = data is not None and notesdb.source_row_unchanged(row)
+            if not exact:
+                data = notesdb.serialize_joplin_item(row)
+            (raw_root / name).write_bytes(data)
+            digest = hashlib.sha256(data).hexdigest()
+            manifest.add_item(
+                {
+                    "id": item_id,
+                    "type": row["joplin_type_"],
+                    "raw_path": f"{PRESERVED_RAW_DIR_NAME}/{name}",
+                    "original_filename": row["note_source_filename"],
+                    "obsidian_path": obsidian_paths.get(item_id),
+                    "obsidian_sha256": obsidian_hashes.get(item_id),
+                    "exact_source_bytes": exact,
+                    "sha256": digest,
+                }
+            )
+            if row["joplin_type_"] == int(constants.JoplinType.RESOURCE):
+                included_resource_ids.add(item_id)
+
+        raw_resources = raw_root / "resources"
+        copied_resources = 0
+        if input_resources_path.is_dir():
+            report("copying raw resource file(s)...")
+            for resource_path in sorted(input_resources_path.iterdir()):
+                if not resource_path.is_file():
+                    continue
+                if selected_folders is not None and resource_path.stem not in included_resource_ids:
+                    continue
+                raw_resources.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(resource_path, raw_resources / resource_path.name)
+                copied_resources += 1
+
+        report(f"writing the preservation manifest for {row_count:,} item(s)...")
+        manifest.finish(
             {
-                "id": item_id,
-                "type": row["joplin_type_"],
-                "raw_path": f"{PRESERVED_RAW_DIR_NAME}/{name}",
-                "original_filename": row["note_source_filename"],
-                "obsidian_path": obsidian_paths.get(item_id),
-                "obsidian_sha256": obsidian_hashes.get(item_id),
-                "exact_source_bytes": exact,
-                "sha256": digest,
+                "resource_files": copied_resources,
+                "attachments": dict(sorted(attachment_paths.items())),
             }
         )
-        if row["joplin_type_"] == int(constants.JoplinType.RESOURCE):
-            included_resource_ids.add(item_id)
-
-    raw_resources = raw_root / "resources"
-    copied_resources = 0
-    if input_resources_path.is_dir():
-        report("copying raw resource file(s)...")
-        for resource_path in sorted(input_resources_path.iterdir()):
-            if not resource_path.is_file():
-                continue
-            if selected_folders is not None and resource_path.stem not in included_resource_ids:
-                continue
-            raw_resources.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(resource_path, raw_resources / resource_path.name)
-            copied_resources += 1
-
-    report(f"writing the preservation manifest for {len(manifest_items):,} item(s)...")
-    manifest = {
-        "format": "movenotes-lossless-joplin-preservation",
-        "version": 1,
-        "raw_directory": PRESERVED_RAW_DIR_NAME,
-        "scope": "full" if selected_folders is None else "selected-notebooks",
-        "items": manifest_items,
-        "resource_files": copied_resources,
-        "attachments": dict(sorted(attachment_paths.items())),
-    }
-    (preservation_root / "manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
     (preservation_root / "README.md").write_text(
         "# movenotes preservation data\n\n"
         "`joplin-raw/` is a lossless Joplin RAW export retained alongside the "
         "Obsidian-friendly notes. `manifest.json` maps Joplin item IDs to "
-        "their Obsidian paths and includes SHA-256 checksums.\n",
+        "their Obsidian paths and includes SHA-256 checksums. `export.json` "
+        "records the source library and the options of the export, so "
+        "`obsidian2sql.py` can print the commands to export it again.\n",
         encoding="utf-8",
     )
     return row_count, copied_resources
@@ -798,6 +935,14 @@ def restore_native_obsidian_resources(
         relative = obsidianmeta.row_resource_path(row)
         if relative is None:
             continue
+        # Notrios bundle attachment paths are presentation metadata.
+        # AttachmentTable copies them only after an active mapped link in an
+        # exported note is found; restoring them here would leak unselected
+        # Notrios resources. Preserve the established generic bundle behavior.
+        if (relative.parts and relative.parts[0] == ATTACHMENTS_DIR_NAME
+                and row["joplin_source"] == "movenotes-notrios"
+                and obsidianmeta.path_snapshot(row["joplin_application_data"], "resource") is None):
+            continue
         source = _resource_source(input_resources_path, str(row["joplin_id"]))
         if source is None:
             continue
@@ -847,8 +992,20 @@ def main(argv: list[str]) -> int:
     if not database_path.is_file():
         common.error("database not found")
 
-    sqlconn = notesdb.open_database(database_path, __program_name__)
+    sqlconn = notesdb.open_database_for_reading(database_path, __program_name__)
     sqlcur = sqlconn.cursor()
+
+    try:
+        notrios_receipt.remove_vault(vault_path)
+        receipt = notrios_receipt.from_settings(sqlconn) if args.include_notrios_receipt else None
+    except (ValueError, OSError, sqlite3.Error) as exc:
+        sqlconn.close()
+        common.error(f"cannot prepare Notrios receipt: {exc}")
+    start_preservation_bundle(
+        vault_path,
+        export_record(input_path, args) if args.preserve_joplin else None,
+        progress=bool(args.progress_every) and not args.verbose,
+    )
 
     dedup = NameDeduplicator()
     # Reserve the attachments directory name at the vault root so a notebook
@@ -880,6 +1037,55 @@ def main(argv: list[str]) -> int:
     referenced_resource_ids: set[str] = set()
     obsidian_paths: dict[str, str] = {}
     obsidian_hashes: dict[str, str] = {}
+    has_notrios_resource_provenance = sqlconn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' "
+        "AND name='notrios_preserved_resources'"
+    ).fetchone() is not None
+
+    def materialize_notrios_attachments(row) -> None:  # noqa: ANN001
+        """Copy resources represented by an exact Notrios vault snapshot.
+
+        A preservation-bundle reimport records the already rendered vault bytes
+        as a native snapshot.  Rewriting those bytes would lose their exact
+        frontmatter and user edits. The stored Notrios projection retains the
+        active mapped resource links, which are the bounded reachability set
+        even after Joplin RAW drops the auxiliary association table.
+        """
+        limits = notrios_links.DEFAULT_CONVERSION_LIMITS
+        body = notrios_links.projected_note_body(row).encode("utf-8")
+        if len(body) > limits.max_projected_body_bytes:
+            raise notrios_links.NotriosError("limit", "projected body exceeds conversion limit")
+        resource_ids = []
+        for count, token in enumerate(notrios_links.scan_markdown(body), 1):
+            if count > limits.max_links_per_note:
+                raise notrios_links.NotriosError("limit", "link count exceeds limit")
+            match = re.fullmatch(rb":/([0-9a-f]{32})", token.base)
+            if match is not None:
+                resource_ids.append(match[1].decode("ascii"))
+                if len(resource_ids) > limits.max_resource_relations_per_note:
+                    raise notrios_links.NotriosError("limit", "resource relation count exceeds limit")
+        for resource_id in dict.fromkeys(resource_ids):
+            row_type = sqlconn.execute(
+                "SELECT joplin_type_ FROM notes WHERE joplin_id=?", (resource_id,)
+            ).fetchone()
+            # A selected preservation bundle may omit a mapped *note* target.
+            # Resource rows in scope are retained in the bundle and therefore
+            # still take the required=True refusal below when their file is
+            # absent. The preserved resource identity table distinguishes a
+            # deleted resource row from an intentionally omitted note target.
+            if row_type is None:
+                known_resource = has_notrios_resource_provenance and sqlconn.execute(
+                    "SELECT 1 FROM notrios_preserved_resources WHERE resource_id=?",
+                    (resource_id,),
+                ).fetchone() is not None
+                if known_resource:
+                    raise notrios_links.NotriosError("conversion", "missing mapped resource row")
+                continue
+            if row_type[0] != int(constants.JoplinType.RESOURCE):
+                continue
+            attachments.vault_name(resource_id, required=True)
+            referenced_resource_ids.add(resource_id)
+
     for row in sqlcur.execute(
         "SELECT * FROM notes WHERE joplin_type_ = ? ORDER BY note_internal_date",
         (int(constants.JoplinType.NOTE),),
@@ -900,7 +1106,11 @@ def main(argv: list[str]) -> int:
 
         item_id = row["joplin_id"]
         snapshot = obsidianmeta.row_note_snapshot(row)
-        if snapshot is not None:
+        snapshot_matches = (
+            snapshot is not None
+            and obsidianmeta.text_sha256(row["note_data"] or "") == snapshot[2]
+        )
+        if snapshot_matches:
             original_path, original_raw, expected_body_hash = snapshot
             current_body = row["note_data"] or ""
             if obsidianmeta.text_sha256(current_body) == expected_body_hash:
@@ -911,6 +1121,8 @@ def main(argv: list[str]) -> int:
                 exported_note_ids.add(item_id)
                 obsidian_paths[item_id] = relative_written
                 obsidian_hashes[item_id] = hashlib.sha256(original_raw).hexdigest()
+                if notrios_links.is_generated_note(row):
+                    materialize_notrios_attachments(row)
                 note_count += 1
                 if args.verbose:
                     print(f"processing '{relative_written}' (exact Obsidian source)")
@@ -925,9 +1137,14 @@ def main(argv: list[str]) -> int:
             print(f"processing '{note_dir / filename}'")
 
         original_body = row["note_data"] or ""
-        referenced_resource_ids.update(common.get_resource_ids(original_body))
-        body = strip_leading_title(original_body, row["note_title"] or "")
-        body = rewrite_resource_links(body, note_dir, attachments)
+        if notrios_links.is_generated_note(row):
+            # Mapped note targets need the actual returned paths from all first
+            # writes. Do not strip a heading or run the global resource regex.
+            body = notrios_links.projected_note_body(row)
+        else:
+            referenced_resource_ids.update(common.get_resource_ids(original_body))
+            body = strip_leading_title(original_body, row["note_title"] or "")
+            body = rewrite_resource_links(body, note_dir, attachments)
         if args.simplify_urls:
             body = common.simplify_url_links(body)
 
@@ -950,6 +1167,51 @@ def main(argv: list[str]) -> int:
         ):
             print(f"exported {note_count:,} Obsidian note(s)")
 
+    omitted_note_links = 0
+    def lookup_item_type(item_id):
+        result = sqlconn.execute("SELECT joplin_type_ FROM notes WHERE joplin_id=?", (item_id,)).fetchone()
+        if result is not None and result[0] == 4:
+            referenced_resource_ids.add(item_id)
+        return result[0] if result is not None else None
+
+    def lookup_note_path(item_id):
+        nonlocal omitted_note_links
+        path = obsidian_paths.get(item_id)
+        if path is None:
+            if selected is None:
+                raise notrios_links.NotriosError("conversion", "unfiltered export has no path for mapped note")
+            omitted_note_links += 1
+        return path
+
+    # Rebuild from the database after filename collisions and first-write length
+    # fallbacks are resolved. Final bytes and hashes must precede the bundle.
+    for row in sqlconn.execute(
+        "SELECT * FROM notes WHERE joplin_type_=1 AND joplin_source='movenotes-notrios' "
+        "AND joplin_source_application='movenotes-notrios2sql' ORDER BY note_internal_date"
+    ):
+        item_id = row["joplin_id"]
+        if item_id not in obsidian_paths:
+            continue
+        snapshot = obsidianmeta.row_note_snapshot(row)
+        if snapshot is not None and obsidianmeta.text_sha256(row["note_data"] or "") == snapshot[2]:
+            # Preservation-bundle snapshots include both untouched and edited
+            # vault notes. Their active mapped resource links already
+            # materialized the required resources in the first pass.
+            continue
+        note_path = PurePosixPath(obsidian_paths[item_id])
+        body = notrios_links.rewrite_projected_links(
+            notrios_links.projected_note_body(row), note_id=item_id, note_path=note_path,
+            lookup_item_type=lookup_item_type, lookup_note_path=lookup_note_path, attachments=attachments,
+        )
+        if args.simplify_urls:
+            body = common.simplify_url_links(body)
+        content = body if body.endswith("\n") or not body else body + "\n"
+        if args.frontmatter:
+            content = build_frontmatter(row, note_tags.get(item_id, [])) + content
+        raw = content.encode("utf-8")
+        (vault_path / note_path).write_bytes(raw)
+        obsidian_hashes[item_id] = hashlib.sha256(raw).hexdigest()
+
     preserved_items = preserved_resources = 0
     if args.preserve_joplin:
         preserved_items, preserved_resources = write_preservation_bundle(
@@ -967,7 +1229,16 @@ def main(argv: list[str]) -> int:
             progress_every=0 if args.verbose else args.progress_every,
         )
 
+    if receipt is not None:
+        try:
+            notrios_receipt.write(vault_path, notrios_receipt.VAULT_PATH, receipt)
+        except (ValueError, OSError) as exc:
+            sqlconn.close()
+            common.error(f"cannot write Notrios receipt: {exc}")
+
     summary = f"exported {note_count} note(s)"
+    if omitted_note_links:
+        summary += f"; omitted {omitted_note_links} link(s) to unselected notes"
     if restored_native_directories:
         summary += (
             f"; restored {restored_native_directories} native Obsidian "

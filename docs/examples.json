@@ -1,0 +1,775 @@
+{
+  "about": "Every fenced block in README.md and docs/: see scripts/check_doc_examples.py and AGENTS.md, Documentation examples.",
+  "pages": {
+    "README.md": {
+      "homes": {
+        "default": {
+          "seed": {
+            "joplin_raw_export": "sample/source1",
+            "twitter-archive": "sample/twitter-archive",
+            "obsidian_vault": "testdata/notrios/vault-titled-v1"
+          }
+        },
+        "notrios": {
+          "seed": {
+            "publication": "testdata/notrios/v1.0.0/publication-titled/archive"
+          }
+        },
+        "site": {
+          "setup": [
+            "mkdir -p ~/site_sqlite ~/twitter_vault",
+            "python3 -B twitterx2sql.py --input sample/twitter-archive --output ~/site_sqlite --notebook Twitter",
+            "python3 -B sql2obsidian.py --input ~/site_sqlite --output ~/twitter_vault"
+          ]
+        }
+      },
+      "substitute": {
+        "<the reviewed plan's manifest_sha256>": "a8537bb0582b7bcd9f01c0074923175ad04380930db66e7dafd23a32717b6dc2"
+      },
+      "examples": [
+        {
+          "ordinal": 1,
+          "heading": "Usage",
+          "language": "",
+          "sha256": "998ecc0b786c58149c34029fd52edd87470ed084e23ff70619d44e0d7742d644",
+          "state": "executed"
+        },
+        {
+          "ordinal": 2,
+          "heading": "Usage",
+          "language": "",
+          "sha256": "d5c228a31aa5110db6fa9bdf47840d629e15d82c93620ec481dae064acd62ee2",
+          "state": "executed"
+        },
+        {
+          "ordinal": 3,
+          "heading": "Usage",
+          "language": "",
+          "sha256": "d0ecb12a0f4e96caf92316da9d325dd836aba8f55d632032c65d91842aea6004",
+          "state": "executed"
+        },
+        {
+          "ordinal": 4,
+          "heading": "Usage",
+          "language": "",
+          "sha256": "7348902fb5cf86a76695e86c01cf945cc14c439cf04d3c7dc75a37adb6dd52d7",
+          "state": "executed"
+        },
+        {
+          "ordinal": 5,
+          "heading": "Usage",
+          "language": "",
+          "sha256": "3e61efcc98de2ddfda91b50a9f710f79c021c97fc9fab7287d3c3ed49a94e1a4",
+          "state": "executed"
+        },
+        {
+          "ordinal": 6,
+          "heading": "Usage",
+          "language": "",
+          "sha256": "c071249cb1e02557bd6641d0ec766b81d51080aed9c0755d9ded149dce987190",
+          "state": "executed",
+          "home": "notrios"
+        },
+        {
+          "ordinal": 7,
+          "heading": "Usage",
+          "language": "",
+          "sha256": "d36437a00a115818e7778b73bf6ddff2c90c8a2e35655e46da2c734956ef1cd7",
+          "state": "executed"
+        },
+        {
+          "ordinal": 8,
+          "heading": "Usage",
+          "language": "bash",
+          "sha256": "354f9a348f363d49d8104b7f9e2bc0434bb315f13f685754575f9e738fbc0403",
+          "state": "tools",
+          "tools": [
+            "hugo",
+            "go",
+            "ledger-theme"
+          ],
+          "home": "site",
+          "substitute": {
+            "127.0.0.1:8080": "127.0.0.1:{port}"
+          },
+          "serves": "http://127.0.0.1:{port}/api/health"
+        }
+      ]
+    },
+    "docs/deploy-github-pages.md": {
+      "homes": {
+        "default": {
+          "setup": [
+            "mkdir -p ~/site_sqlite ~/twitter_vault",
+            "python3 -B twitterx2sql.py --input sample/twitter-archive --output ~/site_sqlite --notebook Twitter",
+            "python3 -B sql2obsidian.py --input ~/site_sqlite --output ~/twitter_vault"
+          ]
+        }
+      },
+      "examples": [
+        {
+          "ordinal": 1,
+          "heading": "1. Generate with the right base URL",
+          "language": "bash",
+          "sha256": "d990b80c044f7d40175310c442b05bf084206dea93472b1d0d2e6b1e3ab9105c",
+          "state": "tools",
+          "tools": [
+            "hugo",
+            "go",
+            "npx",
+            "ledger-theme"
+          ]
+        },
+        {
+          "ordinal": 2,
+          "heading": "2. Push the generated project",
+          "language": "bash",
+          "sha256": "310c0205fd7996d31b615421f3db6fbb3321f5838ff2947f335b3463897eba98",
+          "state": "unverified",
+          "reason": "pushes to a GitHub repository"
+        },
+        {
+          "ordinal": 3,
+          "heading": "3. The workflow",
+          "language": "yaml",
+          "sha256": "d758f2cd71cba03499f533b508246cfe8faced3786535920af4a07958f1a8970",
+          "state": "unverified",
+          "reason": "a GitHub Actions workflow; it runs on GitHub"
+        },
+        {
+          "ordinal": 4,
+          "heading": "Limits",
+          "language": "bash",
+          "sha256": "6057bb15d622c583a74f3d1bc5835e120e30824363443b9f9e437d08768aa53d",
+          "state": "tools",
+          "tools": [
+            "hugo",
+            "go",
+            "npx",
+            "ledger-theme"
+          ]
+        },
+        {
+          "ordinal": 5,
+          "heading": "Subpath deployments",
+          "language": "",
+          "sha256": "8f5fdbef302d12f2a8757048be30abc6ccdc037238b3cf99a2322af45e3e8e89",
+          "state": "unverified",
+          "reason": "an illustration of relURL, not a command"
+        }
+      ]
+    },
+    "docs/deploy-vercel.md": {
+      "homes": {
+        "default": {
+          "setup": [
+            "mkdir -p ~/site_sqlite ~/twitter_vault",
+            "python3 -B twitterx2sql.py --input sample/twitter-archive --output ~/site_sqlite --notebook Twitter",
+            "python3 -B sql2obsidian.py --input ~/site_sqlite --output ~/twitter_vault"
+          ]
+        }
+      },
+      "examples": [
+        {
+          "ordinal": 1,
+          "heading": "1. Generate and build",
+          "language": "bash",
+          "sha256": "d0a4402dbb55d3c9fb65b20f6a26f2f0f3549897c7b86754c3b5715e72c3a7f8",
+          "state": "tools",
+          "tools": [
+            "hugo",
+            "go",
+            "npx",
+            "ledger-theme"
+          ]
+        },
+        {
+          "ordinal": 2,
+          "heading": "1. Generate and build",
+          "language": "text",
+          "sha256": "96f777f26c79283db24ca01e332e1aa5559543f5e37adb1144a1447c6eee9425",
+          "state": "unverified",
+          "reason": "recorded output"
+        },
+        {
+          "ordinal": 3,
+          "heading": "2. What the generator emitted",
+          "language": "",
+          "sha256": "e9d43ce377846d57565bfead58cf3b3d75164a122e32417185ff44181aed668b",
+          "state": "unverified",
+          "reason": "a listing of the generated files"
+        },
+        {
+          "ordinal": 4,
+          "heading": "2. What the generator emitted",
+          "language": "json",
+          "sha256": "168624aec37aafee8f0035bb4c4cb9434c84c6f6412a90a1a461e83344a7ecdf",
+          "state": "unverified",
+          "reason": "an excerpt of a generated file"
+        },
+        {
+          "ordinal": 5,
+          "heading": "Small archives: from your machine",
+          "language": "bash",
+          "sha256": "6e554e10973df27701baa54468276dadda6726231c3412bba3582b6498050d86",
+          "state": "unverified",
+          "reason": "deploys to a Vercel account"
+        },
+        {
+          "ordinal": 6,
+          "heading": "Larger archives: from Git",
+          "language": "bash",
+          "sha256": "a484e74d2290aeb9b8a095bdeb9463750caa717cfc53e0ee83d052f1e37eca23",
+          "state": "unverified",
+          "reason": "pushes to a GitHub repository"
+        },
+        {
+          "ordinal": 7,
+          "heading": "4. Configure and verify",
+          "language": "bash",
+          "sha256": "770fbd444241377ab74dc21537e5174737be2aef2ab9ff2d8aa33ccf1086b6dd",
+          "state": "unverified",
+          "reason": "queries a deployed site"
+        },
+        {
+          "ordinal": 8,
+          "heading": "4. Configure and verify",
+          "language": "text",
+          "sha256": "569a06659d00bed267bc592ee75ab8bbbddb4a6b15b520b506aa97a8cf726cad",
+          "state": "unverified",
+          "reason": "a recorded error message"
+        },
+        {
+          "ordinal": 9,
+          "heading": "Limits, measured",
+          "language": "bash",
+          "sha256": "dbd49edb6cb2253206d107f5b273d302ba98dde9b62865e9c3bb2035039f659d",
+          "state": "tools",
+          "tools": [
+            "hugo",
+            "go",
+            "npx",
+            "ledger-theme"
+          ]
+        },
+        {
+          "ordinal": 10,
+          "heading": "Past the ceiling",
+          "language": "toml",
+          "sha256": "b0820889e26c04ab9a703ee4221dfce3eff235f27ab187d651e02afff16fc2fd",
+          "state": "unverified",
+          "reason": "a fragment of hugo.toml"
+        },
+        {
+          "ordinal": 11,
+          "heading": "Past the ceiling",
+          "language": "json",
+          "sha256": "6fd083e7185ecda6d0a94d03110e757f51dfe5c7b6bdf371f3ec182fdeef9c9f",
+          "state": "unverified",
+          "reason": "a fragment of vercel.json"
+        }
+      ]
+    },
+    "docs/images.md": {
+      "homes": {
+        "default": {
+          "seed": {
+            "joplin_raw_export": "sample/source1"
+          },
+          "setup": [
+            "mkdir -p ~/notes_sqlite",
+            "python3 -B joplin2sql.py --input ~/joplin_raw_export --output ~/notes_sqlite"
+          ]
+        }
+      },
+      "examples": [
+        {
+          "ordinal": 1,
+          "heading": "Localize embedded and remote images",
+          "language": "",
+          "sha256": "d36437a00a115818e7778b73bf6ddff2c90c8a2e35655e46da2c734956ef1cd7",
+          "state": "executed"
+        },
+        {
+          "ordinal": 2,
+          "heading": "Localize embedded and remote images",
+          "language": "",
+          "sha256": "8740a10cbf12f87d5bb346d0afddd0861a7aae562e2e4e9a1ba6f5a5aa7ce94a",
+          "state": "executed"
+        }
+      ]
+    },
+    "docs/joplin.md": {
+      "homes": {
+        "default": {
+          "seed": {
+            "joplin_raw_export": "sample/source1"
+          }
+        }
+      },
+      "examples": [
+        {
+          "ordinal": 1,
+          "heading": "Import a Joplin RAW directory into SQLite",
+          "language": "",
+          "sha256": "998ecc0b786c58149c34029fd52edd87470ed084e23ff70619d44e0d7742d644",
+          "state": "executed"
+        },
+        {
+          "ordinal": 2,
+          "heading": "Import a Joplin RAW directory into SQLite",
+          "language": "",
+          "sha256": "5ddd9a8128e7758afc01bebbaadf52645d7c66942b8b197715b7fc3fa761cbae",
+          "state": "executed"
+        },
+        {
+          "ordinal": 3,
+          "heading": "Export SQLite to a Joplin RAW directory",
+          "language": "",
+          "sha256": "d5c228a31aa5110db6fa9bdf47840d629e15d82c93620ec481dae064acd62ee2",
+          "state": "executed"
+        },
+        {
+          "ordinal": 4,
+          "heading": "Export SQLite to a Joplin RAW directory",
+          "language": "",
+          "sha256": "904a57ad9583df9e991dd3bd25a6e2fad5c1dde258dff270b954f01be1dcc907",
+          "state": "executed"
+        },
+        {
+          "ordinal": 5,
+          "heading": "Clean unused resources",
+          "language": "",
+          "sha256": "b450e963def55be0bc3ddbe4b8fc85de36a10732235ecaf6c21398f21445f9e5",
+          "state": "executed"
+        }
+      ]
+    },
+    "docs/notrios-import-contract.md": {
+      "examples": [
+        {
+          "ordinal": 1,
+          "heading": "Reader declaration",
+          "language": "text",
+          "sha256": "790f56d35f949d16708cbe6dbf38499e6a0bbc353d4ed6f4117b2db3aff57ddf",
+          "state": "unverified",
+          "reason": "a list of capability names"
+        },
+        {
+          "ordinal": 2,
+          "heading": "CLI contract for the next slice",
+          "language": "text",
+          "sha256": "9f40648301883bbff405c92bd77b16ffec8786940f5ada0a282bbb036843bba6",
+          "state": "unverified",
+          "reason": "a synopsis with placeholders"
+        }
+      ]
+    },
+    "docs/notrios-import-design.md": {
+      "examples": [
+        {
+          "ordinal": 1,
+          "heading": "Stable identity and collision rules",
+          "language": "text",
+          "sha256": "6531dfea577ea4a999319b22916cee77dc3f021632f86ec0eb6966c518bfb254",
+          "state": "unverified",
+          "reason": "pseudocode"
+        },
+        {
+          "ordinal": 2,
+          "heading": "Conversion limits, MIME and attachments",
+          "language": "text",
+          "sha256": "27a73f4abdcc05cd54f06f71a76fdd12c663a5972ce3167912504575cabf1ae5",
+          "state": "unverified",
+          "reason": "a table"
+        }
+      ]
+    },
+    "docs/notrios.md": {
+      "homes": {
+        "default": {
+          "seed": {
+            "publication": "testdata/notrios/v1.0.0/publication-titled/archive"
+          }
+        },
+        "library": {
+          "seed": {
+            "my-vault": "testdata/notrios/vault-titled-v1"
+          },
+          "setup": [
+            "notriosctl import obsidian ~/my-vault"
+          ]
+        },
+        "export": {
+          "seed": {
+            "my-vault": "testdata/notrios/vault-titled-v1"
+          },
+          "setup": [
+            "notriosctl import obsidian ~/my-vault"
+          ]
+        }
+      },
+      "substitute": {
+        "<the reviewed plan's manifest_sha256>": "a8537bb0582b7bcd9f01c0074923175ad04380930db66e7dafd23a32717b6dc2"
+      },
+      "examples": [
+        {
+          "ordinal": 1,
+          "heading": "Import a Notrios publication into SQLite",
+          "language": "",
+          "sha256": "c071249cb1e02557bd6641d0ec766b81d51080aed9c0755d9ded149dce987190",
+          "state": "executed"
+        },
+        {
+          "ordinal": 2,
+          "heading": "Publishing a Notrios library",
+          "language": "bash",
+          "sha256": "38eb8aa4dca7f2f64fccfe8b12383c3754adc34e8d0a465705331f670185912d",
+          "state": "tools",
+          "tools": [
+            "notriosctl",
+            "hugo",
+            "go",
+            "ledger-theme"
+          ],
+          "home": "library",
+          "substitute": {
+            "--notebooks nb_public": "--notebooks nb_obsidian_public"
+          }
+        },
+        {
+          "ordinal": 3,
+          "heading": "Keeping notes out of a publication",
+          "language": "bash",
+          "sha256": "ee750049b70d97dc34f3f876674189fd3ab8d2291a74bfafa0dda89c5af5c6ed",
+          "state": "tools",
+          "tools": [
+            "notriosctl"
+          ],
+          "home": "library"
+        },
+        {
+          "ordinal": 4,
+          "heading": "Keeping notes out of a publication",
+          "language": "bash",
+          "sha256": "6227d25543d4ed9ba51febcdabc01610df2652be37d0e5d3a8fc7ba30986b26b",
+          "state": "tools",
+          "tools": [
+            "notriosctl"
+          ],
+          "home": "library"
+        },
+        {
+          "ordinal": 5,
+          "heading": "Publications over 100,000 notes",
+          "language": "bash",
+          "sha256": "a0694cdc6007b5b8ee2c98a4525535f967a9bfaf594f82fad9da9417430ca28b",
+          "state": "tools",
+          "tools": [
+            "notriosctl"
+          ],
+          "home": "export"
+        }
+      ]
+    },
+    "docs/obsidian.md": {
+      "homes": {
+        "default": {
+          "seed": {
+            "obsidian_vault": "testdata/notrios/vault-titled-v1"
+          }
+        },
+        "joplin-round-trip": {
+          "seed": {
+            "joplin_raw": "sample/source1"
+          }
+        },
+        "obsidian-round-trip": {
+          "seed": {
+            "vault": "testdata/notrios/vault-titled-v1"
+          }
+        }
+      },
+      "examples": [
+        {
+          "ordinal": 1,
+          "heading": "Import an Obsidian vault into SQLite",
+          "language": "",
+          "sha256": "7348902fb5cf86a76695e86c01cf945cc14c439cf04d3c7dc75a37adb6dd52d7",
+          "state": "executed"
+        },
+        {
+          "ordinal": 2,
+          "heading": "Export SQLite to an Obsidian vault",
+          "language": "",
+          "sha256": "3e61efcc98de2ddfda91b50a9f710f79c021c97fc9fab7287d3c3ed49a94e1a4",
+          "state": "executed"
+        },
+        {
+          "ordinal": 3,
+          "heading": "Export SQLite to an Obsidian vault",
+          "language": "",
+          "sha256": "f17ff7a17285b696664dbdc259a9f6f98bc8456f1fc77c9be4ed071ab7c31fb5",
+          "state": "executed",
+          "substitute": {
+            "\"Blog,Recipes\"": "\"Public,Private\""
+          }
+        },
+        {
+          "ordinal": 4,
+          "heading": "Joplin → Obsidian → Joplin",
+          "language": "",
+          "sha256": "64ecd5e29c1d306896efa7a0fe03d2cd66b7b155fa572afd3878f2b9d60cc1bc",
+          "state": "executed",
+          "home": "joplin-round-trip"
+        },
+        {
+          "ordinal": 5,
+          "heading": "Obsidian → Joplin → Obsidian",
+          "language": "",
+          "sha256": "b5e1aab46d03149209c02f831bf80baaad79af5530d91cd36ddb33bf69f0da54",
+          "state": "executed",
+          "home": "obsidian-round-trip"
+        }
+      ]
+    },
+    "docs/quartz.md": {
+      "homes": {
+        "default": {
+          "seed": {
+            "joplin_raw_export": "sample/source1",
+            "twitter-archive": "sample/twitter-archive"
+          }
+        }
+      },
+      "examples": [
+        {
+          "ordinal": 1,
+          "heading": "1. Export a publishable vault",
+          "language": "",
+          "sha256": "f34ffb29ee0951066635c9a7b0401ed8d4c7064a310e50229b7b8fd1e79bce61",
+          "state": "executed",
+          "substitute": {
+            "\"Blog,Twitter\"": "\"Work,Twitter\""
+          }
+        },
+        {
+          "ordinal": 2,
+          "heading": "2. Set up Quartz",
+          "language": "",
+          "sha256": "1c1dcc714af020fc3f61c17fed7e2641b086e5f5bd91028be1d580fe1f1a8501",
+          "state": "unverified",
+          "reason": "clones Quartz and installs its packages from the network into the current directory, then serves until stopped"
+        },
+        {
+          "ordinal": 3,
+          "heading": "2. Set up Quartz",
+          "language": "",
+          "sha256": "7cb90bbdf358c895827f5ad0afe2d93ae6692a75de5b2c513754ed974d150dbc",
+          "state": "unverified",
+          "reason": "the contents of a file"
+        },
+        {
+          "ordinal": 4,
+          "heading": "3. Preview and deploy",
+          "language": "",
+          "sha256": "06bdd2a0c90e4e98596456fbee4eb337de60bdde7394334d7f1384e05d462a4c",
+          "state": "unverified",
+          "reason": "needs a Quartz checkout; serves until stopped"
+        }
+      ]
+    },
+    "docs/static-site.md": {
+      "homes": {
+        "default": {
+          "setup": [
+            "mkdir -p ~/site_sqlite ~/twitter_vault",
+            "python3 -B twitterx2sql.py --input sample/twitter-archive --output ~/site_sqlite --notebook Twitter",
+            "python3 -B sql2obsidian.py --input ~/site_sqlite --output ~/twitter_vault"
+          ]
+        }
+      },
+      "examples": [
+        {
+          "ordinal": 1,
+          "heading": "1. Generate the Hugo project",
+          "language": "bash",
+          "sha256": "098d70282297c57372a7ce55559bac111c65eccffd15dbd6a6bef73ea8a2d0ed",
+          "state": "tools",
+          "tools": [
+            "hugo",
+            "go",
+            "npx",
+            "ledger-theme"
+          ]
+        },
+        {
+          "ordinal": 2,
+          "heading": "1. Generate the Hugo project",
+          "language": "text",
+          "sha256": "af3c682d5596d2f740fcdd369dab8543846e28f55178144ddc3f45ca03c58544",
+          "state": "unverified",
+          "reason": "recorded output"
+        },
+        {
+          "ordinal": 3,
+          "heading": "1. Generate the Hugo project",
+          "language": "",
+          "sha256": "d7bb099d2cab8aaa6fc36a15e0ded5630a84b58cfe965c8671437a30973ded4e",
+          "state": "unverified",
+          "reason": "a listing of the generated files"
+        },
+        {
+          "ordinal": 4,
+          "heading": "2. Build Hugo",
+          "language": "bash",
+          "sha256": "a61a4f609e701a049d394fa5a44d37837d46012194100289a69c2afa54fe4092",
+          "state": "tools",
+          "tools": [
+            "hugo"
+          ]
+        },
+        {
+          "ordinal": 5,
+          "heading": "2. Build Hugo",
+          "language": "text",
+          "sha256": "c33236e4f7c6b5730cba706f41ebc27766e514626b8c12f0edbce42f13b4a5dc",
+          "state": "unverified",
+          "reason": "an example file name"
+        },
+        {
+          "ordinal": 6,
+          "heading": "2. Build Hugo",
+          "language": "text",
+          "sha256": "4f0df06fa0269bf7ab132819d2e416249caca0d261c904db4f4392c7198a2deb",
+          "state": "unverified",
+          "reason": "an example URL"
+        },
+        {
+          "ordinal": 7,
+          "heading": "3. Recommended: build and run the Bluge server",
+          "language": "bash",
+          "sha256": "2afc4f7ac8596cbe561f109f8e9308b376f51ad81ba39cfc465c29ce5427aef8",
+          "state": "tools",
+          "tools": [
+            "go"
+          ]
+        },
+        {
+          "ordinal": 8,
+          "heading": "3. Recommended: build and run the Bluge server",
+          "language": "bash",
+          "sha256": "eb7e1256c4b98102417a475e2d12169004d011a5829e096a822e614c32a4297d",
+          "state": "tools",
+          "tools": [
+            "go"
+          ],
+          "cwd": "~/twitter_site/server",
+          "substitute": {
+            "127.0.0.1:8080": "127.0.0.1:{port}"
+          },
+          "serves": "http://127.0.0.1:{port}/api/health"
+        },
+        {
+          "ordinal": 9,
+          "heading": "Searching for a link",
+          "language": "",
+          "sha256": "d55a914a10787cbc0b2665c50b1cf500475def928c66a0cdd652bec37ac945ba",
+          "state": "unverified",
+          "reason": "an example of how a URL is tokenised"
+        },
+        {
+          "ordinal": 10,
+          "heading": "4. Optional: build the Pagefind fallback",
+          "language": "bash",
+          "sha256": "f2c109ced72256a1941c921fc9c4fa5331d88a9a0104ee63c0e8410bd9ce3b5c",
+          "state": "tools",
+          "tools": [
+            "npx"
+          ]
+        },
+        {
+          "ordinal": 11,
+          "heading": "4. Optional: build the Pagefind fallback",
+          "language": "bash",
+          "sha256": "6bd52ac5aaefb4e5f8b1661568082f2c2c655c2ede48a26b416f76dc70a3e4c4",
+          "state": "tools",
+          "tools": [
+            "hugo"
+          ],
+          "substitute": {
+            "http.server 8080": "http.server {port}"
+          },
+          "serves": "http://127.0.0.1:{port}/"
+        },
+        {
+          "ordinal": 12,
+          "heading": "5. Automatic builds",
+          "language": "bash",
+          "sha256": "098d70282297c57372a7ce55559bac111c65eccffd15dbd6a6bef73ea8a2d0ed",
+          "state": "tools",
+          "tools": [
+            "hugo",
+            "go",
+            "npx",
+            "ledger-theme"
+          ]
+        },
+        {
+          "ordinal": 13,
+          "heading": "Two kinds of tag",
+          "language": "bash",
+          "sha256": "ee05dd9132cab372cef784f6e0418e4b0b200eab90079383694da7cd4f333c26",
+          "state": "unverified",
+          "reason": "a fragment: … stands for the options above"
+        },
+        {
+          "ordinal": 14,
+          "heading": "Twitter/X note presentation",
+          "language": "markdown",
+          "sha256": "f163b97fc7ea0f7b78f121464811d0c64137030ed3a2ab590b6d5ba34576af9a",
+          "state": "unverified",
+          "reason": "an example of a note's Markdown"
+        },
+        {
+          "ordinal": 15,
+          "heading": "Deployment below a URL prefix",
+          "language": "bash",
+          "sha256": "10efe002d01869a000fb969945b127141c2efb1dfe2bf5f9ef40c50989266c66",
+          "state": "unverified",
+          "reason": "a fragment: … stands for the options above"
+        }
+      ]
+    },
+    "docs/testing.md": {
+      "examples": [
+        {
+          "ordinal": 1,
+          "heading": "Testing",
+          "language": "",
+          "sha256": "f1be6f67a220fabd73a3690d16d95850ca141d6594e4b7e48e005e5c7fb1d4e8",
+          "state": "unverified",
+          "reason": "the unit gate itself, which runs this check; running it from here would recurse"
+        }
+      ]
+    },
+    "docs/twitter.md": {
+      "homes": {
+        "default": {
+          "seed": {
+            "twitter-archive": "sample/twitter-archive"
+          }
+        }
+      },
+      "examples": [
+        {
+          "ordinal": 1,
+          "heading": "Import a Twitter/X archive into SQLite",
+          "language": "",
+          "sha256": "d0ecb12a0f4e96caf92316da9d325dd836aba8f55d632032c65d91842aea6004",
+          "state": "executed"
+        }
+      ]
+    }
+  }
+}

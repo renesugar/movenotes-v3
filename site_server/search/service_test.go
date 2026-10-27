@@ -240,7 +240,7 @@ func TestOpensAReadOnlyIndexDirectory(t *testing.T) {
 // TestURLsInBodyAreSearchable is the step-38 regression test: the queries a user
 // ran against a real 166,654-note archive, all of which returned nothing because
 // the generator deleted every URL before indexing it. See step 37 in
-// LEDGER_MIGRATION_PLAN.md.
+// plans/v3.36/000-ledger-migration-plan.md.
 //
 // The bodies here are what the fixed generator emits — prose, then the note's
 // links appended. Nothing about the query side changed; Bluge's standard

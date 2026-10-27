@@ -1,0 +1,198 @@
+{
+  "producer_commit": "7662fdd5b55d6f34f14874f70ba6db9f9e7676ac",
+  "cli_sha256": "fa547809fa1c206c0ca6008d7765ff2837b6ec90ef9549dc597d4a8e5da10bc2",
+  "build_info": "<notriosctl>: go1.27.0\n\tpath\tgithub.com/renesugar/notrios/cmd/notriosctl\n\tmod\tgithub.com/renesugar/notrios\tv0.0.0-20260913211609-7662fdd5b55d\t\n\tdep\tgithub.com/godbus/dbus/v5\tv5.2.2\th1:TUR3TgtSVDmjiXOgAAyaZbYmIeP3DPkld3jgKGV8mXQ=\n\tdep\tgithub.com/zalando/go-keyring\tv0.2.8\th1:6sD/Ucpl7jNq10rM2pgqTs0sZ9V3qMrqfIIy5YPccHs=\n\tdep\tgolang.org/x/crypto\tv0.51.0\th1:IBPXwPfKxY7cWQZ38ZCIRPI50YLeevDLlLnyC5wRGTI=\n\tdep\tgolang.org/x/sys\tv0.44.0\th1:ildZl3J4uzeKP07r2F++Op7E9B29JRUy+a27EibtBTQ=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\tDefaultGODEBUG=cryptocustomrand=1,tlssecpmlkem=0,tracebacklabels=0,urlstrictcolons=0,x509sslcertoverrideplatform=0\n\tbuild\tCGO_ENABLED=1\n\tbuild\tCGO_CFLAGS=\n\tbuild\tCGO_CPPFLAGS=\n\tbuild\tCGO_CXXFLAGS=\n\tbuild\tCGO_LDFLAGS=\n\tbuild\tGOARCH=amd64\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n\tbuild\tvcs=git\n\tbuild\tvcs.revision=7662fdd5b55d6f34f14874f70ba6db9f9e7676ac\n\tbuild\tvcs.time=2026-09-13T21:16:09Z\n\tbuild\tvcs.modified=false\n",
+  "seed_files": {
+    "manifest.json": {
+      "sha256": "47aecb8ef1ea0ae40e543d8a698901baf462642e67eaa0ab903e53183bc0f46a",
+      "size_bytes": 90
+    },
+    "notebooks.json": {
+      "sha256": "eb367d569ccd41d941c8903cde2b3930ef8d7fb2cac8c69b5eb88bf27d5cc3e4",
+      "size_bytes": 127
+    },
+    "notes/doc_child.md": {
+      "sha256": "d0984f22db56856ce5b6236e23f0cbfe25001e1dcb95881ad9e0c99a2f18fc8d",
+      "size_bytes": 285
+    },
+    "notes/doc_draft.md": {
+      "sha256": "81eabb39452610cc939591a49af150d65d2c6a41471f1785a7d77f2108e4302c",
+      "size_bytes": 116
+    },
+    "notes/doc_duplicate.md": {
+      "sha256": "83970b9e346a85fcaf9ddd79eae652144fcb30d25e4ba7df585b50308dc21d2c",
+      "size_bytes": 153
+    },
+    "notes/doc_private.md": {
+      "sha256": "2bc2204500626a61cd83269816031d0b81867ce56b8a7e258bcd9aeadc46507e",
+      "size_bytes": 166
+    },
+    "notes/doc_public.md": {
+      "sha256": "04bc7117a1fd61f36510e3f458fe4d43d840d31cda211b650442155448f1a994",
+      "size_bytes": 285
+    },
+    "resources/res_hidden__private.txt": {
+      "sha256": "c8f853d892d4436b3aa49377c468f7ee98cf0c416f9fce4633b96d96df11c63c",
+      "size_bytes": 29
+    },
+    "resources/res_image__café chart.png": {
+      "sha256": "2e9e614a233d1845c927cdda9175ec8bdf3929c242f4d2ad97a90547bf19974e",
+      "size_bytes": 70
+    },
+    "resources/res_sidecar__related.bin": {
+      "sha256": "ec58248ea602494981cd7da71f098ded28534f5092a8cfc8578a3a3e8dc2f9fa",
+      "size_bytes": 38
+    },
+    "resources/res_text__field notes.txt": {
+      "sha256": "8e498cb63139819234ae04710f9c4945144124658c02ab923337c824c1bdcde8",
+      "size_bytes": 32
+    }
+  },
+  "update_files": {
+    "manifest.json": {
+      "sha256": "47aecb8ef1ea0ae40e543d8a698901baf462642e67eaa0ab903e53183bc0f46a",
+      "size_bytes": 90
+    },
+    "notebooks.json": {
+      "sha256": "a1a2f70cc8f35090495c3702118f919ac5417d987c5e5486775930dbeea39aa7",
+      "size_bytes": 33
+    },
+    "notes/doc_public.md": {
+      "sha256": "a63b8e25a12fad3aff13a5178b34c51ad1bc4c8e319fab0c14913fe7a7c6e033",
+      "size_bytes": 785
+    }
+  },
+  "generator_sha256": "388260517d686ee511c378a0bea5d271b562549eb73cd7d5ad5df9f9af0dace3",
+  "helper_sha256": "314c3d61a7010e2d6ade393f21eaa11b74d778594197fde5cd8c2544c2baff91",
+  "commands": [
+    {
+      "stage": "import-initial",
+      "argv": [
+        "<notriosctl>",
+        "import",
+        "archive",
+        "--config",
+        "<work>/empty.yaml",
+        "--db",
+        "<work>/library/notes.sqlite",
+        "--asset-store",
+        "<work>/library/assets",
+        "<work>/seed"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "stage": "import-update",
+      "argv": [
+        "<notriosctl>",
+        "import",
+        "archive",
+        "--config",
+        "<work>/empty.yaml",
+        "--db",
+        "<work>/library/notes.sqlite",
+        "--asset-store",
+        "<work>/library/assets",
+        "<work>/update"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "stage": "profile-save",
+      "argv": [
+        "<notriosctl>",
+        "publish",
+        "profile",
+        "save",
+        "--config",
+        "<work>/empty.yaml",
+        "--db",
+        "<work>/library/notes.sqlite",
+        "--asset-store",
+        "<work>/library/assets",
+        "--profiles",
+        "<work>/library/profiles.json",
+        "--name",
+        "fixture",
+        "--target",
+        "publication_handoff",
+        "--notebooks",
+        "nb_f7yx5wbiq6js6apzvl6dp3mzfu",
+        "--link-action",
+        "plain_text"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "stage": "plan",
+      "argv": [
+        "<notriosctl>",
+        "publish",
+        "plan",
+        "--config",
+        "<work>/empty.yaml",
+        "--db",
+        "<work>/library/notes.sqlite",
+        "--asset-store",
+        "<work>/library/assets",
+        "--profiles",
+        "<work>/library/profiles.json",
+        "--profile",
+        "fixture"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "stage": "publish-run",
+      "argv": [
+        "<notriosctl>",
+        "publish",
+        "run",
+        "--config",
+        "<work>/empty.yaml",
+        "--db",
+        "<work>/library/notes.sqlite",
+        "--asset-store",
+        "<work>/library/assets",
+        "--profiles",
+        "<work>/library/profiles.json",
+        "--profile",
+        "fixture",
+        "--reviewed-plan",
+        "9e06e07e6e57499f1f11577d2aefc8f97fc7370ceeb04f3dac2d17f38cabd97f",
+        "<work>/archive"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "stage": "compatibility",
+      "argv": [
+        "<notriosctl>",
+        "compatibility",
+        "archive-v2",
+        "--reader",
+        "current-v2",
+        "<work>/archive"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "stage": "verify",
+      "argv": [
+        "<notriosctl>",
+        "verify",
+        "archive-v2",
+        "<work>/archive"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    }
+  ],
+  "reproduction": "Fresh IDs/timestamps differ; compare semantic expectations. Archive bytes are unmodified."
+}

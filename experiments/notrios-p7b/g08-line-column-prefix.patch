@@ -1,0 +1,125 @@
+diff -ruN a/internal/markdownlinks/parser.go b/internal/markdownlinks/parser.go
+--- a/internal/markdownlinks/parser.go	2026-09-17 16:40:10.000000000 -0700
++++ b/internal/markdownlinks/parser.go	2026-09-18 15:50:21.946162738 -0700
+@@ -6,6 +6,7 @@
+ 
+ import (
+ 	"regexp"
++	"sort"
+ 	"strings"
+ 	"unicode/utf8"
+ )
+@@ -34,6 +35,7 @@
+ func Extract(body string) []Candidate {
+ 	matches := []Candidate{}
+ 	seen := map[string]bool{}
++	lineStarts := lineStarts(body)
+ 	for _, loc := range markdownLinkRE.FindAllStringSubmatchIndex(body, -1) {
+ 		if len(loc) < 8 {
+ 			continue
+@@ -48,7 +50,7 @@
+ 			StartByte:    loc[0],
+ 			EndByte:      loc[1],
+ 		}
+-		decorateCandidate(body, &candidate)
++		decorateCandidate(body, &candidate, lineStarts)
+ 		key := candidateKey(candidate)
+ 		seen[key] = true
+ 		matches = append(matches, candidate)
+@@ -71,7 +73,7 @@
+ 			StartByte:    loc[0],
+ 			EndByte:      loc[1],
+ 		}
+-		decorateCandidate(body, &candidate)
++		decorateCandidate(body, &candidate, lineStarts)
+ 		matches = append(matches, candidate)
+ 	}
+ 	return matches
+@@ -104,8 +106,8 @@
+ 	return rawTarget, display
+ }
+ 
+-func decorateCandidate(body string, candidate *Candidate) {
+-	candidate.Line, candidate.Column = lineColumn(body, candidate.StartByte)
++func decorateCandidate(body string, candidate *Candidate, starts []int) {
++	candidate.Line, candidate.Column = lineColumnAt(body, candidate.StartByte, starts)
+ 	candidate.Context = contextAround(body, candidate.StartByte, candidate.EndByte, 80)
+ 	base, anchorType, anchorValue := splitAnchor(candidate.RawTarget)
+ 	candidate.RawTarget = base
+@@ -129,21 +131,25 @@
+ 	return base, "", ""
+ }
+ 
+-func lineColumn(body string, offset int) (line int, column int) {
+-	line = 1
+-	column = 1
+-	for i, r := range body {
+-		if i >= offset {
+-			break
+-		}
+-		if r == '\n' {
+-			line++
+-			column = 1
+-			continue
++func lineStarts(body string) []int {
++	starts := []int{0}
++	for i := 0; i < len(body); i++ {
++		if body[i] == '\n' {
++			starts = append(starts, i+1)
+ 		}
+-		column++
+ 	}
+-	return line, column
++	return starts
++}
++
++func lineColumnAt(body string, offset int, starts []int) (line int, column int) {
++	// Candidate offsets come from regexp byte locations. utf8.RuneCountInString
++	// has the same invalid-UTF-8 behavior as the previous range loop: every
++	// malformed byte occupies one displayed column.
++	lineIndex := sort.Search(len(starts), func(i int) bool { return starts[i] > offset }) - 1
++	if lineIndex < 0 {
++		lineIndex = 0
++	}
++	return lineIndex + 1, utf8.RuneCountInString(body[starts[lineIndex]:offset]) + 1
+ }
+ 
+ func contextAround(body string, start, end, radius int) string {
+diff -ruN a/internal/markdownlinks/parser_test.go b/internal/markdownlinks/parser_test.go
+--- a/internal/markdownlinks/parser_test.go	2026-09-17 16:40:10.000000000 -0700
++++ b/internal/markdownlinks/parser_test.go	2026-09-18 15:52:07.918068680 -0700
+@@ -21,3 +21,34 @@
+ 		t.Fatalf("unexpected block anchor: %#v", links[3])
+ 	}
+ }
++
++func TestExtractLineColumnsRemainRuneBasedWithManyLinks(t *testing.T) {
++	body := "α [one](one)\nβ [two](two) [three](three)\n[[four]]"
++	links := Extract(body)
++	got := [][2]int{}
++	for _, link := range links {
++		got = append(got, [2]int{link.Line, link.Column})
++	}
++	want := [][2]int{{1, 3}, {2, 3}, {2, 14}, {3, 1}}
++	if len(got) != len(want) {
++		t.Fatalf("got %d links, want %d: %#v", len(got), len(want), links)
++	}
++	for i := range want {
++		if got[i] != want[i] {
++			t.Fatalf("link %d line/column = %v, want %v", i, got[i], want[i])
++		}
++	}
++}
++
++func TestExtractLineColumnsKeepInvalidUTF8ByteColumns(t *testing.T) {
++	// Go range treats this malformed byte as RuneError of width one. The
++	// optimized prefix count must retain that stored source-coordinate rule.
++	body := "x\xff [target](doc)"
++	links := Extract(body)
++	if len(links) != 1 {
++		t.Fatalf("got %#v", links)
++	}
++	if links[0].Line != 1 || links[0].Column != 4 {
++		t.Fatalf("line/column = %d/%d, want 1/4", links[0].Line, links[0].Column)
++	}
++}

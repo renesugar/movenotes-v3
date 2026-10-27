@@ -1,0 +1,26 @@
+{
+  "snapshot_id": "snap_jwa2ax65dqlknybsgzmwieaxki",
+  "database_id": "db_74xji7czi6hikwfpysuyjkjaye",
+  "target": "publication_handoff",
+  "commit_sha256": "b998f2fc889fa382cab7a3332663da5b9852de50696e065032ee7c7e168eba26",
+  "index_objects": 1,
+  "objects": 7,
+  "record_chunks": 1,
+  "blobs": 6,
+  "records": 34,
+  "bytes": 9506,
+  "counts": {
+    "collections": 1,
+    "notebooks": 2,
+    "search_notebooks": 0,
+    "tags": 4,
+    "documents": 3,
+    "revisions": 3,
+    "document_tags": 6,
+    "resources": 3,
+    "document_resources": 4,
+    "links": 8,
+    "provenance": 0,
+    "source_bundles": 0
+  }
+}

@@ -33,9 +33,10 @@ from pathlib import Path, PurePosixPath
 
 import common
 import obsidian2sql
+import notrios_receipt
 
 __program_name__ = "obsidian2site"
-__version__ = "3.36"
+__version__ = "3.37"
 
 _IGNORED_DIRECTORY_NAMES = frozenset({
     ".git", ".hg", ".svn", ".obsidian", ".movenotes", ".trash", ".Trash",
@@ -58,6 +59,13 @@ _X_MENTION_RE = re.compile(
 _REFERENCE_DEFINITION_RE = re.compile(r"^(\s{0,3}\[[^\]]+\]:\s*)(.+)$")
 _INVALID_PERCENT_ESCAPE_RE = re.compile(r"%(?![0-9A-Fa-f]{2})")
 _URL_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]")
+# Elements whose content a browser does not show as page text: it runs it,
+# styles the page with it, or hides it. ``svg`` is matched to know when a
+# ``title`` or ``style`` is SVG's own.
+_RAW_TEXT_ELEMENT_RE = re.compile(
+    r"<(/?)(svg|script|style|title|textarea|noscript|noembed|noframes|xmp|plaintext)(?=[\s/>]|$)",
+    re.IGNORECASE,
+)
 _INLINE_TAG_RE = re.compile(r"(?<![\w/])#([\w][\w/-]*)", re.UNICODE)
 _WORD_RE = re.compile(r"[^\W\d_][\w'’\-]*", re.UNICODE)
 _FENCE_RE = re.compile(r"^\s{0,3}(```+|~~~+)")
@@ -111,6 +119,8 @@ def _automatic_taxonomy_tag_cap(notes: int) -> int:
 
 def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=__program_name__, description=__doc__)
+    parser.add_argument("--include-notrios-receipt", action="store_true",
+                        help="Publish the validated .movenotes source receipt as movenotes/notrios-receipt.json")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "--input", dest="input_path", type=common.existing_dir, required=True,
@@ -704,7 +714,7 @@ def _searchable_parts(body: str) -> tuple[str, list[str]]:
 
     Removing them used to be the whole story, and it made every URL unfindable on
     the Bluge backend — the built page showed a link the index did not have. See
-    step 37 in LEDGER_MIGRATION_PLAN.md.
+    step 37 in plans/v3.36/000-ledger-migration-plan.md.
     """
     lines: list[str] = []
     fence: str | None = None
@@ -876,8 +886,12 @@ def _transform_inline_code(line: str, transform) -> str:
     return "".join(output)
 
 
-def _transform_outside_code(text: str, transform) -> str:
-    """Apply *transform* outside fenced and inline Markdown code."""
+def _transform_outside_code(text: str, transform, *, keep_indented: bool = False) -> str:
+    """Apply *transform* outside fenced and inline Markdown code.
+
+    With *keep_indented*, a line indented four or more columns is also left as
+    written: it may be indented code, which this does not parse.
+    """
     output: list[str] = []
     fence_character: str | None = None
     fence_length = 0
@@ -902,6 +916,18 @@ def _transform_outside_code(text: str, transform) -> str:
             fence_length = len(marker)
             output.append(physical_line)
             continue
+        if keep_indented:
+            column = 0
+            for character in line:
+                if character == " ":
+                    column += 1
+                elif character == "\t":
+                    column += 4 - column % 4
+                else:
+                    break
+            if column >= 4:
+                output.append(physical_line)
+                continue
         output.append(_transform_inline_code(line, transform) + ending)
     # splitlines(keepends=True) returns no rows for an empty string.
     return "".join(output) if output else text
@@ -1121,6 +1147,9 @@ def _convert_body(
         if target_value.startswith(("mailto:", "data:", "#")):
             return match.group(0)
         target, fragment = _normalise_target(target_value)
+        # Keep exactly one delimited title on a resolved link; any other
+        # suffix is dropped, as it always was.
+        title = title_suffix if common.LINK_TITLE_RE.fullmatch(title_suffix) else ""
         resolved_note = _resolve_target(target, source_relative, note_exact, note_basenames)
         if resolved_note is not None and resolved_note in note_map:
             link = _relative_link(output_relative, note_map[resolved_note])
@@ -1128,11 +1157,11 @@ def _convert_body(
                 anchor = _hugo_heading_fragment(fragment)
                 if anchor:
                     link += "#" + urllib.parse.quote(anchor)
-            return f"{prefix}[{label}]({link})"
+            return f"{prefix}[{label}]({link}{title})"
         resolved_asset = _resolve_target(target, source_relative, asset_exact, asset_basenames)
         if resolved_asset is not None and resolved_asset in asset_map:
             link = _asset_link(output_relative, asset_map[resolved_asset])
-            return f"{prefix}[{label}]({link})"
+            return f"{prefix}[{label}]({link}{title})"
         return match.group(0)
 
     def transform_segment(segment: str) -> str:
@@ -1185,6 +1214,42 @@ def _convert_body(
         return converted
 
     return _escape_hugo_shortcodes(_transform_outside_code(body, transform_segment))
+
+
+def _show_raw_text_elements(body: str) -> tuple[str, int]:
+    """Show script, style and similar tags written in a note's prose as text.
+
+    The site passes a note's HTML through, and these elements take over the
+    text after them: a browser runs a script, applies a style to the whole
+    page or hides a title, and Hugo's minifier fails the whole build on a
+    script that is not JavaScript. Escaping the ``<`` shows the tag as the
+    note wrote it. An ``<svg>`` may hold its own ``title`` and ``style``, so
+    inside one only ``script`` is escaped. Returns the body and the number of
+    tags escaped.
+    """
+    svg_depth = 0
+    escaped = 0
+
+    def transform(segment: str) -> str:
+        def replace(match: re.Match[str]) -> str:
+            nonlocal svg_depth, escaped
+            closing, name = match.group(1), match.group(2).casefold()
+            if name == "svg":
+                if closing:
+                    svg_depth = max(0, svg_depth - 1)
+                else:
+                    end = segment.find(">", match.end())
+                    if end < 0 or segment[end - 1] != "/":
+                        svg_depth += 1
+                return match.group(0)
+            if svg_depth and name != "script":
+                return match.group(0)
+            escaped += 1
+            return "&lt;" + match.group(0)[1:]
+
+        return _RAW_TEXT_ELEMENT_RE.sub(replace, segment)
+
+    return _transform_outside_code(body, transform, keep_indented=True), escaped
 
 
 def _is_twitter_note(metadata: dict[str, object]) -> bool:
@@ -1285,7 +1350,7 @@ def _process_note(
     note_embeds: str,
     category_mode: str,
     category_name: str,
-) -> tuple[list[str], list[str], str, str, str, str, str, str, int, int, int]:
+) -> tuple[list[str], list[str], str, str, str, str, str, str, int, int, int, int]:
     source_relative = PurePosixPath(source_path.relative_to(input_root).as_posix())
     output_relative = note_map[source_relative.as_posix()]
     raw = source_path.read_text(encoding="utf-8-sig")
@@ -1322,6 +1387,7 @@ def _process_note(
         embed_stack=(source_relative.as_posix(),),
         url_stats=url_stats,
     )
+    shown, raw_text_tags = _show_raw_text_elements(converted)
     destination = content_root / Path(output_relative.as_posix())
     destination.parent.mkdir(parents=True, exist_ok=True)
     hugo_url = _note_hugo_url(output_relative)
@@ -1336,8 +1402,9 @@ def _process_note(
         source_path=source_relative.as_posix(),
         site_url=hugo_url, category=category, tags=explicit_tags,
         hide_title=twitter_note, hide_meta=twitter_note,
-    ) + "\n" + converted
+    ) + "\n" + shown
     destination.write_text(content, encoding="utf-8", newline="\n")
+    # From the body before raw-text tags are escaped, which strips them as tags.
     search_text, search_urls = _searchable_parts(f"{title}\n{converted}")
     search_text = re.sub(r"\s+", " ", search_text).strip()
     return (
@@ -1353,6 +1420,7 @@ def _process_note(
         _reading_minutes(search_text),
         url_stats[0],
         url_stats[1],
+        raw_text_tags,
     )
 
 
@@ -3030,6 +3098,10 @@ def main(argv: list[str]) -> int:
     output = args.output_path.expanduser().resolve()
     if output == input_root or input_root in output.parents:
         common.error("output directory must not be inside the input vault")
+    try:
+        receipt = notrios_receipt.from_vault(input_root) if args.include_notrios_receipt else None
+    except (ValueError, OSError) as exc:
+        common.error(f"cannot read Notrios receipt: {exc}")
     _prepare_output(output, args.force)
 
     # Everything from here to the first `converted` line used to run in
@@ -3088,6 +3160,7 @@ def main(argv: list[str]) -> int:
     processed = 0
     repaired_urls = 0
     preserved_urls = 0
+    raw_text_tags = 0
     pending_tag_counts: Counter[str] = Counter()
     pending_documents: list[tuple[int, str, str, str]] = []
     pending_tag_documents: list[tuple[int, str, int]] = []
@@ -3152,6 +3225,7 @@ def main(argv: list[str]) -> int:
                             note_reading_minutes,
                             note_repaired_urls,
                             note_preserved_urls,
+                            note_raw_text_tags,
                         ) = future.result()
                     except Exception as exc:
                         for outstanding in pending:
@@ -3204,6 +3278,7 @@ def main(argv: list[str]) -> int:
                     )
                     repaired_urls += note_repaired_urls
                     preserved_urls += note_preserved_urls
+                    raw_text_tags += note_raw_text_tags
                     pending_tag_notes += 1
                     if pending_tag_notes >= args.tag_batch_size:
                         _update_tag_counts(tag_connection, pending_tag_counts)
@@ -3248,6 +3323,11 @@ def main(argv: list[str]) -> int:
         wal.unlink(missing_ok=True)
         shm.unlink(missing_ok=True)
 
+    if receipt is not None:
+        try:
+            notrios_receipt.write(output, notrios_receipt.SITE_PATH, receipt)
+        except (ValueError, OSError) as exc:
+            common.error(f"cannot write Notrios receipt: {exc}")
     _write_site_marker(output, input_root, processed, copied_assets)
     print(
         f"generated Hugo project: {processed:,} note(s), {copied_assets:,} file(s), "
@@ -3275,6 +3355,8 @@ def main(argv: list[str]) -> int:
             f"checked URLs: {repaired_urls:,} repaired link target(s), "
             f"{preserved_urls:,} invalid URL(s) retained as visible text"
         )
+    if raw_text_tags:
+        print(f"raw HTML: {raw_text_tags:,} script, style or similar tag(s) in prose shown as text")
     server_command = (
         f"{output / 'server' / 'movenotes-site-server'} "
         f"-site {output / 'public'} "

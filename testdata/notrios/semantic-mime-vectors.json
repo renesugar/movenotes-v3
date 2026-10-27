@@ -1,0 +1,282 @@
+[
+  {
+    "input": "text/plain",
+    "accepted": true,
+    "normalized": "text/plain"
+  },
+  {
+    "input": "Text/Plain; Charset=UTF-8",
+    "accepted": true,
+    "normalized": "text/plain; charset=UTF-8"
+  },
+  {
+    "input": "application/octet-stream",
+    "accepted": true,
+    "normalized": "application/octet-stream"
+  },
+  {
+    "input": "text/plain; a=1; A=1",
+    "accepted": true,
+    "normalized": "text/plain; a=1"
+  },
+  {
+    "input": "text/plain; a=1; A=2",
+    "accepted": false,
+    "normalized": ""
+  },
+  {
+    "input": "text/plain;",
+    "accepted": true,
+    "normalized": "text/plain"
+  },
+  {
+    "input": "text/plain;;",
+    "accepted": false,
+    "normalized": ""
+  },
+  {
+    "input": "attachment; filename=\"C:\\dev\\go\\file.txt\"",
+    "accepted": true,
+    "normalized": "attachment; filename=\"C:\\\\dev\\\\go\\\\file.txt\""
+  },
+  {
+    "input": "text/plain; name*=utf-8''caf%C3%A9",
+    "accepted": true,
+    "normalized": "text/plain; name*=utf-8''caf%C3%A9"
+  },
+  {
+    "input": "text/plain; name*=utf-16''abc",
+    "accepted": true,
+    "normalized": "text/plain"
+  },
+  {
+    "input": "text/plain; name=\"\"",
+    "accepted": true,
+    "normalized": "text/plain; name=\"\""
+  },
+  {
+    "input": "text/plain; name=\"unterminated",
+    "accepted": false,
+    "normalized": ""
+  },
+  {
+    "input": "text/plain; a=\"x\\\"y\"",
+    "accepted": true,
+    "normalized": "text/plain; a=\"x\\\"y\""
+  },
+  {
+    "input": "text /plain",
+    "accepted": false,
+    "normalized": ""
+  },
+  {
+    "input": "text/",
+    "accepted": false,
+    "normalized": ""
+  },
+  {
+    "input": "text/plain; name=\"東京\"",
+    "accepted": true,
+    "normalized": "text/plain; name*=utf-8''%E6%9D%B1%E4%BA%AC"
+  },
+  {
+    "input": "text/plain; a=\"\u0000\"",
+    "accepted": true,
+    "normalized": "text/plain; a*=utf-8''%00"
+  },
+  {
+    "input": "text/plain;\u001cfoo=bar",
+    "accepted": false,
+    "normalized": ""
+  },
+  {
+    "input": "İmage/PNG",
+    "accepted": true,
+    "normalized": "image/png"
+  },
+  {
+    "input": "text/plain; a=\"x\\ y\"; a=\"x y\"",
+    "accepted": false,
+    "normalized": ""
+  },
+  {
+    "input": "text/plain; invalid",
+    "accepted": false,
+    "normalized": ""
+  },
+  {
+    "input": "text/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "accepted": false,
+    "normalized": ""
+  },
+  {
+    "input": " TEXT/PLAIN ; Z=last; a=\"first value\"",
+    "accepted": true,
+    "normalized": "text/plain; a=\"first value\"; z=last"
+  },
+  {
+    "input": "text/plain; charset=\"utf-8\"",
+    "accepted": true,
+    "normalized": "text/plain; charset=utf-8"
+  },
+  {
+    "input": "text/plain; name=\"a\tb\"",
+    "accepted": true,
+    "normalized": "text/plain; name=\"a\tb\""
+  },
+  {
+    "input": "text/plain; name=\"a\\ b\"",
+    "accepted": true,
+    "normalized": "text/plain; name=\"a\\\\ b\""
+  },
+  {
+    "input": "text/plain; name=ordinary; name*=utf-8'en'caf%C3%A9",
+    "accepted": true,
+    "normalized": "text/plain; name*=utf-8''caf%C3%A9"
+  },
+  {
+    "input": "text/plain; name=ordinary; name*=iso-8859-1''caf%E9",
+    "accepted": true,
+    "normalized": "text/plain; name=ordinary"
+  },
+  {
+    "input": "text/plain; name*=us-ascii''%FF%00%7F%09",
+    "accepted": true,
+    "normalized": "text/plain; name*=utf-8''%FF%00%7F%09"
+  },
+  {
+    "input": "text/plain; name*=utf-8''%",
+    "accepted": true,
+    "normalized": "text/plain"
+  },
+  {
+    "input": "text/plain; name*=utf-8''%GG",
+    "accepted": true,
+    "normalized": "text/plain"
+  },
+  {
+    "input": "text/plain; name*=utf-8''a+b",
+    "accepted": true,
+    "normalized": "text/plain; name=a+b"
+  },
+  {
+    "input": "text/plain; name*0=first; name*1=second",
+    "accepted": true,
+    "normalized": "text/plain; name=firstsecond"
+  },
+  {
+    "input": "text/plain; name*1=orphan",
+    "accepted": true,
+    "normalized": "text/plain"
+  },
+  {
+    "input": "text/plain; name*0=first; name*2=gap",
+    "accepted": true,
+    "normalized": "text/plain; name=first"
+  },
+  {
+    "input": "text/plain; name*0*=utf-8''caf%C3; name*1*=%A9",
+    "accepted": true,
+    "normalized": "text/plain; name*=utf-8''caf%C3%A9"
+  },
+  {
+    "input": "text/plain; name*0*=bad''abc; name*1*=tail",
+    "accepted": true,
+    "normalized": "text/plain; name=tail"
+  },
+  {
+    "input": "text/plain; name*0=plain; name*0*=utf-8''encoded; name*1=tail",
+    "accepted": true,
+    "normalized": "text/plain; name=plaintail"
+  },
+  {
+    "input": "text/plain; name*0=plain; name*1*=%GG; name*2=tail",
+    "accepted": true,
+    "normalized": "text/plain; name=plaintail"
+  },
+  {
+    "input": "text/plain; name*=utf-8''single; name*0=ignored",
+    "accepted": true,
+    "normalized": "text/plain; name=single"
+  },
+  {
+    "input": "text/plain; name*=bad''single; name*0=ignored; name=fallback",
+    "accepted": true,
+    "normalized": "text/plain; name=fallback"
+  },
+  {
+    "input": "text/plain; *0=foo",
+    "accepted": true,
+    "normalized": ""
+  },
+  {
+    "input": "text/plain; *='utf-8''foo'",
+    "accepted": true,
+    "normalized": "text/plain"
+  },
+  {
+    "input": "text/plain; name*00=ignored",
+    "accepted": true,
+    "normalized": "text/plain"
+  },
+  {
+    "input": "text/plain; name*0*0=ignored",
+    "accepted": true,
+    "normalized": "text/plain"
+  },
+  {
+    "input": "text/plain; name=\"ab\"",
+    "accepted": true,
+    "normalized": "text/plain; name*=utf-8''a%7Fb"
+  },
+  {
+    "input": "text/plain; name=\"a\u0001b\"",
+    "accepted": true,
+    "normalized": "text/plain; name*=utf-8''a%01b"
+  },
+  {
+    "input": "text/plain; name=\"a\\\\b\"",
+    "accepted": true,
+    "normalized": "text/plain; name=\"a\\\\b\""
+  },
+  {
+    "input": "text/plain; NAME=\"a;b\"",
+    "accepted": true,
+    "normalized": "text/plain; name=\"a;b\""
+  },
+  {
+    "input": "text/plain; name=\"*%'é\"",
+    "accepted": true,
+    "normalized": "text/plain; name*=utf-8''%2A%25%27%C3%A9"
+  },
+  {
+    "input": "text/plain; name=\"a\"b\"",
+    "accepted": false,
+    "normalized": ""
+  },
+  {
+    "input": "text/plain; A*=utf-8''x; a*=utf-8''x",
+    "accepted": true,
+    "normalized": "text/plain; a=x"
+  },
+  {
+    "input": "text/plain; A*=utf-8''x; a*=utf-8''y",
+    "accepted": false,
+    "normalized": ""
+  },
+  {
+    "input": "text/plain; name=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "accepted": true,
+    "normalized": "text/plain; name=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+    "input": "text/plain; name=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "accepted": false,
+    "normalized": ""
+  },
+  {
+    "input": "text/plain; name=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "accepted": false,
+    "normalized": ""
+  }
+]

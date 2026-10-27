@@ -3,7 +3,7 @@
 
 The importer supports both native Obsidian vaults and vaults produced by
 ``sql2obsidian.py``. A ``.movenotes/joplin-raw`` preservation bundle is used
-when present. Native Obsidian files are represented by deterministic
+when present; a damaged one is refused, with the commands to run next. Native Obsidian files are represented by deterministic
 Joplin-compatible note, folder and resource rows while their exact paths and
 bytes are retained for lossless Obsidian round trips and carried through
 Joplin's ``application_data`` property.
@@ -12,18 +12,22 @@ Joplin's ``application_data`` property.
 from __future__ import annotations
 
 import argparse
+import codecs
 import hashlib
 import json
 import mimetypes
 import os
 import re
+import shlex
 import shutil
 import sqlite3
 import sys
 import urllib.parse
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
+from typing import NamedTuple
 
 import common
 import constants
@@ -32,12 +36,17 @@ import notesdb
 import obsidianmeta
 
 __program_name__ = "obsidian2sql"
-__version__ = "3.20"
+__version__ = "3.37"
 
 _PRESERVATION_DIR = ".movenotes"
 _MANIFEST_NAME = "manifest.json"
 _WIKI_LINK_RE = re.compile(r"(!?)\[\[([^\]]+)\]\]")
-_MARKDOWN_LINK_RE = re.compile(r"(!?)\[([^\]]*)\]\(([^)]+)\)")
+# A titled link is tried first: a destination with no spaces or parentheses,
+# or an <...> destination, then one title (common.LINK_TITLE). Anything else
+# takes the original untitled pattern, so its output is unchanged.
+_MARKDOWN_LINK_RE = re.compile(
+    r"(!?)\[([^\]]*)\]\((?:(<[^<>\r\n]*>|[^\s()<>]+)(" + common.LINK_TITLE + r")|([^)]+))\)"
+)
 _IMAGE_EXTENSIONS = frozenset(
     {"png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "avif", "tif", "tiff", "ico", "heic"}
 )
@@ -63,6 +72,13 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         help="Print progress every N imported files; 0 disables it (default: 1000)",
     )
     parser.add_argument("--verbose", action="store_true", help="Print every imported path")
+    parser.add_argument(
+        "--ignore-preservation", action="store_true",
+        help=(
+            "Import the vault as plain Obsidian notes even if it holds a .movenotes "
+            "preservation bundle, valid or damaged; the bundle is not read"
+        ),
+    )
     return parser
 
 
@@ -364,14 +380,17 @@ def rewrite_obsidian_links(
         return f"[{display}](:/{item_id})"
 
     def markdown_replace(match: re.Match[str]) -> str:
-        embed, display, target = match.group(1), match.group(2), match.group(3)
+        embed, display = match.group(1), match.group(2)
+        # A title is copied after the mapped destination, never parsed.
+        title = match.group(4) or ""
+        target = match.group(3) if match.group(3) is not None else match.group(5)
         resolved = _resolve_vault_target(target, note_path, path_to_id, basename_paths)
         if resolved is None:
             return match.group(0)
         item_id = path_to_id[resolved]
         if resolved in resource_paths and (embed or PurePosixPath(resolved).suffix.lower().lstrip(".") in _IMAGE_EXTENSIONS):
-            return f"![{display}](:/{item_id})"
-        return f"[{display or PurePosixPath(resolved).name}](:/{item_id})"
+            return f"![{display}](:/{item_id}{title})"
+        return f"[{display or PurePosixPath(resolved).name}](:/{item_id}{title})"
 
     return _MARKDOWN_LINK_RE.sub(markdown_replace, _WIKI_LINK_RE.sub(wiki_replace, body))
 
@@ -432,6 +451,11 @@ def _insert_rows(sqlconn: sqlite3.Connection, rows: list[dict], batch_size: int)
             sqlconn, [str(row.get("joplin_id") or row.get("note_uuid")) for row in batch]
         )
         pending: list[dict] = []
+        # ``existing`` describes the database before this batch.  Keep the
+        # incoming identities too: SQLite's primary key is note_id, so two
+        # distinct rows with the same Joplin item ID would otherwise both be
+        # inserted when they occur in one executemany call.
+        pending_hashes: dict[str, set[bytes | None]] = {}
         for row in batch:
             item_id = str(row.get("joplin_id") or row.get("note_uuid"))
             incoming = row.get("note_obsidian_sha256")
@@ -443,24 +467,363 @@ def _insert_rows(sqlconn: sqlite3.Connection, rows: list[dict], batch_size: int)
                     skipped += 1
                     continue
                 common.error(f"item id collision for '{item_id}' while importing Obsidian vault")
+            pending_current = pending_hashes.get(item_id)
+            if pending_current is not None:
+                if incoming in pending_current:
+                    skipped += 1
+                    continue
+                common.error(f"item id collision for '{item_id}' while importing Obsidian vault")
             pending.append(row)
+            pending_hashes.setdefault(item_id, set()).add(incoming)
         if pending:
             notesdb.add_joplin_notes(sqlconn, pending)
             inserted += len(pending)
     return inserted, skipped
 
 
-def _load_manifest(vault_path: Path) -> dict | None:
-    path = vault_path / _PRESERVATION_DIR / _MANIFEST_NAME
-    if not path.is_file():
-        return None
+class _UnchangedNote(NamedTuple):
+    """A vault note already stored with the same ID and bytes."""
+
+    path: str
+
+
+class _ManifestNote(NamedTuple):
+    """The fields of a manifest note item the importer uses."""
+
+    id: str
+    obsidian_path: str | None
+    obsidian_sha256: str | None
+
+
+class _Manifest(NamedTuple):
+    """A version-1 preservation manifest, reduced to what the importer uses.
+
+    A full-library manifest holds over a million items; decoded whole it took
+    1.8 GiB.  Only these compact per-item fields are kept: every item's RAW
+    path in order, resource IDs, and the note items' paths and digests.
+    """
+
+    item_count: int  # items that are objects
+    raw_paths: list[str]
+    resource_ids: list[str]
+    notes: list[_ManifestNote]
+    raw_directory: object
+    attachments: object
+
+
+_MANIFEST_FORMAT = "movenotes-lossless-joplin-preservation"
+_MANIFEST_LABEL = f"{_PRESERVATION_DIR}/{_MANIFEST_NAME}"
+_RAW_DIR_NAME = "joplin-raw"
+_JSON_WHITESPACE = frozenset(" \t\n\r")
+_JSON_NUMBER_CHARACTERS = "0123456789.eE+-"
+# Where the decoder stops in a literal the end of the file cut short.
+_JSON_CUT_LITERALS = frozenset({"t", "tr", "tru", "f", "fa", "fal", "fals", "n", "nu", "nul"})
+
+
+class _ManifestSyntaxError(ValueError):
+    """Malformed JSON at a character offset; at_end if the file ended mid-value."""
+
+    def __init__(self, message: str, offset: int, at_end: bool) -> None:
+        super().__init__(message)
+        self.message = message
+        self.offset = offset
+        self.at_end = at_end
+
+
+class _BundleProblem(Exception):
+    """Why a .movenotes preservation bundle cannot be imported.
+
+    kind is "unreadable", "syntax", "format", "version", "items",
+    "no-manifest" or "unfinished"; it decides which next steps are offered.
+    """
+
+    def __init__(self, kind: str, reason: str) -> None:
+        super().__init__(reason)
+        self.kind = kind
+        self.reason = reason
+
+
+class _JsonReader:
+    """Read one JSON document a value at a time from a text stream.
+
+    Each value is decoded by the standard decoder, so the result is what
+    json.loads would give; only the enclosing object and the item array are
+    walked here.  A value that does not fit in the buffer is retried with
+    twice the data, so the cost stays linear in its size.
+    """
+
+    _CHUNK = 1 << 20
+
+    def __init__(self, stream) -> None:  # noqa: ANN001
+        self._stream = stream
+        self._decoder = json.JSONDecoder()
+        self._buffer = ""
+        self._position = 0
+        self._offset = 0  # characters read before the buffer
+        self._eof = False
+
+    def _fill(self, wanted: int) -> bool:
+        if self._eof:
+            return False
+        chunk = self._stream.read(max(wanted, self._CHUNK))
+        if not chunk:
+            self._eof = True
+            return False
+        self._offset += self._position
+        self._buffer = self._buffer[self._position:] + chunk
+        self._position = 0
+        return True
+
+    def fail(self, message: str, position: int | None = None) -> None:
+        """Raise _ManifestSyntaxError at position, by default the current one."""
+        position = self._position if position is None else position
+        rest = self._buffer[position:].rstrip(" \t\n\r")
+        cut = self._eof and (rest in _JSON_CUT_LITERALS or not rest.strip(_JSON_NUMBER_CHARACTERS))
+        raise _ManifestSyntaxError(message, self._offset + position, cut)
+
+    def peek(self) -> str:
+        """Skip whitespace and return the next character, or "" at the end."""
+        while True:
+            buffer, position = self._buffer, self._position
+            while position < len(buffer) and buffer[position] in _JSON_WHITESPACE:
+                position += 1
+            self._position = position
+            if position < len(buffer):
+                return buffer[position]
+            if not self._fill(0):
+                return ""
+
+    def expect(self, character: str) -> None:
+        if self.peek() != character:
+            self.fail(f"Expecting {character!r}")
+        self._position += 1
+
+    def value(self) -> object:
+        if self.peek() == "":
+            self.fail("Expecting value")
+        while True:
+            try:
+                value, end = self._decoder.raw_decode(self._buffer, self._position)
+            except json.JSONDecodeError as exc:
+                if self._fill(len(self._buffer) - self._position):
+                    continue
+                if exc.msg.startswith("Unterminated string"):
+                    # The string runs to the end of the file, so the file was cut.
+                    raise _ManifestSyntaxError(exc.msg, self._offset + exc.pos, True) from None
+                self.fail(exc.msg, exc.pos)
+            # A number cut by the end of the buffer ("12" of "123", or "1" of
+            # "1.5") decodes early; only what follows it shows that it ended.
+            if (
+                isinstance(value, (int, float))
+                and not self._buffer[end:].strip(_JSON_NUMBER_CHARACTERS)
+                and self._fill(len(self._buffer) - self._position)
+            ):
+                continue
+            self._position = end
+            return value
+
+
+def _check_bundle(vault_path: Path) -> _Manifest | None:
+    """The vault's preservation manifest, or None for a plain vault.
+
+    A bundle is present when .movenotes holds a manifest, a Joplin RAW copy or
+    an export record.  sql2obsidian.py writes them in the reverse order, so
+    either of the others without a manifest is an export that did not finish.
+    A bundle that cannot be imported raises _BundleProblem.
+    """
+    root = vault_path / _PRESERVATION_DIR
+    manifest_path = root / _MANIFEST_NAME
+    if manifest_path.exists() or manifest_path.is_symlink():
+        return _load_manifest(manifest_path)
+    if (root / _RAW_DIR_NAME).exists():
+        raise _BundleProblem(
+            "no-manifest",
+            f"{_PRESERVATION_DIR}/{_RAW_DIR_NAME}/ is present but {_MANIFEST_LABEL} is not: "
+            "the export that wrote the bundle did not finish, or the manifest was removed.",
+        )
+    if (root / obsidianmeta.EXPORT_RECORD_NAME).exists():
+        raise _BundleProblem(
+            "unfinished",
+            f"{_PRESERVATION_DIR}/{obsidianmeta.EXPORT_RECORD_NAME} is present but there is "
+            "no manifest and no Joplin RAW copy: the export that wrote this vault did not finish.",
+        )
+    return None
+
+
+def _load_manifest(path: Path) -> _Manifest:
+    """Read a preservation manifest; any reason it cannot be imported raises _BundleProblem."""
     try:
-        manifest = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError, json.JSONDecodeError):
-        return None
-    if not isinstance(manifest, dict) or manifest.get("format") != "movenotes-lossless-joplin-preservation":
-        return None
-    return manifest
+        with path.open(encoding="utf-8", newline="") as stream:
+            return _read_manifest(_JsonReader(stream))
+    except _ManifestSyntaxError as exc:
+        raise _BundleProblem("syntax", _describe_syntax_error(path, exc)) from None
+    except UnicodeDecodeError:
+        raise _BundleProblem("syntax", _describe_invalid_utf8(path)) from None
+    except OSError as exc:
+        raise _BundleProblem(
+            "unreadable", f"{_MANIFEST_LABEL} cannot be read: {exc.strerror or exc}."
+        ) from None
+
+
+def _describe_syntax_error(path: Path, error: _ManifestSyntaxError) -> str:
+    size = path.stat().st_size
+    if size == 0:
+        return f"{_MANIFEST_LABEL} is empty, which is what an interrupted export leaves."
+    line = column = 1
+    byte_offset = 0
+    remaining = error.offset
+    with path.open(encoding="utf-8", newline="") as stream:
+        while remaining > 0:
+            chunk = stream.read(min(remaining, 1 << 20))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+            newlines = chunk.count("\n")
+            if newlines:
+                line += newlines
+                column = len(chunk) - chunk.rfind("\n")
+            else:
+                column += len(chunk)
+            byte_offset += len(chunk.encode("utf-8"))
+    text = (
+        f"{_MANIFEST_LABEL} is not valid JSON: {error.message.removesuffix(' at')} "
+        f"at line {line:,}, column {column:,} (byte {byte_offset:,} of {size:,})."
+    )
+    if error.at_end:
+        text += " The file ends in the middle of the document, which is what an interrupted export leaves."
+    return text
+
+
+def _describe_invalid_utf8(path: Path) -> str:
+    size = path.stat().st_size
+    decoder = codecs.getincrementaldecoder("utf-8")()
+    position = 0
+    with path.open("rb") as stream:
+        while True:
+            block = stream.read(1 << 20)
+            pending = len(decoder.getstate()[0])
+            try:
+                decoder.decode(block, final=not block)
+            except UnicodeDecodeError as exc:
+                at = position - pending + exc.start
+                return f"{_MANIFEST_LABEL} is not valid UTF-8 at byte {at:,} of {size:,}."
+            if not block:
+                return f"{_MANIFEST_LABEL} is not valid UTF-8."
+            position += len(block)
+
+
+def _json_excerpt(value: object) -> str:
+    text = json.dumps(value, ensure_ascii=False)
+    return text if len(text) <= 80 else text[:77] + "..."
+
+
+def _read_manifest(reader: _JsonReader) -> _Manifest:
+    """Return the manifest's compact form.
+
+    Malformed JSON raises _ManifestSyntaxError where json.loads would raise,
+    and a well-formed document that is not an importable manifest raises
+    _BundleProblem.  The whole document is read before either is decided.
+    """
+    first = reader.peek()
+    if first == "\ufeff":
+        reader.fail("Unexpected UTF-8 byte-order mark")
+    if first != "{":
+        reader.value()
+        if reader.peek() != "":
+            reader.fail("Extra data")
+        raise _BundleProblem(
+            "format", f"{_MANIFEST_LABEL} is not a movenotes preservation manifest: it is not a JSON object."
+        )
+    reader.expect("{")
+    members: dict[str, object] = {}
+    items: tuple[int, list[str], list[str], list[_ManifestNote]] | None = (0, [], [], [])
+    if reader.peek() == "}":
+        reader.expect("}")
+    else:
+        while True:
+            if reader.peek() != '"':
+                reader.fail("Expecting property name enclosed in double quotes")
+            key = reader.value()
+            reader.expect(":")
+            if key == "items" and reader.peek() == "[":
+                items = _read_manifest_items(reader)
+            elif key == "items":
+                reader.value()
+                items = None
+            else:
+                members[key] = reader.value()
+            if reader.peek() == ",":
+                reader.expect(",")
+                continue
+            reader.expect("}")
+            break
+    if reader.peek() != "":
+        reader.fail("Extra data")
+    if members.get("format") != _MANIFEST_FORMAT:
+        found = (
+            f"its format is {_json_excerpt(members['format'])}" if "format" in members
+            else "it has no format field"
+        )
+        raise _BundleProblem(
+            "format", f"{_MANIFEST_LABEL} is not a movenotes preservation manifest: {found}."
+        )
+    version = members.get("version")
+    if type(version) is not int:
+        found = f"its version is {_json_excerpt(version)}" if "version" in members else "it has no version"
+        raise _BundleProblem("format", f"{_MANIFEST_LABEL} is damaged: {found}, not a whole number.")
+    if version != 1:
+        raise _BundleProblem(
+            "version",
+            f"{_MANIFEST_LABEL} is version {version}, and this release of obsidian2sql.py "
+            "reads version 1 only.",
+        )
+    if items is None:
+        raise _BundleProblem("items", f"{_MANIFEST_LABEL} is damaged: its items field is not a list.")
+    return _Manifest(
+        *items,
+        raw_directory=members.get("raw_directory", _RAW_DIR_NAME),
+        attachments=members.get("attachments", {}),
+    )
+
+
+def _read_manifest_items(
+    reader: _JsonReader,
+) -> tuple[int, list[str], list[str], list[_ManifestNote]]:
+    count = 0
+    raw_paths: list[str] = []
+    resource_ids: list[str] = []
+    notes: list[_ManifestNote] = []
+    note_type = int(constants.JoplinType.NOTE)
+    resource_type = int(constants.JoplinType.RESOURCE)
+    reader.expect("[")
+    if reader.peek() == "]":
+        reader.expect("]")
+        return count, raw_paths, resource_ids, notes
+    while True:
+        item = reader.value()
+        if isinstance(item, dict):
+            count += 1
+            raw_path = item.get("raw_path")
+            if isinstance(raw_path, str):
+                raw_paths.append(raw_path)
+            item_id = item.get("id")
+            if isinstance(item_id, str):
+                item_type = item.get("type")
+                if item_type == resource_type:
+                    resource_ids.append(item_id)
+                elif item_type == note_type:
+                    path = item.get("obsidian_path")
+                    digest = item.get("obsidian_sha256")
+                    notes.append(_ManifestNote(
+                        item_id,
+                        path if isinstance(path, str) else None,
+                        digest if isinstance(digest, str) else None,
+                    ))
+        if reader.peek() == ",":
+            reader.expect(",")
+            continue
+        reader.expect("]")
+        return count, raw_paths, resource_ids, notes
 
 
 def _ancestor_directories(paths: set[str]) -> set[str]:
@@ -477,18 +840,14 @@ def _import_preserved_joplin(
     vault_path: Path,
     output_path: Path,
     sqlconn: sqlite3.Connection,
-    manifest: dict,
+    manifest: _Manifest,
     batch_size: int,
     progress_every: int = 1000,
     verbose: bool = False,
 ) -> tuple[int, int, dict[str, object]]:
     """Import a preservation bundle with bounded parsing and indexed overlays."""
     preservation_root = vault_path / _PRESERVATION_DIR
-    manifest_items = manifest.get("items", [])
-    if not isinstance(manifest_items, list):
-        common.error("invalid .movenotes manifest: items is not a list")
-
-    valid_items = [item for item in manifest_items if isinstance(item, dict)]
+    item_count = manifest.item_count
     inserted = skipped = processed = 0
     batch: list[dict] = []
 
@@ -501,10 +860,7 @@ def _import_preserved_joplin(
         skipped += repeated
         batch.clear()
 
-    for item in valid_items:
-        raw_path = item.get("raw_path")
-        if not isinstance(raw_path, str):
-            continue
+    for raw_path in manifest.raw_paths:
         source = preservation_root / raw_path
         if not source.is_file():
             common.error(f"preserved Joplin RAW item not found: '{source}'")
@@ -523,7 +879,7 @@ def _import_preserved_joplin(
             and processed % progress_every == 0
         ):
             print(
-                f"processed {processed:,} of {len(valid_items):,} "
+                f"processed {processed:,} of {item_count:,} "
                 "preserved Joplin item(s)"
             )
     flush()
@@ -534,28 +890,58 @@ def _import_preserved_joplin(
         and processed % progress_every
     ):
         print(
-            f"processed {processed:,} of {len(valid_items):,} "
+            f"processed {processed:,} of {item_count:,} "
             "preserved Joplin item(s)"
         )
 
     raw_resources = (
         preservation_root
-        / str(manifest.get("raw_directory", "joplin-raw"))
+        / str(manifest.raw_directory)
         / "resources"
     )
     if raw_resources.is_dir():
-        common.copy_resources(raw_resources, output_path / "resources")
+        common.copy_resources(
+            raw_resources, output_path / "resources", reject_collisions=True
+        )
+
+    # Joplin RAW has no place for Notrios' resource-association bookkeeping.
+    # Retain only the in-scope resource identities in SQLite so a later vault
+    # export can distinguish a deleted resource row from an omitted note target.
+    is_notrios_bundle = sqlconn.execute(
+        "SELECT 1 FROM notes WHERE joplin_type_=? AND joplin_source=? "
+        "AND joplin_source_application=? LIMIT 1",
+        (int(constants.JoplinType.NOTE), "movenotes-notrios", "movenotes-notrios2sql"),
+    ).fetchone()
+    if is_notrios_bundle:
+        sqlconn.execute(
+            "CREATE TABLE IF NOT EXISTS notrios_preserved_resources "
+            "(resource_id TEXT PRIMARY KEY)"
+        )
+        sqlconn.executemany(
+            "INSERT OR IGNORE INTO notrios_preserved_resources(resource_id) VALUES (?)",
+            ((resource_id,) for resource_id in manifest.resource_ids),
+        )
 
     # Resolve attachment paths from the manifest and from native-Obsidian
     # metadata carried by resource items.
-    attachment_map = manifest.get("attachments", {})
+    attachment_map = manifest.attachments
     if not isinstance(attachment_map, dict):
         attachment_map = {}
     path_to_id = {
         str(path): str(resource_id)
         for resource_id, path in attachment_map.items()
         if isinstance(resource_id, str) and isinstance(path, str)
+        and obsidianmeta.safe_relative_path(path) is not None
     }
+    # The bundle's attachment map records the names already embedded in exact
+    # Notrios vault snapshots.  Keep that presentation metadata in the
+    # dedicated Obsidian path column: it must not alter Joplin RAW source
+    # properties or application_data.
+    for path, resource_id in path_to_id.items():
+        sqlconn.execute(
+            "UPDATE notes SET note_obsidian_path=? WHERE joplin_id=? AND joplin_type_=?",
+            (path, resource_id, int(constants.JoplinType.RESOURCE)),
+        )
     for resource_row in sqlconn.execute(
         "SELECT joplin_id, joplin_application_data FROM notes "
         "WHERE joplin_type_ = ?",
@@ -573,24 +959,18 @@ def _import_preserved_joplin(
     external_path_ids: dict[str, str] = dict(path_to_id)
     folder_id_overrides: dict[str, str] = {}
 
-    note_items = [
-        item
-        for item in valid_items
-        if item.get("type") == int(constants.JoplinType.NOTE)
-        and isinstance(item.get("id"), str)
-    ]
+    note_items = manifest.notes
 
     # A user may rename an Obsidian file. Only scan frontmatter identities when
     # at least one manifest path is missing; ordinary unmodified imports avoid
     # this extra vault pass.
     missing_ids = {
-        str(item["id"])
+        item.id
         for item in note_items
-        if not isinstance(item.get("obsidian_path"), str)
-        or obsidianmeta.safe_relative_path(str(item.get("obsidian_path"))) is None
+        if item.obsidian_path is None
+        or obsidianmeta.safe_relative_path(item.obsidian_path) is None
         or not (
-            vault_path
-            / obsidianmeta.safe_relative_path(str(item.get("obsidian_path")))
+            vault_path / obsidianmeta.safe_relative_path(item.obsidian_path)
         ).is_file()
     }
     renamed_by_id: dict[str, PurePosixPath] = {}
@@ -621,7 +1001,7 @@ def _import_preserved_joplin(
 
     for offset in range(0, len(note_items), batch_size):
         chunk = note_items[offset : offset + batch_size]
-        item_ids = [str(item["id"]) for item in chunk]
+        item_ids = [item.id for item in chunk]
         placeholders = ",".join("?" for _ in item_ids)
         rows_by_id = {
             str(row["joplin_id"]): row
@@ -633,14 +1013,13 @@ def _import_preserved_joplin(
             )
         }
         for item in chunk:
-            item_id = str(item["id"])
+            item_id = item.id
             row = rows_by_id.get(item_id)
             if row is None:
                 continue
-            relative_value = item.get("obsidian_path")
             safe = (
-                obsidianmeta.safe_relative_path(relative_value)
-                if isinstance(relative_value, str)
+                obsidianmeta.safe_relative_path(item.obsidian_path)
+                if item.obsidian_path is not None
                 else None
             )
             if safe is None or not (vault_path / safe).is_file():
@@ -662,9 +1041,9 @@ def _import_preserved_joplin(
             frontmatter, obsidian_body = split_frontmatter(text)
             parsed_frontmatter = parse_frontmatter(frontmatter)
             generated_body = row["note_data"] or ""
-            expected_sha = item.get("obsidian_sha256")
+            expected_sha = item.obsidian_sha256
             edited = (
-                isinstance(expected_sha, str)
+                expected_sha is not None
                 and hashlib.sha256(raw).hexdigest() != expected_sha
             )
             application_data = row["joplin_application_data"] or ""
@@ -733,20 +1112,29 @@ def _native_rows(
     known_directories: set[str] | None = None,
     external_path_ids: dict[str, str] | None = None,
     folder_id_overrides: dict[str, str] | None = None,
+    existing_hashes: Callable[[list[str]], dict[str, set[bytes | None]]] | None = None,
+    lookahead: int = 500,
 ):  # noqa: ANN201
     """Return a bounded-memory row iterator and the number of vault files.
 
-    Path/ID indexes are compact and built once. File bytes are read only when
-    their row is yielded, so at most one SQLite batch of note bodies is held in
-    memory. Attachment bytes remain in ``resources/`` rather than being copied
-    into a second SQLite BLOB.
+    Path/ID indexes are compact and built once. Note bytes are read
+    ``lookahead`` files ahead of the rows yielded, so at most that many note
+    bodies plus one SQLite batch are held in memory. Attachment bytes remain in
+    ``resources/`` rather than being copied into a second SQLite BLOB.
+
+    ``existing_hashes`` is ``_existing_import_hashes`` bound to the output
+    database. A note it reports as stored with the same ID and bytes is yielded
+    as an ``_UnchangedNote`` instead of a row.
     """
     exclude_paths = exclude_paths or set()
     known_directories = known_directories or set()
     external_path_ids = external_path_ids or {}
     folder_id_overrides = folder_id_overrides or {}
-    markdown_files: list[Path] = []
-    resource_files: list[Path] = []
+    # Retain the normalized relative path discovered during the inventory
+    # walk.  Reconstructing it with Path.relative_to() at every later stage
+    # dominated native fresh profiling while adding no semantic information.
+    markdown_files: list[tuple[Path, str]] = []
+    resource_files: list[tuple[Path, str]] = []
     vault_directories: set[str] = set()
     for root, dirs, files in os.walk(vault_path):
         root_path = Path(root)
@@ -772,13 +1160,12 @@ def _native_rows(
             if relative_text in exclude_paths:
                 continue
             if path.suffix.lower() == ".md":
-                markdown_files.append(path)
+                markdown_files.append((path, relative_text))
             else:
-                resource_files.append(path)
+                resource_files.append((path, relative_text))
 
     frontmatter_identity: dict[str, tuple[str | None, str | None]] = {}
-    for path in markdown_files:
-        relative = path.relative_to(vault_path).as_posix()
+    for path, relative in markdown_files:
         properties = _property_pairs(
             _frontmatter_summary(path).get("joplin-properties")
         )
@@ -788,19 +1175,19 @@ def _native_rows(
         frontmatter_identity[relative] = (item_id, parent_id)
 
     note_ids = {
-        path.relative_to(vault_path).as_posix(): (
-            frontmatter_identity[path.relative_to(vault_path).as_posix()][0]
+        relative: (
+            frontmatter_identity[relative][0]
             or obsidianmeta.deterministic_id(
-                "note", path.relative_to(vault_path).as_posix()
+                "note", relative
             )
         )
-        for path in markdown_files
+        for _path, relative in markdown_files
     }
     resource_ids = {
-        path.relative_to(vault_path).as_posix(): obsidianmeta.deterministic_id(
-            "resource", path.relative_to(vault_path).as_posix()
+        relative: obsidianmeta.deterministic_id(
+            "resource", relative
         )
-        for path in resource_files
+        for _path, relative in resource_files
     }
     all_path_ids = {**external_path_ids, **note_ids, **resource_ids}
     basename_paths: dict[str, list[str]] = defaultdict(list)
@@ -838,6 +1225,81 @@ def _native_rows(
         and (path not in known_directories or path in note_parent_paths)
     }
 
+    def note_row(
+        source: Path, relative: str, raw: bytes, frontmatter: str,
+        obsidian_body: str, parsed: dict[str, object],
+        properties: list[tuple[str, str]], note_id: str,
+    ) -> dict:
+        title = str(parsed.get("title") or source.stem)
+        timestamp = str(parsed.get("created") or _iso_timestamp(source))
+        updated = str(parsed.get("updated") or timestamp)
+        source_url = str(parsed.get("source-url") or "")
+        parent_id = folder_ids.get(
+            PurePosixPath(relative).parent.as_posix(), ""
+        )
+        converted = rewrite_obsidian_links(
+            obsidian_body,
+            PurePosixPath(relative),
+            all_path_ids,
+            basename_paths,
+            set(resource_ids),
+        )
+        generated_body = title + ("\n\n" + converted if converted else "")
+        existing_app = ""
+        if properties:
+            effective = dict(properties)
+            note_id = effective.get("id", note_id)
+            parent_id = effective.get("parent_id", parent_id)
+            existing_app = effective.get("application_data", "")
+        app_data = obsidianmeta.encode_note_application_data(
+            relative_path=relative,
+            raw=raw,
+            generated_joplin_body=generated_body,
+            existing_application_data=existing_app,
+        )
+        if not properties:
+            properties = _generated_properties(
+                item_id=note_id,
+                item_type=int(constants.JoplinType.NOTE),
+                timestamp=timestamp,
+                parent_id=parent_id,
+                application_data=app_data,
+            )
+        else:
+            properties = [
+                (key, app_data if key == "application_data" else value)
+                for key, value in properties
+            ]
+            if not any(key == "application_data" for key, _value in properties):
+                properties.insert(-1, ("application_data", app_data))
+            properties = [
+                (
+                    key,
+                    source_url
+                    if key == "source_url" and source_url
+                    else value,
+                )
+                for key, value in properties
+            ]
+        row = _columns_from_properties(
+            properties=properties,
+            body=generated_body,
+            title=title,
+            source_path=relative,
+            raw=raw,
+            frontmatter=frontmatter,
+            obsidian_body=obsidian_body,
+            application_data_override=app_data,
+        )
+        row["joplin_id"] = note_id
+        row["note_uuid"] = note_id
+        row["joplin_parent_id"] = parent_id
+        row["note_parent_uuid"] = parent_id
+        row["joplin_created_time"] = row.get("joplin_created_time") or timestamp
+        row["joplin_updated_time"] = row.get("joplin_updated_time") or updated
+        row["joplin_source_url"] = row.get("joplin_source_url") or source_url
+        return row
+
     def generate():  # noqa: ANN202
         tag_ids: dict[str, str] = {}
         note_tag_pairs: list[tuple[str, str, str]] = []
@@ -870,8 +1332,7 @@ def _native_rows(
                 application_data_override=app_data,
             )
 
-        for source in resource_files:
-            relative = source.relative_to(vault_path).as_posix()
+        for source, relative in resource_files:
             resource_id = resource_ids[relative]
             content_digest = _file_sha256(source)
             content_size = source.stat().st_size
@@ -910,98 +1371,66 @@ def _native_rows(
             row["note_source_filename"] = destination.name
             yield row
 
-        for source in markdown_files:
-            relative = source.relative_to(vault_path).as_posix()
-            raw = source.read_bytes()
-            try:
-                text = raw.decode("utf-8-sig")
-            except UnicodeDecodeError as exc:
-                common.error(f"'{source}' is not valid UTF-8: {exc}")
-            frontmatter, obsidian_body = split_frontmatter(text)
-            parsed = parse_frontmatter(frontmatter)
-            title = str(parsed.get("title") or source.stem)
-            timestamp = str(parsed.get("created") or _iso_timestamp(source))
-            updated = str(parsed.get("updated") or timestamp)
-            source_url = str(parsed.get("source-url") or "")
-            properties = _property_pairs(parsed.get("joplin-properties"))
-            note_id = note_ids[relative]
-            parent_id = folder_ids.get(
-                PurePosixPath(relative).parent.as_posix(), ""
-            )
-            converted = rewrite_obsidian_links(
-                obsidian_body,
-                PurePosixPath(relative),
-                all_path_ids,
-                basename_paths,
-                set(resource_ids),
-            )
-            generated_body = title + ("\n\n" + converted if converted else "")
-            existing_app = ""
-            if properties:
-                effective = dict(properties)
-                note_id = effective.get("id", note_id)
-                parent_id = effective.get("parent_id", parent_id)
-                existing_app = effective.get("application_data", "")
-            app_data = obsidianmeta.encode_note_application_data(
-                relative_path=relative,
-                raw=raw,
-                generated_joplin_body=generated_body,
-                existing_application_data=existing_app,
-            )
-            if not properties:
-                properties = _generated_properties(
-                    item_id=note_id,
-                    item_type=int(constants.JoplinType.NOTE),
-                    timestamp=timestamp,
-                    parent_id=parent_id,
-                    application_data=app_data,
+        for start in range(0, len(markdown_files), lookahead):
+            # Read one batch of notes ahead and ask the database once whether
+            # each is already stored with the same ID and bytes.  That is the
+            # test _insert_rows applies, and the database only gains rows
+            # before the batch reaches it, so a note found unchanged here
+            # would be skipped there too; converting it would be wasted work.
+            # Its tags are still collected below.  A file that cannot be read
+            # or decoded stops the read-ahead, and its error is raised in file
+            # order, after the notes before it have been yielded.
+            notes = []
+            failure = None
+            for source, relative in markdown_files[start:start + lookahead]:
+                try:
+                    raw = source.read_bytes()
+                    text = raw.decode("utf-8-sig")
+                    frontmatter, obsidian_body = split_frontmatter(text)
+                    parsed = parse_frontmatter(frontmatter)
+                except Exception as exc:  # noqa: BLE001 - re-raised in order below
+                    failure = (source, exc)
+                    break
+                properties = _property_pairs(parsed.get("joplin-properties"))
+                note_id = note_ids[relative]
+                if properties:
+                    note_id = dict(properties).get("id", note_id)
+                notes.append(
+                    (source, relative, raw, frontmatter, obsidian_body, parsed,
+                     properties, note_id)
                 )
-            else:
-                properties = [
-                    (key, app_data if key == "application_data" else value)
-                    for key, value in properties
-                ]
-                if not any(key == "application_data" for key, _value in properties):
-                    properties.insert(-1, ("application_data", app_data))
-                properties = [
-                    (
-                        key,
-                        source_url
-                        if key == "source_url" and source_url
-                        else value,
-                    )
-                    for key, value in properties
-                ]
-            row = _columns_from_properties(
-                properties=properties,
-                body=generated_body,
-                title=title,
-                source_path=relative,
-                raw=raw,
-                frontmatter=frontmatter,
-                obsidian_body=obsidian_body,
-                application_data_override=app_data,
+            stored = (
+                existing_hashes([str(note[-1]) for note in notes])
+                if existing_hashes is not None and notes
+                else {}
             )
-            row["joplin_id"] = note_id
-            row["note_uuid"] = note_id
-            row["joplin_parent_id"] = parent_id
-            row["note_parent_uuid"] = parent_id
-            row["joplin_created_time"] = row.get("joplin_created_time") or timestamp
-            row["joplin_updated_time"] = row.get("joplin_updated_time") or updated
-            row["joplin_source_url"] = row.get("joplin_source_url") or source_url
-            yield row
-
-            tags = parsed.get("tags")
-            if isinstance(tags, list):
-                for tag in tags:
-                    tag_name = str(tag).lstrip("#").strip()
-                    if not tag_name:
-                        continue
-                    tag_id = tag_ids.setdefault(
-                        tag_name,
-                        obsidianmeta.deterministic_id("tag", tag_name),
+            for (
+                source, relative, raw, frontmatter, obsidian_body, parsed,
+                properties, note_id,
+            ) in notes:
+                if hashlib.sha256(raw).digest() in stored.get(str(note_id), ()):
+                    yield _UnchangedNote(relative)
+                else:
+                    yield note_row(
+                        source, relative, raw, frontmatter, obsidian_body,
+                        parsed, properties, note_ids[relative],
                     )
-                    note_tag_pairs.append((note_id, tag_id, tag_name))
+                tags = parsed.get("tags")
+                if isinstance(tags, list):
+                    for tag in tags:
+                        tag_name = str(tag).lstrip("#").strip()
+                        if not tag_name:
+                            continue
+                        tag_id = tag_ids.setdefault(
+                            tag_name,
+                            obsidianmeta.deterministic_id("tag", tag_name),
+                        )
+                        note_tag_pairs.append((note_id, tag_id, tag_name))
+            if failure is not None:
+                source, exc = failure
+                if isinstance(exc, UnicodeDecodeError):
+                    common.error(f"'{source}' is not valid UTF-8: {exc}")
+                raise exc
 
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         for tag_name, tag_id in sorted(
@@ -1042,6 +1471,186 @@ def _native_rows(
 
     return generate(), len(markdown_files) + len(resource_files)
 
+
+_SOURCE_PLACEHOLDER = "SOURCE_LIBRARY"
+
+
+def _printable(text: str) -> bool:
+    """No control characters, which could rewrite the terminal around them."""
+    return not any(ord(character) < 0x20 or 0x7F <= ord(character) < 0xA0 for character in text)
+
+
+def _invocation(argv: list[str]) -> tuple[list[str], list[str], Callable[[str], str]]:
+    """How this run was started, for printing commands the user can run next.
+
+    Returns the interpreter with its flags, the words that ran this script, and
+    a function naming a sibling script the same way.  sys.orig_argv holds the
+    command as typed; when main() was called some other way it does not end
+    with argv, and the interpreter and this file's absolute path stand in.
+    """
+    original = list(getattr(sys, "orig_argv", None) or [])
+    head = original[: len(original) - len(argv)]
+    here = Path(__file__).resolve()
+    if original[len(head):] == argv and len(head) >= 2:
+        if Path(head[-1]).name == here.name:
+            script = head[-1]
+            return head[:-1], head, lambda name: str(Path(script).with_name(name))
+        if len(head) >= 3 and head[-2] == "-m":
+            return head[:-2], head, lambda name: str(here.with_name(name))
+    return [sys.executable], [sys.executable, str(here)], lambda name: str(here.with_name(name))
+
+
+def _suggested_directory(vault_path: Path) -> Path:
+    candidate = vault_path.with_name(f"{vault_path.name}-reexport")
+    number = 2
+    while candidate.exists() or candidate.is_symlink():
+        candidate = vault_path.with_name(f"{vault_path.name}-reexport-{number}")
+        number += 1
+    return candidate
+
+
+def _recorded_export(root: Path) -> tuple[str, list[str], str, list[str]]:
+    """The source library and sql2obsidian.py options of the export, from its record.
+
+    Returns the --input word, the options, a comment for the command line and
+    notes to print under it.  The record may come from someone else's vault, so
+    its values are only ever printed, shell-quoted, never run.
+    """
+    label = f"{_PRESERVATION_DIR}/{obsidianmeta.EXPORT_RECORD_NAME}"
+    explain = (
+        f"{_SOURCE_PLACEHOLDER} is the directory that was given to sql2obsidian.py --input "
+        f"when this vault was exported; it holds {notesdb.DATABASE_FILENAME}."
+    )
+    unknown_options = (
+        " Add the options that export used, if any: --notebooks, --no-frontmatter, "
+        "--no-simplify-urls, --include-notrios-receipt."
+    )
+    path = root / obsidianmeta.EXPORT_RECORD_NAME
+    if not path.exists():
+        return _SOURCE_PLACEHOLDER, [], "", [
+            explain + " This vault has no export record, so it is not known here." + unknown_options
+        ]
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        reason = getattr(exc, "strerror", None) or str(exc)
+    else:
+        reason = "it is not a version-1 movenotes export record"
+        options = record.get("options") if isinstance(record, dict) else None
+        if (
+            isinstance(record, dict)
+            and record.get("format") == obsidianmeta.EXPORT_RECORD_FORMAT
+            and type(record.get("version")) is int
+            and record["version"] == 1
+            and isinstance(options, dict)
+        ):
+            source = obsidianmeta.expand_portable_path(record.get("source_database"))
+            notebooks = options.get("notebooks")
+            flags = {
+                "--no-frontmatter": options.get("frontmatter"),
+                "--no-simplify-urls": options.get("simplify_urls"),
+                "--include-notrios-receipt": options.get("include_notrios_receipt"),
+            }
+            if (
+                source is not None
+                and _printable(str(source))
+                and (notebooks is None or isinstance(notebooks, list) and all(
+                    isinstance(value, str) and _printable(value) for value in notebooks
+                ))
+                and all(isinstance(value, bool) for value in flags.values())
+            ):
+                words: list[str] = []
+                for value in notebooks or []:
+                    # "--notebooks=-x", or argparse takes "-x" for an option.
+                    words += [f"--notebooks={value}"] if value.startswith("-") else ["--notebooks", value]
+                words += [flag for flag in ("--no-frontmatter", "--no-simplify-urls") if not flags[flag]]
+                if flags["--include-notrios-receipt"]:
+                    words.append("--include-notrios-receipt")
+                comment = "" if (source / notesdb.DATABASE_FILENAME).is_file() else (
+                    "  # source library recorded when the vault was exported; not found here"
+                )
+                return str(source), words, comment, []
+            reason = "its source library or options are malformed"
+    return _SOURCE_PLACEHOLDER, [], "", [
+        explain + f" The export record, {label}, cannot be read ({reason}), so it is not known here."
+        + unknown_options
+    ]
+
+
+def _refusal(
+    problem: _BundleProblem,
+    vault_path: Path,
+    output_path: Path,
+    args: argparse.Namespace,
+    argv: list[str],
+) -> str:
+    """The error for a damaged bundle, with the commands that can follow it."""
+    interpreter, this_script, sibling = _invocation(argv)
+    original = this_script + list(argv)
+    root = vault_path / _PRESERVATION_DIR
+    raw_copy = root / _RAW_DIR_NAME
+    steps: list[tuple[str, list[str], list[str]]] = []
+    if problem.kind == "version":
+        steps.append((
+            "Update movenotes to a release that reads this manifest version, then rerun this command:",
+            [shlex.join(original)], [],
+        ))
+    elif problem.kind != "unfinished":
+        steps.append((
+            f"Restore {_MANIFEST_LABEL} from a backup, then rerun this command:",
+            [shlex.join(original)], [],
+        ))
+    if raw_copy.is_dir():
+        steps.append((
+            "Import the Joplin RAW copy instead. It is lossless for the export, "
+            "but leaves out any Obsidian edits made since:",
+            [shlex.join(interpreter + [
+                sibling("joplin2sql.py"), "--input", str(raw_copy), "--output", str(output_path),
+            ])], [],
+        ))
+    steps.append((
+        "Import the vault as plain Obsidian notes. This keeps edits made since the export, "
+        "but drops the Joplin-only items and properties the bundle holds:",
+        [shlex.join(original + ["--ignore-preservation"])], [],
+    ))
+    target = _suggested_directory(vault_path)
+    source, export_options, comment, notes = _recorded_export(root)
+    parser = _build_argument_parser()
+    import_options: list[str] = []
+    if args.batch_size != parser.get_default("batch_size"):
+        import_options += ["--batch-size", str(args.batch_size)]
+    if args.progress_every != parser.get_default("progress_every"):
+        import_options += ["--progress-every", str(args.progress_every)]
+    if args.verbose:
+        import_options.append("--verbose")
+    steps.append((
+        "Export the source library again into a new directory and import that. "
+        "This leaves out any edits made since the export:",
+        [
+            f"mkdir {shlex.quote(str(target))}  # suggested; any new empty directory works",
+            shlex.join(interpreter + [
+                sibling("sql2obsidian.py"), "--input", source, "--output", str(target),
+            ] + export_options) + comment,
+            shlex.join(this_script + [
+                "--input", str(target), "--output", str(output_path),
+            ] + import_options),
+        ],
+        notes,
+    ))
+    lines = [
+        f"cannot import '{vault_path}': its movenotes preservation bundle is damaged.",
+        problem.reason,
+        "Nothing was imported.",
+        "",
+        "Next steps, any one of:",
+    ]
+    for number, (title, commands, step_notes) in enumerate(steps, 1):
+        lines += ["", f"{number}. {title}"]
+        lines += [f"     {command}" for command in commands]
+        lines += [f"   {note}" for note in step_notes]
+    return "\n".join(lines)
+
+
 def main(argv: list[str]) -> int:
     args = _build_argument_parser().parse_args(argv)
     if args.batch_size < 1:
@@ -1050,26 +1659,52 @@ def main(argv: list[str]) -> int:
         common.error("--progress-every cannot be negative")
     vault_path: Path = args.input_path
     output_path: Path = args.output_path
+    manifest = None
+    if not args.ignore_preservation:
+        # Before the output is touched, so a refusal writes nothing.
+        try:
+            manifest = _check_bundle(vault_path)
+        except _BundleProblem as problem:
+            common.error(_refusal(problem, vault_path, output_path, args, argv))
     database_path = output_path / notesdb.DATABASE_FILENAME
     new_database = not database_path.is_file()
     if new_database:
         sqlconn = notesdb.connect(database_path)
         notesdb.create_database(sqlconn, create_indexes=False)
+        # Every batch looks up its item IDs before inserting; without this
+        # index each lookup scans the rows already imported, which is
+        # quadratic over a large vault.  The other indexes still wait for the
+        # final pass.
+        notesdb.ensure_joplin_id_index(sqlconn)
     else:
         sqlconn = notesdb.open_database(database_path, __program_name__)
+        if sqlconn.execute("SELECT 1 FROM notes LIMIT 1").fetchone() is None:
+            # A library with no rows, such as an interrupted fresh import
+            # leaves, is imported like a new database: maintaining the other
+            # indexes row by row made it up to 48% slower.  The final pass
+            # rebuilds them, and so does the next open if this run stops.
+            notesdb.drop_deferred_indexes(sqlconn)
     output_path.joinpath("resources").mkdir(parents=True, exist_ok=True)
 
-    manifest = _load_manifest(vault_path)
     try:
         inserted = skipped = 0
+
+        def stored_hashes(item_ids: list[str]) -> dict[str, set[bytes | None]]:
+            return _existing_import_hashes(sqlconn, item_ids)
 
         def import_native_rows(rows, file_count: int) -> tuple[int, int]:  # noqa: ANN001
             batch: list[dict] = []
             added_total = skipped_total = files_processed = 0
             next_progress = args.progress_every if args.progress_every else 0
 
+            # A note found unchanged before conversion still takes its slot, so
+            # batches close where they would if its row had been built, and the
+            # remaining rows meet _insert_rows' checks at the same points.
+            batch_slots = 0
+
             def flush_native_batch() -> None:
-                nonlocal added_total, skipped_total
+                nonlocal added_total, skipped_total, batch_slots
+                batch_slots = 0
                 if not batch:
                     return
                 added, repeated = _insert_rows(sqlconn, batch, args.batch_size)
@@ -1078,18 +1713,26 @@ def main(argv: list[str]) -> int:
                 batch.clear()
 
             for row in rows:
-                item_type = row.get("joplin_type_")
-                source_path = str(row.get("note_obsidian_path") or "")
-                is_vault_file = item_type in {
-                    int(constants.JoplinType.NOTE),
-                    int(constants.JoplinType.RESOURCE),
-                } and not source_path.startswith(".movenotes/")
-                if is_vault_file:
+                unchanged = isinstance(row, _UnchangedNote)
+                if unchanged:
+                    source_path = row.path
                     files_processed += 1
+                    skipped_total += 1
+                else:
+                    item_type = row.get("joplin_type_")
+                    source_path = str(row.get("note_obsidian_path") or "")
+                    is_vault_file = item_type in {
+                        int(constants.JoplinType.NOTE),
+                        int(constants.JoplinType.RESOURCE),
+                    } and not source_path.startswith(".movenotes/")
+                    if is_vault_file:
+                        files_processed += 1
                 if args.verbose:
                     print(f"processing '{source_path or row.get('note_title')}'")
-                batch.append(row)
-                if len(batch) >= args.batch_size:
+                if not unchanged:
+                    batch.append(row)
+                batch_slots += 1
+                if batch_slots >= args.batch_size:
                     flush_native_batch()
                 if (
                     not args.verbose
@@ -1129,6 +1772,8 @@ def main(argv: list[str]) -> int:
                 known_directories=set(context["known_directories"]),
                 external_path_ids=dict(context["external_path_ids"]),
                 folder_id_overrides=dict(context["folder_id_overrides"]),
+                existing_hashes=stored_hashes,
+                lookahead=args.batch_size,
             )
             native_inserted, native_skipped = import_native_rows(rows, file_count)
             inserted += native_inserted
@@ -1137,9 +1782,13 @@ def main(argv: list[str]) -> int:
             if file_count:
                 source_description += f" plus {file_count:,} additional Obsidian vault file(s)"
         else:
-            rows, file_count = _native_rows(vault_path, output_path)
+            rows, file_count = _native_rows(
+                vault_path, output_path,
+                existing_hashes=stored_hashes, lookahead=args.batch_size,
+            )
             inserted, skipped = import_native_rows(rows, file_count)
             source_description = f"native Obsidian vault ({file_count:,} file(s))"
+        notesdb.ensure_joplin_id_index(sqlconn)
         notesdb.populate_missing_note_folders(sqlconn)
         notesdb.ensure_indexes(sqlconn)
         sqlconn.commit()

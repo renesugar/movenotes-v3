@@ -46,7 +46,7 @@ import notesdb
 
 __program_name__ = "sql2joplin"
 __author__ = "Rene Sugar"
-__version__ = "3.20"
+__version__ = "3.37"
 __license__ = "MIT License (https://opensource.org/licenses/MIT)"
 __website__ = "https://github.com/renesugar"
 
@@ -205,7 +205,7 @@ def main(argv: list[str]) -> int:
     if not database_path.is_file():
         common.error("database not found")
 
-    sqlconn = notesdb.open_database(database_path, __program_name__)
+    sqlconn = notesdb.open_database_for_reading(database_path, __program_name__)
     sqlcur = sqlconn.cursor()
 
     input_resources_path = input_path / "resources"

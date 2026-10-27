@@ -1,0 +1,90 @@
+[
+  {
+    "input": "text/plain",
+    "accepted": true
+  },
+  {
+    "input": "Text/Plain; Charset=UTF-8",
+    "accepted": true
+  },
+  {
+    "input": "application/octet-stream",
+    "accepted": true
+  },
+  {
+    "input": "text/plain; a=1; A=1",
+    "accepted": true
+  },
+  {
+    "input": "text/plain; a=1; A=2",
+    "accepted": false
+  },
+  {
+    "input": "text/plain;",
+    "accepted": true
+  },
+  {
+    "input": "text/plain;;",
+    "accepted": false
+  },
+  {
+    "input": "attachment; filename=\"C:\\dev\\go\\file.txt\"",
+    "accepted": true
+  },
+  {
+    "input": "text/plain; name*=utf-8''caf%C3%A9",
+    "accepted": true
+  },
+  {
+    "input": "text/plain; name*=utf-16''abc",
+    "accepted": true
+  },
+  {
+    "input": "text/plain; name=\"\"",
+    "accepted": true
+  },
+  {
+    "input": "text/plain; name=\"unterminated",
+    "accepted": false
+  },
+  {
+    "input": "text/plain; a=\"x\\\"y\"",
+    "accepted": true
+  },
+  {
+    "input": "text /plain",
+    "accepted": false
+  },
+  {
+    "input": "text/",
+    "accepted": false
+  },
+  {
+    "input": "text/plain; name=\"東京\"",
+    "accepted": true
+  },
+  {
+    "input": "text/plain; a=\"\u0000\"",
+    "accepted": true
+  },
+  {
+    "input": "text/plain;\u001cfoo=bar",
+    "accepted": false
+  },
+  {
+    "input": "İmage/PNG",
+    "accepted": true
+  },
+  {
+    "input": "text/plain; a=\"x\\ y\"; a=\"x y\"",
+    "accepted": false
+  },
+  {
+    "input": "text/plain; invalid",
+    "accepted": false
+  },
+  {
+    "input": "text/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "accepted": false
+  }
+]

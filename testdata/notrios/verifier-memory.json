@@ -1,0 +1,28 @@
+{
+  "python_version": "3.12.3",
+  "platform": "Linux; process_max_rss_kib includes fixture construction",
+  "verifier_source_sha256": "1da27db47b0813fa0eb96508244da68f1736666f303606ce98c307af24b9a582",
+  "measurement": "tracemalloc starts after fixture construction; private verification, ordered tag iteration and 64 KiB blob reads",
+  "runs": [
+    {
+      "extra_tags": 500,
+      "tag_count": 504,
+      "blob_bytes": 1048576,
+      "consumed_bytes": 1048576,
+      "python_peak_bytes": 1455654,
+      "process_max_rss_kib": 31356,
+      "elapsed_seconds": 1.486,
+      "temporary_state_removed": true
+    },
+    {
+      "extra_tags": 8000,
+      "tag_count": 8004,
+      "blob_bytes": 33554432,
+      "consumed_bytes": 33554432,
+      "python_peak_bytes": 2136831,
+      "process_max_rss_kib": 43072,
+      "elapsed_seconds": 21.91,
+      "temporary_state_removed": true
+    }
+  ]
+}

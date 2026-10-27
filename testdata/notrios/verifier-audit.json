@@ -1,0 +1,384 @@
+{
+  "producer_commit": "bdecfeda00e582d5aa6170d15b37ba27c9656f1d",
+  "cli_sha256": "55a44224b6081fd57ef8dfa56d620c2b28e166fd65972eb7d5dfad603ab6bb46",
+  "case_spec_sha256": "58d680057a679ce66b2741b93d30c8dd73c9f75a5279e5b0dda8e5ba97f408c3",
+  "verifier_source_sha256": "1da27db47b0813fa0eb96508244da68f1736666f303606ce98c307af24b9a582",
+  "results": [
+    {
+      "name": "real_publication",
+      "go_accepted": true,
+      "python_result": "accepted",
+      "python_message": "",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "reverse_dependency_order",
+      "go_accepted": true,
+      "python_result": "accepted",
+      "python_message": "",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "legacy_zero_blob_counts",
+      "go_accepted": true,
+      "python_result": "accepted",
+      "python_message": "",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "storage_mime_hint",
+      "go_accepted": true,
+      "python_result": "accepted",
+      "python_message": "",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "optional_capability",
+      "go_accepted": true,
+      "python_result": "accepted",
+      "python_message": "",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "resource_metadata",
+      "go_accepted": true,
+      "python_result": "accepted",
+      "python_message": "",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "duplicate_notebook",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "records object 384f4557df4bb9a0031f7b8a507d7f6f86a2ad6e19131d085b6a35b643cf336c line 35: duplicate notebook record \"nb_edso7lei246zbsqqi32tw3bvtu\"",
+      "matched": true
+    },
+    {
+      "name": "duplicate_tag",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "duplicate archive declaration \"tag:tag_ajdgrh7o7shs5ymv7tz454g3jm\"",
+      "matched": true
+    },
+    {
+      "name": "duplicate_document",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "duplicate archive declaration \"document:doc_child\"",
+      "matched": true
+    },
+    {
+      "name": "duplicate_revision",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "duplicate archive declaration \"revision:rev_uu7nz7m42dt3uahyihs5in464i\\x1fdoc_child\"",
+      "matched": true
+    },
+    {
+      "name": "duplicate_resource",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "duplicate archive declaration \"resource:res_image\"",
+      "matched": true
+    },
+    {
+      "name": "duplicate_document_tag",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "duplicate archive declaration \"document_tag:doc_child\\x1ftag_feoyzerd44qy2r6zwdfsjxtj3a\"",
+      "matched": true
+    },
+    {
+      "name": "duplicate_document_resource",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "duplicate archive declaration \"document_resource:doc_child\\x1fres_image\\x1fattachment\\x1f0\"",
+      "matched": true
+    },
+    {
+      "name": "duplicate_link",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "duplicate archive declaration \"link:lnk_3\"",
+      "matched": true
+    },
+    {
+      "name": "missing_document_collection_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"collection:missing_target\"",
+      "matched": true
+    },
+    {
+      "name": "missing_document_notebook_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"notebook:missing_target\"",
+      "matched": true
+    },
+    {
+      "name": "missing_document_current_revision_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"revision:missing_target\\x1fdoc_child\"",
+      "matched": true
+    },
+    {
+      "name": "missing_revision_document_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"document:missing_target\"",
+      "matched": true
+    },
+    {
+      "name": "missing_document_tag_tag_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"tag:missing_target\"",
+      "matched": true
+    },
+    {
+      "name": "missing_document_resource_resource_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"resource:missing_target\"",
+      "matched": true
+    },
+    {
+      "name": "missing_link_target_resource_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"resource:missing_target\"",
+      "matched": true
+    },
+    {
+      "name": "missing_notebook_parent_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"notebook:missing_target\"",
+      "matched": true
+    },
+    {
+      "name": "wrong_revision_owner",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "current revision belongs to another document",
+      "go_message": "archive record references missing or mismatched \"revision:rev_vwy4mj5drv6lptt4wszltvdk7q\\x1fdoc_child\"",
+      "matched": true
+    },
+    {
+      "name": "revision_id_across_owners",
+      "go_accepted": true,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "noncurrent_history",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "publication contains noncurrent revision history",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "unreachable_resource",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "resource is not reachable from a document-resource relation",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "unused_blob",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "unreferenced blob object",
+      "go_message": "unreferenced archive object \"blob:6cf17e4747e03b880aa61c49ea7d9ab75ba9b867333b89ec8b8fa7dfce293f62:136\"",
+      "matched": true
+    },
+    {
+      "name": "notebook_cycle",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "notebook parent cycle",
+      "go_message": "notebook \"nb_edso7lei246zbsqqi32tw3bvtu\" participates in a cycle",
+      "matched": true
+    },
+    {
+      "name": "blob_size_mismatch",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "blob reference has no matching hash and size",
+      "go_message": "unreferenced archive object \"blob:6cf17e4747e03b880aa61c49ea7d9ab75ba9b867333b89ec8b8fa7dfce293f62:136\"",
+      "matched": true
+    },
+    {
+      "name": "noncanonical_reference_mime",
+      "go_accepted": false,
+      "python_result": "format",
+      "python_message": "blob reference MIME must be canonical",
+      "go_message": "records object 2b3d222a24eacaa4a6aba90645ad69016274ee21ba515d87887c445526ee5535 line 4: blob reference MIME must be canonical",
+      "matched": true
+    },
+    {
+      "name": "semantic_mime_mismatch",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "record MIME differs from blob reference",
+      "go_message": "records object d39c4cfe1a88492b2e0edbb868f2ca333aa151d165bd125c0587a5884965ce72 line 4: revision body MIME mismatch",
+      "matched": true
+    },
+    {
+      "name": "revision_metadata",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "revision metadata must be empty",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "collection_settings",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "collection settings must be empty",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "deleted_document",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "deleted documents are forbidden",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "link_context",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "link context must be empty",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "link_status",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "link status is not publishable",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "external_file_uri",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "external link requires HTTP(S) and no internal target",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "multiple_link_targets",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "link has multiple internal targets",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "unknown_payload_field",
+      "go_accepted": false,
+      "python_result": "json",
+      "python_message": "structured object has missing or unknown fields",
+      "go_message": "records object ad258e944e4c4d3697abdaf7907e02b32b4f9a6564d55729fcb16eec5c3def2d line 30: json: unknown field \"unknown\"",
+      "matched": true
+    },
+    {
+      "name": "boolean_position",
+      "go_accepted": false,
+      "python_result": "json",
+      "python_message": "structured integer field requires a signed 64-bit integer token",
+      "go_message": "records object fca3679af4cc7a42f429b1657ca6d7eb5230ab86110d7adf998d15bb0817fc89 line 28: json: cannot unmarshal bool into Go struct field NotebookRecord.position of type int",
+      "matched": true
+    },
+    {
+      "name": "null_position",
+      "go_accepted": true,
+      "python_result": "json",
+      "python_message": "structured integer field requires a signed 64-bit integer token",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "missing_position",
+      "go_accepted": true,
+      "python_result": "json",
+      "python_message": "structured object has missing or unknown fields",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "empty_optional_parent",
+      "go_accepted": true,
+      "python_result": "format",
+      "python_message": "invalid record identity",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "null_blob_counts",
+      "go_accepted": true,
+      "python_result": "json",
+      "python_message": "structured object field has wrong type",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "forbidden_search_notebook",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "publication declares forbidden record types",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "forbidden_provenance",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "publication declares forbidden record types",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "forbidden_source_bundle",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "publication declares forbidden record types",
+      "go_message": "",
+      "matched": true
+    }
+  ]
+}

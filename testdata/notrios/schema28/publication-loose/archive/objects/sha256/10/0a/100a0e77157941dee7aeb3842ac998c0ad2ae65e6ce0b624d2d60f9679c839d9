@@ -1,0 +1,17 @@
+# Details
+
+Préface café ☕ before withheld note.
+A draft stays unpublished.
+An unresolved reference becomes missing label.
+
+Read [child section](document://default/documents/doc_child#details) and [same title](document://default/documents/doc_duplicate).
+Visit [example](https://example.com/reading?q=caf%C3%A9&lang=en).
+![café chart](resource://default/resources/res_image)
+Download [field notes](resource://default/resources/res_text).
+Return to [this section](#details).
+
+```note-query
+query: tag:private
+fields: title, snippet
+limit: 5
+```

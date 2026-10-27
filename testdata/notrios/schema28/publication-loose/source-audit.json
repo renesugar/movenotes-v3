@@ -1,0 +1,54 @@
+{
+  "documents": [
+    {
+      "id": "doc_child",
+      "notebook_id": "nb_el23twck5n25rcpo3uk5u3pfau",
+      "current_revision_id": "rev_faqapah4vmmup2kjfojkffk2uu",
+      "created_at": "2026-09-13 21:44:53",
+      "updated_at": "2026-09-13 21:44:53"
+    },
+    {
+      "id": "doc_draft",
+      "notebook_id": "nb_f7yx5wbiq6js6apzvl6dp3mzfu",
+      "current_revision_id": "rev_a4kqtchyjlkrdmkygyfrfjk33y",
+      "created_at": "2026-09-13 21:44:53",
+      "updated_at": "2026-09-13 21:44:53"
+    },
+    {
+      "id": "doc_duplicate",
+      "notebook_id": "nb_f7yx5wbiq6js6apzvl6dp3mzfu",
+      "current_revision_id": "rev_jkj6mxrhzr5bstcewmocdknljy",
+      "created_at": "2026-09-13 21:44:53",
+      "updated_at": "2026-09-13 21:44:53"
+    },
+    {
+      "id": "doc_private",
+      "notebook_id": "nb_hg4zxv2363benh436g2vxjkswm",
+      "current_revision_id": "rev_5aduwzcqxzajf2tuiwubdkrjpa",
+      "created_at": "2026-09-13 21:44:53",
+      "updated_at": "2026-09-13 21:44:53"
+    },
+    {
+      "id": "doc_public",
+      "notebook_id": "nb_f7yx5wbiq6js6apzvl6dp3mzfu",
+      "current_revision_id": "rev_r5sk3y2dzpbx72htg6ir3k746a",
+      "created_at": "2026-09-13 21:44:53",
+      "updated_at": "2026-09-13 21:44:54"
+    }
+  ],
+  "revision_counts": {
+    "doc_child": 1,
+    "doc_draft": 1,
+    "doc_duplicate": 1,
+    "doc_private": 1,
+    "doc_public": 2
+  },
+  "resource_ids": [
+    "res_hidden",
+    "res_image",
+    "res_sidecar",
+    "res_text"
+  ],
+  "historical_sentinel_revisions": 1,
+  "schema_version": 28
+}

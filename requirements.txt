@@ -1,7 +1,7 @@
-# No third-party dependencies: as of Step 2 of PLAN.md the scripts use only
+# No third-party dependencies: as of Step 2 of plans/v3.34/000-refocus-plan.md the scripts use only
 # the Python standard library (Python 3.9+).
 
 # obsidian2site.py generation is standard-library-only. Building its output
 # requires external tools — Hugo, the Ledger theme, Go for the Bluge server, and
-# Pagefind — as documented in STATIC_SITE.md. They are not Python runtime
+# Pagefind — as documented in docs/static-site.md. They are not Python runtime
 # dependencies.

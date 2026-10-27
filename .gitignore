@@ -121,3 +121,6 @@ dmypy.json
 
 # Per-machine Claude Code settings
 /.claude/
+
+# zvec-grep Index
+.zvec-grep/

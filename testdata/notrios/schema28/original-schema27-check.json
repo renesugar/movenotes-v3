@@ -1,0 +1,48 @@
+{
+  "compatibility": {
+    "input_path": "testdata/notrios/publication-loose/archive/manifest.json",
+    "format": "notrios-archive",
+    "version": 2,
+    "reader_profile": "current-v2",
+    "reader_schema_version": 28,
+    "required_capabilities": [
+      "identity.database-replica.v1",
+      "objects.index.v1",
+      "objects.sha256.v1",
+      "records.jsonl.v1",
+      "revisions.complete.v1"
+    ],
+    "decision": "accept",
+    "reason_code": "declaration_supported",
+    "reason": "archive-v2 declaration is supported; run full verification before consumption",
+    "full_verification_required": true
+  },
+  "verify": {
+    "snapshot_id": "snap_jwa2ax65dqlknybsgzmwieaxki",
+    "database_id": "db_74xji7czi6hikwfpysuyjkjaye",
+    "target": "publication_handoff",
+    "commit_sha256": "b998f2fc889fa382cab7a3332663da5b9852de50696e065032ee7c7e168eba26",
+    "index_objects": 1,
+    "objects": 7,
+    "record_chunks": 1,
+    "blobs": 6,
+    "records": 34,
+    "bytes": 9506,
+    "counts": {
+      "collections": 1,
+      "notebooks": 2,
+      "search_notebooks": 0,
+      "tags": 4,
+      "documents": 3,
+      "revisions": 3,
+      "document_tags": 6,
+      "resources": 3,
+      "document_resources": 4,
+      "links": 8,
+      "provenance": 0,
+      "source_bundles": 0
+    }
+  },
+  "producer_commit": "7662fdd5b55d6f34f14874f70ba6db9f9e7676ac",
+  "cli_sha256": "fa547809fa1c206c0ca6008d7765ff2837b6ec90ef9549dc597d4a8e5da10bc2"
+}

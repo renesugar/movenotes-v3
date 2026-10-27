@@ -1,0 +1,159 @@
+{
+  "next_step": "after reviewing, publish with `--reviewed-plan 5f3c3babe711c2bfd4b7f2603f5ec5cb9cb22032f2eedab97d98e5a147719c03`",
+  "plan": {
+    "version": 1,
+    "target": "publication_handoff",
+    "policy": {
+      "exclude_tags": [
+        "confidential",
+        "draft",
+        "private"
+      ],
+      "private_tags": [
+        "confidential",
+        "draft",
+        "private"
+      ],
+      "link_action": "plain_text",
+      "include_source_bundles": false,
+      "include_provenance": false,
+      "include_private_metadata": false,
+      "include_trashed": false,
+      "exclude_read_only_notebooks": true
+    },
+    "manifest_sha256": "5f3c3babe711c2bfd4b7f2603f5ec5cb9cb22032f2eedab97d98e5a147719c03",
+    "counts": {
+      "selected_documents": 3,
+      "excluded_documents": 0,
+      "reachable_resources": 0,
+      "available_source_bundles": 0,
+      "included_source_bundles": 0,
+      "internal_links": 4,
+      "private_links": 0,
+      "broken_links": 0,
+      "external_links": 1,
+      "oversized_resources": 0
+    },
+    "documents": [
+      {
+        "id": "doc_child",
+        "uri": "document://default/documents/doc_child",
+        "collection_id": "default",
+        "notebook_id": "nb_sn6xqtqujivbs4ivj2q5rvepmq",
+        "current_revision_id": "rev_iawtbsnvz34m6b6xphanrix2lq",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      },
+      {
+        "id": "doc_duplicate",
+        "uri": "document://default/documents/doc_duplicate",
+        "collection_id": "default",
+        "notebook_id": "nb_cmq7xyqtebactx5aflxnp4sisa",
+        "current_revision_id": "rev_e6e5eiiqjkkiwodlkwvo7a7qfy",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      },
+      {
+        "id": "doc_public",
+        "uri": "document://default/documents/doc_public",
+        "collection_id": "default",
+        "notebook_id": "nb_cmq7xyqtebactx5aflxnp4sisa",
+        "current_revision_id": "rev_3yg5ezph6adobnafhtuja745ou",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      }
+    ],
+    "resources": [],
+    "links": [
+      {
+        "source_document_id": "doc_child",
+        "target_document_id": "doc_public",
+        "link_sha256": "f4b404acadd0720e3bb636f0ad6ec8aa29acf06efa048989e82d9253810d6ce1",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_public",
+        "target_document_id": "doc_child",
+        "link_sha256": "df401968c78b4fbcc7302bde3369ba44d8ac6305d3d2803c88da80f849e0f47c",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_public",
+        "target_document_id": "doc_duplicate",
+        "link_sha256": "320318722af600fa97c4742ba67ec16325c113298360c53f097d8d87d81ab85d",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_public",
+        "link_sha256": "2087d17c7a042fd2572418d3623f03a7aac11d3250785694ab032737574b76ce",
+        "classification": "external",
+        "resolution_status": "external",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_public",
+        "target_document_id": "doc_public",
+        "link_sha256": "60ba301215e898786ccf431f65b4d1dbbfdd87af666fe456c96b59aba69d0e40",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      }
+    ],
+    "source_bundles": [],
+    "exclusions": [],
+    "metadata_decisions": [
+      {
+        "field": "private_tags",
+        "action": "strip",
+        "reason": "target privacy policy",
+        "affected_items": 3
+      },
+      {
+        "field": "source.external_id",
+        "action": "strip",
+        "reason": "source provenance policy",
+        "affected_items": 0
+      },
+      {
+        "field": "source.source_url",
+        "action": "strip",
+        "reason": "source provenance policy",
+        "affected_items": 0
+      },
+      {
+        "field": "source.metadata_json",
+        "action": "strip",
+        "reason": "private source metadata policy",
+        "affected_items": 0
+      },
+      {
+        "field": "source_bundle.items",
+        "action": "exclude",
+        "reason": "exact source bundle policy",
+        "affected_items": 0
+      },
+      {
+        "field": "source_bundle.storage_path",
+        "action": "strip",
+        "reason": "local filesystem paths never cross planner APIs",
+        "affected_items": 0
+      }
+    ],
+    "warnings": [],
+    "truncated": false
+  },
+  "profile": "fixture",
+  "target": "publication_handoff"
+}

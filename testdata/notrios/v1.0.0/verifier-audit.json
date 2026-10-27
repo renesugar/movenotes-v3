@@ -1,0 +1,458 @@
+{
+  "producer_commit": "2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a",
+  "cli_sha256": "b4f368a9879ce16b544c0d7bd175f95ad4647b43b71f0172bf0344dda048e55c",
+  "fixture_commit_sha256": "7f093e27d5d7ab18cac5d97324ae08c8509f4467954220911df7f9c799b206d9",
+  "runner_sha256": "e09a02c0c6e86c3cb162bcc4284d6a96e42aa39715c51c914f6eb002e9cec5e4",
+  "case_spec_sha256": "ba06812d8663d362926a8b9fe53c3570219630a678225fbeb6dfe8c011c00669",
+  "verifier_source_sha256": "448c29f08a1bf133602395ad684edbaa3c5a67905098e3a4f4452f414091f01c",
+  "results": [
+    {
+      "name": "real_publication",
+      "go_accepted": true,
+      "python_result": "accepted",
+      "python_message": "",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "reverse_dependency_order",
+      "go_accepted": true,
+      "python_result": "accepted",
+      "python_message": "",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "legacy_zero_blob_counts",
+      "go_accepted": true,
+      "python_result": "accepted",
+      "python_message": "",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "storage_mime_hint",
+      "go_accepted": true,
+      "python_result": "accepted",
+      "python_message": "",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "optional_capability",
+      "go_accepted": true,
+      "python_result": "accepted",
+      "python_message": "",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "resource_metadata",
+      "go_accepted": true,
+      "python_result": "accepted",
+      "python_message": "",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "duplicate_notebook",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "records object 9cceb262ff2352f8e94fa21058884b9330adb9f2403f7a0d24e62e8e3029359c line 30: duplicate notebook record \"nb_obsidian_public\"",
+      "matched": true
+    },
+    {
+      "name": "duplicate_tag",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "duplicate archive declaration \"tag:tag_fcz2nopbeu6infehacdrm7aoiq\"",
+      "matched": true
+    },
+    {
+      "name": "duplicate_document",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "duplicate archive declaration \"document:doc_obsidian_public_deep_child\"",
+      "matched": true
+    },
+    {
+      "name": "duplicate_revision",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "duplicate archive declaration \"revision:rev_eberkcklb7ko2wdzaktxtob774\\x1fdoc_obsidian_public_deep_child\"",
+      "matched": true
+    },
+    {
+      "name": "duplicate_resource",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "duplicate archive declaration \"resource:res_obsidian_public_shot\"",
+      "matched": true
+    },
+    {
+      "name": "duplicate_document_tag",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "duplicate archive declaration \"document_tag:doc_obsidian_public_deep_child\\x1ftag_h7i4z5tqo7r4wccql6xpzljxqe\"",
+      "matched": true
+    },
+    {
+      "name": "duplicate_document_resource",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "duplicate archive declaration \"document_resource:doc_obsidian_public_home\\x1fres_obsidian_public_shot\\x1fembed\\x1f0\"",
+      "matched": true
+    },
+    {
+      "name": "duplicate_link",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "duplicate archive declaration \"link:lnk_1\"",
+      "matched": true
+    },
+    {
+      "name": "missing_document_collection_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"collection:missing_target\"",
+      "matched": true
+    },
+    {
+      "name": "missing_document_notebook_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"notebook:missing_target\"",
+      "matched": true
+    },
+    {
+      "name": "missing_document_current_revision_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"revision:missing_target\\x1fdoc_obsidian_public_deep_child\"",
+      "matched": true
+    },
+    {
+      "name": "missing_revision_document_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"document:missing_target\"",
+      "matched": true
+    },
+    {
+      "name": "missing_document_tag_tag_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"tag:missing_target\"",
+      "matched": true
+    },
+    {
+      "name": "missing_document_resource_resource_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"resource:missing_target\"",
+      "matched": true
+    },
+    {
+      "name": "missing_link_target_resource_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"resource:missing_target\"",
+      "matched": true
+    },
+    {
+      "name": "missing_notebook_parent_id",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "record reference has no target",
+      "go_message": "archive record references missing or mismatched \"notebook:missing_target\"",
+      "matched": true
+    },
+    {
+      "name": "wrong_revision_owner",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "current revision belongs to another document",
+      "go_message": "archive record references missing or mismatched \"revision:rev_kdi6d4sbthedymo7phfwpkcywu\\x1fdoc_obsidian_public_deep_child\"",
+      "matched": true
+    },
+    {
+      "name": "revision_id_across_owners",
+      "go_accepted": true,
+      "python_result": "integrity",
+      "python_message": "duplicate record identity",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "noncurrent_history",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "publication contains noncurrent revision history",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "unreachable_resource",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "resource is not reachable from a document-resource relation",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "unused_blob",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "unreferenced blob object",
+      "go_message": "unreferenced archive object \"blob:003f9541a77b0992756d8a31e4a9537d1bda6b7c018e2c5fbdcdd084c29a7cf3:212\"",
+      "matched": true
+    },
+    {
+      "name": "notebook_cycle",
+      "go_accepted": false,
+      "python_result": "graph",
+      "python_message": "notebook parent cycle",
+      "go_message": "notebook \"nb_obsidian_public\" participates in a cycle",
+      "matched": true
+    },
+    {
+      "name": "blob_size_mismatch",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "blob reference has no matching hash and size",
+      "go_message": "unreferenced archive object \"blob:003f9541a77b0992756d8a31e4a9537d1bda6b7c018e2c5fbdcdd084c29a7cf3:212\"",
+      "matched": true
+    },
+    {
+      "name": "noncanonical_reference_mime",
+      "go_accepted": false,
+      "python_result": "format",
+      "python_message": "blob reference MIME must be canonical",
+      "go_message": "records object dc71d9ffefcb2fdc8058199f0238e37608d7c80bf22a0ee97b0e7fc3627a1092 line 4: blob reference MIME must be canonical",
+      "matched": true
+    },
+    {
+      "name": "semantic_mime_mismatch",
+      "go_accepted": false,
+      "python_result": "integrity",
+      "python_message": "record MIME differs from blob reference",
+      "go_message": "records object 441698a8bb1ee6dad617670146a35ef46b9bd535dd627952c83593f3918c95e3 line 4: revision body MIME mismatch",
+      "matched": true
+    },
+    {
+      "name": "revision_metadata",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "revision metadata must be empty",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "collection_settings",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "collection settings must be empty",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "deleted_document",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "deleted documents are forbidden",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "link_context",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "link context must be empty",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "link_status",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "link status is not publishable",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "external_file_uri",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "external link requires HTTP(S) and no internal target",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "multiple_link_targets",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "link has multiple internal targets",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "unknown_payload_field",
+      "go_accepted": false,
+      "python_result": "json",
+      "python_message": "structured object has missing or unknown fields",
+      "go_message": "records object 5dda66ff51e23744ad911053d32a6963cd1fa6db4d70811a7cead634af1dd780 line 26: json: unknown field \"unknown\"",
+      "matched": true
+    },
+    {
+      "name": "boolean_position",
+      "go_accepted": false,
+      "python_result": "json",
+      "python_message": "structured integer field requires a signed 64-bit integer token",
+      "go_message": "records object 15d5fdfb5052ca2f1151043687a4066d9d2b66399b8c4f1671065abd41d4f969 line 24: json: cannot unmarshal bool into Go struct field NotebookRecord.position of type int",
+      "matched": true
+    },
+    {
+      "name": "null_position",
+      "go_accepted": true,
+      "python_result": "json",
+      "python_message": "structured integer field requires a signed 64-bit integer token",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "missing_position",
+      "go_accepted": true,
+      "python_result": "json",
+      "python_message": "structured object has missing or unknown fields",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "empty_optional_parent",
+      "go_accepted": true,
+      "python_result": "format",
+      "python_message": "invalid record identity",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "null_blob_counts",
+      "go_accepted": true,
+      "python_result": "json",
+      "python_message": "structured object field has wrong type",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "forbidden_search_notebook",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "publication declares forbidden record types",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "forbidden_provenance",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "publication declares forbidden record types",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "forbidden_source_bundle",
+      "go_accepted": true,
+      "python_result": "publication",
+      "python_message": "publication declares forbidden record types",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "schema_28_28_28",
+      "go_accepted": true,
+      "python_result": "accepted",
+      "python_message": "",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "schema_28_29_99",
+      "go_accepted": true,
+      "python_result": "accepted",
+      "python_message": "",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "schema_29_29_29",
+      "go_accepted": false,
+      "python_result": "format",
+      "python_message": "unsupported schema bounds",
+      "go_message": "unsupported schema bounds source=29 reader=28 range=29..29",
+      "matched": true
+    },
+    {
+      "name": "schema_11_28_28",
+      "go_accepted": false,
+      "python_result": "format",
+      "python_message": "unsupported schema bounds",
+      "go_message": "unsupported schema bounds source=28 reader=28 range=11..28",
+      "matched": true
+    },
+    {
+      "name": "schema_28_27_28",
+      "go_accepted": false,
+      "python_result": "format",
+      "python_message": "unsupported schema bounds",
+      "go_message": "unsupported schema bounds source=27 reader=28 range=28..28",
+      "matched": true
+    },
+    {
+      "name": "schema_28_28_27",
+      "go_accepted": false,
+      "python_result": "format",
+      "python_message": "unsupported schema bounds",
+      "go_message": "unsupported schema bounds source=28 reader=28 range=28..27",
+      "matched": true
+    },
+    {
+      "name": "legacy_capabilities",
+      "go_accepted": true,
+      "python_result": "accepted",
+      "python_message": "",
+      "go_message": "",
+      "matched": true
+    },
+    {
+      "name": "unsorted_capabilities",
+      "go_accepted": false,
+      "python_result": "format",
+      "python_message": "collection capabilities must be sorted and unique",
+      "go_message": "records object acc478944a1c857179f7e18f43f9f44454abf2930fe3bfb6be6d6c3893e93591 line 29: invalid collection record",
+      "matched": true
+    },
+    {
+      "name": "duplicate_capabilities",
+      "go_accepted": false,
+      "python_result": "format",
+      "python_message": "collection capabilities must be sorted and unique",
+      "go_message": "records object 924f0cebe8cea7d892fcd7baf30022b23fb40f3c15b8639d8e14f3c970773885 line 29: invalid collection record",
+      "matched": true
+    }
+  ]
+}

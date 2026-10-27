@@ -1,0 +1,75 @@
+{
+  "counts": {
+    "collections": 1,
+    "notebooks": 2,
+    "search_notebooks": 0,
+    "tags": 3,
+    "documents": 3,
+    "revisions": 3,
+    "document_tags": 4,
+    "resources": 1,
+    "document_resources": 1,
+    "links": 11,
+    "provenance": 0,
+    "source_bundles": 0
+  },
+  "archive_files": {
+    "manifest.json": {
+      "sha256": "960cd3b18b92efcf0e5f83f502c0efcbfbf799f7d38fca7cf5de8064fa04376e",
+      "size_bytes": 1731
+    },
+    "objects/sha256/00/3f/003f9541a77b0992756d8a31e4a9537d1bda6b7c018e2c5fbdcdd084c29a7cf3": {
+      "sha256": "003f9541a77b0992756d8a31e4a9537d1bda6b7c018e2c5fbdcdd084c29a7cf3",
+      "size_bytes": 212
+    },
+    "objects/sha256/4c/aa/4caae4a71ff90f4c14e3c6dc362a09aceaea9b8635b1cf25e9bf0b61d8c3f755": {
+      "sha256": "4caae4a71ff90f4c14e3c6dc362a09aceaea9b8635b1cf25e9bf0b61d8c3f755",
+      "size_bytes": 925
+    },
+    "objects/sha256/9c/60/9c601de2e665d982aef6bb79dfdcd624478b0debb5f8c8ba5cb4c6d3b1713b8c": {
+      "sha256": "9c601de2e665d982aef6bb79dfdcd624478b0debb5f8c8ba5cb4c6d3b1713b8c",
+      "size_bytes": 120
+    },
+    "objects/sha256/b4/db/b4db4fbfdf1f2379ac5d17a60556523800efcf344868078b0975e5c235d793b6": {
+      "sha256": "b4db4fbfdf1f2379ac5d17a60556523800efcf344868078b0975e5c235d793b6",
+      "size_bytes": 1573
+    },
+    "objects/sha256/c4/14/c414cd0e204de974f73753c7e28d7638e7b3691bb8b1a2bab6b25bb7fed7ce77": {
+      "sha256": "c414cd0e204de974f73753c7e28d7638e7b3691bb8b1a2bab6b25bb7fed7ce77",
+      "size_bytes": 70
+    },
+    "objects/sha256/f2/83/f283405fceef4359e1e96dbae0e5033d46063ab49fdbf4c866a4a3e33cc695e3": {
+      "sha256": "f283405fceef4359e1e96dbae0e5033d46063ab49fdbf4c866a4a3e33cc695e3",
+      "size_bytes": 9029
+    }
+  },
+  "commit_sha256": "7f093e27d5d7ab18cac5d97324ae08c8509f4467954220911df7f9c799b206d9",
+  "selection_manifest_sha256": "a8537bb0582b7bcd9f01c0074923175ad04380930db66e7dafd23a32717b6dc2",
+  "database_id": "db_wlp3r535emca2lwjeln4ytayw4",
+  "snapshot_id": "snap_7p6wtq3kjnn5yduk4admmee45i",
+  "producer_commit": "2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a",
+  "producer_tag": "v1.0.0",
+  "titled_tokens": [
+    "[Child](document://default/documents/doc_obsidian_public_deep_child \"Child title\")",
+    "[Other](document://default/documents/doc_obsidian_public_other_note 'Other title')",
+    "[Again](document://default/documents/doc_obsidian_public_deep_child#details (Section title))",
+    "[Tabbed](document://default/documents/doc_obsidian_public_deep_child\t\"Tab title\")",
+    "[Café](document://default/documents/doc_obsidian_public_deep_child \"Titre é 東京 [x] (y)\")",
+    "[Blank](document://default/documents/doc_obsidian_public_deep_child \"\")",
+    "![shot](resource://default/resources/res_obsidian_public_shot \"Photo title\")",
+    "[Web](https://example.test/x \"Web title\")",
+    "[Plain](document://default/documents/doc_obsidian_public_deep_child)",
+    "[Here](#home \"Self title\")",
+    "[Home](document://default/documents/doc_obsidian_public_home \"Home title\")"
+  ],
+  "absent": [
+    "PRIVATE-BODY-SENTINEL",
+    "WITHHELD-TITLE-SENTINEL",
+    "Private/Secret.md",
+    "doc_obsidian_private"
+  ],
+  "audit_targets": {
+    "document": "doc_obsidian_public_home",
+    "resource": "res_obsidian_public_shot"
+  }
+}
