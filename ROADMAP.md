@@ -23,6 +23,8 @@ Finished plans are in [`plans/`](plans/).
   - clearer refusals for an unusable `notrios2sql.py --output` (D1);
   - a report of the links a web reader cannot reach (R1);
   - keeping the links Notrios cannot resolve on the Notrios route (R2).
+- **Found by the link report:** a same-folder link the site cannot resolve
+  when another note shares its name (R3).
 
 ## Deferred
 

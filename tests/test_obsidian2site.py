@@ -813,6 +813,97 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             self.assertIn('W <img src="https://example.test/x.png"> M <img src="../assets/missing.png">', body)
             self.assertIn('C `<img src="../assets/picture.png">`', body)
 
+    LINK_REPORT_NOTE = (
+        "---\ntitle: Links\n---\n# Links\n\n"
+        "[file](file:///C:/Users/x/report.pdf) [drive](C:\\Users\\x\\a.txt) [unc](\\\\server\\share\\a.txt)\n"
+        "[js](javascript:void(0)) [app](joplin://x-callback-url/openNote?id=1) [about](about:blank)\n"
+        "[missing](Missing.md) [[Missing wiki]] [internal](:/0123456789abcdef0123456789abcdef) "
+        "[doc](document://default/documents/doc_x)\n"
+        "[bad](http://exa%mple.com/) [slash](https:\\\\example.com\\path) [port](http://example.com:99999/)\n"
+        "[insecure](http://example.com/) <http://angle.example/> bare http://bare.example/x.\n"
+        "[tel](tel:+15551234567) [mail](mailto:someone@example.com) ![data](data:image/png;base64,AAAA)\n"
+        "[ok](https://example.com/) [note](../Other.md) [[Other]] [anchor](#links) ![img](../assets/p.png)\n"
+        '<a href="../Other.md">html note</a> <a href="https://ok.example/">fine</a> '
+        '<img src="nothere.png"> <img src="../assets/p.png"> <a href="#fn:1">1</a>\n\n'
+        "[ref]: ../Other.md\n[top]: #links\n[^1]: footnote text\n\n"
+        "`[code](file:///x)` and a block:\n\n"
+        "```text\n[code](file:///x) http://code.example/ [[Nowhere]]\n```\n"
+    )
+    LINK_REPORT_ROWS = [
+        ["unreachable", "file: URL", "6", "1", "file", "file:///C:/Users/x/report.pdf", "kept"],
+        ["unreachable", "drive-letter path", "6", "39", "drive", "C:\\Users\\x\\a.txt", "kept"],
+        ["unreachable", "UNC path", "6", "65", "unc", "\\\\server\\share\\a.txt", "kept"],
+        ["unreachable", "javascript: link", "7", "1", "js", "javascript:void(0)", "kept"],
+        ["unreachable", "joplin: link", "7", "26", "app", "joplin://x-callback-url/openNote?id=1", "kept"],
+        ["unreachable", "about: link", "7", "71", "about", "about:blank", "kept"],
+        ["unreachable", "resolves to no published note or attachment", "8", "1", "missing", "Missing.md", "kept"],
+        ["unreachable", "wiki link resolves to no published note or attachment", "8", "23", "", "Missing wiki",
+         "shown as text"],
+        ["unreachable", "unresolved internal link", "8", "40", "internal", ":/0123456789abcdef0123456789abcdef", "kept"],
+        ["unreachable", "unresolved internal link", "8", "87", "doc", "document://default/documents/doc_x", "kept"],
+        ["malformed", "malformed URL", "9", "1", "bad", "http://exa%mple.com/", "repaired to http://exa%25mple.com/"],
+        ["malformed", "malformed URL", "9", "29", "slash", "https:\\\\example.com\\path", "kept"],
+        ["malformed", "malformed URL", "9", "63", "port", "http://example.com:99999/", "shown as text"],
+        ["insecure", "http: link", "10", "1", "insecure", "http://example.com/", "kept"],
+        ["insecure", "http: link", "10", "33", "", "http://angle.example/", "kept"],
+        ["insecure", "http: link", "10", "62", "", "http://bare.example/x", "kept"],
+        ["verify", "tel: link", "11", "1", "tel", "tel:+15551234567", "kept"],
+        ["verify", "mailto: link", "11", "25", "mail", "mailto:someone@example.com", "kept"],
+        ["unreachable", "HTML link to a vault path is not rewritten", "13", "9", "", "../Other.md", "kept"],
+        ["unreachable", "resolves to no published note or attachment", "13", "85", "", "nothere.png", "kept"],
+        ["unreachable", "reference link to a vault path is not rewritten", "15", "8", "ref", "../Other.md", "kept"],
+    ]
+
+    def test_link_report_lists_every_link_a_reader_cannot_rely_on_and_stays_private(self) -> None:
+        import csv
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-link-report-") as temporary:
+            root = Path(temporary)
+            vault, site = root / "vault", root / "site"
+            (vault / "Deep").mkdir(parents=True)
+            (vault / "assets").mkdir()
+            (vault / "assets" / "p.png").write_bytes(b"\x89PNG\r\n\x1a\nimage")
+            (vault / "Other.md").write_text("# Other\n\nText.\n", encoding="utf-8")
+            (vault / "Deep" / "Links.md").write_text(self.LINK_REPORT_NOTE, encoding="utf-8")
+            result = run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+            report = site / "movenotes-link-report.csv"
+            rows = list(csv.reader(report.read_text(encoding="utf-8").splitlines()))
+            self.assertEqual(rows[0], ["category", "reason", "note", "url", "line", "column", "label",
+                                       "destination", "site"])
+            self.assertEqual({tuple(row[2:4]) for row in rows[1:]}, {("Deep/Links.md", "/notes/deep/links.html")})
+            self.assertEqual([row[:2] + row[4:] for row in rows[1:]], self.LINK_REPORT_ROWS)
+            # Nothing inside code is a link, so none of its destinations is listed.
+            self.assertFalse({"file:///x", "http://code.example/", "Nowhere"} & {row[7] for row in rows})
+            self.assertIn("link report: 13 unreachable, 3 malformed, 3 insecure, 2 to verify (tel:, mailto:); "
+                          "1 data: link(s) counted, not listed", result.stdout)
+            # Private: outside content/ and static/, and ignored by Git.
+            self.assertFalse([p for p in site.rglob("*link-report*") if p != report])
+            self.assertIn("/movenotes-link-report.csv\n", (site / ".gitignore").read_text(encoding="utf-8"))
+            # A rerun replaces it with identical bytes.
+            first = report.read_bytes()
+            run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+            self.assertEqual(report.read_bytes(), first)
+            # The Vercel upload leaves it out.
+            vercel_site = root / "vercel-site"
+            run("--input", str(vault), "--output", str(vercel_site), "--progress-every", "0",
+                "--vercel", "--search-backend", "pagefind")
+            self.assertIn("\nmovenotes-link-report.csv\n", (vercel_site / ".vercelignore").read_text(encoding="utf-8"))
+            # A chosen path must be outside the output and the vault; outside both it is used.
+            for inside in (site / "static" / "report.csv", vault / "report.csv"):
+                with self.subTest(inside=inside):
+                    refused = run("--input", str(vault), "--output", str(site), "--progress-every", "0",
+                                  "--link-report", str(inside), check=False)
+                    self.assertNotEqual(refused.returncode, 0)
+                    self.assertIn("--link-report must be outside", refused.stdout + refused.stderr)
+                    self.assertFalse(inside.exists())
+            chosen = root / "private" / "links.csv"
+            chosen.parent.mkdir()
+            other_site = root / "other-site"
+            run("--input", str(vault), "--output", str(other_site), "--progress-every", "0",
+                "--link-report", str(chosen))
+            self.assertEqual(chosen.read_bytes(), first)
+            self.assertFalse((other_site / "movenotes-link-report.csv").exists())
+            self.assertFalse(list(chosen.parent.glob(".*partial")))
+
     def test_repairs_malformed_external_urls_without_losing_visible_text(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-url-") as temporary:
             root = Path(temporary)

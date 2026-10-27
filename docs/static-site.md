@@ -92,6 +92,7 @@ server/search-source.jsonl        plain-text records for the Bluge indexer
 server/search/ cmd/ api/          the Go module: one package, two entry points
 hugo.toml                 Hugo and theme configuration
 pagefind.yml              only for `both` or `pagefind` builds
+movenotes-link-report.csv the link report: private, never published
 ```
 
 There are no shortcodes and no theme-partial overrides. Everything the theme
@@ -466,6 +467,38 @@ written.
 
 Dot directories are excluded unless `--include-hidden` is used. `.movenotes` is
 always excluded from publishing.
+
+## The link report
+
+A site is meant to work once it leaves your machine, and some links cannot. A
+link never stops generation, so every run writes `movenotes-link-report.csv`
+at the project's root instead, and prints how many links fell into each
+category:
+
+| Category | Links |
+|---|---|
+| `unreachable` | `file:` URLs, drive-letter and UNC paths; browser and app schemes such as `javascript:`, `about:` or `joplin:` (any scheme but `http`, `https`, `mailto`, `tel` and `data`); `:/id`, `document://` and `resource://` links left unresolved; Markdown and wiki links to no published note or attachment; and a reference definition or HTML `href` to a vault path, which the site does not rewrite |
+| `malformed` | HTTP(S) destinations the site repaired or showed as text |
+| `insecure` | `http:` links |
+| `verify` | `tel:` and `mailto:` links, which work while the number or address does; only you can check that |
+
+`data:` links are counted, not listed: they carry their own content. Each row
+gives the category, the reason, the note's vault path and site URL, the line
+and column in the note file, the label, the destination as written, and what
+the site did with it: `kept`, `repaired to` a URL, or `shown as text`. Markdown,
+reference, angle, bare and wiki links are read, and HTML `href` and `src`
+attributes; anything in code spans or blocks is text, not a link, and an
+in-page anchor such as `#fn:1` works as written, so neither is listed. Rows are in
+vault-path order, so an identical rerun writes an identical report, and a
+regeneration replaces it.
+
+The report holds every phone number, email address and local path the notes
+link to, so keep it private. It sits outside `content/` and `static/`, so
+Hugo never publishes it, and the generated `.gitignore` and `.vercelignore`
+list it, so neither a pushed project nor a Vercel upload carries it.
+`--link-report PATH` writes it elsewhere, outside both the output directory
+and the vault, since a report inside the vault would be published as an
+attachment by the next run.
 
 ## Deployment below a URL prefix
 
