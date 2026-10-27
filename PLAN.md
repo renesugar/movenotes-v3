@@ -1,8 +1,8 @@
 # Plan: Reorganize the repository, then the Notrios import follow-ups
 
-Status: **opened 2026-10-26.** L0 (opening) is complete. The next slice is
-**L1**, which is not yet authorized. Session confirmation of this plan's
-assignments is pending; see
+Status: **opened 2026-10-26.** L0 (opening) and **L1 are complete**; the next
+slice is **L2**, not yet authorized. The user confirmed this plan's assignments for the session
+on 2026-10-26; see
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 
 ## Goal
@@ -77,13 +77,13 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/render_plan_ledger.py --check
 ```
 
 <!-- PLAN-ASSIGNMENTS:START -->
-Session confirmation: **pending**.
+Session confirmation: **confirmed**.
 
-Pending for this plan. The Claude Code session confirmed on 2026-10-22 for the Notrios import plan continues unchanged (same coding agent, runtime-reported model and billing route); this plan's assignments are the same parent-only Main, and will be shown to the user for confirmation before L1.
+2026-10-26 user: The assignments are current for this session. Answered after being shown the Claude Code parent (Main) as the only owner of every slice, runtime-reported model claude-opus-5-5, and configured alias, reasoning effort, client version and billing route not exposed. Applies to this unchanged session; each slice still needs its own authorization.
 
 | Coding agent | Execution owner | Configured model | Reasoning effort | Availability | Billing route |
 |---|---|---|---|---|---|
-| claude | parent | not exposed; runtime reports claude-opus-5-5 | not exposed | Main for every slice; no workers planned | not exposed; confirmation pending for this plan |
+| claude | parent | not exposed; runtime reports claude-opus-5-5 | not exposed | Main for every slice; no workers planned | not exposed; assignments confirmed by user for this session |
 
 Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID claude-opus-5-5)**. Product/client version: not exposed; model provider: Anthropic (runtime-reported).
 
@@ -93,8 +93,8 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 <!-- PLAN-ASSIGNMENTS:END -->
 
-Next slice: **L1 — remove the account name from committed paths, and update
-the `AGENTS.md` test command**, assigned to Main; not yet authorized.
+Next slice: **L2 — release 3.37 and archive the finished plans**, assigned to
+Main; not yet authorized.
 
 ## Execution rules
 
@@ -117,7 +117,7 @@ the `AGENTS.md` test command**, assigned to Main; not yet authorized.
 | Slice | Work | Depends on | Acceptance |
 |---|---|---|---|
 | L0 / Main | *Complete 2026-10-26.* Open this plan: archive the old `PLAN.md` to `plans/v3.34/000-refocus-plan.md`, write this plan and its ledger, and turn `render_notrios_execution.py` into `scripts/render_plan_ledger.py`, which takes `--ledger` and serves both ledgers. | — | Both ledgers render and `--check` passes; the README and `requirements.txt` point at the archived plan. |
-| L1 / Main | Remove the account name from committed paths; update the `AGENTS.md` test command. See [L1](#l1--remove-the-account-name-from-committed-paths). | L0 | No tracked file holds a path with the account name; both ledgers check; the full gate passes. |
+| L1 / Main | *Complete 2026-10-26.* Remove the account name from committed paths; update the `AGENTS.md` test command. See [L1](#l1--remove-the-account-name-from-committed-paths). | L0 | No tracked file holds a path with the account name; both ledgers check; the full gate passes. |
 | L2 / Main | Release 3.37 and archive the finished plans, with a link checker. See [L2](#l2--release-337-and-archive-the-finished-plans). | L1 | Every relative link and anchor in every tracked Markdown file resolves; the archived ledger checks in place; the full gate passes. |
 | L3 / Main | Add `ROADMAP.md`, and the plan, roadmap and archive rules in `AGENTS.md`. See [L3](#l3--roadmapmd-and-the-rules-for-plans). | L2 | Each deferred feature has its scope, why it is deferred and what it needs; `AGENTS.md` states the rules; links resolve. |
 | L4 / Main | Move the test modules and tools into `scripts/`. See [L4](#l4--tests-and-tools-in-scripts). | L3 | The same 318 and 43 tests pass from `scripts/`, run from the repository root; no test or script at the root. |
@@ -156,9 +156,11 @@ expanding `$USER`, prints nothing; both ledgers check; the full gate passes.
 *Release.* The CHANGELOG's "Unreleased changes" becomes "Changes in 3.37".
 `__version__` goes to 3.37 in the scripts changed since 3.36 that carry the
 3.x line: `obsidian2site.py`, `obsidian2sql.py`, `sql2obsidian.py` and
-`sql2joplin.py`. `cleanres.py` has its own 2.x line (2.10) and changed too
-(S43c); it goes to 2.11, unless the user wants it moved to 3.37 instead.
-`notrios2sql.py` has no `--version` and gets none here.
+`sql2joplin.py`. `cleanres.py` changed too (S43c); its own 2.x line (2.10)
+is synced with the rest of the project at 3.37 (user, 2026-10-26).
+`notrios2sql.py` gains `--version`, printing `notrios2sql.py 3.37` like the
+other scripts (user, 2026-10-26); its help test and the documented CLI rules
+change with it.
 
 *Archive*, in the Notrios layout `plans/v<major>.<minor>/<NNN>-<slug>.md`, with
 `plans/README.md` describing it:
@@ -421,7 +423,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
-<details><summary>L1 — pending; planned parent</summary>
+<details><summary>L1 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -429,21 +431,21 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; L1 authorized by the user on 2026-10-26 (Start L1). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Rewrote every tracked path holding the account name: home-directory paths as ~/..., the account segment of /media and /run/media paths as $USER, scratchpad paths as /tmp/claude-$UID/-home-$USER-projects-movenotes-v3/<session>/scratchpad/..., and V1's example segment as <name>-backup; 70 lines across 11 files, the Notrios ledger's JSON included, with its plan regenerated. Two Markdown links to review files outside the repository became code spans, since a ~/ link cannot resolve. AGENTS.md's Tests section now gives the six required modules and the four harness modules for a full gate. |
+| Validation | git grep for the account name in a path (home, media, run/media, scratchpad forms) prints nothing; no rewritten ~ sits inside quotes, and the one shell assignment (notrios_repo=~/...) expands in bash; both ledgers pass --check; 318 required tests passed in 188.794 s and 43 harness tests in 19.431 s, no __pycache__ written. Git history still holds the old text; rewriting it is out of scope. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Start L1; Private scratchpad l1/required.log and l1/harness.log |
+| Commit | Git commit containing this record: docs: remove the account name from committed paths (L1) |
 
 </details>
 
@@ -455,7 +457,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -481,7 +483,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -507,7 +509,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -533,7 +535,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -559,7 +561,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -585,7 +587,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -611,7 +613,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -637,7 +639,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -663,7 +665,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -689,7 +691,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Pending session confirmation of this plan; slice implementation requires user authorization. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -713,3 +715,5 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Date | Event | Summary |
 |---|---|---|
 | 2026-10-26 | Plan opened | At the user's request, after 7e completed the Notrios import plan. The user's four answers are under Decisions. L0: the old `PLAN.md` is archived as `plans/v3.34/000-refocus-plan.md`, this plan and its ledger are written, and `scripts/render_plan_ledger.py` replaces `render_notrios_execution.py` for both ledgers. Documentation and provenance only. Next: confirm this plan's assignments, then ask to proceed to L1. |
+| 2026-10-26 | Confirmed; L1 authorized | The user: "The assignments are current for this session; Sync version number for cleanres.py with rest of project; Add --version support to notrios2sql.py; Start L1." L2's release text now syncs `cleanres.py` at 3.37 and adds `notrios2sql.py --version`. |
+| 2026-10-26 | L1 complete | Every committed path with the account name now uses `~/`, `$USER` or a `<session>` placeholder: 70 lines in 11 files. Two links to files outside the repository became code spans. `AGENTS.md` gives the six-module gate and the four harness modules. 318 and 43 tests pass. Next: ask to proceed to L2. |

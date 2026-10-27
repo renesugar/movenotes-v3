@@ -1374,9 +1374,9 @@ its resumed section.
 
 Added at the user's request on 2026-09-17. Read both supplied reviews:
 
-- [Union Alpha review](~/prompts/movenotes-v3-performance-review-union-alpha.md),
+- Union Alpha review (`~/prompts/movenotes-v3-performance-review-union-alpha.md`, outside the repository),
   sections 1–6, including its proposed code, estimates and correctness gates.
-- [Grok 4.6 review](~/prompts/movenotes-v3-performance-review-grok4.6.md),
+- Grok 4.6 review (`~/prompts/movenotes-v3-performance-review-grok4.6.md`, outside the repository),
   both overlapping finding lists; deduplicate repeated claims without losing
   findings unique to either review.
 - [Existing measured performance review](PERFORMANCE_REVIEW.md) provides prior

@@ -134,11 +134,24 @@ check `zg help index` for the installed version's options.
 
 ## Tests
 
-Run:
+The required gate is six modules:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_movenotes.py test_image_resources.py test_obsidian2sql.py test_obsidian2site.py
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_movenotes.py test_image_resources.py \
+  test_obsidian2sql.py test_obsidian2site.py test_notrios2sql.py test_notrios_7c.py
 ```
+
+A full gate adds the four modules that test the performance and comparison
+harnesses in `scripts/`:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_notrios_c7c.py test_notrios_p7a.py \
+  test_notrios_p7b.py test_notrios_p7c.py
+```
+
+Run both before a release, and before completing a plan slice that changes
+code. `test_notrios2sql.py` needs no Notrios binary: it reads the committed
+publications under `testdata/notrios/`.
 
 The scripts change often and the tests run them as subprocesses, so a
 `__pycache__` left by an earlier run can shadow the edit under test — which
