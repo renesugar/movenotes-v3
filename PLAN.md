@@ -86,7 +86,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/render_plan_ledger.py --check
 <!-- PLAN-ASSIGNMENTS:START -->
 Session confirmation: **confirmed**.
 
-2026-10-26 user: The assignments are current for this session. Answered after being shown the Claude Code parent (Main) as the only owner of every slice, runtime-reported model claude-opus-5-5, and configured alias, reasoning effort, client version and billing route not exposed. Applies to this unchanged session; each slice still needs its own authorization.
+2026-10-27 user, in a new session: answered Current to whether the assignments are current for this session, after being shown the Claude Code parent (Main) with no worker, runtime-reported model claude-opus-5-5, and reasoning effort and billing route not exposed. Applies to this unchanged session; each slice still needs its own authorization. Earlier: 2026-10-26 user: The assignments are current for this session (the previous session).
 
 | Coding agent | Execution owner | Configured model | Reasoning effort | Availability | Billing route |
 |---|---|---|---|---|---|
@@ -378,6 +378,18 @@ how many `/media` paths, the first being `bc4a911` (Step 20). `origin/develop` i
 are affected and publishing the result needs a force-push of `develop`.
 `origin/main` (`0b15260`, the initial commit) holds no such path and is not
 rewritten.
+
+*Found on 2026-10-27, before the rewrite.* That `origin/main` was a stale
+local ref. GitHub's `main` is at `cb7ddc0`, the merges of pull requests 1 to 3
+from `develop`, and 39 of its commits hold a path with the account name, so
+`main` is rewritten too; the user chose that scope. `main` is protected:
+changes reach it by a pull request from `develop`, which is then merged back
+into `develop`, so publishing the rewritten `main` needs the user to allow a
+force-push on it. The repository is public, with no forks, and GitHub keeps
+`refs/pull/1/head`, `refs/pull/2/head` and `refs/pull/3/head`, which cannot be
+pushed to and each hold 33 to 36 such commits. They and the pull-request pages
+keep the old text until GitHub Support removes them, which only the user can
+request. The only clone is this checkout.
 
 *Before:* a mirror clone of the repository as a backup, outside the working
 tree, kept until the user says it can go. The working tree is clean and every
@@ -693,7 +705,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
-<details><summary>L8 — pending; planned parent</summary>
+<details><summary>L8 — in progress; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -701,7 +713,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27 (new session); L8 authorized on 2026-10-27 (I installed git filter-repo. gh is also available. Start L8.), with the scope Rewrite develop and main; force-pushing needs separate permission. |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -840,3 +852,4 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-26 | Caches removed; L6 authorized | The user: "Remove unused __pycache__/ directories; there is another __pycache__/ directory in the scripts/ directory. Start L6." Both held only compiled files and nothing tracked; one, `scripts/__pycache__/check_doc_links.cpython-314.pyc`, came from a check run without `-B` during L2. Both removed. |
 | 2026-10-26 | L6 complete | `docs/notrios.md` documents keeping notes out of a publication, what tagging cannot catch (with Presidio and hawk-eye), and publishing over 100,000 notes. Found while reading Notrios `v1.0.0`'s selection code, and confirmed by measurement: `--exclude-tags` adds tags, and `--private-tags` replaces the defaults, so it can publish a `private` note; the plan's L6 text said otherwise and is corrected. Every new command ran as written. Next: ask to proceed to L7. |
 | 2026-10-26 | L7 complete | Every one of the 66 fences in the README and `docs/` is registered in `docs/examples.json`: 22 run in the gate, 16 with `--with-tools`, and 28 record why they are not run. The first run found six examples that failed as written because their `--output` directory did not exist; the pages are fixed. The registry needed `homes`, `cwd`, `{port}` (8080 is taken on this machine) and `serves` beyond the specification. 325 required tests (eight modules) and 43 harness tests pass, and all 38 examples pass with the tools. Next: ask to proceed to L8. |
+| 2026-10-27 | New session; L8 authorized | The user re-confirmed the assignments for the new session, and: "I installed `git filter-repo`. `gh` is also available. Start L8." A read-only check found GitHub's `main` at `cb7ddc0` with the old paths, and pull-request refs that cannot be rewritten; the user chose to rewrite `develop` and `main`, and said `main` is protected and is updated by merging a pull request, then merging back into `develop`. Publishing needs separate permission. |

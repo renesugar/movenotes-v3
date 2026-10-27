@@ -2,7 +2,7 @@
   "schema_version": 1,
   "plan": "PLAN.md",
   "markers": "PLAN",
-  "updated": "2026-10-26",
+  "updated": "2026-10-27",
   "session": {
     "coding_agent": "claude",
     "product_role": "Claude Code (terminal CLI)",
@@ -13,7 +13,7 @@
     "product_client_version": "not exposed",
     "billing_route": "not exposed",
     "confirmation": "confirmed",
-    "confirmation_evidence": "2026-10-26 user: The assignments are current for this session. Answered after being shown the Claude Code parent (Main) as the only owner of every slice, runtime-reported model claude-opus-5-5, and configured alias, reasoning effort, client version and billing route not exposed. Applies to this unchanged session; each slice still needs its own authorization.",
+    "confirmation_evidence": "2026-10-27 user, in a new session: answered Current to whether the assignments are current for this session, after being shown the Claude Code parent (Main) with no worker, runtime-reported model claude-opus-5-5, and reasoning effort and billing route not exposed. Applies to this unchanged session; each slice still needs its own authorization. Earlier: 2026-10-26 user: The assignments are current for this session (the previous session).",
     "notes": [
       "Every slice is planned for the Claude Code parent, called Main in the slice table. No worker or subagent is planned.",
       "Spawning a worker or subagent requires an explicit user request and a recorded plan amendment first.",
@@ -261,11 +261,11 @@
     {
       "id": "L8",
       "coding_agent": "claude",
-      "status": "pending",
+      "status": "in progress",
       "planned_worker": "parent",
       "configured_model": "not exposed; runtime reports claude-opus-5-5",
       "configured_reasoning_effort": "not exposed",
-      "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization.",
+      "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-27 (new session); L8 authorized on 2026-10-27 (I installed git filter-repo. gh is also available. Start L8.), with the scope Rewrite develop and main; force-pushing needs separate permission.",
       "delegation_required": false,
       "planned_assignment_evidence": "User, 2026-10-26: Update the plan to rewrite the old paths in the Git history.",
       "planned_work": "Rewrite every commit on every branch with L1's path replacements, map the rewritten commit hashes cited in the tip's files, and force-push develop only with separate permission.",
