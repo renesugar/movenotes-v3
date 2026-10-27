@@ -6,6 +6,8 @@ Unreleased changes:
 - Moved the documentation into `docs/`, one page per workflow, with `docs/index.md`; the README keeps an overview and a short example per workflow. The tests moved to `tests/`, development tools to `scripts/`, and finished plans to `plans/` by release, with `ROADMAP.md` for deferred features.
 - Added `scripts/check_doc_links.py`, run by `tests/test_docs.py`, which refuses a relative link or `#anchor` that does not resolve, and a link that leaves the repository.
 - Removed the account name from every committed path.
+- Added `scripts/check_doc_examples.py`, run by `tests/test_doc_examples.py`. Every fenced example in the README and `docs/` is registered in `docs/examples.json`, and an edited or unregistered one fails the gate. The 22 that need only Python run in the gate against the sample data; the 16 that need Hugo, Go, `npx` or `notriosctl` run with `--with-tools`; the other 28 record why they are not run.
+- Fixed examples that failed as written: every converter needs its `--output` directory to exist, and the Twitter/X import, the notebook-subset export, both round trips and the Quartz export did not create it.
 
 ---
 

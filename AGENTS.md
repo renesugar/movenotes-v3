@@ -145,11 +145,12 @@ check `zg help index` for the installed version's options.
 
 ## Tests
 
-The required gate is seven modules:
+The required gate is eight modules:
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests/test_movenotes.py tests/test_image_resources.py \
-  tests/test_obsidian2sql.py tests/test_obsidian2site.py tests/test_notrios2sql.py tests/test_notrios_7c.py tests/test_docs.py
+  tests/test_obsidian2sql.py tests/test_obsidian2site.py tests/test_notrios2sql.py tests/test_notrios_7c.py \
+  tests/test_docs.py tests/test_doc_examples.py
 ```
 
 A full gate adds the four modules that test the performance and comparison
@@ -163,7 +164,9 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests/test_notrios_c7c.py te
 Run both before a release, and before completing a plan slice that changes
 code. `tests/test_docs.py` runs `scripts/check_doc_links.py`, which refuses a relative
 link in any document whose file or `#anchor` does not exist; a file moved
-without updating the links to it fails there. `tests/test_notrios2sql.py` needs no Notrios binary: it reads the committed
+without updating the links to it fails there. `tests/test_doc_examples.py` runs
+`scripts/check_doc_examples.py`; see [Documentation examples](#documentation-examples).
+`tests/test_notrios2sql.py` needs no Notrios binary: it reads the committed
 publications under `testdata/notrios/`.
 
 The scripts change often and the tests run them as subprocesses, so a
@@ -252,7 +255,7 @@ this section, because these rules outlive any one plan.
   `__init__.py`. Do not name it, or any directory at the root, after a
   standard-library module: a `unittest/` directory breaks the runner.
 - `scripts/` holds development tools: trial harnesses, the ledger renderer, the
-  link checker.
+  link and example checkers.
 - `docs/` holds documentation.
 - `plans/` holds finished plans.
 - `testdata/` and `sample/` hold fixtures. Their notes are data whose bytes the
@@ -264,6 +267,44 @@ repository-relative path. Archived plans included. `tests/test_docs.py` runs
 `scripts/check_doc_links.py`, which refuses any relative link whose file or
 `#anchor` does not exist. It also refuses a link that leaves the repository; link
 to another repository on GitHub at a pinned commit instead.
+
+## Documentation examples
+
+Every fenced block in `README.md` and `docs/` is registered in
+`docs/examples.json` by its page, ordinal, heading, language and SHA-256, with
+one state:
+
+- `executed` — runs in the gate. Needs only Python.
+- `tools` — needs Hugo, Go, `npx`, `notriosctl` or the Ledger theme, and runs
+  with `--with-tools`. A missing tool is reported as skipped and fails that
+  run, so it is never counted as passed.
+- `unverified` — not run, for the `reason` recorded: a synopsis, recorded
+  output, a fragment, or a command that changes something outside its
+  temporary home (a push, a deployment).
+
+`scripts/check_doc_examples.py` refuses a fence that is unregistered or whose
+text, heading or language changed, and an entry with no fence, before anything
+runs. It then runs each page's examples in page order from the repository
+root, as a reader would from a checkout, each in a temporary `$HOME` with XDG
+directories inside it. The page's `homes` seed each home from `sample/` and
+`testdata/` and run its `setup`; `substitute` replaces a placeholder or an
+example value with one that works on the fixtures, and `{port}` with a free
+port; `cwd` starts an example where the previous one `cd`'d; `serves` waits for
+a server to answer and then stops it.
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/check_doc_examples.py
+NOTRIOSCTL=/path/to/notriosctl PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/check_doc_examples.py --with-tools
+PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/check_doc_examples.py --list
+```
+
+Edit an example and the gate fails until it is re-registered. Run it, through
+the checker, and register it again in the commit that edits it: `--list`
+prints each fence with its current hash beside its registered state, and
+`--page` runs one page. Prefer making an example runnable, by seeding its home
+or substituting a value, to marking it `unverified`. An example that fails as
+written is a documentation bug: fix the page, not the registry. Run
+`--with-tools` before a release and after editing an example that needs tools.
 
 ## Mandatory planned delegation
 

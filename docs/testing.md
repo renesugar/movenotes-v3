@@ -9,6 +9,7 @@
 | `tests/test_notrios2sql.py` | Notrios verification, import, vault and site regressions |
 | `tests/test_notrios_7c.py` | Tests for the corpus trial harness in `scripts/`      |
 | `tests/test_docs.py`    | Documentation link checks (`scripts/check_doc_links.py`) |
+| `tests/test_doc_examples.py` | Documentation examples are registered and run (`scripts/check_doc_examples.py`) |
 
 `sample/` contains a small two-source Joplin RAW dataset covering nested
 notebooks, duplicate titles, titles needing sanitization, image and PDF
@@ -24,7 +25,8 @@ image-link replacement:
 
 ```
 PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests/test_movenotes.py tests/test_image_resources.py \
-  tests/test_obsidian2sql.py tests/test_obsidian2site.py tests/test_notrios2sql.py tests/test_notrios_7c.py tests/test_docs.py
+  tests/test_obsidian2sql.py tests/test_obsidian2site.py tests/test_notrios2sql.py tests/test_notrios_7c.py \
+  tests/test_docs.py tests/test_doc_examples.py
 ```
 
 The tests run the scripts as subprocesses, so both the variable and `-B` are
@@ -37,13 +39,19 @@ verification and its refusals, the import and its reruns, links, attachments,
 and the vault and site built from the result. It needs no Notrios binary.
 `tests/test_notrios_7c.py` tests the corpus trial harness in `scripts/`, and
 `tests/test_docs.py` checks that every relative link and `#anchor` in the
-documentation resolves.
+documentation resolves, and `tests/test_doc_examples.py` that every example in
+the README and `docs/` is registered in `docs/examples.json`, and runs those
+that need only Python against `sample/` and `testdata/`. The examples that need
+Hugo, Go, `npx` or `notriosctl` run with
+`scripts/check_doc_examples.py --with-tools`; `AGENTS.md` describes the
+registry under
+[Documentation examples](../AGENTS.md#documentation-examples).
 
 The image-resource suite uses a local HTTP server to verify successful
 retrieval, HEAD fallback, redirect MIME changes, byte-signature mismatches,
 stop lists, malformed data URIs, deterministic deduplication, quarantine
-selection, replacement reuse, and both export paths. The seven modules contain
-321 tests and use only the standard library.
+selection, replacement reuse, and both export paths. The eight modules contain
+325 tests and use only the standard library.
 On environments where the combined
 notebook-filtering class stalls during subprocess cleanup, each test method can
 be run independently; the conversion commands themselves complete normally.

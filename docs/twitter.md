@@ -6,6 +6,8 @@ Download your archive from X (`Settings → Your account → Download an archive
 of your data`), extract the ZIP, then:
 
 ```
+mkdir -p ~/notes_sqlite
+
 python3 -B twitterx2sql.py \
   --input  ~/twitter-archive \
   --output ~/notes_sqlite \

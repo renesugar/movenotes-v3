@@ -56,7 +56,7 @@ id, plus a `resources/` directory holding attachment files.
 | `notrios_mapping.py` | Notrios identity and database row mapping            |
 | `notrios_receipt.py` | Notrios import receipt validation and copying         |
 | `tests/`          | The unittest suite; each module is described in [docs/testing.md](docs/testing.md) |
-| `scripts/`        | Development tools: corpus trial and comparison harnesses (`notrios_7c_trials.py`, `notrios_c7c.py`), the plan ledger renderer, the link checker |
+| `scripts/`        | Development tools: corpus trial and comparison harnesses (`notrios_7c_trials.py`, `notrios_c7c.py`), the plan ledger renderer, the link and example checkers |
 
 # Setup
 
@@ -89,6 +89,8 @@ python3 -B sql2joplin.py \
 **Twitter/X archive → SQLite** ([docs/twitter.md](docs/twitter.md)):
 
 ```
+mkdir -p ~/notes_sqlite
+
 python3 -B twitterx2sql.py \
   --input  ~/twitter-archive \
   --output ~/notes_sqlite \

@@ -87,6 +87,8 @@ entirely — pass `--notebooks` with comma-separated notebook titles (the
 flag may also be repeated):
 
 ```
+mkdir -p ~/public_vault
+
 python3 -B sql2obsidian.py \
   --notebooks "Blog,Recipes" \
   --input  ~/notes_sqlite \
@@ -145,6 +147,8 @@ simplified by default; use `--no-simplify-urls` to retain their original syntax.
 ### Joplin → Obsidian → Joplin
 
 ```
+mkdir -p ~/notes_sqlite ~/vault ~/notes_sqlite_2 ~/joplin_raw_2
+
 python3 -B joplin2sql.py   --input ~/joplin_raw --output ~/notes_sqlite
 python3 -B sql2obsidian.py --input ~/notes_sqlite --output ~/vault
 python3 -B obsidian2sql.py --input ~/vault --output ~/notes_sqlite_2
@@ -161,6 +165,8 @@ edited in a current-format vault, its exact Obsidian snapshot is carried in
 ### Obsidian → Joplin → Obsidian
 
 ```
+mkdir -p ~/notes_sqlite ~/joplin_raw ~/notes_sqlite_2 ~/vault_2
+
 python3 -B obsidian2sql.py --input ~/vault --output ~/notes_sqlite
 python3 -B sql2joplin.py   --input ~/notes_sqlite --output ~/joplin_raw
 python3 -B joplin2sql.py   --input ~/joplin_raw --output ~/notes_sqlite_2

@@ -23,6 +23,8 @@ private notebooks are never written into the vault, so they cannot end up
 on the site by accident:
 
 ```
+mkdir -p ~/notes_sqlite ~/public_vault
+
 python3 -B joplin2sql.py --input ~/joplin_raw_export --output ~/notes_sqlite
 python3 -B twitterx2sql.py --input ~/twitter-archive --output ~/notes_sqlite --notebook Twitter
 

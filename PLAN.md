@@ -1,9 +1,8 @@
 # Plan: Reorganize the repository, then the Notrios import follow-ups
 
-Status: **opened 2026-10-26.** L0 (opening), **L1 and L2 are complete**; the
-**L4**, **L3** and **L5** are complete too. The
-next slice is **L7**, not yet authorized. The user confirmed this plan's assignments for the session
-on 2026-10-26; see
+Status: **opened 2026-10-26.** L0 (opening) and **L1 to L7 are complete**
+(L4 ran before L3). The next slice is **L8**, not yet authorized. The user
+confirmed this plan's assignments for the session on 2026-10-26; see
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 
 How this plan, [`ROADMAP.md`](ROADMAP.md) and the archive in [`plans/`](plans/)
@@ -101,8 +100,9 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 <!-- PLAN-ASSIGNMENTS:END -->
 
-Next slice: **L7 — executable documentation**, assigned to Main; not yet
-authorized.
+Next slice: **L8 — rewrite the old paths in the Git history**, assigned to
+Main; not yet authorized, and publishing it needs separate permission to
+force-push.
 
 ## Execution rules
 
@@ -349,6 +349,26 @@ commit that edits it.
 *Acceptance:* every fence is registered; the executed examples pass in the
 gate; `--with-tools` passes on this machine with Hugo `v0.164.0`, Go 1.27.0 and
 `notriosctl` `v1.0.0`; an edited fence and an unregistered one each fail.
+
+*As built (2026-10-26).* The tools are Hugo, Go, `npx`, `notriosctl` and the
+Ledger theme (`$LEDGER_THEME`, else `~/projects/hugo-theme-ledger`). No
+registered example needs the network: Go and `npx` use the machine's module
+and package caches. Running the examples needed four registry features the
+specification did not name:
+
+- **`homes`.** A page can have more than one temporary home, because
+  `notrios2sql.py` writes only into a new directory. The README's Notrios
+  import, and the export route in `docs/notrios.md`, each run in their own home.
+- **`cwd`.** It starts an example where the previous one `cd`'d.
+- **`{port}`.** A free port is substituted, because port 8080 is in use on
+  this machine.
+- **`serves`.** It waits for a server to answer, then stops it.
+
+The first run found six examples that failed as written: every converter
+needs its `--output` directory to exist, and the README's and
+`docs/twitter.md`'s Twitter/X import, `docs/obsidian.md`'s subset export and
+both round trips, and `docs/quartz.md`'s export did not create it. The pages
+are fixed.
 
 ### L8 — Rewrite the old paths in the Git history
 
@@ -647,7 +667,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
-<details><summary>L7 — pending; planned parent</summary>
+<details><summary>L7 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -655,21 +675,21 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; L7 authorized by the user on 2026-10-26 (Start L7.). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Added scripts/check_doc_examples.py: finds every fenced block in README.md and docs/ (tracked or untracked, not ignored), refuses unregistered, changed (heading, language or SHA-256) and stale entries before running anything, then runs each page's runnable examples in page order from the repository root with bash -euo pipefail, in temporary homes (HOME and XDG inside) seeded from sample/ and testdata/ with optional setup commands; registry features substitute, {port}, cwd and serves; --with-tools adds Hugo, Go, npx, notriosctl ($NOTRIOSCTL) and the Ledger theme ($LEDGER_THEME), reports a missing tool as skipped and fails the run; --list and --page. Wrote docs/examples.json for all 66 fences: 22 executed, 16 tools, 28 unverified with reasons. Fixed six examples that failed as written because the --output directory did not exist (README and docs/twitter.md Twitter/X import, docs/obsidian.md subset export and both round trips, docs/quartz.md export). Added tests/test_doc_examples.py (eighth required module: the repository's examples, fence parsing, refused registry problems, shared and separate homes, a failure, a missing tool and an after-skip, a server); AGENTS.md section Documentation examples and the eight-module gate; docs/testing.md, README script table and CHANGELOG. |
+| Validation | check_doc_examples.py: 66 fences in 13 pages, 0 registry problems, 22 executed examples pass in about 15 s; --with-tools with Hugo v0.164.0, Go 1.27.0, notriosctl v1.0.0 (the pinned binary) and the Ledger theme: 38 examples, 38 passed, 0 failed, 0 skipped. Editing a real fence (docs/joplin.md example 2) made the check fail with one changed-entry problem; the synthetic test refuses a changed, an unregistered and two stale entries. Required gate: 325 tests (eight modules) passed in 205.728 s; harness gate 43 tests in 15.999 s; no __pycache__ written. The repository, the theme checkout and /tmp were left unchanged by the runs. check_doc_links.py: 41 documents, 0 broken links. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Start L7.; Private scratchpad l7/build_registry.py, l7/tools1.log, l7/tools2.log, l7/required.log, l7/harness.log |
+| Commit | Git commit containing this record: test: register and run the documentation examples (L7) |
 
 </details>
 
@@ -819,3 +839,4 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-26 | L5 complete | Seven reference documents moved into `docs/` in lowercase, with every reference updated. The README's usage sections are eight pages in `docs/`, listed by `docs/index.md`; the README keeps what movenotes is, the script table, setup and a short example per workflow, and is 197 lines instead of 863. Every old paragraph has one home, apart from the repeated examples and the site summary that `docs/static-site.md` already covered. Next: ask to proceed to L6. |
 | 2026-10-26 | Caches removed; L6 authorized | The user: "Remove unused __pycache__/ directories; there is another __pycache__/ directory in the scripts/ directory. Start L6." Both held only compiled files and nothing tracked; one, `scripts/__pycache__/check_doc_links.cpython-314.pyc`, came from a check run without `-B` during L2. Both removed. |
 | 2026-10-26 | L6 complete | `docs/notrios.md` documents keeping notes out of a publication, what tagging cannot catch (with Presidio and hawk-eye), and publishing over 100,000 notes. Found while reading Notrios `v1.0.0`'s selection code, and confirmed by measurement: `--exclude-tags` adds tags, and `--private-tags` replaces the defaults, so it can publish a `private` note; the plan's L6 text said otherwise and is corrected. Every new command ran as written. Next: ask to proceed to L7. |
+| 2026-10-26 | L7 complete | Every one of the 66 fences in the README and `docs/` is registered in `docs/examples.json`: 22 run in the gate, 16 with `--with-tools`, and 28 record why they are not run. The first run found six examples that failed as written because their `--output` directory did not exist; the pages are fixed. The registry needed `homes`, `cwd`, `{port}` (8080 is taken on this machine) and `serves` beyond the specification. 325 required tests (eight modules) and 43 harness tests pass, and all 38 examples pass with the tools. Next: ask to proceed to L8. |
