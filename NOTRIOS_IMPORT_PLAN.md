@@ -303,9 +303,14 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - Completed slices keep their recorded Codex attribution. The earlier Codex session is under previous_sessions and its assignments under assignment_history.
 <!-- NOTRIOS-ASSIGNMENTS:END -->
 
-Next slice: **7d — README and CHANGELOG from measured accepted commands**,
-assigned to the Claude Code parent (**Main**); not yet authorized. Resumed 7c
-completed on 2026-10-26, after C7d and T1; see "Resumed 7c results" and
+Next slice: **7e — full regression gate, evidence and diff review, final
+status and commit**, assigned to the Claude Code parent (**Main**); not yet
+authorized. 7d completed on 2026-10-26: the README documents `notrios2sql.py`
+and the publication → import → vault → site recipe, run as written on the
+synthetic titled-link vault, with resumed 7c's full-scale measurements, and the
+CHANGELOG records every change since its last entry. 7d found D1, proposed
+below. Resumed 7c completed on 2026-10-26, after C7d and T1; see "Resumed 7c
+results" and
 [the corpus trials](NOTRIOS_CORPUS_TRIALS.md#resumed-trials-2026-10-23-to-2026-10-26).
 
 **Resumed P7c, complete (2026-10-23).** R1–R6 ran as frozen below; every
@@ -715,6 +720,7 @@ recorded findings. Each needs its design frozen here before implementation.
 | R1 / Main | *Proposed 2026-10-25 at the user's request; not authorized.* Report the links a web reader cannot reach, links that are not secure, and links the user should check, during site generation, without failing it. The user: a publication is meant to work once it moves from the local machine to the web; `tel:` and `mailto:` links work wherever the number or address still exists, which only the user can check; `file:` links never work on the web but may be part of an explanation; and failing the export on the first such link stops the rest from being found. `obsidian2site.py` already never fails on a link: it repairs malformed HTTP(S) destinations where it can, shows the rest as text and only counts both (`url_stats`), and leaves every other destination as written. It will write one CSV report per run, one row per link in a published note, with the category, the reason, the note's vault path and site URL, line and column, the label, the destination exactly as written, and what the site did with it (kept, repaired to a given URL, or shown as text). Categories: **unreachable**: `file:` and drive-letter or UNC paths, browser- and app-internal schemes (`about:`, `blob:`, `chrome:`, `javascript:`, `joplin:`, `sandbox:`, `view-source:` and any other scheme except http, https, mailto, tel and data), relative and wiki links that resolve to no published note or attachment, and internal forms left unresolved (`:/id`, `document://`, `resource://`). **Malformed**: HTTP(S) destinations repaired or shown as text, including the backslash and bad-port forms C7d found. **Insecure**: `http:`. **Verify** (for information only): `tel:` and `mailto:`. `data:` links are self-contained, so they are counted, not listed. Markdown, reference, angle, bare and wiki forms, and HTML `href` and `src` attributes, are covered; anything in code spans or blocks is not a link and is skipped. The report lists phone numbers, email addresses and local paths, so it must never be published or uploaded. By default it goes at the site directory's root, outside everything Hugo publishes, and `--link-report PATH` chooses another location. The regeneration cleanup replaces it, and the generated `.gitignore` and `.vercelignore` list it. Rows are streamed as notes are converted, in a fixed order (vault path, then offset), so an identical rerun writes an identical report. The run prints the count in each category and the report's path. The local vault and Joplin exports are not affected. Owns `obsidian2site.py`, its tests, and the README's site-generation usage. | User, 2026-10-25; C7d | A synthetic vault with every category, plus the same links inside code that must not be listed, generates a site byte-identical to before the change apart from the report and the two ignore files. The report holds exactly the expected rows, and a rerun writes it byte-identical. Nothing in `public/`, the server bundle or a `--vercel` upload set contains the report. Generation never stops for a link. Running it on the three 7c libraries records the per-category counts, in aggregate only. Focused tests plus the five-module gate. |
 | R2 / Main | *Proposed 2026-10-25, found while planning R1. The user chose option (a) on 2026-10-25 ("Use option (a) for R2"); implementation is not yet authorized and comes after 7c.* Keep non-internal destinations on the Notrios route. With the publication handoff's `plain_text` link action, the v1.0.0 producer replaces every unresolved or ambiguous link with its label alone and drops its record (`publicationLinkNeedsRewrite` and `replacementFor` in `internal/archivev2/publish.go`). In the Joplin library that is 2,318 links, the export report's `rewritten_links`. The producer's link table puts them as 471 `file:`, 13 `tel:`, 1,197 `data:`, 500 relative destinations, 8 ambiguous ones (2 of them `file:`) and 129 others. Each recipe library has 2. They never reach movenotes, so they do not pass through unchanged as the user asked on 2026-10-24, and R1 cannot list them on this route. External `http:`, `https:` and `mailto:` links are not rewritten. Options: (a) export the handoff with `--link-action retain`, which the producer accepts for this target and which leaves bodies untouched. movenotes would then admit unresolved and ambiguous records whose destination names no internal target, as text that R1 reports. For a link to a withheld note it would do itself what `plain_text` does (replace the span with its label) and report it as withheld. Before choosing (a), a bounded probe must show what `retain` emits for a link to a withheld note: whether the record survives, and whether it names a target outside the archive. (b) Change the producer so `plain_text` rewrites only links to withheld or excluded internal targets: a new producer pin and regenerated fixtures. (c) Accept the loss on this route, and have R1 report only the export's `rewritten_links` count. Recommended: (a) after the probe. It needs no producer change, and every destination arrives as written. Fall back to (b) if the probe shows `retain` puts withheld note identities into the handoff in a way the import cannot contain. It changes resumed 7c's frozen link policy, so it comes after 7c. Owns `notrios_archive.py`, `notrios_links.py`, `notrios2sql.py`, the 7c harness's export arguments, the contract's `link` row, the design, and tests. | R1; 7c; option (a), chosen 2026-10-25 | On the chosen route, every non-internal destination in a Notrios publication reaches the vault and site byte-identical to the source note, and appears in R1's report. A link to a withheld note never carries that note's identity into the vault or site, and is reported. Every existing link-projection test passes unchanged apart from the ones the decision supersedes. Rerun the bounded 7c tier, record per-category counts in aggregate only, and run the five-module gate. |
 | T1 / Main | *Proposed 2026-10-26, found by resumed 7c's phase 3c. Authorized 2026-10-26: the user chose "Show as text"; complete 2026-10-26.* Show raw-text HTML written in note prose as text on the generated site. The site sets Goldmark's `unsafe = true`, so HTML in a note body reaches the page as written. Three Joplin notes hold a raw `<script>` element in prose, outside any code block or span, in the Joplin RAW source itself, so the native route builds the same page. One is an unclosed `<script>` inside a sentence; two are `<script setup lang="ts">` or `<script>` blocks pasted without a fence. Hugo's `--minify` parses each as JavaScript and fails the whole build. Without `--minify` the build would pass, but a browser would run the element or, for the unclosed one, treat the rest of the page as script. Two further notes hold a `<style>` block in prose, which restyles the whole page, and one of them also a pasted `<title>`, which hides its text. One more note holds an inline `<svg>` chart with 414 `<title>` tooltips, which are SVG's own elements and must keep working. Neither recipe library has any of these. In `obsidian2site.py`, after a note's body is converted, a separate pass outside fenced and inline code replaces the `<` of each opening and closing tag of `script`, `style`, `title`, `textarea`, `noscript`, `noembed`, `noframes`, `xmp` and `plaintext` with `&lt;`, so the page shows the tag as written and runs nothing. Inside an open `<svg>`, only `script` is escaped. A line indented four or more columns is left as written, because it may be indented code, which the transform does not parse; neither library has one of these tags on such a line. The run prints how many tags it showed as text; R1 can list them later. Search text is taken from the body before this pass, so `search-source.jsonl` does not change. Every other HTML tag, including `iframe`, is unchanged, and the vault and database are untouched. Owns `obsidian2site.py` and its tests. | 7c phase 3c | A synthetic vault with each element in prose, closed and unclosed, inside and outside an inline `<svg>`, plus the same tags in fenced, indented and inline code, generates pages that show each prose tag as text and leave the code byte-identical; every other generated file is byte-identical to before the change. The Joplin full tier's site generation and `hugo --minify` then pass, and 7c resumes at the Joplin full Hugo stage. Site generation reruns on the recipe routes too, because `obsidian2site.py` is in its consumer hashes, and their generated content must come out byte-identical to phase 3c's. Focused tests plus the five-module gate. |
+| D1 / Main | *Proposed 2026-10-26, found during 7d while running the README recipe; not authorized.* Make `notrios2sql.py` name the problem when `--output` cannot be used. Each of these is refused correctly today (exit 1, nothing written), but the message blames the archive, which is fine: a missing output parent gives `error [io]: cannot read archive directory` before verification; an existing regular file gives the same message, and an existing directory that is not a completed import (empty, or holding other files) gives `error [io]: cannot read regular archive object`, both only after the whole archive has been verified and preflighted. Check the destination first: a missing parent refuses as `destination`, saying the output's parent directory does not exist; an existing path that is not a directory, or a directory with no completion marker, refuses as `destination`, saying the output exists and is not a completed Notrios import and a new path is needed. A completed import of another publication keeps its current message (`completion receipt or shape differs`). The existing checks stay where they are, so a destination that appears during verification is still refused. Owns `notrios2sql.py`, `test_notrios2sql.py` and the README's `notrios2sql.py` rules. | 7d | Each case has a subprocess test checking exit 1, the exact error line, that no `verify` phase was reported, and that nothing was written beside the output. Existing refusal, rerun and recovery tests pass unchanged. Focused tests plus the five-module gate. |
 
 **S43c design, frozen 2026-10-22 before implementation.** Reading the code
 found a third consumer that the original S43c row did not name.
@@ -856,7 +862,7 @@ Target refusal is mandatory in 2a, not deferred to this step.
 | 7a / Terra — complete | Small offline publication-fixture → SQLite → vault regression with independent expectations. | 6d | Notes/tags/links, exact attachments, absence of excluded sentinels and receipt assertions pass. |
 | 7b / Main — complete | Actual local Hugo/Ledger + Bluge build and bounded Pagefind fixture; test search/subpath URLs. | 7a | Canonical URLs, links, attachments, explicit tag counts and backend isolation correct; excluded sentinel absent from publishable files/index sources. |
 | 7c / Main | *Complete 2026-10-26.* Resume after C7a–C7c and P7a–P7c; large-corpus trials below; record time/RSS/disk/counts/hashes and failure recovery. Partial Codex execution is retained; remaining work is Claude Code Main. Resumed trials use the Notrios `v1.0.0` pin. | P7c, S43b, E1, U1, I1, M1, V1, C7d, T1 | Importer bounds demonstrated; stage bottlenecks separated; no unmeasured whole-pipeline memory claim. |
-| 7d / Main | README script list/usage and CHANGELOG from measured accepted commands. The CHANGELOG also records S43c's generic fixes: `cleanres.py` no longer deletes resources referenced only by titled links, and native vault reimport no longer leaves a stray `)` or an unresolved titled link. It also records E1: `sql2obsidian.py` and `sql2joplin.py` no longer rewrite the database they read, P7b2's bounded fresh-import lookups, F04's faster native inventory and, if adopted, U1's faster unchanged reruns, I1's faster recovery after an interrupted fresh import, M1's bounded preservation-manifest memory and V1's refusal of a damaged preservation bundle, with its recovery commands and `--ignore-preservation`. It also records T1: `obsidian2site.py` shows `<script>`, `<style>`, `<title>` and similar tags written in a note's prose as text, which used to run on the page or fail `hugo --minify`, and prints how many it escaped. Reassigned from Codex Luna on 2026-10-22. | 7c, S43b, S43c, E1, U1, I1, M1, V1, T1 | Reproducible publication → import → vault → site recipe; loose/fresh-output limitations; no private content in public examples. |
+| 7d / Main | *Authorized 2026-10-26 (Start 7d); complete 2026-10-26.* README script list/usage and CHANGELOG from measured accepted commands. The CHANGELOG also records S43c's generic fixes: `cleanres.py` no longer deletes resources referenced only by titled links, and native vault reimport no longer leaves a stray `)` or an unresolved titled link. It also records E1: `sql2obsidian.py` and `sql2joplin.py` no longer rewrite the database they read, P7b2's bounded fresh-import lookups, F04's faster native inventory and, if adopted, U1's faster unchanged reruns, I1's faster recovery after an interrupted fresh import, M1's bounded preservation-manifest memory and V1's refusal of a damaged preservation bundle, with its recovery commands and `--ignore-preservation`. It also records T1: `obsidian2site.py` shows `<script>`, `<style>`, `<title>` and similar tags written in a note's prose as text, which used to run on the page or fail `hugo --minify`, and prints how many it escaped. Reassigned from Codex Luna on 2026-10-22. | 7c, S43b, S43c, E1, U1, I1, M1, V1, T1 | Reproducible publication → import → vault → site recipe; loose/fresh-output limitations; no private content in public examples. |
 | 7e / Main | Full regression gate, evidence/diff review, final status and commit. | 7d | Every required method passes; skipped integrations not counted as acceptance. |
 
 ### Compatibility prerequisites added after partial 7c trials
@@ -2933,7 +2939,7 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 
 </details>
 
-<details><summary>7d — pending; planned parent</summary>
+<details><summary>7d — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -2941,21 +2947,21 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; slice implementation still requires authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
-| Delegation failure or reassignment | 2026-10-22 user reassignment from codex luna_worker (gpt-5.6-luna, fixed max) to the Claude Code parent before any work started; previous assignment kept in assignment_history. Not a delegation failure. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; 7d authorized by the user on 2026-10-26 (Start 7d). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Read the 7c harness's stage commands, the measured per-stage results, the plan's completed-slice records, the contract and design limits, and notriosctl v1.0.0's help. README: About and Scripts table entries for notrios2sql.py and its modules and test files; an 'Import a Notrios publication into SQLite' usage section (verification before writing, no-replace publication, links, --expected-selection-sha256, fresh-output, loose-only and Linux limits, summary and exit codes, killed-run recovery); a 'Publishing a Notrios library' recipe (notebooks list, profile save, plan, run with --reviewed-plan, verify, notrios2sql.py, sql2obsidian.py and obsidian2site.py --build with the receipt and --no-simplify-urls), the plain_text and HTML-image limitations, the over-100,000-note export archive-v2 path and its unfiled-note limit, and the full-scale time and memory table from resumed 7c; T1's behaviour in the site section; the Testing command and count. CHANGELOG: an 'Unreleased changes' section covering the Notrios importer, receipts, C7d, S43c, E1, the index.md fix, P7b2, F04, U1, I1, M1, V1, C01/C02 and T1. Ran the recipe as written with the pinned v1.0.0 binary on the synthetic titled-link vault in the scratchpad; found D1 and added it to the plan. |
+| Validation | The README recipe ran as written (HOME pointed at a scratch home, default library) on the synthetic vault-titled-v1: import obsidian, notebooks list, profile save, plan, run with the reviewed plan, verify, notrios2sql.py created then unchanged, sql2obsidian.py, obsidian2site.py --build (Hugo, Go server, Bluge index), and notrios2sql.py still unchanged after both exports. The export archive-v2 path produced the same selection digest as the reviewed plan (eda3ffaa...), verified, and imported to identical note rows. A packed export, a wrong digest, an occupied output and another publication were each refused with exit 1. Every figure in the README table was recomputed from NOTRIOS_CORPUS_TRIALS.md. 318 tests in the six modules passed in 214.288 s on 2bd2de0 plus these documentation changes, with PYTHONDONTWRITEBYTECODE=1 and -B; no code changed. |
+| Delegation failure or reassignment | 2026-10-22 user reassignment from codex luna_worker (gpt-5.6-luna, fixed max) to the Claude Code parent before any work started; previous assignment kept in assignment_history. Not a delegation failure. Ran with no worker, as reassigned. |
 | Planned assignment evidence | e3af032:NOTRIOS_IMPORT_PLAN.md; 2026-10-22 user reassignment to the Claude Code parent |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Start 7d; README.md: Import a Notrios publication into SQLite; Publishing a Notrios library; CHANGELOG.md: Unreleased changes; Private scratchpad recipe.sh, recipe2.sh, recipe3.sh, recipe4.sh and their output; gate7d.log |
+| Commit | Git commit containing this completion record: docs: document the Notrios import and record its changes (7d) |
 
 </details>
 
@@ -3162,6 +3168,32 @@ Next: C7c (Luna / max), pending restored worker capacity and slice authorization
 | Validation | pending |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | R1 planning finding, 2026-10-25: under plain_text the v1.0.0 producer replaces 2,318 unresolved or ambiguous Joplin links (471 file:, 13 tel:, 1,197 data:, 500 relative) with their labels; user: Update the plan if you find items that need to be fixed instead of just logging their existence. User, 2026-10-25: Use option (a) for R2. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
+<details><summary>D1 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-22; proposed by Main on 2026-10-26 during 7d; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | 7d finding, 2026-10-26; user: Update the plan if you find items that need to be fixed instead of just logging their existence. |
 | Execution evidence | none |
 | Commit | pending |
 

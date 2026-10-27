@@ -6,6 +6,7 @@
 * **Import:** Joplin RAW Directory → SQLite
 * **Import:** Twitter/X archive → SQLite
 * **Import:** Obsidian vault → SQLite
+* **Import:** Notrios publication → SQLite
 * **Export:** SQLite → Joplin RAW Directory
 * **Export:** SQLite → Obsidian vault
 
@@ -17,6 +18,7 @@ index chunks. Pagefind remains available as a fully static fallback:
 
 * Joplin RAW Directory → SQLite → Obsidian vault → Hugo + Bluge/Pagefind
 * Twitter/X archive → SQLite → Obsidian vault → Hugo + Bluge/Pagefind
+* Notrios library → publication → SQLite → Obsidian vault → Hugo + Bluge/Pagefind
 
 Quartz remains documented as an option for smaller vaults.
 
@@ -37,6 +39,7 @@ id, plus a `resources/` directory holding attachment files.
 | `joplin2sql.py`   | Import a Joplin RAW directory into a SQLite database     |
 | `twitterx2sql.py` | Import a Twitter/X archive into a SQLite database        |
 | `obsidian2sql.py` | Import an Obsidian vault into a SQLite database          |
+| `notrios2sql.py`  | Verify a Notrios publication and import it into a new SQLite database |
 | `sql2joplin.py`   | Export a SQLite database to a Joplin RAW directory       |
 | `sql2obsidian.py` | Export a SQLite database to an Obsidian vault            |
 | `obsidian2site.py` | Convert an Obsidian vault to a Hugo/Ledger site with Bluge and Pagefind search |
@@ -48,8 +51,17 @@ id, plus a `resources/` directory holding attachment files.
 | `notesdb.py`      | Shared database code                                     |
 | `common.py`       | Shared helper functions                                  |
 | `constants.py`    | Shared constants                                         |
+| `notrios_archive.py` | Notrios publication verification                      |
+| `notrios_links.py` | Notrios link checking and projection to `:/id` links    |
+| `notrios_mapping.py` | Notrios identity and database row mapping            |
+| `notrios_receipt.py` | Notrios import receipt validation and copying         |
+| `notrios_c7c.py`  | Development tool: compares a Notrios import with a movenotes import of the same source |
 | `test_movenotes.py` | End-to-end verification suite (see Testing)            |
+| `test_image_resources.py` | Image localization and quarantine regressions   |
+| `test_obsidian2sql.py` | Obsidian import regressions                         |
 | `test_obsidian2site.py` | Hugo/Bluge/Pagefind site generation regressions    |
+| `test_notrios2sql.py` | Notrios verification, import, vault and site regressions |
+| `test_notrios_7c.py` | Tests for the corpus trial harness in `scripts/`      |
 
 # Setup
 
@@ -206,6 +218,71 @@ what to put there.
 
 `--ignore-preservation` also imports a vault with a valid bundle as a native
 vault.
+
+## Import a Notrios publication into SQLite
+
+[Notrios](https://github.com/renesugar/notrios) publishes a reviewed selection
+of a library as a *publication handoff*: a loose archive-v2 directory holding
+the selected notes, their notebooks, tags and attachments, and the links between
+them. `notrios2sql.py` verifies one and imports it into a new database:
+
+```
+python3 -B notrios2sql.py \
+  --input  ~/publication \
+  --output ~/notes_sqlite \
+  --expected-selection-sha256 <the reviewed plan's manifest_sha256>
+```
+
+[Publishing a Notrios library](#publishing-a-notrios-library) below shows how
+to produce the publication and carry it through to a site. movenotes is tested
+against Notrios `v1.0.0`.
+
+The whole archive is verified before anything is written: every object's size
+and SHA-256, the manifest's digests, and the records and how they refer to each
+other. The database is then built in a hidden staging directory beside
+`--output` and renamed into place in one step, so `--output` either does not
+exist or holds a complete import.
+
+Notebooks keep their nesting, and each note gets its current revision's title,
+dates and body, its tags, and its attachments with their exact bytes. IDs are
+derived from the publication's own identities, so the same publication always
+produces the same IDs. A link to a note or attachment in the publication
+becomes a Joplin `:/id` link, keeping its label and any title byte for byte,
+and an HTML `<img>` whose `src` names an attachment maps the same way. Every
+other destination is left exactly as written. The whole import is refused if a
+link names an internal target the importer cannot account for, such as one not
+in the publication or one the producer's link records do not cover. A link
+like that would lead nowhere on the site, or name a note that was withheld.
+
+`--expected-selection-sha256` is the digest of the plan that was reviewed, and
+a publication with any other selection is refused. It is optional, but without
+it nothing ties the import to the review.
+
+- `--output` must not exist yet, and its parent must. There is no merge and no
+  overwrite. Rerunning into a completed import of the same publication verifies
+  it and reports `unchanged` without writing. A different publication there is
+  refused.
+- Only loose `publication_handoff` archives are read. A packed archive (one
+  exported with `--pack`), another export target, and an archive carrying
+  source bundles or provenance are refused.
+- Linux only: the final rename needs `renameat2(RENAME_NOREPLACE)`, and the
+  filesystem must support `fsync`.
+- `sql2obsidian.py` and `sql2joplin.py` open the database read-only, so
+  exporting it does not change it and a rerun still reports `unchanged`.
+
+On success stdout is one JSON line: `status` (`created` or `unchanged`),
+`commit_sha256`, `selection_manifest_sha256`, `row_count` and
+`resource_count`. It holds no paths or note content. Progress phases and
+errors go to stderr. The exit status is 0 on success, 1 when the import is
+refused or fails, and 2 for a usage error.
+
+An error or Ctrl-C removes everything the run created. A run that is killed
+outright, or a power loss, can leave `.movenotes-notrios-lock-…`,
+`.movenotes-notrios-work-…` and `.movenotes-notrios-stage-…` directories beside
+`--output`, each with an `owner.json`. The next run refuses while the lock is
+there, and prints its path. Make sure no import is still running, then move
+those exact directories aside and rerun. The importer never removes another
+run's lock by itself.
 
 ## Export SQLite to a Joplin RAW directory
 
@@ -496,12 +573,115 @@ external URL destinations while retaining their visible source text, links valid
 plain `@username` mentions to X, and writes a disk-backed exact tag index whose
 counts match its result lists.
 
+Hugo passes a note's raw HTML through to the page, but a few tags written in
+prose are shown as text instead: `<script>`, `<style>`, `<title>`,
+`<textarea>`, `<noscript>`, `<noembed>`, `<noframes>`, `<xmp>` and
+`<plaintext>`. Left alone, the browser would run or swallow whatever follows
+them, and `hugo --minify` fails on a `<script>` that is not JavaScript. An
+SVG's own `<title>` and `<style>` elements are kept. Code spans, code blocks
+and indented code are not touched, and the search text is unchanged. The run
+prints how many tags it showed as text.
+
 Deploying the result: [`DEPLOY_VERCEL.md`](DEPLOY_VERCEL.md) for server-side
 Bluge search, [`DEPLOY_GITHUB_PAGES.md`](DEPLOY_GITHUB_PAGES.md) for a static
 Pagefind site.
 
 See [`STATIC_SITE.md`](STATIC_SITE.md) for complete build, query, local serving,
 deployment-prefix, stop-word, embed, Pagefind fallback, and Quartz instructions.
+
+# Publishing a Notrios library
+
+Publish notes from a Notrios `v1.0.0` library, import them, export a vault
+and generate the site. The `notriosctl` commands below use the default library.
+Add `--db` and `--asset-store` to use another one.
+
+```bash
+# 1. Find the notebooks to publish. A notebook brings its subnotebooks with it.
+notriosctl notebooks list
+
+# 2. Save a publication profile, then plan it and review the plan.
+notriosctl publish profile save \
+  --profiles ~/profiles.json --name public \
+  --target publication_handoff --notebooks nb_public \
+  --link-action plain_text
+notriosctl publish plan --profiles ~/profiles.json --profile public > ~/plan.json
+selection=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["plan"]["manifest_sha256"])' < ~/plan.json)
+
+# 3. Publish exactly the reviewed plan, and verify the result.
+notriosctl publish run --profiles ~/profiles.json --profile public \
+  --reviewed-plan "$selection" ~/publication
+notriosctl verify archive-v2 ~/publication
+
+# 4. Import it, export a vault and build the site.
+python3 -B notrios2sql.py --input ~/publication --output ~/notes_sqlite \
+  --expected-selection-sha256 "$selection"
+mkdir -p ~/public_vault
+python3 -B sql2obsidian.py --input ~/notes_sqlite --output ~/public_vault \
+  --include-notrios-receipt --no-simplify-urls
+python3 -B obsidian2site.py --input ~/public_vault --output ~/public_site \
+  --title "Public notes" --ledger-theme ~/projects/hugo-theme-ledger \
+  --search-backend bluge --include-notrios-receipt --build
+```
+
+`~/plan.json` lists every note the publication will hold, with counts that
+include `selected_documents`, `private_links` and `broken_links`. Notrios
+leaves out notes tagged `private`, `draft` or `confidential`, read-only
+notebooks and the Trash by default. Read the plan before step 3:
+`--reviewed-plan` publishes that plan or nothing, and step 4 refuses any other
+selection. Serve the site as in the
+[previous section](#publishing-a-large-vault-with-hugo-ledger-and-bluge).
+
+The `plain_text` link action replaces a link to an unpublished note with its
+label. At `v1.0.0` it does the same to every link Notrios could not resolve
+(`file:`, `tel:`, `data:` and relative destinations), so those never reach
+movenotes. `--no-simplify-urls` keeps the remaining links as they were
+published. `--include-notrios-receipt` copies the import's receipt to
+`.movenotes/notrios-receipt.json` in the vault. The receipt identifies the
+publication: its commit and selection digests, its snapshot and library IDs,
+and the reader and mapper versions, with no paths, times or note content. On the site it is published
+at `movenotes/notrios-receipt.json`, where anyone can download it, so leave
+the flag off `obsidian2site.py` if you don't want that.
+
+An `<img>` written in HTML imports correctly, but the exported vault still
+points its `src` at `:/id`, so Obsidian and the site do not show the image.
+
+**Over 100,000 notes.** At `v1.0.0`, `publish plan` and `publish run` select at
+most 100,000 notes, and a profile holds at most 100 notebook and tag
+selectors. For a larger publication, export the handoff directly and take the
+selection digest from its report:
+
+```bash
+notriosctl export archive-v2 --target publication_handoff \
+  --notebooks nb_a,nb_b --max-documents 1000000 ~/publication > ~/export.json
+selection=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["selection_manifest_sha256"])' < ~/export.json)
+```
+
+Step 3's `verify archive-v2` and step 4 are unchanged. The export has no profile and no
+plan to review. Check the report's `selected_documents`, `excluded_documents`,
+`rewritten_links` and `skipped_rewrites` before importing. Notes that belong
+to no notebook cannot be selected this way. Selecting them by ID hits the
+8,192-byte limit on a Notrios job's parameters long before 100,000 notes.
+
+Measured end to end on three real libraries (one Linux workstation, internal
+disk, Hugo `v0.164.0`, Go 1.27.0), with every note published. Each cell is
+wall-clock time and peak memory for that step alone:
+
+| Step | Joplin, 103,349 notes | Recipes from RAW, 382,206 | Recipes from a vault, 382,206 |
+|---|---:|---:|---:|
+| `notriosctl export archive-v2` | 12 min, 110 MiB | 1 h 45 min, 303 MiB | 1 h 48 min, 332 MiB |
+| `notrios2sql.py` (verification included) | 20 min, 69 MiB | 1 h 53 min, 67 MiB | 1 h 1 min, 68 MiB |
+| `sql2obsidian.py` | 10 min, 173 MiB | 1 h 5 min, 845 MiB | 35 min, 466 MiB |
+| `obsidian2site.py` (generation) | 17 min, 473 MiB | 1 h 36 min, 1.4 GiB | 1 h 26 min, 1.3 GiB |
+| Hugo `--gc --minify` | 5 min, 5.2 GiB | 31 min, 14.7 GiB | 17 min, 13.6 GiB |
+| Bluge index | 3 min, 310 MiB | 15 min, 414 MiB | 11 min, 404 MiB |
+
+The importer's peak memory stayed between 46 and 69 MiB from 1,000 notes to
+382,206: bounded, not proportional to the library. Hugo needs the most
+memory of any step, so it decides the machine a large library needs. The
+Joplin library's 757 attachments arrived byte for byte, and both recipe
+libraries were compared note by note against movenotes' own imports of the
+same sources. Every step and its measurements are in
+[`NOTRIOS_CORPUS_TRIALS.md`](NOTRIOS_CORPUS_TRIALS.md).
 
 # Publishing with Quartz
 
@@ -602,14 +782,25 @@ attachment-directory indexing, Twitter media fallback lookup, and bulk
 image-link replacement:
 
 ```
-python3 -m unittest -v test_movenotes.py test_image_resources.py test_obsidian2sql.py test_obsidian2site.py
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v test_movenotes.py test_image_resources.py \
+  test_obsidian2sql.py test_obsidian2site.py test_notrios2sql.py test_notrios_7c.py
 ```
+
+The tests run the scripts as subprocesses, so both the variable and `-B` are
+needed: `-B` covers only the test process, and a `__pycache__` left by an
+earlier run can shadow the script under test.
+
+`test_notrios2sql.py` checks the Notrios importer against committed synthetic
+publications under `testdata/notrios/`, made with real Notrios commands:
+verification and its refusals, the import and its reruns, links, attachments,
+and the vault and site built from the result. It needs no Notrios binary.
+`test_notrios_7c.py` tests the corpus trial harness in `scripts/`.
 
 The image-resource suite uses a local HTTP server to verify successful
 retrieval, HEAD fallback, redirect MIME changes, byte-signature mismatches,
 stop lists, malformed data URIs, deterministic deduplication, quarantine
-selection, replacement reuse, and both export paths. The suites contain 81
-tests, include the static-site regressions, and use only the standard library.
+selection, replacement reuse, and both export paths. The six modules contain
+318 tests and use only the standard library.
 On environments where the combined
 notebook-filtering class stalls during subprocess cleanup, each test method can
 be run independently; the conversion commands themselves complete normally.
