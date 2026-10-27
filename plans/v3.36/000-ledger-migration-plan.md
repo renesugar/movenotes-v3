@@ -102,7 +102,7 @@ post-copy rewriting: if a Ledger checkout does not build on the installed Hugo,
 that is a theme bug to fix in the theme repo.
 
 `--relearn-theme` is kept as a deprecated alias for one release: it warns and
-behaves as `--ledger-theme`, because it is in `STATIC_SITE.md` command lines
+behaves as `--ledger-theme`, because it is in `docs/static-site.md` command lines
 users have copied.
 
 ### M2 — Two-tier tags (the load-bearing decision)
@@ -277,7 +277,7 @@ code must serve only `/api/*`:
 ```
 
 The local binary keeps its current behaviour and command line. Nothing about
-the local workflow in `STATIC_SITE.md` §3 changes.
+the local workflow in `docs/static-site.md` §3 changes.
 
 ### V2 — Server refactor  ✅ (step 27)
 
@@ -448,13 +448,13 @@ Four findings that change later steps:
    theme's did not, which is how this surfaced.
 3. **V3's ceiling arithmetic is understated.** The 111 MB/100k Bluge index was
    measured without positions. The real phrase-capable figure is larger and
-   must be re-measured before the Vercel ceiling in `DEPLOY_VERCEL.md` is
+   must be re-measured before the Vercel ceiling in `docs/deploy-vercel.md` is
    written as a number. Step 27 or 32 measures it; until then, treat 250 MB ÷
    1.11 KB/note as an upper bound on the note count, not a promise.
 4. **Pagefind cannot express `since:`/`until:`.** Backends report dropped
    clauses and the UI names them, so a `pagefind`-only movenotes build will tell
    the visitor that date bounds need the Bluge backend rather than silently
-   ignoring them. `STATIC_SITE.md`'s search-syntax section has to say which
+   ignoring them. `docs/static-site.md`'s search-syntax section has to say which
    backend supports what.
 
 ### Step 22 — Generator: project scaffolding *(movenotes)*  ✅
@@ -753,7 +753,7 @@ function bundle is unverifiable. Built locally, the index is deployment *source*
    `#pizza`. This was visible in step 25's own verification output and I read past
    it.
 
-### Step 29 — `DEPLOY_VERCEL.md` *(movenotes)*  ✅
+### Step 29 — `docs/deploy-vercel.md` *(movenotes)*  ✅
 Written, and it leads with the verdict rather than burying it: which archive
 sizes can be deployed which way. Up to ~5,000 notes anything works; to ~45,000
 it has to be a Git-connected project; past that the index no longer fits a
@@ -785,7 +785,7 @@ would:
   instruction to start by editing `.gitignore` — a step that exists only because
   the generator got it wrong.
 
-### Step 30 — `DEPLOY_GITHUB_PAGES.md` *(movenotes + theme)*  ✅
+### Step 30 — `docs/deploy-github-pages.md` *(movenotes + theme)*  ✅
 Written, and it leads with the size question because that is what decides
 whether GitHub Pages is possible at all: a published site may be no larger than
 **1 GB**, and an archive builds to ~20 KB/note, so the host tops out around
@@ -831,7 +831,7 @@ href under `/archive/`, a followed result link returning 200, and no request
 outside the subpath but the favicon.
 
 ### Step 31 — Docs and invariants pass *(movenotes)*  ✅
-`STATIC_SITE.md` rewritten around what the site now is rather than what was
+`docs/static-site.md` rewritten around what the site now is rather than what was
 suppressed: the three ways in, a backend comparison table with the crossover from
 the theme's measurements, the real generated layout, the two-tier tag model with
 the measurement behind its cap, and the subpath section that step 30 earned. It
@@ -840,7 +840,7 @@ is the whole difference from the Relearn build — verified against a real
 generation, path by path.
 
 `README.md`'s publishing section rewritten, `requirements.txt` corrected,
-`PERFORMANCE_REVIEW.md`'s two Relearn sentences made theme-agnostic,
+`docs/performance-review.md`'s two Relearn sentences made theme-agnostic,
 `PLAN.md` marked so its steps 1–19 read as history, and `AGENTS.md` given the
 invariants this migration created — the sidebar rule, bounded pagers, the two tag
 tiers, one clause generator, one URL resolver, `extraCSS`/`extraJS` instead of
@@ -1029,8 +1029,8 @@ at a few thousand notes their indexes are a few megabytes, and Orama answers the
 generator, which targets archives 100× larger.
 
 The settled decision is written where someone would look before re-opening it:
-`STATIC_SITE.md` ("there is no third static option, and that was tested rather
-than assumed"), `DEPLOY_GITHUB_PAGES.md`, the theme's `README.md` and
+`docs/static-site.md` ("there is no third static option, and that was tested rather
+than assumed"), `docs/deploy-github-pages.md`, the theme's `README.md` and
 `PERFORMANCE.md`, and movenotes' `CHANGELOG.md`.
 
 ### Step 35b — Result ordering and a resting search page *(movenotes + theme)*  ✅
@@ -1073,7 +1073,7 @@ discarded `category:"All notes"` (Joplin's phrasing for "no filter"), so it and 
 empty box are one request. Verified identical on the theme's exampleSite — 17
 notes, same order — and across four query shapes on the 25k corpus.
 
-Documented in `STATIC_SITE.md`, the generated Getting Started page, the theme's
+Documented in `docs/static-site.md`, the generated Getting Started page, the theme's
 `README.md`, `AGENTS.md` (as an invariant, not a preference), `PERFORMANCE.md`
 (hypotheses 6 and 7) and `search-server/README.md`.
 
@@ -1303,7 +1303,7 @@ The aliases cost 0.5% of the index — 206 KB at 20k.
 **The Vercel ceiling is safe, and was pessimistic.** V3's 4.85 KB/note came from
 a deliberately unkind synthetic corpus; a real archive is **2.20 KB/note**
 *including* the URLs, so the 250 MB function bundle holds roughly 110,000 real
-notes against the documented ~45,000. `DEPLOY_VERCEL.md` now carries both
+notes against the documented ~45,000. `docs/deploy-vercel.md` now carries both
 figures and says which to plan with.
 
 ### Step 41 — Report progress during the post-Hugo validation *(movenotes)*
@@ -1363,12 +1363,12 @@ skipped for nearly every page.
 the other unannounced wait.
 
 ### Step 42 — Docs, and re-test on the real archive
-**Docs done.** A "Searching for a link" section in `STATIC_SITE.md` and in the
+**Docs done.** A "Searching for a link" section in `docs/static-site.md` and in the
 generated Getting Started page, both showing how a URL splits — host whole, path
 into words — and that a whole URL, a prefix, its components in any order, or one
 path segment all find the same notes, with `www.` optional. `README.md` gained
-the same in short. `DEPLOY_GITHUB_PAGES.md` gained a verification step for it and
-says why Pagefind needs the hidden block. `DEPLOY_VERCEL.md` carries the real
+the same in short. `docs/deploy-github-pages.md` gained a verification step for it and
+says why Pagefind needs the hidden block. `docs/deploy-vercel.md` carries the real
 per-note index figures from step 40.
 
 Two limits are stated rather than left to be discovered: it is not a URL parser,
@@ -1560,7 +1560,7 @@ This is the difference between the two analysers, worth stating plainly:
   note text, nothing to do with the host.
 - `http://t.co/iSQ` → 0 while `http://t.co/iSQx` → 1 is also correct. Terms match
   whole, so a partial one matches nothing; "prefix" in the docs means whole path
-  segments, not a partial token. Worth a sentence in `STATIC_SITE.md`.
+  segments, not a partial token. Worth a sentence in `docs/static-site.md`.
 
 ---
 
@@ -1812,8 +1812,8 @@ nothing in the reports asks for it.
 | `obsidian2site.py` | scaffolding, front matter, taxonomy, categories, shortcodes, CSS, build, validation, flags |
 | `site_server/` → `server/` + `cmd/` + `api/` | package split, superset contract, Vercel entry points |
 | `tests/test_obsidian2site.py` | Relearn assertions → Ledger; new taxonomy/category/contract regressions |
-| `STATIC_SITE.md` | rewritten |
-| `DEPLOY_VERCEL.md`, `DEPLOY_GITHUB_PAGES.md` | new |
+| `docs/static-site.md` | rewritten |
+| `docs/deploy-vercel.md`, `docs/deploy-github-pages.md` | new |
 | `AGENTS.md` | invariants restated for Ledger |
 | `README.md`, `CHANGELOG.md`, `PLAN.md`, `requirements.txt` | updated |
 

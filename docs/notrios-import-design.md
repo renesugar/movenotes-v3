@@ -1,11 +1,11 @@
 # Notrios importer implementation design — slice 1c
 
 Frozen on 2026-09-06. This specifies future implementation; it does not add a
-supported command. The [admission contract](NOTRIOS_IMPORT_CONTRACT.md) remains
+supported command. The [admission contract](notrios-import-contract.md) remains
 authoritative for archive verification. This document adds stricter conversion
 rules and freezes the interfaces needed by the
-[remaining slices](plans/v3.37/000-notrios-import-plan.md). The real
-[publication fixture](testdata/notrios/README.md) is the positive input.
+[remaining slices](../plans/v3.37/000-notrios-import-plan.md). The real
+[publication fixture](../testdata/notrios/README.md) is the positive input.
 
 S28a amendment (2026-09-13): the admission contract now declares database
 schema support **28**, against producer pin
@@ -13,7 +13,7 @@ schema support **28**, against producer pin
 portable projection or identity rule. Reader profile, mapper, receipt version,
 contract schema version and notesdb schema stay unchanged. Existing vectors and
 fixtures retain their original provenance; S28b adds separate
-[current-producer evidence](testdata/notrios/schema28/README.md).
+[current-producer evidence](../testdata/notrios/schema28/README.md).
 
 S43a amendment (2026-10-22): the link grammar below admits one optional title
 after an otherwise valid destination, because Notrios J43 (in `v1.0.0`) puts the
@@ -94,7 +94,7 @@ Inserting an existing mapped ID with a different full key is `collision`. A
 duplicate source record still refuses in verification, even if its bytes match.
 Tests inject a fake hash result to prove collision refusal; no reliance on the
 statistical rarity of truncation. The committed
-[vectors](testdata/notrios/design-v1.json) freeze keys, full digests, IDs and
+[vectors](../testdata/notrios/design-v1.json) freeze keys, full digests, IDs and
 fixture body projections. Updates to a future mapper require a new version.
 
 ## Complete notesdb row and property contract
@@ -258,7 +258,7 @@ are exported once and both inline embeds refer to them.
 
 ## C7a admission and comparison revision
 
-The [C7a compatibility review](plans/v3.37/005-compatibility-review.md) freezes the
+The [C7a compatibility review](../plans/v3.37/005-compatibility-review.md) freezes the
 admission-only extension, reference/prose boundary, independent acceptance cases
 and recipe comparison contract. C7b implements the body/literal admission
 revision; C7c still owns the refined whole-corpus comparison. Retain
@@ -279,7 +279,7 @@ recognition. These are lexical protection rules, not inferred rendered block
 structure. Ambiguous nested container/fence syntax containing internal targets
 refuses rather than guessing its context.
 
-Active link syntax is `[label](destination)` or `![label](destination)`,
+Active link syntax is `[label](../destination)` or `![label](../destination)`,
 recognised exactly as the producer's parser (`internal/markdownlinks` at
 `v1.0.0`) recognises it, so every span it records is a token (C7d). The label
 runs from the `[` to the first `]` on its line and may hold `[`, backslashes and
@@ -382,7 +382,7 @@ producer rewrite or hidden private reference.
 C7d replaces C7a's narrow literal-bracket exception. A `[` or `![` that does
 not start a token is prose, and the scan resumes at the next byte, so a token
 inside it is still found: multi-line and unclosed brackets, an aside or source
-list after a space (`[12] (Table 3)`, `[1] [title](url)`), nested or escaped
+list after a space (`[12] (Table 3)`, `[1] [title](../url)`), nested or escaped
 brackets and reference forms all stay exactly as written. Nothing is skipped,
 so an internal scheme or ID inside prose is still an unconsumed occurrence and
 refuses. A retained record over prose refuses. The C7a version of this

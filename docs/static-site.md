@@ -184,7 +184,7 @@ leave stale note pages in the browser.
 `server/` is one Go package with two entry points: the command above, and
 `api/search.go` / `api/health.go` for a serverless platform, where a CDN serves
 the static files and only `/api/*` reaches Go. Neither can answer differently
-from the other. See `DEPLOY_VERCEL.md`.
+from the other. See `docs/deploy-vercel.md`.
 
 ### Confirm which backend is active
 
@@ -449,6 +449,15 @@ The converter:
 `--note-embeds transclude` expands note embeds; the default `link` mode is more
 scalable. Cycles and excessive nesting stop automatically.
 
+Hugo passes a note's raw HTML through to the page, but a few tags written in
+prose are shown as text instead: `<script>`, `<style>`, `<title>`,
+`<textarea>`, `<noscript>`, `<noembed>`, `<noframes>`, `<xmp>` and
+`<plaintext>`. Left alone, the browser would run or swallow whatever follows
+them, and `hugo --minify` fails on a `<script>` that is not JavaScript. An
+SVG's own `<title>` and `<style>` elements are kept. Code spans, code blocks
+and indented code are not touched, and the search text is unchanged. The run
+prints how many tags it showed as text.
+
 Dot directories are excluded unless `--include-hidden` is used. `.movenotes` is
 always excluded from publishing.
 
@@ -467,7 +476,7 @@ through one partial for exactly this reason, and the exact-tag index's stored no
 URLs are resolved against the site root at runtime.
 
 If a subpath deployment 404s its assets or its search results, the base URL is
-the first thing to check. See `DEPLOY_GITHUB_PAGES.md`.
+the first thing to check. See `docs/deploy-github-pages.md`.
 
 The generated Go server is intended for a local root deployment such as
 `http://127.0.0.1:8080/`; behind a subpath, put it behind a reverse proxy that
@@ -494,9 +503,9 @@ The expensive paths stay bounded:
 
 ## Deploying
 
-- `DEPLOY_VERCEL.md` — static site plus Bluge search as serverless functions,
+- `docs/deploy-vercel.md` — static site plus Bluge search as serverless functions,
   with the measured limits that decide which archives fit.
-- `DEPLOY_GITHUB_PAGES.md` — static Pagefind site, the Actions workflow, and the
+- `docs/deploy-github-pages.md` — static Pagefind site, the Actions workflow, and the
   1 GB ceiling.
 
 ## Quartz

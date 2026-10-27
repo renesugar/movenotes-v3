@@ -20,7 +20,7 @@ larger than **1 GB**, and a movenotes archive builds to roughly 20 KB per note:
 | 50,000 notes | ~1 GB | at the limit |
 | 100,000+ notes | ~2 GB | **will not publish** |
 
-Past that, `DEPLOY_VERCEL.md` covers static hosting on Vercel and running Bluge
+Past that, `docs/deploy-vercel.md` covers static hosting on Vercel and running Bluge
 on a host that keeps a process. The [limits](#limits) section below has the rest
 of the numbers.
 
@@ -245,6 +245,6 @@ suspect, and `--base-url` at generation time is where it starts.
 - [GitHub Pages limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits)
 - [About GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/about-github-pages) — site types and URL forms
 - [Pagefind](https://pagefind.app/)
-- `DEPLOY_VERCEL.md` — Vercel, including server-side Bluge search
-- `STATIC_SITE.md` — generating and serving the site locally
+- `docs/deploy-vercel.md` — Vercel, including server-side Bluge search
+- `docs/static-site.md` — generating and serving the site locally
 - The theme's `PERFORMANCE.md` — measured Pagefind behaviour at 10k, 100k and 500k notes

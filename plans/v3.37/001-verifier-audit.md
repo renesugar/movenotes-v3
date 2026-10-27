@@ -8,8 +8,8 @@ conversion, body limits and Markdown span/target translation remain in Step 3.
 The final regression run passed all 166 tests (63 focused Notrios tests) in
 76.097 seconds on 2026-09-07.
 
-The [consumer contract](../../NOTRIOS_IMPORT_CONTRACT.md) and
-[frozen design](../../NOTRIOS_IMPORT_DESIGN.md) remain authoritative.
+The [consumer contract](../../docs/notrios-import-contract.md) and
+[frozen design](../../docs/notrios-import-design.md) remain authoritative.
 
 ## Differential results
 

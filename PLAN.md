@@ -1,8 +1,8 @@
 # Plan: Reorganize the repository, then the Notrios import follow-ups
 
 Status: **opened 2026-10-26.** L0 (opening), **L1 and L2 are complete**; the
-**L4** and **L3** are complete too. The next slice is
-**L5**, not yet authorized. The user confirmed this plan's assignments for the session
+**L4**, **L3** and **L5** are complete too. The
+next slice is **L6**, not yet authorized. The user confirmed this plan's assignments for the session
 on 2026-10-26; see
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 
@@ -101,8 +101,8 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 <!-- PLAN-ASSIGNMENTS:END -->
 
-Next slice: **L5 — documentation in `docs/`**, assigned to Main; not yet
-authorized.
+Next slice: **L6 — private data and large publications**, assigned to Main;
+not yet authorized.
 
 ## Execution rules
 
@@ -129,7 +129,7 @@ authorized.
 | L2 / Main | *Complete 2026-10-26.* Release 3.37 and archive the finished plans, with a link checker. See [L2](#l2--release-337-and-archive-the-finished-plans). | L1 | Every relative link and anchor in every tracked Markdown file resolves; the archived ledger checks in place; the full gate passes. |
 | L4 / Main | *Complete 2026-10-26.* Move the test modules into `tests/` and `notrios_c7c.py` into `scripts/`. See [L4](#l4--tests-in-tests-and-tools-in-scripts). | L2 | The same 321 and 43 tests, by name, pass from `tests/`, run from the repository root; no `test_*.py` or `notrios_c7c.py` at the root. |
 | L3 / Main | *Complete 2026-10-26.* Add `ROADMAP.md`, and the plan, roadmap and archive rules in `AGENTS.md`. See [L3](#l3--roadmapmd-and-the-rules-for-plans). | L4 | Each deferred feature has its scope, why it is deferred and what it needs; `AGENTS.md` states the rules; links resolve. |
-| L5 / Main | Move the documentation into `docs/`, and split the README's usage sections into pages there. See [L5](#l5--documentation-in-docs). | L3 | Root holds only the files listed in L5; every old README paragraph exists in exactly one page; links resolve. |
+| L5 / Main | *Complete 2026-10-26.* Move the documentation into `docs/`, and split the README's usage sections into pages there. See [L5](#l5--documentation-in-docs). | L3 | Root holds only the files listed in L5; every old README paragraph exists in exactly one page; links resolve. |
 | L6 / Main | Document private data and publications over 100,000 notes. See [L6](#l6--private-data-and-large-publications). | L5 | Each documented command was run on a synthetic library and behaved as written. |
 | L7 / Main | Check that documented examples are executable. See [L7](#l7--executable-documentation). | L6 | Every fence is registered; Python-only examples pass in the gate; the `--with-tools` run passes here; an edited fence fails. |
 | L8 / Main | *Added 2026-10-26 at the user's request; needs authorization, and separate permission to force-push.* Rewrite the old paths in the Git history. See [L8](#l8--rewrite-the-old-paths-in-the-git-history). | L7 | No commit on any branch holds a path with the account name; the tip's tree is unchanged by the rewrite; every reference to a rewritten commit is mapped. |
@@ -279,8 +279,10 @@ and the directories `docs/`, `plans/`, `scripts/`, `tests/`, `sample/`, `testdat
 `site_server/` and `experiments/`.
 
 *Acceptance:* a script compares the paragraphs of the old README with the new
-README and pages, and finds each old paragraph in exactly one place; the link
-checker passes.
+README and pages, and finds each old paragraph in exactly one place, except
+the quick-start examples the README repeats from each page, and the site
+section's summary paragraphs, each of which `docs/static-site.md` already
+covers (the mapping is in the L5 record); the link checker passes.
 
 ### L6 — Private data and large publications
 
@@ -591,7 +593,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
-<details><summary>L5 — pending; planned parent</summary>
+<details><summary>L5 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -599,21 +601,21 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; L5 authorized by the user on 2026-10-26 (Start L5). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | git mv of STATIC_SITE.md, DEPLOY_VERCEL.md, DEPLOY_GITHUB_PAGES.md, PERFORMANCE_REVIEW.md, IMPLEMENTATION_REVIEW.md, NOTRIOS_IMPORT_CONTRACT.md and NOTRIOS_IMPORT_DESIGN.md to lowercase names in docs/, with every reference rewritten by the one-off mover (archived plans and ledger included; the active plan excluded). Split the README's usage sections, verbatim apart from heading levels and re-based links, into docs/joplin.md (with the orphaned PDF OCR section), twitter.md, obsidian.md (with the round trips), images.md, notrios.md, quartz.md, testing.md (with the test-module rows of the script table) and schema.md; wrote docs/index.md. The README keeps About, the script table (tests/ and scripts/ as one row each), Setup, a quick start repeating each page's first example, a short Testing pointer, the development plan, history and licence. The site section's opening paragraph and example stay in the README; its prose-tags paragraph moved into docs/static-site.md's conversion section; its other summary paragraphs were dropped as covered there: server start and logging (section 3, lines 162-175), search syntax and newest-first ordering (Search syntax), link search (Searching for a link), the three ways in and two tag populations (intro, Two kinds of tag), canonical URLs (section 2), the JSONL stream and Pagefind commands (Search backends, section 4), --search-backend both and the built-backend check (Search backends, Confirm which backend is active), converter features (Obsidian Markdown conversion), deployment links (Deploying). AGENTS.md's reading list points at docs/ for usage; the Notrios page's 'previous section' link now names the static-site guide. |
+| Validation | verify_split.py: 187 blocks of the pre-split README; every block has exactly one home except the seven quick-start examples and the Testing heading the README repeats, and 15 intended changes (two table rows reworded or replaced by the scripts/ row, the site heading, ten site summary blocks covered in docs/static-site.md as mapped, one link label, one link wording). check_doc_links.py: 41 documents, 0 broken links; tests/test_docs.py passes. Root holds only the files the plan lists (plus an ignored __pycache__ from earlier runs). Documentation only; no code changed. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Start L5; Private scratchpad split_readme.py, compose_readme.py, verify_split.py, readme-presplit.md, l5-moves.json |
+| Commit | Git commit containing this record: docs: move the documentation into docs/ and split the README (L5) |
 
 </details>
 
@@ -812,3 +814,4 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-26 | L4 revised and moved before L3 | The user: "Add a `unittest` directory for those files and update any necessary files in the plan for L4. Then, do L4 next, including notrios_c7c.py, then L3." and then "Pick a different name if `unittest` would cause problems." A directory named `unittest` breaks `python3 -m unittest unittest/test_x.py`, and with an `__init__.py` would shadow the standard library, so the tests go to `tests/`; `notrios_c7c.py` goes to `scripts/`. Order: L4, then L3, then L5. |
 | 2026-10-26 | L4 complete | The eleven test modules are in `tests/` and `notrios_c7c.py` in `scripts/`; every reference outside the active plan was rewritten, dotted test names included. The same 364 test IDs load; 321 and 43 pass from `tests/`. Next: L3, already authorized. |
 | 2026-10-26 | L3 complete | `ROADMAP.md` gives the 3.38 release this plan is for and the three deferred Notrios features. `AGENTS.md` gains the rules for plans, the roadmap and the archive, and for the repository layout and moving files; its reading list starts with `PLAN.md` and `ROADMAP.md`. Documentation only. Next: ask to proceed to L5. |
+| 2026-10-26 | L5 complete | Seven reference documents moved into `docs/` in lowercase, with every reference updated. The README's usage sections are eight pages in `docs/`, listed by `docs/index.md`; the README keeps what movenotes is, the script table, setup and a short example per workflow, and is 197 lines instead of 863. Every old paragraph has one home, apart from the repeated examples and the site summary that `docs/static-site.md` already covered. Next: ask to proceed to L6. |

@@ -303,5 +303,5 @@ per-site, so this costs cross-archive search.
 - [Runtimes: filesystem, archiving, functions per deployment](https://vercel.com/docs/functions/runtimes)
 - [Platform limits: files, uploads, build time](https://vercel.com/docs/limits)
 - [`vercel.json` configuration](https://vercel.com/docs/project-configuration/vercel-json)
-- `STATIC_SITE.md` — generating and serving the site locally
+- `docs/static-site.md` — generating and serving the site locally
 - `site_server/README.md` — the two entry points and their configuration

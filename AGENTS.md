@@ -12,7 +12,9 @@ Read these files first:
    and what releases are meant to do. How they are kept, and when a plan is
    archived to `plans/`, is under
    [Plans, the roadmap and the archive](#plans-the-roadmap-and-the-archive).
-2. `README.md` — supported workflows, lossless guarantees, and command usage.
+2. `README.md` and `docs/` — what movenotes does and a short example per
+   workflow; `docs/index.md` lists the page for each workflow, with its
+   lossless guarantees and every option.
 3. `notesdb.py` — schema, migrations, indexes, Joplin property serialization,
    exact-source checks, and batch insert helpers.
 4. `joplin2sql.py` / `sql2joplin.py` — authoritative Joplin RAW parsing and
@@ -20,23 +22,23 @@ Read these files first:
 5. `obsidian2sql.py` / `sql2obsidian.py` / `obsidianmeta.py` — native Obsidian
    snapshots, preservation bundles, path restoration, attachment mappings, and
    metadata carried through `application_data`.
-6. `obsidian2site.py`, `site_server/`, and `STATIC_SITE.md` — scalable
+6. `obsidian2site.py`, `site_server/`, and `docs/static-site.md` — scalable
    Hugo/Ledger generation, canonical note URLs, disk-backed tags, server-side
    Bluge search, and the Pagefind static fallback. The migration from the
    Relearn theme is complete and archived as
    `plans/v3.36/000-ledger-migration-plan.md`; its decisions (M2, M3 and the
    rest) still explain several invariants below.
-   `DEPLOY_VERCEL.md` and `DEPLOY_GITHUB_PAGES.md` document deployment, and
+   `docs/deploy-vercel.md` and `docs/deploy-github-pages.md` document deployment, and
    carry the measured platform limits that decide which archives can be deployed
    where — do not restate those numbers elsewhere from memory.
 7. `image_resources.py`, `images2resources.py`, and `quarantinelinks.py` —
    Markdown image parsing, network safety, reports, resources, and quarantine.
 8. `notrios2sql.py` and `notrios_archive.py`, `notrios_links.py`,
-   `notrios_mapping.py`, `notrios_receipt.py`, with `NOTRIOS_IMPORT_CONTRACT.md`
-   and `NOTRIOS_IMPORT_DESIGN.md` — Notrios publication verification, link
+   `notrios_mapping.py`, `notrios_receipt.py`, with `docs/notrios-import-contract.md`
+   and `docs/notrios-import-design.md` — Notrios publication verification, link
    projection, row mapping and receipts. The plan that built them, and its
    evidence, is archived in `plans/v3.37/`.
-9. `CHANGELOG.md` and `PERFORMANCE_REVIEW.md` — revision history and complexity
+9. `CHANGELOG.md` and `docs/performance-review.md` — revision history and complexity
    decisions.
 
 ## Invariants

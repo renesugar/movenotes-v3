@@ -3,5 +3,5 @@
 
 # obsidian2site.py generation is standard-library-only. Building its output
 # requires external tools — Hugo, the Ledger theme, Go for the Bluge server, and
-# Pagefind — as documented in STATIC_SITE.md. They are not Python runtime
+# Pagefind — as documented in docs/static-site.md. They are not Python runtime
 # dependencies.

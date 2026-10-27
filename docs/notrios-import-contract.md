@@ -2,7 +2,7 @@
 
 Status: design frozen on 2026-09-05 for the first importer implementation.
 No importer or verifier is implemented by this document. This is the admission
-checklist for [plans/v3.37/000-notrios-import-plan.md](plans/v3.37/000-notrios-import-plan.md), not a claim that
+checklist for [plans/v3.37/000-notrios-import-plan.md](../plans/v3.37/000-notrios-import-plan.md), not a claim that
 movenotes already supports archive-v2.
 
 ## Reference pin and authority
@@ -20,12 +20,12 @@ no portable record state; archive version 2, contract schema version 1 and
 minimum schema 12 remain unchanged. Collection capabilities are now omitted by
 the producer and optional for the consumer (already implemented in `cc4ec25`).
 The original pin still identifies existing fixture/vector/audit provenance.
-S28b [producer fixtures and differential evidence](testdata/notrios/schema28/README.md)
+S28b [producer fixtures and differential evidence](../testdata/notrios/schema28/README.md)
 verify the updated producer and retained schema-27 compatibility.
 
 S43a update (2026-10-22): Notrios `v1.0.0`
 (`2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a`) keeps a link's title when it
-rewrites the destination (J43). The [design's link grammar](NOTRIOS_IMPORT_DESIGN.md)
+rewrites the destination (J43). The [design's link grammar](notrios-import-design.md)
 now admits one optional delimited title, copied byte for byte. Archive admission
 is unchanged: the registry still declares schema 28, the archive contract and
 format are unchanged since the S28 pin, and link records still carry the
@@ -389,7 +389,7 @@ complete by this contract review.
 
 ## Slice 1b observed publication
 
-The subsequent [synthetic publication fixture](testdata/notrios/README.md) was
+The subsequent [synthetic publication fixture](../testdata/notrios/README.md) was
 generated and verified with the clean pinned CLI. It is now the concrete input
 for 1c. Its README records the exact commands, digests and semantic assertions.
 This adds evidence without claiming that the planned Python verifier exists.

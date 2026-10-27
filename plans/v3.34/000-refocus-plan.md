@@ -133,7 +133,7 @@ large-library scaling paths were reviewed again in release 3.10.
 A local generated 5,000-item import improved from 11.07 seconds with the 3.05
 importer to about 1.8–2.0 seconds with 3.10. A 10,000-item old-version run did
 not finish within 180 seconds in that environment; 3.10 completed in 2.66
-seconds. See `PERFORMANCE_REVIEW.md`; these figures are not runtime promises.
+seconds. See `docs/performance-review.md`; these figures are not runtime promises.
 
 ### Step 6 — New Obsidian vault export (`sql2obsidian.py`)  ✅
 
@@ -333,7 +333,7 @@ All steps (1–13) complete. Run `python3 -m unittest -v tests/test_movenotes.py
   Obsidian export, and Twitter media fallback paths.
 * Made extension matching case-insensitive and added `.MD` regression coverage.
 * Expanded the suite to 56 tests and documented benchmark/complexity results in
-  `PERFORMANCE_REVIEW.md` and `CHANGELOG.md`.
+  `docs/performance-review.md` and `CHANGELOG.md`.
 
 ### Step 15 — Bidirectional Obsidian import and operational hardening  ✅
 
@@ -362,7 +362,7 @@ All steps (1–13) complete. Run `python3 -m unittest -v tests/test_movenotes.py
   prefix-bucketed JSON; explicit Obsidian tags also receive Pagefind filter metadata.
 * Bounded pending note conversions, kept tag counting disk-backed, generated a
   valid Hugo module, and documented Hugo/Pagefind build and local serving.
-* Added `STATIC_SITE.md`, updated repository orientation, and expanded the suite
+* Added `docs/static-site.md`, updated repository orientation, and expanded the suite
   to 73 tests.
 
 
@@ -416,5 +416,5 @@ are in place. The Orama/FlexSearch benchmark ran and justified adding nothing:
 real-archive test before release.
 
 Anything in steps 1–19 above that describes Relearn is history, not current
-behaviour. `STATIC_SITE.md` is the current description.
+behaviour. `docs/static-site.md` is the current description.
 
