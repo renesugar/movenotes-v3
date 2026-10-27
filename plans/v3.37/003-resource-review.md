@@ -1,6 +1,6 @@
 # Notrios resource safety review — slice 5d
 
-Reviewed the resource path at baseline `22929c8`, including slices 5a–5c.
+Reviewed the resource path at baseline `3af0e76`, including slices 5a–5c.
 The review found no required runtime change within the frozen importer boundary.
 Three additional integration tests cover orphan-resource refusal, private-copy
 mutation immediately before resource consumption, and abrupt process exit

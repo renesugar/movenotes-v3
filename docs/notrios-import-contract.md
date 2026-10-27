@@ -18,7 +18,7 @@ S28a update (2026-09-13): current reference pin is
 The reader support level below is now 28. The private FTS rowid migration adds
 no portable record state; archive version 2, contract schema version 1 and
 minimum schema 12 remain unchanged. Collection capabilities are now omitted by
-the producer and optional for the consumer (already implemented in `cc4ec25`).
+the producer and optional for the consumer (already implemented in `5bc3210`).
 The original pin still identifies existing fixture/vector/audit provenance.
 S28b [producer fixtures and differential evidence](../testdata/notrios/schema28/README.md)
 verify the updated producer and retained schema-27 compatibility.

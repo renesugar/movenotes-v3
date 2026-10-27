@@ -188,7 +188,7 @@ the internal disk; producer `v1.0.0` (2aab9a8); Hugo v0.164.0 extended; Go
 evidence is recorded.
 
 **Accepted.** Every stage of every route exited 0 at the final code
-(`7e85d13` for the site stages, `12a09fe` for conversion). Getting there took
+(`113e741` for the site stages, `37ee395` for conversion). Getting there took
 C7d (link forms, three user decisions) and T1 (raw `<script>` and similar tags
 in prose shown as text on the site). No note was filtered out.
 

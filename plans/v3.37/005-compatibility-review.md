@@ -229,7 +229,7 @@ prepared scripts using blocking completion and terminal notifications. Actual
 child models/efforts are not independently exposed. Private results are under
 `/media/$USER/HD2/movenotes-c7b-20260917/`.
 
-- Baseline is the frozen `5b2a7e2` checkout. All three committed publication
+- Baseline is the frozen `d9fd94f` checkout. All three committed publication
   fixtures imported and reran unchanged. Candidate payload inventories match
   baseline exactly: 15 files / 376,112 bytes across schema-27/schema-28 resource
   publications and the schema-28 text publication. Candidate no-ops also retain

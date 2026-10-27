@@ -2,7 +2,7 @@
 
 P7b implements candidates selected by [P7a](007-performance-evidence.md).
 Full-corpus performance adoption remains P7c; no acceptance producer pin changes.
-Python baseline is `f0b218a`. The Go experiment uses current Notrios
+Python baseline is `028e68a`. The Go experiment uses current Notrios
 `f478da7f1065d95d47cf21612833cef991bb8255`, not historical acceptance pin
 `7662fdd5b55d6f34f14874f70ba6db9f9e7676ac`.
 

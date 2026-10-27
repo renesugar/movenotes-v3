@@ -1,8 +1,8 @@
 # P7c candidate validation
 
-P7c validates the Python F02/F04 changes from `7aa9093` independently. C01/C02
+P7c validates the Python F02/F04 changes from `9d430e4` independently. C01/C02
 collision fixes remain enabled in all four disposable variants: base, F02 only,
-F04 only and both. The original `f0b218a` `_native_rows` function supplies the
+F04 only and both. The original `028e68a` `_native_rows` function supplies the
 F04 inverse; no production flags or importer edits are introduced by this slice.
 The rejected Go G08 candidate is excluded. The original both-producer speed and
 ratio goals remain unproven: Python results cannot satisfy Go producer goals.
@@ -245,8 +245,8 @@ Consequences for resumed P7c:
 ## Resumed P7c — F04 with P7b2 constant (2026-10-22/23)
 
 Claude Code Main ran the design frozen in the plan before any run. Variants
-came from `scripts/notrios_p7c_prepare.py` at `HEAD` (`105027a`) with the
-`f0b218a` reference; base and f04 differ only in F04's `_native_rows` change,
+came from `scripts/notrios_p7c_prepare.py` at `HEAD` (`f56adf7`) with the
+`028e68a` reference; base and f04 differ only in F04's `_native_rows` change,
 and both keep P7b2 and C01/C02. Runs were sequential, batch size 500, with
 nothing else on the disk except one incremental `zg index` refresh at
 2026-10-23T00:52:27Z, which ran on the home disk during R3 (recorded in
@@ -385,7 +385,7 @@ tag and note-tag rows are still recreated. Skipped notes still take a batch
 slot, so batches close where they did and collision errors come in the same
 order. A file that cannot be read or decoded is reported in file order.
 
-Paired alternating runs of `scripts/notrios_p7c_benchmark.py`, `9c25e2a` (base)
+Paired alternating runs of `scripts/notrios_p7c_benchmark.py`, `208fbb9` (base)
 against the U1 working tree (`obsidian2sql.py` SHA-256 `9b6eeb88…aa87`, the
 committed file). Every output is fingerprint-identical to base.
 
@@ -427,7 +427,7 @@ If that run stops too, the next open recreates them, which on an empty table is
 immediate. A library holding any row takes the previous path, and
 `joplin2sql.py` is unchanged.
 
-Base is `902bad2`; I1 is that tree plus the working `obsidian2sql.py`
+Base is `ccd5143`; I1 is that tree plus the working `obsidian2sql.py`
 (`9aeb1f1f…5db`) and `notesdb.py` (`d7e857a0…94c`), the committed files.
 Runs alternate, base first in pair 1.
 
@@ -481,7 +481,7 @@ deciding anything, so a malformed manifest still means a native import, as
 before (V1 changes that). A number cut by the end of the buffer is retried
 rather than decoded early.
 
-Base is `4dec69b`. M1 is that tree with the working `sql2obsidian.py` and
+Base is `3f318ac`. M1 is that tree with the working `sql2obsidian.py` and
 `obsidian2sql.py`. The full-scale export and the first 40,000-file export
 pairs ran the per-item writer (`5945c7d0…`). The final batched writer
 (`974133db…`) was then paired again at 40,000 files; the committed file
@@ -591,7 +591,7 @@ control characters.
 - All 304 tests in the five required modules pass (184.010 s), as do the 15
   harness tests.
 
-**Identity**, base `7d9a879` against V1:
+**Identity**, base `c108ee7` against V1:
 - **40,000-file library (132,775 items):** the two exports differ only in
   `.movenotes/export.json` and `.movenotes/README.md`. The manifests are
   byte-identical (`5a315af0…`), and so is the rest of the vault

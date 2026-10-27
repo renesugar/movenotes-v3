@@ -13,7 +13,7 @@ Reviewed Union Alpha and Grok 4.6 under `~/prompts/` and
 mentions movenotes, but its findings concern Notrios Go. F01–F15 below correspond
 to the plan; G01–G10 distinguish the additional Go review.
 
-Python baseline is movenotes commit `b06a7b8`; the run manifest records source
+Python baseline is movenotes commit `b60470a`; the run manifest records source
 hashes. Go acceptance pin is `7662fdd5b55d6f34f14874f70ba6db9f9e7676ac`.
 Read-only current Notrios inspection used `f478da7f1065d95d47cf21612833cef991bb8255`,
 schema 28. Current code is not a replacement acceptance pin. Profiling exported
