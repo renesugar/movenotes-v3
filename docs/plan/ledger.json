@@ -117,16 +117,16 @@
       "commit": "Git commit containing this record: chore: release 3.37 and archive the finished plans (L2)"
     },
     {
-      "id": "L3",
+      "id": "L4",
       "coding_agent": "claude",
       "status": "pending",
       "planned_worker": "parent",
       "configured_model": "not exposed; runtime reports claude-opus-5-5",
       "configured_reasoning_effort": "not exposed",
-      "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization.",
+      "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-26; L4 authorized by the user on 2026-10-26 (do L4 next).",
       "delegation_required": false,
-      "planned_assignment_evidence": "User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md.",
-      "planned_work": "Add ROADMAP.md for the deferred Notrios features and the plan, roadmap and archive rules in AGENTS.md.",
+      "planned_assignment_evidence": "User, 2026-10-26: Add a unittest directory for those files ... do L4 next, including notrios_c7c.py, then L3; Pick a different name if unittest would cause problems.",
+      "planned_work": "Move the eleven test_*.py modules into tests/ and notrios_c7c.py into scripts/, updating every reference; runs before L3.",
       "actual_worker": "pending",
       "child_thread": "pending",
       "actual_model": "pending",
@@ -142,7 +142,7 @@
       "commit": "pending"
     },
     {
-      "id": "L4",
+      "id": "L3",
       "coding_agent": "claude",
       "status": "pending",
       "planned_worker": "parent",
@@ -151,7 +151,7 @@
       "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization.",
       "delegation_required": false,
       "planned_assignment_evidence": "User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md.",
-      "planned_work": "Move the test modules and tools into scripts/.",
+      "planned_work": "Add ROADMAP.md for the deferred Notrios features and the plan, roadmap and archive rules in AGENTS.md.",
       "actual_worker": "pending",
       "child_thread": "pending",
       "actual_model": "pending",

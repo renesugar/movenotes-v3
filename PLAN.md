@@ -1,7 +1,7 @@
 # Plan: Reorganize the repository, then the Notrios import follow-ups
 
 Status: **opened 2026-10-26.** L0 (opening), **L1 and L2 are complete**; the
-next slice is **L3**, not yet authorized. The user confirmed this plan's assignments for the session
+next slice, **L4**, is authorized and in progress; L3 follows it. The user confirmed this plan's assignments for the session
 on 2026-10-26; see
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 
@@ -15,8 +15,9 @@ This plan:
 2. archives the finished plans under `plans/` by version, and releases 3.37;
 3. adds `ROADMAP.md` for the deferred Notrios features, and the rules in
    `AGENTS.md` for how `PLAN.md`, `ROADMAP.md` and the archive are used;
-4. moves the test modules and tools into `scripts/` and the documentation into
-   `docs/`, updating every reference to a moved file;
+4. moves the test modules into `tests/`, the remaining development tools into
+   `scripts/` and the documentation into `docs/`, updating every reference to a
+   moved file;
 5. documents how to keep private data out of a Notrios publication, what
    tagging cannot catch, and how to publish more than 100,000 notes;
 6. checks that every documented example is either executable, and executed,
@@ -52,6 +53,7 @@ Answers to the four questions asked before writing this plan:
 | Archive versions | **3.34 / 3.36 / 3.37**: the old `PLAN.md` (refocus, steps 1–19, last shipped as 3.34) goes to `plans/v3.34/`, `plans/v3.36/000-ledger-migration-plan.md` to `plans/v3.36/`, and `plans/v3.37/000-notrios-import-plan.md` with its ledger and renderer to `plans/v3.37/`. The CHANGELOG's "Unreleased changes" becomes "Changes in 3.37", and the changed scripts' `__version__` values go to 3.37. |
 | H1, R1, R2, D1 | **New `PLAN.md`**, after the reorganization, each still needing authorization. `ROADMAP.md` holds only deferred features. |
 | Notrios evidence documents | **Archived with their plan** in `plans/v3.37/`. Reference documents go to `docs/`: the static-site and deployment guides, the performance review, the implementation review, and the Notrios import contract and design. |
+| Test directory (asked after L2) | **`tests/`**, holding the eleven `test_*.py` modules; `notrios_c7c.py` goes to `scripts/`; L4 runs before L3. The user first asked for a `unittest` directory, then: "Pick a different name if `unittest` would cause problems." It would: `python3 -m unittest unittest/test_x.py` looks for a module `unittest.test_x` inside the standard library and fails, and an `unittest/__init__.py` would shadow the standard library's `unittest` so that no test could start. `tests/` has neither problem. |
 | Documented examples | **A registry, and run what can run.** Every fence in `README.md` and `docs/` is registered with its hash; an edited or unregistered fence fails the gate. Python-only examples run in the unit gate against `sample/` and synthetic fixtures in a temporary home. Examples needing Hugo, Go, `notriosctl` or the network run in a separate `--with-tools` check, which names any missing tool and does not count those examples as passed. Every other fence records why it is not run. |
 
 ## Coding-agent assignments and session confirmation
@@ -94,8 +96,8 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 <!-- PLAN-ASSIGNMENTS:END -->
 
-Next slice: **L3 — `ROADMAP.md` and the rules for plans**, assigned to Main;
-not yet authorized.
+Current slice: **L4 — tests in `tests/` and tools in `scripts/`**, assigned to
+Main; authorized 2026-10-26, to run before L3.
 
 ## Execution rules
 
@@ -108,8 +110,7 @@ not yet authorized.
   After each slice run `zg index` and `zg status --check-ready`.
 - The regression gate runs with `PYTHONDONTWRITEBYTECODE=1` and `-B`. It is the
   required modules (six, and seven from L2 with `test_docs.py`), plus the four
-  other harness modules for a full gate;
-  from L4 on, both run from `scripts/`.
+  other harness modules for a full gate; from L4 on, both run from `tests/`.
 - Private data stays out of Git: aggregate evidence only, no note content.
 - When a slice finds something that needs fixing, add it to this plan rather
   than only reporting it.
@@ -121,9 +122,9 @@ not yet authorized.
 | L0 / Main | *Complete 2026-10-26.* Open this plan: archive the old `PLAN.md` to `plans/v3.34/000-refocus-plan.md`, write this plan and its ledger, and turn `render_notrios_execution.py` into `scripts/render_plan_ledger.py`, which takes `--ledger` and serves both ledgers. | — | Both ledgers render and `--check` passes; the README and `requirements.txt` point at the archived plan. |
 | L1 / Main | *Complete 2026-10-26.* Remove the account name from committed paths; update the `AGENTS.md` test command. See [L1](#l1--remove-the-account-name-from-committed-paths). | L0 | No tracked file holds a path with the account name; both ledgers check; the full gate passes. |
 | L2 / Main | *Complete 2026-10-26.* Release 3.37 and archive the finished plans, with a link checker. See [L2](#l2--release-337-and-archive-the-finished-plans). | L1 | Every relative link and anchor in every tracked Markdown file resolves; the archived ledger checks in place; the full gate passes. |
-| L3 / Main | Add `ROADMAP.md`, and the plan, roadmap and archive rules in `AGENTS.md`. See [L3](#l3--roadmapmd-and-the-rules-for-plans). | L2 | Each deferred feature has its scope, why it is deferred and what it needs; `AGENTS.md` states the rules; links resolve. |
-| L4 / Main | Move the test modules and tools into `scripts/`. See [L4](#l4--tests-and-tools-in-scripts). | L3 | The same 321 and 43 tests pass from `scripts/`, run from the repository root; no test or script at the root. |
-| L5 / Main | Move the documentation into `docs/`, and split the README's usage sections into pages there. See [L5](#l5--documentation-in-docs). | L4 | Root holds only the files listed in L5; every old README paragraph exists in exactly one page; links resolve. |
+| L4 / Main | Move the test modules into `tests/` and `notrios_c7c.py` into `scripts/`. See [L4](#l4--tests-in-tests-and-tools-in-scripts). | L2 | The same 321 and 43 tests, by name, pass from `tests/`, run from the repository root; no `test_*.py` or `notrios_c7c.py` at the root. |
+| L3 / Main | Add `ROADMAP.md`, and the plan, roadmap and archive rules in `AGENTS.md`. See [L3](#l3--roadmapmd-and-the-rules-for-plans). | L4 | Each deferred feature has its scope, why it is deferred and what it needs; `AGENTS.md` states the rules; links resolve. |
+| L5 / Main | Move the documentation into `docs/`, and split the README's usage sections into pages there. See [L5](#l5--documentation-in-docs). | L3 | Root holds only the files listed in L5; every old README paragraph exists in exactly one page; links resolve. |
 | L6 / Main | Document private data and publications over 100,000 notes. See [L6](#l6--private-data-and-large-publications). | L5 | Each documented command was run on a synthetic library and behaved as written. |
 | L7 / Main | Check that documented examples are executable. See [L7](#l7--executable-documentation). | L6 | Every fence is registered; Python-only examples pass in the gate; the `--with-tools` run passes here; an edited fence fails. |
 | L8 / Main | *Added 2026-10-26 at the user's request; needs authorization, and separate permission to force-push.* Rewrite the old paths in the Git history. See [L8](#l8--rewrite-the-old-paths-in-the-git-history). | L7 | No commit on any branch holds a path with the account name; the tip's tree is unchanged by the rewrite; every reference to a rewritten commit is mapped. |
@@ -192,6 +193,31 @@ not checked. A unit test runs it in the gate.
 fail it; `scripts/render_plan_ledger.py --ledger plans/v3.37/notrios-import-ledger.json --check`
 passes; the full gate passes.
 
+### L4 — Tests in tests/ and tools in scripts/
+
+`git mv` the eleven `test_*.py` modules into `tests/`, and `notrios_c7c.py`,
+the corpus comparison the 7c harness drives, into `scripts/` beside that
+harness. `tests/` gets no `__init__.py`; the runner needs none.
+
+- The test modules find the repository root as
+  `Path(__file__).resolve().parent.parent` instead of their own directory, and
+  run each script, fixture and tool from there.
+- `notrios_c7c.py` puts the repository root on `sys.path` for the shared
+  modules it imports. The 7c harness runs it from `scripts/`, and
+  `consumer_hashes` hashes it there. Its source changes, so a later rerun of
+  7c's comparison stage reruns rather than reusing the checkpoint.
+- The gate is run from the root by path, as now:
+  `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest -v tests/test_movenotes.py …`.
+  `AGENTS.md`, the README's script table and Testing section, this plan, and
+  `scripts/notrios_p7b_long_batch.py`'s suite command change with it, and so
+  does every other reference to a moved file, the archived plans' included.
+- The Go module's tests stay in `site_server/`.
+
+*Acceptance:* the sorted list of test IDs is the same before and after, and
+all 321 required and 43 harness tests pass from `tests/`; no `test_*.py` and no
+`notrios_c7c.py` remain at the root; `scripts/notrios_c7c.py --help` and the 7c
+harness's `--help` run; the link checker passes; nothing writes `__pycache__`.
+
 ### L3 — ROADMAP.md and the rules for plans
 
 `ROADMAP.md` is the inventory of deferred features, each with its scope, why
@@ -224,18 +250,6 @@ and the user is asked before it starts. The reading list's entries for
 
 *Acceptance:* links resolve; the roadmap carries no slice status.
 
-### L4 — Tests and tools in scripts
-
-`git mv` every `test_*.py` and the remaining root tools into `scripts/`. The
-modules find the repository root as `Path(__file__).resolve().parent.parent`
-instead of their own directory, and run each script from there. The gate
-becomes `python3 -B -m unittest scripts/test_movenotes.py …`, run from the
-root. `AGENTS.md`, the README's Testing section and this plan change with it.
-The Go module's tests stay in `site_server/`.
-
-*Acceptance:* the same 321 and 43 tests, by name, pass from `scripts/`; no
-`test_*.py` remains at the root; nothing writes `__pycache__`.
-
 ### L5 — Documentation in docs
 
 `git mv` the reference documents into `docs/`, renamed in lowercase as the
@@ -256,7 +270,7 @@ merges into `docs/static-site.md` where it does not repeat it.
 The root then holds: `README.md`, `CHANGELOG.md`, `LICENSE.md`, `AGENTS.md`,
 `PLAN.md`, `ROADMAP.md`, `requirements.txt`, the scripts and their shared
 modules, `movenotes-images.example.ini` (named by the README's image usage),
-and the directories `docs/`, `plans/`, `scripts/`, `sample/`, `testdata/`,
+and the directories `docs/`, `plans/`, `scripts/`, `tests/`, `sample/`, `testdata/`,
 `site_server/` and `experiments/`.
 
 *Acceptance:* a script compares the paragraphs of the old README with the new
@@ -318,7 +332,7 @@ ordinal, language, SHA-256, and a state:
 - `unverified`, with a reason: a synopsis, recorded output, a fragment, or
   a command that changes something outside the temporary home.
 
-`scripts/test_doc_examples.py` fails on an unregistered or changed fence and
+`tests/test_doc_examples.py` fails on an unregistered or changed fence and
 on a stale registry entry, then runs the executed examples. `AGENTS.md`
 describes the process: an edited example is re-run and re-registered in the
 commit that edits it.
@@ -520,7 +534,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
-<details><summary>L3 — pending; planned parent</summary>
+<details><summary>L4 — pending; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -528,7 +542,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; L4 authorized by the user on 2026-10-26 (do L4 next). |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -540,13 +554,13 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Parent contribution | pending |
 | Validation | pending |
 | Delegation failure or reassignment | none recorded |
-| Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
+| Planned assignment evidence | User, 2026-10-26: Add a unittest directory for those files ... do L4 next, including notrios_c7c.py, then L3; Pick a different name if unittest would cause problems. |
 | Execution evidence | none |
 | Commit | pending |
 
 </details>
 
-<details><summary>L4 — pending; planned parent</summary>
+<details><summary>L3 — pending; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -790,3 +804,4 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-26 | L1 complete | Every committed path with the account name now uses `~/`, `$USER` or a `<session>` placeholder: 70 lines in 11 files. Two links to files outside the repository became code spans. `AGENTS.md` gives the six-module gate and the four harness modules. 318 and 43 tests pass. Next: ask to proceed to L2. |
 | 2026-10-26 | L8 added; L2 authorized | The user: "Update the plan to rewrite the old paths in the Git history. Start L2." L8, after L7, rewrites every commit with L1's replacements, maps the rewritten commit hashes cited in the tip's files, and needs its own authorization plus separate permission to force-push `develop`. |
 | 2026-10-26 | L2 complete | Released 3.37: CHANGELOG heading, five scripts at 3.37 (`cleanres.py` from 2.10), `notrios2sql.py --version`. Archived the migration plan to `plans/v3.36/` and the Notrios plan, ledger and ten records to `plans/v3.37/`, with every reference updated; 26 links into a sibling Notrios checkout now go to GitHub at the cited commit. `scripts/check_doc_links.py` and `test_docs.py` check every link and anchor, and found one already broken, now fixed. 321 and 43 tests pass. Next: ask to proceed to L3. |
+| 2026-10-26 | L4 revised and moved before L3 | The user: "Add a `unittest` directory for those files and update any necessary files in the plan for L4. Then, do L4 next, including notrios_c7c.py, then L3." and then "Pick a different name if `unittest` would cause problems." A directory named `unittest` breaks `python3 -m unittest unittest/test_x.py`, and with an `__init__.py` would shadow the standard library, so the tests go to `tests/`; `notrios_c7c.py` goes to `scripts/`. Order: L4, then L3, then L5. |
