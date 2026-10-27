@@ -1,7 +1,7 @@
 # Plan: Reorganize the repository, then the Notrios import follow-ups
 
 Status: **opened 2026-10-26.** L0 (opening) and **L1 are complete**; the next
-slice is **L2**, not yet authorized. The user confirmed this plan's assignments for the session
+slice, **L2**, is authorized and in progress. The user confirmed this plan's assignments for the session
 on 2026-10-26; see
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 
@@ -21,7 +21,8 @@ This plan:
    tagging cannot catch, and how to publish more than 100,000 notes;
 6. checks that every documented example is either executable, and executed,
    or recorded with the reason it is not;
-7. then carries the four proposed Notrios follow-ups (H1, D1, R1 and R2), each
+7. rewrites the old paths in the Git history;
+8. then carries the four proposed Notrios follow-ups (H1, D1, R1 and R2), each
    still needing its own authorization.
 
 The layout follows the Notrios repository's conventions
@@ -93,8 +94,8 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 <!-- PLAN-ASSIGNMENTS:END -->
 
-Next slice: **L2 — release 3.37 and archive the finished plans**, assigned to
-Main; not yet authorized.
+Current slice: **L2 — release 3.37 and archive the finished plans**, assigned
+to Main; authorized 2026-10-26.
 
 ## Execution rules
 
@@ -124,6 +125,7 @@ Main; not yet authorized.
 | L5 / Main | Move the documentation into `docs/`, and split the README's usage sections into pages there. See [L5](#l5--documentation-in-docs). | L4 | Root holds only the files listed in L5; every old README paragraph exists in exactly one page; links resolve. |
 | L6 / Main | Document private data and publications over 100,000 notes. See [L6](#l6--private-data-and-large-publications). | L5 | Each documented command was run on a synthetic library and behaved as written. |
 | L7 / Main | Check that documented examples are executable. See [L7](#l7--executable-documentation). | L6 | Every fence is registered; Python-only examples pass in the gate; the `--with-tools` run passes here; an edited fence fails. |
+| L8 / Main | *Added 2026-10-26 at the user's request; needs authorization, and separate permission to force-push.* Rewrite the old paths in the Git history. See [L8](#l8--rewrite-the-old-paths-in-the-git-history). | L7 | No commit on any branch holds a path with the account name; the tip's tree is unchanged by the rewrite; every reference to a rewritten commit is mapped. |
 | H1 / Main | *Proposed 2026-10-24 (C7d); not authorized.* Make HTML images render after export. See [H1](#h1--html-images-after-export). | L7 | As in H1. |
 | D1 / Main | *Proposed 2026-10-26 (7d); not authorized.* Clearer `notrios2sql.py` refusals for an unusable `--output`. See [D1](#d1--clearer-output-refusals). | L7 | As in D1. |
 | R1 / Main | *Proposed 2026-10-25 at the user's request; not authorized.* Report links a web reader cannot reach. See [R1](#r1--the-link-report). | L7 | As in R1. |
@@ -140,7 +142,7 @@ Notrios plan and ledger, five Notrios evidence documents, the site acceptance
 report and `testdata/notrios/README.md`. A path inside a shell command must
 keep working as written: `~` stays outside quotes, and `$USER` is inside double
 quotes or unquoted. Edit the ledger's JSON, then regenerate the plan. Git
-history keeps the old text; rewriting history is not part of this slice.
+history keeps the old text; L8 rewrites it.
 
 `AGENTS.md`'s Tests section gives the six required modules
 (`test_movenotes.py`, `test_image_resources.py`, `test_obsidian2sql.py`,
@@ -324,6 +326,48 @@ commit that edits it.
 gate; `--with-tools` passes on this machine with Hugo `v0.164.0`, Go 1.27.0 and
 `notriosctl` `v1.0.0`; an edited fence and an unregistered one each fail.
 
+### L8 — Rewrite the old paths in the Git history
+
+L1 removed the account name from every committed file, but Git history still
+holds it: 8 commits change how many home-directory paths the tree holds and 15
+how many `/media` paths, the first being `bc4a911` (Step 20). `origin/develop` is at `659aa41`, so pushed commits
+are affected and publishing the result needs a force-push of `develop`.
+`origin/main` (`0b15260`, the initial commit) holds no such path and is not
+rewritten.
+
+*Before:* a mirror clone of the repository as a backup, outside the working
+tree, kept until the user says it can go. The working tree is clean and every
+other clone of the repository is known to the user, because each one has to be
+re-cloned afterwards.
+
+*Rewrite* every commit on every branch with the same replacements as L1 (home
+paths to `~/`, the account segment of `/media` and `/run/media` paths to
+`$USER`, scratchpad paths, `<name>-backup`), applied to every blob and to commit
+messages. Use `git filter-repo --replace-text` if the user approves installing
+it, since it also rewrites abbreviated commit hashes in commit messages and
+writes an old-to-new commit map; otherwise `git filter-branch` with an index
+filter, plus a recorded map. Author names and email addresses are not paths
+and are left alone unless the user asks.
+
+*Commit references.* Every commit from `bc4a911` on gets a new hash, and the
+plans, ledgers, evidence documents and CHANGELOG cite many of them (`7e85d13`,
+`2bd2de0`, …). A follow-up commit rewrites each reference in the tip's files
+through the map. Only hashes that name a commit in this repository's old
+history are rewritten: Notrios (`2aab9a8`, `7662fdd`) and Ledger (`85ac1b0`)
+hashes belong to other repositories and stay.
+
+*Verification:* `git log --all -p` and every commit message hold no path with
+the account name; the rewritten tip's tree is byte-identical to the old tip's,
+since L1 already cleaned it; for every commit, the old and new trees differ
+only by the replacements; every hexadecimal token of seven or more characters
+in the tip's files that was an old commit hash is mapped; the full gate passes.
+
+*Publishing* is a separate step, with the user's explicit permission: force-push
+`develop` with `--force-with-lease` against `659aa41`. GitHub can keep the old
+commits reachable by their hashes for a while, and purging them from GitHub's
+caches needs GitHub support; the plan records this rather than claiming the
+old text is gone.
+
 ### H1 — HTML images after export
 
 Carried from the Notrios import plan, proposed 2026-10-24 during C7d. A Joplin
@@ -457,7 +501,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; L2 authorized by the user on 2026-10-26 (Start L2). |
 | Actual worker | pending |
 | Child thread | pending |
 | Actual model | pending |
@@ -605,6 +649,32 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
+<details><summary>L8 — pending; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
+| Actual worker | pending |
+| Child thread | pending |
+| Actual model | pending |
+| Reasoning effort | pending |
+| Worker contribution | pending |
+| Parent | pending |
+| Parent underlying model family | pending |
+| Parent reasoning effort | pending |
+| Parent contribution | pending |
+| Validation | pending |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | User, 2026-10-26: Update the plan to rewrite the old paths in the Git history. |
+| Execution evidence | none |
+| Commit | pending |
+
+</details>
+
 <details><summary>H1 — pending; planned parent</summary>
 
 | Property | Value |
@@ -717,3 +787,4 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-26 | Plan opened | At the user's request, after 7e completed the Notrios import plan. The user's four answers are under Decisions. L0: the old `PLAN.md` is archived as `plans/v3.34/000-refocus-plan.md`, this plan and its ledger are written, and `scripts/render_plan_ledger.py` replaces `render_notrios_execution.py` for both ledgers. Documentation and provenance only. Next: confirm this plan's assignments, then ask to proceed to L1. |
 | 2026-10-26 | Confirmed; L1 authorized | The user: "The assignments are current for this session; Sync version number for cleanres.py with rest of project; Add --version support to notrios2sql.py; Start L1." L2's release text now syncs `cleanres.py` at 3.37 and adds `notrios2sql.py --version`. |
 | 2026-10-26 | L1 complete | Every committed path with the account name now uses `~/`, `$USER` or a `<session>` placeholder: 70 lines in 11 files. Two links to files outside the repository became code spans. `AGENTS.md` gives the six-module gate and the four harness modules. 318 and 43 tests pass. Next: ask to proceed to L2. |
+| 2026-10-26 | L8 added; L2 authorized | The user: "Update the plan to rewrite the old paths in the Git history. Start L2." L8, after L7, rewrites every commit with L1's replacements, maps the rewritten commit hashes cited in the tip's files, and needs its own authorization plus separate permission to force-push `develop`. |
