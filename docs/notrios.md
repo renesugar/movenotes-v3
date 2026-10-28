@@ -173,10 +173,16 @@ reaches a vault or site, but the handoff holds the ID. A Notrios change that
 fixes this and keeps every other link under `plain_text` is
 [on the roadmap](../ROADMAP.md#a-plain_text-that-keeps-every-non-internal-link).
 
-Any wiki link to a published note also refuses the import at present, with
-either action, because Notrios stores it as `[[document://…]]`. A library
-imported into Notrios from an Obsidian vault with wiki links cannot be
-published to movenotes yet; that is planned as W1.
+A wiki link to a published note or attachment, with either action, imports as
+a Joplin link, the way `obsidian2sql.py` imports one. Notrios stores
+`[[Other Note|shown text]]` as `[[document://…|shown text]]`; the import writes
+`[shown text](:/<id>)`, and the vault export `[shown text](Other%20Note.md)`.
+A link with no alias shows the note's title or the attachment's file name. A
+heading is kept, encoded as a Markdown link's is
+(`Deep/Child.md#Caf%C3%A9%20Section`). An embedded image stays an embed,
+`![[shot.png]]`, though the vault drops its caption, as it does a Markdown
+image's alt text. An embedded note becomes a link to it. A link to a block,
+`[[Note#^id]]`, still refuses the publication, as a Markdown one does.
 
 ## Keeping notes out of a publication
 

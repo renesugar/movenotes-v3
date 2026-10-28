@@ -2716,6 +2716,88 @@ class NotriosLinkProjectionTest(unittest.TestCase):
                        else record(code, span, "target_excluded", "lnk_1"))
                 links.validate_links(code, [one], resolve=lambda kind, value: "a" * 32)
 
+    def test_resolved_wiki_links_become_joplin_links(self):
+        """W1: a resolved wiki link to a published note or attachment."""
+        doc, res = "document://default/documents/doc_child", "resource://default/resources/res_image"
+
+        def wiki(body, span, ident, *, target=doc, display=None, anchor=None, start=None, **change):
+            start = body.index(span) if start is None else start
+            field = "target_document_id" if target.startswith("document://") else "target_resource_id"
+            p = dict(id=ident, source_document_id="doc_public", relation_type="embed" if span[:1] == b"!" else "link",
+                     source_format="obsidian-wikilink", raw_target=target, target_uri=target,
+                     display_text=target if display is None else display, source_start_byte=start,
+                     source_end_byte=start + len(span), source_line=1, source_column=1,
+                     resolution_status="resolved", **{field: target.rsplit("/", 1)[1]})
+            if anchor is not None:
+                p.update(anchor_type=anchor[0], anchor_value=anchor[1])
+            return archive_v2.Record("link", (ident,), {**p, **change})
+
+        names = {"document": {"doc_child": "Child `x` [1] & <b>"}, "resource": {"res_image": "image.png"}}
+        resolve = lambda kind, value: ("d" if kind == "document" else "e") * 32
+        label = lambda kind, value: names[kind][value]
+        spans = [(f"[[{doc}]]", {}), (f"[[{doc}|shown & text]]", {"display": "shown & text"}),
+                 (f"[[{doc}#Café Section]]", {"display": f"{doc}#Café Section", "anchor": ("heading", "Café Section")}),
+                 (f"![[{doc}]]", {}), (f"![[{res}]]", {"target": res}),
+                 (f"![[{res}|caption]]", {"target": res, "display": "caption"}), (f"[[{res}]]", {"target": res}),
+                 (f"[[{doc}|  ]]", {"display": "  "}), ("[[#Here]]", {"target": doc, "display": "#Here",
+                                                                       "anchor": ("heading", "Here")})]
+        body, records = b"", []
+        for n, (span, change) in enumerate(spans):
+            body += b" " * bool(body)
+            records.append((len(body), span.encode(), n, change))
+            body += span.encode()
+        records = [wiki(body, span, f"lnk_{n}", start=start, **change) for start, span, n, change in records]
+        # A link to the note itself holds no internal target and stays text.
+        records[-1] = archive_v2.Record("link", records[-1].key, {**records[-1].payload, "raw_target": "#Here"})
+        plan = links.validate_links(body, records, resolve=resolve, label=label, resource_ids=("e" * 32,))
+        d, e = "d" * 32, "e" * 32
+        self.assertEqual(links.project_body(body, plan), " ".join((
+            f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d})", f"[shown &amp; text](:/{d})",
+            f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d}#Caf%C3%A9%20Section)",
+            f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d})", f"![image.png](:/{e})", f"![caption](:/{e})",
+            f"[image.png](:/{e})", f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d})", "[[#Here]]")))
+        self.assertEqual(plan.inline_resources, (e,))
+        self.assertEqual(plan.withheld_links, 0)
+
+        def refuses(message, case_body, case_records, **options):
+            with self.subTest(message=message, body=case_body), self.assertRaises(archive_v2.NotriosError) as caught:
+                links.validate_links(case_body, case_records, **{"resolve": resolve, "label": label,
+                                                                 "resource_ids": (e,), **options})
+            self.assertIn(message, str(caught.exception))
+
+        one = f"[[{doc}]]".encode()
+        for change, message in (({"target_document_id": "doc_other"}, "document target disagrees"),
+                                ({"resolution_status": "ambiguous"}, "withheld link record names a target"),
+                                ({"target_resource_id": "res_image"}, "document target disagrees"),
+                                ({"target_uri": doc + "x"}, "document target disagrees"),
+                                ({"relation_type": "embed"}, "link record disagrees"),
+                                ({"display_text": "other"}, "link record disagrees"),
+                                ({"anchor_type": "heading", "anchor_value": "x"}, "link anchor disagrees")):
+            refuses(message, one, [wiki(one, one, "lnk_1", **change)])
+        refuses("no label source", one, [wiki(one, one, "lnk_1")], label=None)
+        block = f"[[{doc}#^blk]]".encode()
+        refuses("unsupported heading fragment", block,
+                [wiki(block, block, "lnk_1", display=f"{doc}#^blk", anchor=("block", "blk"))])
+        piece = f"[[{res}#page=2]]".encode()
+        refuses("resource fragments are unsupported", piece,
+                [wiki(piece, piece, "lnk_1", target=res, display=f"{res}#page=2", anchor=("heading", "page=2"))])
+        image = f"[[{res}]]".encode()
+        refuses("no document-resource relation", image, [wiki(image, image, "lnk_1", target=res)], resource_ids=())
+        # A span holding a backtick, a wiki link in code, and an internal target
+        # no record accounts for, beside a recorded one.
+        ticked = f"[[{doc}|a`b]]".encode()
+        refuses("does not match a complete active token", ticked, [wiki(ticked, ticked, "lnk_1", display="a`b")])
+        code = b"`" + one + b"`"
+        refuses("protected code", code, [wiki(code, one, "lnk_1")])
+        two = one + b" " + one
+        refuses("unaccounted active link syntax", two, [wiki(two, one, "lnk_1")])
+        # The recorded span is blanked for the scan, and at the start of a line
+        # spaces would read as an indented code block hiding the second link.
+        # A withheld link (R2) is blanked the same way.
+        excluded = {k: v for k, v in wiki(two, one, "lnk_1").payload.items() if k != "target_document_id"}
+        refuses("unaccounted active link syntax", two,
+                [archive_v2.Record("link", ("lnk_1",), {**excluded, "resolution_status": "target_excluded"})])
+
     def test_unsupported_internal_syntax_and_uri_variants_refuse(self):
         destinations = (b"notrios://doc_child",
                         b"Document://default/documents/doc_child", b"document://elsewhere/documents/doc_child",
@@ -4014,6 +4096,90 @@ class NotriosV1RetainTest(unittest.TestCase):
             "http://example.com/": "insecure",
         })
         self.assertIn("1 data: link(s) counted", result.stdout)
+
+
+class NotriosV1WikiTest(unittest.TestCase):
+    """W1: a real Notrios v1.0.0 publication of an Obsidian library with wiki links."""
+
+    rows = NotriosNoteIntegrationTest.rows
+    export = NotriosNoteIntegrationTest.export
+    vault_notes = NotriosNoteIntegrationTest.vault_notes
+    published_bodies = NotriosV1TitledTest.published_bodies
+    FIXTURE = FIXTURE_ROOT / "v1.0.0" / "publication-wiki"
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="movenotes-v1-wiki-")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.destination = self.root / "publication"
+        self.expected = load_json(self.FIXTURE / "expected.json")
+
+    def test_wiki_fixture_is_immutable_and_records_every_wiki_link(self):
+        before = fixture_inventory(self.FIXTURE / "archive")
+        self.assertEqual(before, self.expected["archive_files"])
+        with archive_v2.verify_archive(self.FIXTURE / "archive", work_dir=self.root) as verified:
+            self.assertEqual(dict(verified.counts), self.expected["counts"])
+            self.assertEqual(verified.manifest.commit_sha256, self.expected["commit_sha256"])
+            records = [r.payload for r in verified.iter_records("link")]
+        self.assertEqual(dict(Counter(p["resolution_status"] for p in records)), self.expected["link_statuses"])
+        self.assertEqual(sum(p["source_format"] == "obsidian-wikilink" for p in records), self.expected["wiki_links"])
+        self.assertEqual(fixture_inventory(self.FIXTURE / "archive"), before)
+        generation = load_json(self.FIXTURE / "generation.json")
+        self.assertEqual((generation["producer_commit"], generation["producer_tag"]),
+                         ("2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a", "v1.0.0"))
+        self.assertEqual(load_json(self.FIXTURE / "reports/plan.json")["plan"]["policy"]["link_action"], "plain_text")
+        self.assertEqual(load_json(self.FIXTURE / "reports/compatibility.json")["decision"], "accept")
+        joined = "".join(self.published_bodies().values())
+        for line in self.expected["body_lines"]:
+            self.assertEqual(joined.count(line), 1, line)
+
+    def test_wiki_links_import_as_joplin_links_and_export_to_their_files(self):
+        result = importer.import_publication(self.FIXTURE / "archive", self.destination,
+                    expected_selection_sha256=self.expected["selection_manifest_sha256"])
+        self.assertEqual((result.status, result.withheld_links), ("created", 0))
+        before = fixture_inventory(self.destination)
+        rerun = importer.import_publication(self.FIXTURE / "archive", self.destination)
+        self.assertEqual(rerun.summary(), dict(result.summary(), status="unchanged"))
+        self.assertEqual(fixture_inventory(self.destination), before)
+        database = self.expected["database_id"]
+        ids = {name: mapping.mapped_id(database, "document" if name.startswith("doc_") else "resource", (name,))
+               for name in ("doc_obsidian_public_other_note", "doc_obsidian_public_deep_child",
+                            "doc_obsidian_public_r_d_notes", "res_obsidian_public_shot", "res_obsidian_public_doc")}
+        rows = {r["joplin_id"]: r for r in self.rows() if r["joplin_type_"] == 1}
+        body = rows[mapping.mapped_id(database, "document", ("doc_obsidian_public_links",))]["note_data"]
+        expected = self.published_bodies()["doc_obsidian_public_links"]
+        for line, projected in zip(self.expected["body_lines"], self.expected["projected_lines"]):
+            expected = expected.replace(line, projected.format_map(ids))
+        # Only the links change; every other byte is the published body's.
+        self.assertEqual(body, expected)
+        vault = self.export()
+        notes = {path: text for path, _metadata, text in self.vault_notes(vault).values()}
+        lines = notes["Public/Links.md"].splitlines()
+        for line in self.expected["vault_lines"]:
+            self.assertIn(line, lines)
+        # Each link reaches its note or attachment from the note's folder, and
+        # each embed names an exported attachment.
+        text = "\n".join(self.expected["vault_lines"])
+        targets = {unquote(t.split("#")[0]) for t in re.findall(r"\]\(([^)\s]+)\)", text)}
+        self.assertEqual(targets, {"Other Note.md", "Deep/Child.md", "R&D Notes.md", "../attachments/doc.pdf"})
+        for target in targets:
+            self.assertTrue((vault / "Public" / target).is_file(), target)
+        self.assertEqual(set(re.findall(r"!\[\[([^\]]+)\]\]", text)), {"shot.png"})
+        self.assertEqual((vault / "attachments" / "shot.png").read_bytes(),
+                         (FIXTURE_ROOT / "vault-wiki-v1" / "Public" / "shot.png").read_bytes())
+
+    def test_wiki_site_resolves_every_link(self):
+        import csv
+        importer.import_publication(self.FIXTURE / "archive", self.destination)
+        vault = self.export()
+        site = self.root / "site"
+        result = subprocess.run([sys.executable, "-B", str(PROJECT_DIR / "obsidian2site.py"),
+                                 "--input", str(vault), "--output", str(site), "--progress-every", "0"],
+                                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+                                capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        with (site / "movenotes-link-report.csv").open(encoding="utf-8", newline="") as handle:
+            self.assertEqual(list(csv.DictReader(handle)), [])
 
 
 class NotriosResourceStorageTest(unittest.TestCase):

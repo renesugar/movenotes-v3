@@ -137,7 +137,8 @@ Next slice: **R1 — the link report**, assigned to Main; not yet authorized.
 | R1 / Main | *Complete 2026-10-27.* Report links a web reader cannot reach. See [R1](#r1--the-link-report). | L7 | As in R1. |
 | R2 / Main | *Complete 2026-10-27; option (a), with (b) on the roadmap, chosen by the user.* Keep non-internal destinations on the Notrios route. See [R2](#r2--non-internal-destinations-on-the-notrios-route). | R1 | As in R2. |
 | R3 / Main | *Complete 2026-10-27; the folder before the root, chosen by the user.* Resolve a same-folder link on the site when another note shares its name. See [R3](#r3--same-folder-links-on-the-site). | R1 | As in R3. |
-| W1 / Main | *Proposed 2026-10-27, found by R2's probe; not authorized.* Import a Notrios publication that holds resolved wiki links. See [W1](#w1--resolved-wiki-links-on-the-notrios-route). | — | As in W1. |
+| W1 / Main | *Complete 2026-10-27; as Joplin links, chosen by the user.* Import a Notrios publication that holds resolved wiki links. See [W1](#w1--resolved-wiki-links-on-the-notrios-route). | — | As in W1. |
+| B1 / Main | *Proposed 2026-10-27, found by W1; not authorized.* Admit a link to a block, `#^id`, on an internal target, Markdown or wiki. See [B1](#b1--block-anchors-on-internal-targets). | W1 | As in B1. |
 
 ### L1 — Remove the account name from committed paths
 
@@ -654,6 +655,60 @@ to a heading and embedded, imports, and each link exports to the vault
 resolving to its note or attachment; an unrecorded internal target still
 refuses; every existing link-projection test passes unchanged.
 
+*Probe, 2026-10-27.* A synthetic Obsidian library published by Notrios
+`v1.0.0` with each wiki form, under both actions. Every resolved wiki link is
+recorded as a resolved `obsidian-wikilink` naming its target, with its embed,
+heading or block anchor and alias, and stored as `[[<canonical URI>#anchor|alias]]`.
+The text of an unaliased link is gone: `[[Other Note]]` becomes
+`[[document://…/doc_obsidian_public_other_note]]`, and its record's display text
+is the URI. Ambiguous, unresolved and self links carry no internal target, and
+already import. `obsidian2sql.py` imports a wiki link for Joplin as
+`[display](:/id)`, an attachment embed as `![display](:/id)`. `cleanres.py`
+counts an attachment as used only through `(:/id`.
+
+*Decided 2026-10-27:* the user chose Joplin links over wiki links kept in the
+database, which Joplin cannot open and `cleanres.py` would not count. A
+resolved wiki link becomes `[alias](:/id#heading)`, the alias or, with none,
+the note's title or the attachment's file name as its text; an attachment
+embed keeps its `!`, a note embed becomes a link. The existing export then
+writes a relative Markdown link, or `![[name]]` for an image. A block anchor
+refuses, as the design already has a Markdown one refuse; admitting both is
+[B1](#b1--block-anchors-on-internal-targets).
+
+*Found and fixed:* the scan for internal targets no record accounts for blanks a
+recorded wiki link first, and blanked it with spaces. At the start of a line
+those read as an indented code block, so the rest of the line was not checked:
+an unrecorded internal target after a withheld wiki link (R2) imported
+unrefused. The blank is now `x`, which opens no code or container, as the `[`
+or `!` it replaces opens none.
+
+*Result:* `notrios_links.py` maps each resolved wiki link, `notrios2sql.py`
+names an unaliased one's target, and a new fixture from the pinned producer,
+[publication-wiki](testdata/notrios/v1.0.0/README.md#the-wiki-link-publication-w1),
+holds 13 wiki links of every accepted form. Its import changes only those
+links, reruns unchanged, exports each to a relative path that exists from the
+note's folder, and gives a site whose link report is empty. The 7c libraries
+hold no resolved wiki link, or they would have refused, so the fixture is the
+evidence.
+
+### B1 — Block anchors on internal targets
+
+Found 2026-10-27 by W1. A link to a block, `[[Note#^id]]` or
+`[x](document://…#^id)`, refuses the whole publication: the design refuses a
+block anchor on an internal target because translating it through both
+Obsidian and Hugo was not implemented. Obsidian resolves `[x](Note.md#^id)`;
+`obsidian2site.py`'s `_hugo_heading_fragment` drops the `^`, so the site would
+link to a heading anchor that does not exist. Admit a block anchor on Markdown
+and wiki links alike, decide what the site does with it, and measure whether
+any library holds one. Owns `_fragment` and `_wiki_link` in `notrios_links.py`,
+the block-anchor rule in `docs/notrios-import-design.md`, and
+`_hugo_heading_fragment`.
+
+*Acceptance:* a publication with block links imports, each exports to the
+vault resolving to its block in Obsidian, and the site's link to it either
+reaches the block or is listed in the link report; every other link-projection
+test passes unchanged.
+
 ### R3 — Same-folder links on the site
 
 Found 2026-10-27 by R1's run over the Joplin library. `sql2obsidian.py` writes a
@@ -1070,7 +1125,33 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
-<details><summary>W1 — pending; planned parent</summary>
+<details><summary>W1 — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27; W1 authorized on 2026-10-27 (Push commits to develop; Then, start W1.). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Probe: a synthetic Obsidian library with every wiki form published by Notrios v1.0.0 (2aab9a8) with plain_text and retain; records and bodies read raw; obsidian2sql.py's Joplin form and cleanres.py's reference scan checked; the user chose Joplin links. notrios_links.py: _wiki_link maps a resolved wiki record whose span names its target to [label](:/id#heading) (![label](:/id) for an attachment embed), checking span, target, relation, display text and anchor against the record, the attachment relation, and refusing block anchors and attachment fragments; _wiki_text escapes the label; validate_links blanks resolved as well as withheld wiki spans, with x instead of spaces, and takes a label callback. notrios2sql.py: the callback gives the target note's current title or the attachment's file name. Fixture: testdata/notrios/vault-wiki-v1, generate_v1_wiki.py and v1.0.0/publication-wiki from the pinned binary. Tests: test_resolved_wiki_links_become_joplin_links (9 forms, 15 refusals each checked for its message, including the blanking regression for resolved and withheld links), NotriosV1WikiTest (3). Docs: docs/notrios.md, docs/notrios-import-design.md, the fixture README, CHANGELOG. Plan: probe, decision, the blanking fix, result, B1 proposed. |
+| Validation | Probe as recorded; R2's plain_text probe with an unaliased wiki link to a withheld note still refuses, on the withheld URI left in the body with no record. Fixture generator's raw-byte checks: every body line once, 14 resolved links, 13 of them wiki links, only [[Nowhere]] rewritten, nothing cleared. Import: created then unchanged with the same summary, withheld_links 0; the database body equals the published body with only the four link lines mapped; the vault's links resolve to Other Note.md, Deep/Child.md, R&D Notes.md and ../attachments/doc.pdf from the note's folder, the image embed to the exported shot.png with the input bytes; the site's link report is empty. Unit test: every refusal checked for its own message; the blanking regression fails with spaces and passes with x. Bounded 7c publications hold 0 wiki link records (Joplin 686 link lines, recipes none), so W1 changes none of their output. Required gate 340 tests passed in 288.236 s, harness 43 tests in 19.809 s; no __pycache__. |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | R2 probe finding, 2026-10-27. |
+| Execution evidence | User: Push commits to develop; Then, start W1.; User chose: Joplin links (Recommended); Private scratchpad w1/ (probe archives, imports and vaults); Private scratchpad w1/gate.txt, w1/required.log, w1/harness.log |
+| Commit | Git commit containing this record: feat: import resolved wiki links from Notrios (W1) |
+
+</details>
+
+<details><summary>B1 — pending; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -1090,7 +1171,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Parent contribution | pending |
 | Validation | pending |
 | Delegation failure or reassignment | none recorded |
-| Planned assignment evidence | R2 probe finding, 2026-10-27. |
+| Planned assignment evidence | W1 finding, 2026-10-27. |
 | Execution evidence | none |
 | Commit | pending |
 
@@ -1126,3 +1207,5 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-27 | R2 complete | `notrios2sql.py` reads a `retain` publication: unresolved, ambiguous and invalid records naming no internal target are copied as written, and each `target_excluded` link, or one naming an internal target that does not exist, becomes its text or `[redacted]` before anything is written, counted as `withheld_links` in the summary. A new fixture from the pinned producer, `testdata/notrios/v1.0.0/publication-retain`, covers each form; its database, vault and site hold no form of the withheld note's identity. The bounded 7c tier now publishes with `retain`: Joplin's 10 links Notrios could not resolve arrive and are reported, its 15 withheld links are replaced, and no withheld ID reaches its vault or site. `docs/notrios.md` says which action suits which site. 335 required and 43 harness tests pass. Next: ask whether to push, and whether to start R3 or W1. |
 | 2026-10-27 | R2 pushed; R3 decided | `cb8864b` and `e695482` pushed to `develop`. R3 started: `obsidian2sql.py` already resolves a bare name in the note's folder before the root, and a scan of the three R1 vaults found both orders change the same 5 Joplin links and nothing else. The user chose the folder before the root, as in Obsidian. |
 | 2026-10-27 | R3 complete | `obsidian2site.py` resolves a bare link beside the linking note, then at the root, then by a unique basename, as Obsidian and `obsidian2sql.py` do. The three regenerated 7c sites match R1's except in the 5 Joplin notes whose same-folder link now opens its note, and the link report loses exactly those rows; no URL changed. 336 required and 43 harness tests pass. Next: ask whether to push, and whether to start W1. |
+| 2026-10-27 | R3 pushed; W1 decided | `47b76c8` pushed to `develop`. W1 started with a probe of every wiki form through Notrios `v1.0.0`; the user chose to import resolved wiki links as Joplin links, as `obsidian2sql.py` does, over wiki links in the database. |
+| 2026-10-27 | W1 complete | `notrios2sql.py` imports a resolved wiki link as `[alias](:/id#heading)`, and the vault export writes it as a relative link. Fixed the scan for unaccounted internal targets, which a blanked wiki link at a line's start hid. New fixture `publication-wiki` from the pinned producer. A block anchor still refuses, now proposed as B1. 340 required and 43 harness tests pass. Next: ask whether to push, and whether to start B1. |

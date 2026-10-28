@@ -70,8 +70,8 @@ _BARE = re.compile(rb"(document://default/documents/[a-z0-9][a-z0-9_.:-]{1,127}(
                    rb"|resource://default/resources/[a-z0-9][a-z0-9_.:-]{1,127}"
                    rb"|:/[0-9a-f]{32}(?:#[^()\\\s<>]*)?)\)")
 _CODE_MASK = bytes(c if c in (10, 13) else 32 for c in range(256))
-# A recorded wiki link the import replaces (R2): one line, and no backtick, so
-# blanking it cannot change which bytes are code.
+# A recorded wiki link the import replaces (R2, W1): one line, and no
+# backtick, so blanking it cannot change which bytes are code.
 _WITHHELD_WIKI = re.compile(rb"!?\[\[[^\[\]\n`]+\]\]")
 # The producer's plain_text placeholder for a link with no text (replacementFor).
 _REDACTED = b"[redacted]"
@@ -381,6 +381,64 @@ def _wiki_record(body, start, end, p, token_starts):
         _refuse("archived link does not match a complete active token")
 
 
+def _wiki_text(text):
+    """A wiki link's alias or its target's name as a Markdown label (W1).
+
+    It stays on one line, and every byte that could end the label, escape its
+    bracket, open code or start HTML is an entity, which renders the same."""
+    text = re.sub(r"[\r\n]+", " ", text)
+    return _attachment_label(text).replace("`", "&#96;").encode("utf-8")
+
+
+def _wiki_link(body, start, end, p, *, resolve, label, related, inline_resources, limits):
+    """The Markdown link that replaces a resolved wiki link to a published note
+    or attachment (W1), as obsidian2sql.py writes one for Joplin: the alias, or
+    the target's title or file name, as the label, and the heading kept. A
+    note embed becomes a link; an attachment embed stays an embed."""
+    span = body[start:end]
+    if not _WITHHELD_WIKI.fullmatch(span):
+        _refuse("archived link does not match a complete active token")
+    bang = span[0] == 33
+    target, aliased, alias = span[2 + bang:-2].partition(b"|")
+    base, anchored, fragment = target.partition(b"#")
+    document, resource = _DOCUMENT.fullmatch(base), _RESOURCE.fullmatch(base)
+    kind, match = ("document", document) if document else ("resource", resource)
+    field = "target_document_id" if document else "target_resource_id"
+    other = "target_resource_id" if document else "target_document_id"
+    if (match is None or p["resolution_status"] != "resolved" or p.get(field) != match[1].decode("ascii")
+            or other in p or p["raw_target"] != base.decode("utf-8")
+            or p.get("target_uri", p["raw_target"]) != p["raw_target"]):
+        _refuse(kind + " target disagrees with link record")
+    if (p["relation_type"] != ("embed" if bang else "link")
+            or p.get("display_text", "") != (alias if aliased else target).decode("utf-8")):
+        _refuse("link record disagrees with active token")
+    if (p.get("anchor_type") or "", p.get("anchor_value") or "") != _record_anchor(fragment if anchored else None):
+        _refuse("link anchor disagrees with link record")
+    mapped = resolve(kind, match[1].decode("ascii"))
+    if not re.fullmatch(r"[0-9a-f]{32}", mapped):
+        _refuse("resolver did not return a mapped identity")
+    destination = b":/" + mapped.encode()
+    if kind == "resource":
+        if anchored:
+            _refuse("resource fragments are unsupported")
+        if mapped not in related:
+            _refuse("resource link has no document-resource relation")
+        inline_resources.add(mapped)
+    elif fragment:
+        # Obsidian's heading text, encoded as a Markdown link's fragment is.
+        if fragment.startswith(b"^"):
+            _refuse("unsupported heading fragment")
+        destination += b"#" + quote(fragment, safe="-._~!$&'*+,;=:@/?").encode("ascii")
+        _fragment(destination.partition(b"#")[2], limits)
+    text = alias.decode("utf-8").strip(_GO_SPACE) if aliased else ""
+    if not text:
+        if label is None:
+            _refuse("resolved wiki link has no label source")
+        text = label(kind, match[1].decode("ascii")).strip(_GO_SPACE) or "Untitled"
+    prefix = b"!" if bang and kind == "resource" else b""
+    return prefix + b"[" + _wiki_text(text) + b"](" + destination + b")"
+
+
 def _withheld(p):
     """Whether a record's link is one the import replaces with its text (R2).
 
@@ -456,8 +514,12 @@ def _target(token, limits):
     return "external", None
 
 
-def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_LIMITS, resource_ids=()):
-    """Reconcile bounded archived spans with active tokens before projection."""
+def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_LIMITS, resource_ids=(), label=None):
+    """Reconcile bounded archived spans with active tokens before projection.
+
+    *label* names a note or attachment, by kind and source ID, for a resolved
+    wiki link that has no alias (W1).
+    """
     if len(body) > limits.max_body_bytes:
         raise NotriosError("limit", "body exceeds conversion limit")
     try:
@@ -472,18 +534,22 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
             _refuse("link validation requires link records")
         retained.append(record.payload)
     retained.sort(key=lambda p: (p["source_start_byte"], p["source_end_byte"], p["id"]))
-    # A withheld wiki link holds its internal target, which the scanner refuses
-    # outside a token, so it is blanked for the scan and replaced below. The
-    # span checks in the loop still run on it.
+    # A withheld or resolved wiki link holds its internal target, which the
+    # scanner refuses outside a token, so it is blanked for the scan and
+    # replaced below. The span checks in the loop still run on it.
     scanned, visible = body, None
     for p in retained:
         start, end = p["source_start_byte"], p["source_end_byte"]
-        if p["source_format"] == "obsidian-wikilink" and _withheld(p) and 0 <= start < end <= len(body):
+        if (p["source_format"] == "obsidian-wikilink" and 0 <= start < end <= len(body)
+                and (_withheld(p) or _INTERNAL_ANYWHERE.search(body, start, end))):
             if visible is None:
                 visible, scanned = _protected_body(body), bytearray(body)
             if visible[start:end] != body[start:end]:
                 _refuse("withheld link inside protected code")
-            scanned[start:end] = b" " * (end - start)
+            # Not spaces: a blanked span at the start of a line would read as
+            # an indented code block, hiding what follows from the scan (W1).
+            # Like the "[" or "!" it replaces, "x" opens no code or container.
+            scanned[start:end] = b"x" * (end - start)
     tokens = []
     for token in scan_markdown(bytes(scanned)):
         if len(tokens) >= limits.max_links_per_note:
@@ -506,12 +572,16 @@ def validate_links(body: bytes, records, *, resolve, limits=DEFAULT_CONVERSION_L
         previous = end
         if p["source_format"] == "obsidian-wikilink":
             if _withheld(p):
-                span, label = body[start:end], p.get("display_text", "").encode("utf-8")
+                span, text = body[start:end], p.get("display_text", "").encode("utf-8")
                 if (not _WITHHELD_WIKI.fullmatch(span) or p["raw_target"].encode("utf-8") not in span
-                        or label not in span):
+                        or text not in span):
                     _refuse("archived link does not match a complete active token")
-                replacements.append((start, end, _withheld_text(label)))
+                replacements.append((start, end, _withheld_text(text)))
                 withheld.add(start)
+            elif _INTERNAL_ANYWHERE.search(body, start, end):
+                replacements.append((start, end, _wiki_link(
+                    body, start, end, p, resolve=resolve, label=label, related=related,
+                    inline_resources=inline_resources, limits=limits)))
             else:
                 _wiki_record(body, start, end, p, token_starts)
             accounted.add(start)

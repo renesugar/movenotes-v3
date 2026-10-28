@@ -354,9 +354,10 @@ unresolved one naming an internal target, is a link a reader must not follow:
 its whole span, Markdown or a one-line wiki link with no backtick, becomes its
 text, or `[redacted]` when that is empty or an internal URI, as the producer's
 `plain_text` does. Such a record that still names a target, or whose span is
-in code, refuses. A withheld wiki link is blanked before the scan, which would
-otherwise refuse its internal target; the import counts these as
-`withheld_links`. Refuse missing
+in code, refuses. A withheld or resolved wiki link is blanked before the scan,
+which would otherwise refuse its internal target, with `x` bytes: spaces at the
+start of a line would read as an indented code block and hide what follows (W1).
+The import counts the withheld ones as `withheld_links`. Refuse missing
 internal records even when their target happens to be included. After accounting
 for accepted tokens, scan unprotected bytes case-insensitively for
 `document://`, `resource://`, `notrios://` and `:/` followed by 32 hex digits;
@@ -376,7 +377,18 @@ reference definitions and uses are text (C7d; the user chose to admit
 unrecorded wiki links on 2026-10-24, knowing an exported one resolves by title
 in Obsidian, and recorded ones on 2026-10-25). A recorded wiki link's span must
 be one `[[…]]` or `![[…]]` on one line holding its `raw_target`, no internal
-target and no token. Any of these forms carrying an internal target refuses at
+target and no token. The exception is a resolved wiki link whose target is the
+record's (W1, the user's choice on 2026-10-27): Notrios stores
+`[[Other Note#Heading|alias]]` as `[[document://…#Heading|alias]]`, and the
+import writes it as `obsidian2sql.py` writes a wiki link for Joplin,
+`[alias](:/<mapped-id>#Heading)`. The span must be one line with no backtick,
+outside code; its target, link or embed, display text and anchor must equal the
+record's. The label is the alias, or with none the target note's title or the
+attachment's file name, with `&`, `[`, `]`, `<`, `>`, `\` and backticks as
+entities; the heading is percent-encoded as a Markdown fragment. An attachment
+embed keeps its `!`, and a note embed becomes a link. A block anchor, a fragment
+on an attachment, or an attachment that is not the note's refuses, as in a
+Markdown link. Any other of these forms carrying an internal target refuses at
 that target. A list or quote line holding a fence marker is ambiguous, and
 refuses only when an internal target follows its start (2026-10-25); before
 it, either reading of the fence gives the same bytes.

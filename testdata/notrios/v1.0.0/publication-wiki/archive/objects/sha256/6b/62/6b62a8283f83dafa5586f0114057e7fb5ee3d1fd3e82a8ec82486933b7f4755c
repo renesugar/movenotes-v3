@@ -1,0 +1,11 @@
+---
+source_system: obsidian
+obsidian_path: "Public/Links.md"
+obsidian_folder: "Public"
+---
+# Links
+
+Plain [[document://default/documents/doc_obsidian_public_other_note]], aliased [[document://default/documents/doc_obsidian_public_other_note|shown & text]], to a heading [[document://default/documents/doc_obsidian_public_deep_child#Café Section]] and aliased [[document://default/documents/doc_obsidian_public_deep_child#details|Details]].
+By path [[document://default/documents/doc_obsidian_public_deep_child]], by file name [[document://default/documents/doc_obsidian_public_other_note]], titled [[document://default/documents/doc_obsidian_public_r_d_notes]], to itself [[#Links]] and to nothing Nowhere.
+Embedded note ![[document://default/documents/doc_obsidian_public_other_note]], image ![[resource://default/resources/res_obsidian_public_shot]], captioned ![[resource://default/resources/res_obsidian_public_shot|caption]], file [[resource://default/resources/res_obsidian_public_doc]] and embedded file ![[resource://default/resources/res_obsidian_public_doc]].
+Markdown [Child](document://default/documents/doc_obsidian_public_deep_child#details) as before.

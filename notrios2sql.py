@@ -193,8 +193,18 @@ def _project_note(archive, document, revision, limits, resolve):
         row = mapping.build_resource_row(resource, item_id=item_id, mime=mime,
                                           extension=mapping.resource_extension(mime))
         attachments.append(Attachment(item_id, row["joplin_filename"], p["relation_type"], p["ordinal"]))
+    names = {a.resource_id: a.filename for a in attachments}
+
+    def label(kind, source_id):
+        # What an unaliased wiki link shows (W1): the note's title, as its row
+        # has it, or the attachment's file name.
+        if kind == "resource":
+            return names.get(resolve("resource", source_id), "")
+        target = archive.get_record("document", (source_id,))
+        return archive.get_record("revision", (target.payload["current_revision_id"],)).payload["title"]
+
     plan = validate_links(body, archive.iter_relations("link", document.key[0]), resolve=resolve, limits=limits,
-                          resource_ids=(a.resource_id for a in attachments))
+                          resource_ids=(a.resource_id for a in attachments), label=label)
     return project_body(body, plan, related_resources=attachments), plan.withheld_links
 
 

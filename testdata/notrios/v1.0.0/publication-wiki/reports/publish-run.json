@@ -1,0 +1,58 @@
+{
+  "destination": "<work>/archive",
+  "profile": "fixture",
+  "report": {
+    "target": "publication_handoff",
+    "full_backup": false,
+    "snapshot_id": "snap_jpluqztxjbbayi4wbce7o6emcy",
+    "database_id": "db_dk3djrzdnzyyhv5d35z4nhtaam",
+    "source_replica_id": "replica_trc5h3ilnmokk4qasxcwvitogy",
+    "created_at": "2026-10-28T00:48:19Z",
+    "commit_sha256": "650478bb65d759510cb43ffe93fb21a320fc2dd8cfb1084ea9676cc28e40348c",
+    "selection_manifest_sha256": "620b485666f1eeb2a3653945ab4495abb900ffcc7faf37b14ffd3abca3462261",
+    "collection_ids": [
+      "default"
+    ],
+    "counts": {
+      "collections": 1,
+      "notebooks": 2,
+      "search_notebooks": 0,
+      "tags": 0,
+      "documents": 4,
+      "revisions": 4,
+      "document_tags": 0,
+      "resources": 2,
+      "document_resources": 2,
+      "links": 14,
+      "provenance": 0,
+      "source_bundles": 0
+    },
+    "index_objects": 1,
+    "pack_objects": 0,
+    "objects": 7,
+    "record_objects": 1,
+    "blob_objects": 6,
+    "deduplicated_objects": 0,
+    "reused_objects": 0,
+    "bytes": 13346,
+    "bytes_written": 15450,
+    "selected_documents": 4,
+    "excluded_documents": 0,
+    "reachable_resources": 2,
+    "cleared_link_targets": 0,
+    "rewritten_links": 1,
+    "rewritten_documents": 1,
+    "skipped_rewrites": 0,
+    "stripped_metadata": 0,
+    "verified": true,
+    "warnings": [
+      "query-backed search notebooks are omitted from a scoped archive because their queries describe the whole library",
+      "this archive is a scoped snapshot, not a complete database backup",
+      "this is a publication projection: current notes only, no revision history, no provenance, and no exact source bundles",
+      "link syntax pointing at withheld or unresolved targets was rewritten, so published bodies differ from the canonical notes",
+      "1 selected-note links are unresolved, ambiguous, invalid, or target deleted",
+      "detail arrays are truncated; counts and manifest_sha256 cover the complete bounded plan"
+    ],
+    "elapsed_seconds": 0.07802865
+  }
+}

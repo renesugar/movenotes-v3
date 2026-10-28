@@ -13,6 +13,7 @@ and their audit evidence are unchanged.
 |---|---|---|---|
 | [publication-titled](publication-titled/) | 3 notes, 2 notebooks, 3 tags, 4 tag memberships, 1 resource, 1 resource relation, 11 links | `7f093e27d5d7ab18cac5d97324ae08c8509f4467954220911df7f9c799b206d9` | `a8537bb0582b7bcd9f01c0074923175ad04380930db66e7dafd23a32717b6dc2` |
 | [publication-retain](publication-retain/) | 4 notes, 3 notebooks, 19 links, published with `--link-action retain` (R2, 2026-10-27) | `5b9d517c660d6baaddc9690502854f32d7624b7403fea2a5789c9c28ff410435` | `a681ac22100ae29f631e66ef55b38dea28377c985071a882870bf4afee674498` |
+| [publication-wiki](publication-wiki/) | 4 notes, 2 notebooks, 2 resources, 2 resource relations, 14 links, 13 of them wiki links (W1, 2026-10-27) | `650478bb65d759510cb43ffe93fb21a320fc2dd8cfb1084ea9676cc28e40348c` | `620b485666f1eeb2a3653945ab4495abb900ffcc7faf37b14ffd3abca3462261` |
 
 Pass only the `archive/` directory to the consumer. Reports, `expected.json`,
 `generation.json` and this README are evidence outside the archive. The
@@ -154,4 +155,34 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B testdata/notrios/generate_v1_retain.py \
   --notriosctl /tmp/movenotes-s43b/notriosctl \
   --work-dir /tmp/movenotes-r2/gen-work \
   --output /tmp/movenotes-r2/gen-out
+```
+
+## The wiki-link publication (W1)
+
+Generated on 2026-10-27 by the same binary (same SHA-256) with
+[generate_v1_wiki.py](../generate_v1_wiki.py), from the synthetic vault
+[vault-wiki-v1](../vault-wiki-v1/), with the default `plain_text` action. Its
+`Links` note links by wiki link to notes plainly, with an alias, to a heading
+with a space and a non-ASCII letter, to a heading with an alias, by path, by
+file name and to a title with `&`; to itself and to a note that does not
+exist; and embeds a note, an image (with and without a caption) and a PDF,
+which it also links. One Markdown link stays as the earlier fixtures have it.
+
+Notrios stores each resolved wiki link with its canonical URI, keeping the
+alias and heading, and records 13 resolved `obsidian-wikilink` links and one
+Markdown link. It rewrote only `[[Nowhere]]`, to its text. The generator checks
+every body line, the 14 statuses and the 13 wiki links against raw archive
+bytes. `expected.json` holds the lines the import must write, with each target's
+mapped ID as `{source ID}`, and the lines the vault export must write.
+
+`NotriosV1WikiTest` checks that the import writes each wiki link as a Joplin
+link and changes no other byte, reruns unchanged, that every exported link
+reaches its note or attachment from the note's folder, and that the generated
+site's link report is empty.
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B testdata/notrios/generate_v1_wiki.py \
+  --notriosctl /tmp/movenotes-s43b/notriosctl \
+  --work-dir /tmp/movenotes-w1/gen-work \
+  --output /tmp/movenotes-w1/gen-out
 ```
