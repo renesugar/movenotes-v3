@@ -38,7 +38,7 @@ import obsidian2sql
 import notrios_receipt
 
 __program_name__ = "obsidian2site"
-__version__ = "3.37"
+__version__ = "3.38"
 
 _IGNORED_DIRECTORY_NAMES = frozenset({
     ".git", ".hg", ".svn", ".obsidian", ".movenotes", ".trash", ".Trash",

@@ -37,7 +37,7 @@ import notesdb
 import obsidianmeta
 
 __program_name__ = "obsidian2sql"
-__version__ = "3.37"
+__version__ = "3.38"
 
 _PRESERVATION_DIR = ".movenotes"
 _MANIFEST_NAME = "manifest.json"

@@ -8,9 +8,9 @@ archives and Notrios publications.
 
 Read these files first:
 
-1. `PLAN.md` and `ROADMAP.md` — the plan being implemented and its next slice,
-   and what releases are meant to do. How they are kept, and when a plan is
-   archived to `plans/`, is under
+1. `PLAN.md` and `ROADMAP.md` — the plan being implemented, when there is
+   one, and its next slice, and what releases are meant to do. How they are
+   kept, and when a plan is archived to `plans/`, is under
    [Plans, the roadmap and the archive](#plans-the-roadmap-and-the-archive).
 2. `README.md` and `docs/` — what movenotes does and a short example per
    workflow; `docs/index.md` lists the page for each workflow, with its

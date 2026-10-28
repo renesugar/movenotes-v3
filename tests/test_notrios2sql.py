@@ -4708,7 +4708,7 @@ class NotriosCLITest(unittest.TestCase):
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(result.stdout, "notrios2sql 3.37\n")
+        self.assertEqual(result.stdout, "notrios2sql 3.38\n")
         self.assertEqual(result.stderr, "")
         self.assertFalse(self.destination.exists())
 

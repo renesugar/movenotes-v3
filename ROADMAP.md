@@ -1,13 +1,14 @@
 # Roadmap
 
-What future releases of movenotes are meant to do. [`PLAN.md`](PLAN.md) says how
-far the active plan has got. This file carries no slice status, and the rules
+What future releases of movenotes are meant to do. `PLAN.md`, when a plan is
+active, says how far it has got; none is now, and the next will be written from
+this file at a later date. This file carries no slice status, and the rules
 for keeping the two apart are in [`AGENTS.md`](AGENTS.md#plans-the-roadmap-and-the-archive).
 Finished plans are in [`plans/`](plans/).
 
-## 3.38 — the active plan
+## 3.38 — released
 
-[`PLAN.md`](PLAN.md) holds the work for this release:
+[The plan that built it](plans/v3.38/000-reorganization-plan.md) is archived:
 
 - **A tidier repository.** The account name is removed from committed paths
   and, with the user's permission, from the Git history. The finished plans

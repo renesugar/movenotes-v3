@@ -1,14 +1,15 @@
 # Plan: Reorganize the repository, then the Notrios import follow-ups
 
-Status: **opened 2026-10-26.** L0 (opening) and **L1 to L7 are complete**
-(L4 ran before L3), **L8** is published, and **H1** and **D1** are complete.
-The next slice is **R1**, not yet authorized. The user
-confirmed this plan's assignments for the session on 2026-10-26; see
+Status: **complete 2026-10-27, released as 3.38 and archived.** Opened
+2026-10-26. Every slice is complete: L0 to L8 (L4 ran before L3), H1, D1, R1
+to R3, W1 and B1. The next plan is to be written from `ROADMAP.md` at a later
+date, at the user's direction. The user confirmed this plan's assignments for
+each session; see
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 
-How this plan, [`ROADMAP.md`](ROADMAP.md) and the archive in [`plans/`](plans/)
+How this plan, [`ROADMAP.md`](../../ROADMAP.md) and the archive in [`plans/`](../)
 are kept current, and when this plan is archived, is in `AGENTS.md` under
-[Plans, the roadmap and the archive](AGENTS.md#plans-the-roadmap-and-the-archive).
+[Plans, the roadmap and the archive](../../AGENTS.md#plans-the-roadmap-and-the-archive).
 
 ## Goal
 
@@ -67,7 +68,7 @@ Every slice is planned for the Claude Code parent, called **Main** in the
 table. No worker or subagent is planned; spawning one needs an explicit user
 request and a plan amendment first. At the start of each implementation
 session, follow
-[Mandatory planned delegation](AGENTS.md#mandatory-planned-delegation): show
+[Mandatory planned delegation](../../AGENTS.md#mandatory-planned-delegation): show
 the active coding agent, this plan's model and effort assignments (marking
 which are runtime-reported and which configured), and the billing route or
 `not exposed`, then ask whether they are current, and wait for the answer
@@ -75,7 +76,7 @@ before implementing. Plan and provenance edits and read-only inspection may
 proceed while confirmation is pending. A new session, coding agent, model or
 billing route invalidates the confirmation; compaction alone does not.
 
-The table below is generated from the ledger, [`docs/plan/ledger.json`](docs/plan/ledger.json),
+The table below is generated from the ledger, [`plans/v3.38/reorganization-ledger.json`](reorganization-ledger.json),
 which is authoritative for assignments, confirmation and execution records.
 Update the ledger first, then regenerate and check:
 
@@ -246,7 +247,7 @@ it is deferred, what it would need, and what it depends on:
 `AGENTS.md` gains the rules, adapted from the Notrios repository's
 "Keeping the plan current", "Keeping the roadmap current" and "Plan archival":
 `PLAN.md` is the active plan and its journal; what is left is in its ledger
-(`docs/plan/ledger.json`), rendered by `scripts/render_plan_ledger.py`;
+(`plans/v3.38/reorganization-ledger.json`), rendered by `scripts/render_plan_ledger.py`;
 `ROADMAP.md` says what a version will mean and carries no per-slice status;
 new work enters the roadmap when it enters the plan; a finished plan is
 archived as `plans/v<major>.<minor>/000-<slug>-plan.md`, with its ledger and
@@ -450,7 +451,7 @@ pruned nothing. Then:
   digests are unchanged. This section and the log keep the old hashes, because
   they describe the history before the rewrite and GitHub's current state,
   which the force-push leases are taken against. The full map is
-  [`docs/plan/l8-commit-map.txt`](docs/plan/l8-commit-map.txt).
+  [`plans/v3.38/001-l8-commit-map.txt`](001-l8-commit-map.txt).
 
 *Publishing, as authorized on 2026-10-27; steps 1 and 2 are done:*
 
@@ -517,7 +518,7 @@ refusal, rerun and recovery tests pass unchanged.
 
 Carried from the Notrios import plan, proposed 2026-10-25 at the user's
 request; the full specification is in
-the [archived plan's R1 row](plans/v3.37/000-notrios-import-plan.md#producer-link-syntax-prerequisites--titles-in-projected-bodies). In short: during site
+the [archived plan's R1 row](../v3.37/000-notrios-import-plan.md#producer-link-syntax-prerequisites--titles-in-projected-bodies). In short: during site
 generation, write one CSV per run listing every link a web reader cannot reach
 (`file:`, drive and UNC paths, browser and app schemes, unresolved relative
 and wiki links, internal forms left unresolved), every malformed HTTP(S)
@@ -563,7 +564,7 @@ reports, while doing itself what `plain_text` does for a link to a withheld
 note. A bounded probe of what `retain` emits for a withheld-note link comes
 first; if it leaks withheld identities in a way the import cannot contain, fall
 back to option (b), a producer change. The full specification is in the
-[archived plan's R2 row](plans/v3.37/000-notrios-import-plan.md#producer-link-syntax-prerequisites--titles-in-projected-bodies).
+[archived plan's R2 row](../v3.37/000-notrios-import-plan.md#producer-link-syntax-prerequisites--titles-in-projected-bodies).
 
 *Acceptance:* every non-internal destination in a publication reaches the
 vault and site byte-identical to the source note and appears in R1's report;
@@ -611,7 +612,7 @@ option (b), is the user's decision.
 *Decided 2026-10-27.* Asked how the choice maps to a site on the author's own
 machine, on a company intranet and on the Internet, the user chose both:
 (a) now, and (b) as a Notrios follow-up on the roadmap
-([A `plain_text` that keeps every non-internal link](ROADMAP.md#a-plain_text-that-keeps-every-non-internal-link)).
+([A `plain_text` that keeps every non-internal link](../../ROADMAP.md#a-plain_text-that-keeps-every-non-internal-link)).
 `plain_text` stays the documented default; `retain` is documented for a
 handoff that never leaves its author's control. movenotes reads both. With a
 `retain` handoff it keeps every record that names no internal target as
@@ -684,7 +685,7 @@ or `!` it replaces opens none.
 
 *Result:* `notrios_links.py` maps each resolved wiki link, `notrios2sql.py`
 names an unaliased one's target, and a new fixture from the pinned producer,
-[publication-wiki](testdata/notrios/v1.0.0/README.md#the-wiki-link-publication-w1),
+[publication-wiki](../../testdata/notrios/v1.0.0/README.md#the-wiki-link-publication-w1),
 holds 13 wiki links of every accepted form. Its import changes only those
 links, reruns unchanged, exports each to a relative path that exists from the
 note's folder, and gives a site whose link report is empty. The 7c libraries
@@ -741,7 +742,7 @@ on a Markdown or wiki link and copies it as written (`[Note](:/id#^id)`); the
 vault export writes `[Note](Note.md#^id)`. `obsidian2site.py` anchors each block
 ID outside code and keeps a block link's `^`. A new fixture from the pinned
 producer,
-[publication-block](testdata/notrios/v1.0.0/README.md#the-block-link-publication-b1),
+[publication-block](../../testdata/notrios/v1.0.0/README.md#the-block-link-publication-b1),
 holds 7 block links of every form. Its import changes only those links, reruns
 unchanged, and Obsidian opens each exported link on its block's line; the site
 gives each linked block an anchor its link reaches, which a browser follows to
@@ -801,7 +802,7 @@ anchor fix and still match, so those libraries had no such anchors.
 
 ## Execution provenance
 
-Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
+Generated from [`plans/v3.38/reorganization-ledger.json`](reorganization-ledger.json).
 
 <!-- PLAN-EXECUTION:START -->
 <details><summary>L0 — complete; planned parent</summary>
@@ -821,8 +822,8 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Parent | Claude Code parent (Main) |
 | Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
 | Parent reasoning effort | not exposed |
-| Parent contribution | Read the Notrios repository's plans/, docs/ and scripts/ layout and its AGENTS.md plan, roadmap and archival rules; asked the four layout questions; archived the old PLAN.md as plans/v3.34/000-refocus-plan.md; wrote PLAN.md and docs/plan/ledger.json; moved render_notrios_execution.py to scripts/render_plan_ledger.py with --ledger and per-ledger markers, and repointed the Notrios plan's commands; pointed the README and requirements.txt at the archived plan. |
-| Validation | scripts/render_plan_ledger.py --check passes for docs/plan/ledger.json and for plans/v3.37/notrios-import-ledger.json; documentation and tooling only. |
+| Parent contribution | Read the Notrios repository's plans/, docs/ and scripts/ layout and its AGENTS.md plan, roadmap and archival rules; asked the four layout questions; archived the old PLAN.md as plans/v3.34/000-refocus-plan.md; wrote PLAN.md and plans/v3.38/reorganization-ledger.json; moved render_notrios_execution.py to scripts/render_plan_ledger.py with --ledger and per-ledger markers, and repointed the Notrios plan's commands; pointed the README and requirements.txt at the archived plan. |
+| Validation | scripts/render_plan_ledger.py --check passes for plans/v3.38/reorganization-ledger.json and for plans/v3.37/notrios-import-ledger.json; documentation and tooling only. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
 | Execution evidence | User request and answers, 2026-10-26 |
@@ -1029,11 +1030,11 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Parent | Claude Code parent (Main) |
 | Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
 | Parent reasoning effort | not exposed |
-| Parent contribution | Read-only check found GitHub's main at cb7ddc0 (merges of pull requests 1 to 3) holding the old paths, three unwritable refs/pull/N/head refs, a public repository with no forks, and classic protection on main (force pushes off). Made a mirror backup outside the working tree. Rewrote develop and main with git filter-repo in a separate mirror: four rules (scratchpad paths, home paths, /media and /run/media account segments, <account>-backup) on blobs and messages, --prune-empty never, --prune-degenerate never. Moved this checkout onto the rewritten branches (identical tree). Mapped 210 citations of rewritten commits in nine files through the commit map, keeping PLAN.md's L8 text on the old hashes it describes; committed the map as docs/plan/l8-commit-map.txt. Published: checked force pushes enabled on main and GitHub still at 659aa41 and cb7ddc0, then pushed develop (659aa41 to 547b289) and main (cb7ddc0 to 526c073), each with --force-with-lease against those hashes. |
+| Parent contribution | Read-only check found GitHub's main at cb7ddc0 (merges of pull requests 1 to 3) holding the old paths, three unwritable refs/pull/N/head refs, a public repository with no forks, and classic protection on main (force pushes off). Made a mirror backup outside the working tree. Rewrote develop and main with git filter-repo in a separate mirror: four rules (scratchpad paths, home paths, /media and /run/media account segments, <account>-backup) on blobs and messages, --prune-empty never, --prune-degenerate never. Moved this checkout onto the rewritten branches (identical tree). Mapped 210 citations of rewritten commits in nine files through the commit map, keeping PLAN.md's L8 text on the old hashes it describes; committed the map as plans/v3.38/001-l8-commit-map.txt. Published: checked force pushes enabled on main and GitHub still at 659aa41 and cb7ddc0, then pushed develop (659aa41 to 547b289) and main (cb7ddc0 to 526c073), each with --force-with-lease against those hashes. |
 | Validation | Inventory of every blob and message on both rewritten branches: no account name outside the GitHub user name. develop's tip tree unchanged (b59b5ba). All 124 commits: same paths and modes; 577 changed blob entries each equal the old blob with the rules applied; parents mapped, authors, committers and dates equal; 7 messages changed only by filter-repo's hash mapping. The 14 hashes filter-repo left unmapped name no object here (Notrios, theme, a number). Every mapped short hash resolves to a commit; the archived Notrios ledger passes --check in place; 41 documents, 0 broken links. On the rewritten tip with the references mapped: 325 required tests passed in 207.345 s and 43 harness tests in 16.272 s, no __pycache__ written. After the push, a fresh mirror clone of GitHub has develop 547b289 and main 526c073, and no blob or message on them holds the account name; refs/pull/1/head to refs/pull/3/head still serve the old commits, as expected. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | User, 2026-10-26: Update the plan to rewrite the old paths in the Git history. |
-| Execution evidence | User: I installed git filter-repo. gh is also available. Start L8.; User answers 2026-10-27: Current; Rewrite develop and main (Recommended); Only this checkout; User: main is protected on GitHub; changes are merged by pull request into main, then merged back into develop; docs/plan/l8-commit-map.txt; Private scratchpad l8/inventory.py, l8/verify.py, l8/refs.py, l8/expressions.txt; User: I enabled force pushes on main; Force-push when ready. |
+| Execution evidence | User: I installed git filter-repo. gh is also available. Start L8.; User answers 2026-10-27: Current; Rewrite develop and main (Recommended); Only this checkout; User: main is protected on GitHub; changes are merged by pull request into main, then merged back into develop; plans/v3.38/001-l8-commit-map.txt; Private scratchpad l8/inventory.py, l8/verify.py, l8/refs.py, l8/expressions.txt; User: I enabled force pushes on main; Force-push when ready. |
 | Commit | Git commit containing this record: docs: record the published history rewrite (L8) |
 
 </details>
@@ -1254,3 +1255,4 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-27 | W1 complete | `notrios2sql.py` imports a resolved wiki link as `[alias](:/id#heading)`, and the vault export writes it as a relative link. Fixed the scan for unaccounted internal targets, which a blanked wiki link at a line's start hid. New fixture `publication-wiki` from the pinned producer. A block anchor still refuses, now proposed as B1. 340 required and 43 harness tests pass. Next: ask whether to push, and whether to start B1. |
 | 2026-10-27 | W1 pushed; B1 decided | `c92a80b` pushed to `develop`. B1's probe found the site broken for block links in every vault, not only on the Notrios route. The user chose that the site anchor the block, and allowed Obsidian checks in a scratch profile on synthetic vaults. |
 | 2026-10-27 | B1 complete | `notrios2sql.py` keeps a block link's `#^id`, the vault export writes `[x](Note.md#^id)`, and Obsidian opens it on the block. `obsidian2site.py` anchors each block ID where Obsidian reads one, found by measuring its metadata cache rather than from its documentation, and keeps the `^` in links. New fixture `publication-block` from the pinned producer. On `notes`, all 12 published block links now reach their block; no other library's site changes. 345 required tests pass, one of them on rerun after a flaky first run, and 43 harness tests pass. Also brought the L7, L8, H1 and D1 rows of the slice table, left as proposed, in line with the ledger: every slice is complete. Next: ask whether to push, and whether to archive the plan. |
+| 2026-10-27 | B1 pushed; released 3.38; plan archived | The user: "Push commits. Archive the current plan. Defer creating the next plan; it will be created at a future date. Create a pull request and then merge `develop` into `main`. Then, sync branches by merging `main` into `develop`." `56127f5` pushed. Released 3.38: the CHANGELOG's unreleased section is now 3.38, and `notrios2sql.py`, `obsidian2sql.py`, `obsidian2site.py` and `sql2obsidian.py`, the scripts changed since 3.37 that carry a version, report 3.38. This plan, its ledger and its one working record, the L8 commit map, moved to `plans/v3.38/`. No next plan is written. |

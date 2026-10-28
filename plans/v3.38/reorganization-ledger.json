@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "plan": "PLAN.md",
+  "plan": "plans/v3.38/000-reorganization-plan.md",
   "markers": "PLAN",
   "updated": "2026-10-27",
   "session": {
@@ -51,8 +51,8 @@
       "parent": "Claude Code parent (Main)",
       "parent_underlying_model_family": "Claude Opus 5.5, runtime-reported claude-opus-5-5",
       "parent_reasoning_effort": "not exposed",
-      "parent_contribution": "Read the Notrios repository's plans/, docs/ and scripts/ layout and its AGENTS.md plan, roadmap and archival rules; asked the four layout questions; archived the old PLAN.md as plans/v3.34/000-refocus-plan.md; wrote PLAN.md and docs/plan/ledger.json; moved render_notrios_execution.py to scripts/render_plan_ledger.py with --ledger and per-ledger markers, and repointed the Notrios plan's commands; pointed the README and requirements.txt at the archived plan.",
-      "validation": "scripts/render_plan_ledger.py --check passes for docs/plan/ledger.json and for plans/v3.37/notrios-import-ledger.json; documentation and tooling only.",
+      "parent_contribution": "Read the Notrios repository's plans/, docs/ and scripts/ layout and its AGENTS.md plan, roadmap and archival rules; asked the four layout questions; archived the old PLAN.md as plans/v3.34/000-refocus-plan.md; wrote PLAN.md and plans/v3.38/reorganization-ledger.json; moved render_notrios_execution.py to scripts/render_plan_ledger.py with --ledger and per-ledger markers, and repointed the Notrios plan's commands; pointed the README and requirements.txt at the archived plan.",
+      "validation": "scripts/render_plan_ledger.py --check passes for plans/v3.38/reorganization-ledger.json and for plans/v3.37/notrios-import-ledger.json; documentation and tooling only.",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
         "User request and answers, 2026-10-26"
@@ -277,14 +277,14 @@
       "parent": "Claude Code parent (Main)",
       "parent_underlying_model_family": "Claude Opus 5.5, runtime-reported claude-opus-5-5",
       "parent_reasoning_effort": "not exposed",
-      "parent_contribution": "Read-only check found GitHub's main at cb7ddc0 (merges of pull requests 1 to 3) holding the old paths, three unwritable refs/pull/N/head refs, a public repository with no forks, and classic protection on main (force pushes off). Made a mirror backup outside the working tree. Rewrote develop and main with git filter-repo in a separate mirror: four rules (scratchpad paths, home paths, /media and /run/media account segments, <account>-backup) on blobs and messages, --prune-empty never, --prune-degenerate never. Moved this checkout onto the rewritten branches (identical tree). Mapped 210 citations of rewritten commits in nine files through the commit map, keeping PLAN.md's L8 text on the old hashes it describes; committed the map as docs/plan/l8-commit-map.txt. Published: checked force pushes enabled on main and GitHub still at 659aa41 and cb7ddc0, then pushed develop (659aa41 to 547b289) and main (cb7ddc0 to 526c073), each with --force-with-lease against those hashes.",
+      "parent_contribution": "Read-only check found GitHub's main at cb7ddc0 (merges of pull requests 1 to 3) holding the old paths, three unwritable refs/pull/N/head refs, a public repository with no forks, and classic protection on main (force pushes off). Made a mirror backup outside the working tree. Rewrote develop and main with git filter-repo in a separate mirror: four rules (scratchpad paths, home paths, /media and /run/media account segments, <account>-backup) on blobs and messages, --prune-empty never, --prune-degenerate never. Moved this checkout onto the rewritten branches (identical tree). Mapped 210 citations of rewritten commits in nine files through the commit map, keeping PLAN.md's L8 text on the old hashes it describes; committed the map as plans/v3.38/001-l8-commit-map.txt. Published: checked force pushes enabled on main and GitHub still at 659aa41 and cb7ddc0, then pushed develop (659aa41 to 547b289) and main (cb7ddc0 to 526c073), each with --force-with-lease against those hashes.",
       "validation": "Inventory of every blob and message on both rewritten branches: no account name outside the GitHub user name. develop's tip tree unchanged (b59b5ba). All 124 commits: same paths and modes; 577 changed blob entries each equal the old blob with the rules applied; parents mapped, authors, committers and dates equal; 7 messages changed only by filter-repo's hash mapping. The 14 hashes filter-repo left unmapped name no object here (Notrios, theme, a number). Every mapped short hash resolves to a commit; the archived Notrios ledger passes --check in place; 41 documents, 0 broken links. On the rewritten tip with the references mapped: 325 required tests passed in 207.345 s and 43 harness tests in 16.272 s, no __pycache__ written. After the push, a fresh mirror clone of GitHub has develop 547b289 and main 526c073, and no blob or message on them holds the account name; refs/pull/1/head to refs/pull/3/head still serve the old commits, as expected.",
       "delegation_failure_or_reassignment": "none recorded",
       "evidence": [
         "User: I installed git filter-repo. gh is also available. Start L8.",
         "User answers 2026-10-27: Current; Rewrite develop and main (Recommended); Only this checkout",
         "User: main is protected on GitHub; changes are merged by pull request into main, then merged back into develop",
-        "docs/plan/l8-commit-map.txt",
+        "plans/v3.38/001-l8-commit-map.txt",
         "Private scratchpad l8/inventory.py, l8/verify.py, l8/refs.py, l8/expressions.txt",
         "User: I enabled force pushes on main; Force-push when ready."
       ],

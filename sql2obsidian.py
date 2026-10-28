@@ -60,7 +60,7 @@ import notrios_receipt
 
 __program_name__ = "sql2obsidian"
 __author__ = "Rene Sugar"
-__version__ = "3.37"
+__version__ = "3.38"
 __license__ = "MIT License (https://opensource.org/licenses/MIT)"
 __website__ = "https://github.com/renesugar"
 

@@ -27,7 +27,7 @@ from notrios_receipt import RECEIPT_KEY
 from notrios_links import ConversionLimits, DEFAULT_CONVERSION_LIMITS
 from notrios_links import validate_links, project_body, Attachment
 
-__version__ = "3.37"
+__version__ = "3.38"
 
 INVENTORY = "notrios-inventory.jsonl"
 COMPLETE = "notrios-complete.json"
