@@ -437,7 +437,10 @@ The converter:
 
 - removes original frontmatter and writes compact Hugo fields — nothing the theme
   can derive, so no summary and no reading time;
-- converts wiki links and local Markdown links to canonical `.html` paths;
+- converts wiki links and local Markdown links to canonical `.html` paths. A
+  link with no folder in it, such as `[[Note]]` or `[x](My%20Note.md)`, is
+  looked for beside the linking note, then at the vault root, then as the only
+  note or attachment with that name, as Obsidian and `obsidian2sql.py` do;
 - converts embeds to copied assets or scalable note links;
 - preserves fenced and inline code while rewriting prose links;
 - repairs malformed HTTP(S) destinations enough for Hugo to build, keeping the

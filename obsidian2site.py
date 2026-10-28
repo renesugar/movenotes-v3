@@ -547,25 +547,30 @@ def _resolve_target(
         return source_relative.as_posix()
     candidate = PurePosixPath(target)
     if target.startswith("/"):
-        candidate = PurePosixPath(target.lstrip("/"))
+        candidates = [PurePosixPath(target.lstrip("/"))]
     elif target.startswith("./") or target.startswith("../") or "/" in target:
-        candidate = source_relative.parent / candidate
-    normalized_parts: list[str] = []
-    for part in candidate.parts:
-        if part in {"", "."}:
-            continue
-        if part == "..":
-            if normalized_parts:
-                normalized_parts.pop()
-            continue
-        normalized_parts.append(part)
-    normalized = PurePosixPath(*normalized_parts).as_posix()
-    variants = [normalized.casefold()]
-    if not PurePosixPath(normalized).suffix:
-        variants.extend((f"{normalized}.md".casefold(), f"{normalized}.markdown".casefold()))
-    for variant in variants:
-        if variant in exact:
-            return exact[variant]
+        candidates = [source_relative.parent / candidate]
+    else:
+        # A bare name is looked for beside the linking note first, then at the
+        # vault root, as Obsidian and obsidian2sql.py do (R3).
+        candidates = [source_relative.parent / candidate, candidate]
+    for candidate in candidates:
+        normalized_parts: list[str] = []
+        for part in candidate.parts:
+            if part in {"", "."}:
+                continue
+            if part == "..":
+                if normalized_parts:
+                    normalized_parts.pop()
+                continue
+            normalized_parts.append(part)
+        normalized = PurePosixPath(*normalized_parts).as_posix()
+        variants = [normalized.casefold()]
+        if not PurePosixPath(normalized).suffix:
+            variants.extend((f"{normalized}.md".casefold(), f"{normalized}.markdown".casefold()))
+        for variant in variants:
+            if variant in exact:
+                return exact[variant]
     name = PurePosixPath(normalized).name.casefold()
     matches = basenames.get(name, [])
     if len(matches) == 1:

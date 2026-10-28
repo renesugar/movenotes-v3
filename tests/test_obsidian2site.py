@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import posixpath
 import re
@@ -11,8 +12,9 @@ import sys
 import tempfile
 import tomllib
 import unittest
+import urllib.parse
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import obsidian2site
 
@@ -784,6 +786,42 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             # An undelimited suffix is dropped, as before; external titles stay.
             self.assertEqual(untitled[3], untitled[0])
             self.assertEqual(titled[3], '[W](https://example.test/x "Web")')
+
+    def test_a_bare_link_resolves_beside_the_linking_note_before_the_vault_root(self) -> None:
+        # R3: as in Obsidian and obsidian2sql.py, a slash-less name is looked
+        # for in the linking note's folder, then at the root, then by a unique
+        # basename. sql2obsidian.py writes same-folder links this way.
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-same-folder-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            site = root / "site"
+            for folder in ("A", "B", "C"):
+                (vault / folder).mkdir(parents=True)
+            notes = {"Dup.md": "Root dup", "A/Dup.md": "A dup", "B/Dup.md": "B dup",
+                     "A/My Note.md": "A my note", "B/My Note.md": "B my note", "C/Solo.md": "C solo"}
+            for path, title in notes.items():
+                (vault / path).write_text(f"---\ntitle: {title}\n---\n# {title}\n", encoding="utf-8")
+            (vault / "A" / "Linker.md").write_text(
+                "# Linker\n\n[md](Dup.md) [[Dup]] [enc](My%20Note.md) [[My Note|alias]] [solo](Solo.md)\n",
+                encoding="utf-8",
+            )
+            (vault / "Top.md").write_text("# Top\n\n[md](Dup.md) [[Dup]]\n", encoding="utf-8")
+            run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+
+            def titles(note: str) -> list[str]:
+                output = PurePosixPath("notes") / note
+                _metadata, body = read_json_frontmatter(site / "content" / output)
+                found = []
+                for link in re.findall(r"\]\(([^)\s]+)\)", body):
+                    target = posixpath.normpath(posixpath.join(output.parent.as_posix(), urllib.parse.unquote(link)))
+                    metadata, _body = read_json_frontmatter(site / "content" / PurePosixPath(target).with_suffix(".md"))
+                    found.append(metadata["title"])
+                return found
+
+            self.assertEqual(titles("a/linker.md"), ["A dup", "A dup", "A my note", "A my note", "C solo"])
+            self.assertEqual(titles("top.md"), ["Root dup", "Root dup"])
+            with (site / obsidian2site.LINK_REPORT_NAME).open(newline="", encoding="utf-8") as handle:
+                self.assertEqual(len(list(csv.reader(handle))), 1)
 
     def test_html_image_sources_resolve_to_the_asset_url_and_keep_the_tag(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-html-image-") as temporary:
