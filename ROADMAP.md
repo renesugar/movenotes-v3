@@ -1,13 +1,14 @@
 # Roadmap
 
-What future releases of movenotes are meant to do. [`PLAN.md`](PLAN.md) says how
-far the active plan has got. This file carries no slice status, and the rules
+What future releases of movenotes are meant to do. `PLAN.md`, when a plan is
+active, says how far it has got; none is now, and the next will be written from
+this file at a later date. This file carries no slice status, and the rules
 for keeping the two apart are in [`AGENTS.md`](AGENTS.md#plans-the-roadmap-and-the-archive).
 Finished plans are in [`plans/`](plans/).
 
-## 3.38 — the active plan
+## 3.38 — released
 
-[`PLAN.md`](PLAN.md) holds the work for this release:
+[The plan that built it](plans/v3.38/000-reorganization-plan.md) is archived:
 
 - **A tidier repository.** The account name is removed from committed paths
   and, with the user's permission, from the Git history. The finished plans
@@ -23,12 +24,42 @@ Finished plans are in [`plans/`](plans/).
   - clearer refusals for an unusable `notrios2sql.py --output` (D1);
   - a report of the links a web reader cannot reach (R1);
   - keeping the links Notrios cannot resolve on the Notrios route (R2).
+- **Found by the link report:** a same-folder link the site cannot resolve
+  when another note shares its name (R3).
+- **Found by R2's probe:** importing a Notrios publication that holds
+  resolved wiki links (W1).
+- **Found by W1:** links to a block, `#^id`, on the Notrios route and on the
+  site (B1).
 
 ## Deferred
 
 These are not in any plan yet. Each says what it is, why it waits, what it
 needs, and what it depends on. When one is planned, it goes into `PLAN.md` and
 stays listed here, under the release it is planned for.
+
+### A `plain_text` that keeps every non-internal link
+
+**What.** A Notrios change, so that the `plain_text` link action replaces only
+a link to a note or attachment the publication leaves out, keeps every other
+link as written (`file:`, `tel:`, `data:`, relative and the rest), and never
+uses a target URI as a link's text. The one handoff then serves a site on the
+author's machine, on an intranet and on the Internet alike.
+
+**Why it waits.** It is a producer change, in Notrios rather than movenotes.
+R2 meets the need for now with `--link-action retain`, which keeps every link
+but puts each withheld note's ID into the handoff, so a handoff made that way
+must stay as private as the library; movenotes replaces each such link with
+its text before writing anything. R2's probe also found that `plain_text` at
+`v1.0.0` replaces a wiki link with no alias to a withheld note with that
+note's URI, `document://default/documents/<id>`, which for a library imported
+from Obsidian spells the note's folder and title. movenotes refuses such a
+publication, so it reaches no vault or site, but the handoff holds it.
+
+**What it needs.** The change in Notrios' `publicationLinkNeedsRewrite` and
+`replacementFor`, a release, a new producer pin here, and fixtures regenerated
+from it. movenotes then reads both actions' handoffs the same way.
+
+**Depends on** R2 (option (a)), decided by the user on 2026-10-27.
 
 ### Packed publications
 

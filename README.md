@@ -172,9 +172,9 @@ covers, is in [docs/testing.md](docs/testing.md).
 
 # Development plan
 
-[`PLAN.md`](PLAN.md) is the plan being implemented now, and
-[`ROADMAP.md`](ROADMAP.md) says what coming releases are meant to do, including
-the features deferred so far. Finished plans are
+No plan is being implemented now. The next, `PLAN.md`, will be written from
+[`ROADMAP.md`](ROADMAP.md), which says what coming releases are meant to do,
+including the features deferred so far. Finished plans are
 archived under [`plans/`](plans/) by the version they shipped in; the first,
 which refocused and modernized this project, is
 [`plans/v3.34/000-refocus-plan.md`](plans/v3.34/000-refocus-plan.md).

@@ -52,6 +52,15 @@ LINK_TITLE_RE = re.compile(LINK_TITLE)
 RESOURCE_LINK_RE = re.compile(r"!?\[([^\]]*)\]\(:/([a-fA-F0-9]{32})(" + LINK_TITLE + r")?\)")
 RESOURCE_ID_RE = re.compile(r":/([a-fA-F0-9]{32})")
 
+# An HTML image's ``src`` value, e.g. ``<img width="300" src=":/id">``: double-
+# or single-quoted (groups 2 and 3) or unquoted (group 4). ``src`` must follow
+# whitespace, so ``data-src`` is not one. The match ends with the value, so the
+# rest of the tag is never touched.
+HTML_IMAGE_SRC_RE = re.compile(
+    r"""(<img\b[^<>]*?[ \t\r\n]src[ \t\r\n]*=[ \t\r\n]*)(?:"([^"<>]*)"|'([^'<>]*)'|([^\s"'<>=`]+))""",
+    re.IGNORECASE,
+)
+
 # Characters treated as line breaks (or vertical whitespace) that must not
 # appear in a note title.
 _LINE_BREAKERS = "\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029"
@@ -193,6 +202,29 @@ def get_resource_links(text: str) -> list[tuple[str, str, str]]:
 def get_resource_ids(text: str) -> set[str]:
     """Return every Joplin ``:/<id>`` reference, including links in HTML."""
     return {match.group(1).lower() for match in RESOURCE_ID_RE.finditer(text)}
+
+
+def replace_html_image_sources(text: str, replace, where=None) -> str:
+    """Replace each HTML image's ``src`` value with ``replace(value)``.
+
+    Only the value's bytes change: the quotes, the attributes either side and
+    the rest of the tag are kept. A ``None`` result keeps the value, and so
+    does ``where(start, end)`` returning false for the tag's span. The
+    replacement must be safe inside the value's quotes; a percent-encoded path
+    is, quoted or not.
+    """
+
+    def substitute(match: re.Match[str]) -> str:
+        if where is not None and not where(match.start(), match.end()):
+            return match.group(0)
+        group = next(index for index in (2, 3, 4) if match.group(index) is not None)
+        replacement = replace(match.group(group))
+        if replacement is None:
+            return match.group(0)
+        start, end = match.start(group) - match.start(), match.end(group) - match.start()
+        return match.group(0)[:start] + replacement + match.group(0)[end:]
+
+    return HTML_IMAGE_SRC_RE.sub(substitute, text)
 
 
 # A markdown link whose display text is exactly its URL, e.g.

@@ -12,7 +12,9 @@ tools.
 from __future__ import annotations
 
 import argparse
+import bisect
 import concurrent.futures
+import csv
 import functools
 import hashlib
 import html
@@ -36,7 +38,7 @@ import obsidian2sql
 import notrios_receipt
 
 __program_name__ = "obsidian2site"
-__version__ = "3.37"
+__version__ = "3.38"
 
 _IGNORED_DIRECTORY_NAMES = frozenset({
     ".git", ".hg", ".svn", ".obsidian", ".movenotes", ".trash", ".Trash",
@@ -129,6 +131,13 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output", dest="output_path", type=Path, required=True,
         help="Directory for the generated Hugo project (created if needed)",
+    )
+    parser.add_argument(
+        "--link-report", type=Path, metavar="PATH",
+        help=(f"Write the report of links a web reader cannot rely on to PATH (default: "
+              f"{LINK_REPORT_NAME} at the output's root, outside everything published). It lists "
+              "phone numbers, email addresses and local paths, so keep it private. A path inside "
+              "the output or the vault is refused."),
     )
     parser.add_argument("--title", help="Site title (default: vault directory name)")
     parser.add_argument("--base-url", default="/", help="Hugo baseURL (default: /)")
@@ -538,25 +547,30 @@ def _resolve_target(
         return source_relative.as_posix()
     candidate = PurePosixPath(target)
     if target.startswith("/"):
-        candidate = PurePosixPath(target.lstrip("/"))
+        candidates = [PurePosixPath(target.lstrip("/"))]
     elif target.startswith("./") or target.startswith("../") or "/" in target:
-        candidate = source_relative.parent / candidate
-    normalized_parts: list[str] = []
-    for part in candidate.parts:
-        if part in {"", "."}:
-            continue
-        if part == "..":
-            if normalized_parts:
-                normalized_parts.pop()
-            continue
-        normalized_parts.append(part)
-    normalized = PurePosixPath(*normalized_parts).as_posix()
-    variants = [normalized.casefold()]
-    if not PurePosixPath(normalized).suffix:
-        variants.extend((f"{normalized}.md".casefold(), f"{normalized}.markdown".casefold()))
-    for variant in variants:
-        if variant in exact:
-            return exact[variant]
+        candidates = [source_relative.parent / candidate]
+    else:
+        # A bare name is looked for beside the linking note first, then at the
+        # vault root, as Obsidian and obsidian2sql.py do (R3).
+        candidates = [source_relative.parent / candidate, candidate]
+    for candidate in candidates:
+        normalized_parts: list[str] = []
+        for part in candidate.parts:
+            if part in {"", "."}:
+                continue
+            if part == "..":
+                if normalized_parts:
+                    normalized_parts.pop()
+                continue
+            normalized_parts.append(part)
+        normalized = PurePosixPath(*normalized_parts).as_posix()
+        variants = [normalized.casefold()]
+        if not PurePosixPath(normalized).suffix:
+            variants.extend((f"{normalized}.md".casefold(), f"{normalized}.markdown".casefold()))
+        for variant in variants:
+            if variant in exact:
+                return exact[variant]
     name = PurePosixPath(normalized).name.casefold()
     matches = basenames.get(name, [])
     if len(matches) == 1:
@@ -569,8 +583,41 @@ def _resolve_target(
     return None
 
 
+# An Obsidian block ID ends a line, with nothing after it (B1).
+_BLOCK_ID_RE = re.compile(r"([ \t]*)\^([A-Za-z0-9-]+)(?=\r?\n|\r|\Z)")
+# What Obsidian accepts right before an ID with no space: the end of a wiki link
+# or embed, of a Markdown link, of emphasis, code, HTML, a highlight, a strike,
+# math or a table row, or a tag. Plain text, a plain `)` or a URL is no block.
+_BLOCK_ID_AFTER_RE = re.compile(r"(?:\]\]|[*`>=~$|]|\]\([^()\s]*\)|(?:^|\s)#[^\s#^]+)\Z")
+
+
+def _anchor_block_ids(body: str) -> str:
+    """Replace each Obsidian block ID outside code with an empty element of that id (B1).
+
+    Obsidian hides a block's `^id` and lands a `#^id` link on the block; the
+    site leaves the anchor where the marker was, so the link reaches it. Obsidian
+    matches an ID in any case, so the anchor is lowercase, as a link to it is.
+    """
+    if "^" not in body:
+        return body
+    # The same segments the converter transforms: outside fenced and inline code.
+    outside = _transform_outside_code(body, lambda segment: "\0" * len(segment))
+
+    def replace(match: re.Match[str]) -> str:
+        if len(outside) != len(body) or outside[match.start():match.end()].strip("\0"):
+            return match.group(0)
+        before = body[body.rfind("\n", 0, match.start()) + 1:match.start()].lstrip("\r")
+        if not match.group(1) and before and not _BLOCK_ID_AFTER_RE.search(before):
+            return match.group(0)
+        return f'<span id="^{match.group(2).lower()}"></span>'
+
+    return _BLOCK_ID_RE.sub(replace, body)
+
+
 def _hugo_heading_fragment(fragment: str) -> str:
-    fragment = fragment.removeprefix("^")
+    # A block is the id _anchor_block_ids gives it (B1).
+    if re.fullmatch(r"\^[A-Za-z0-9-]+", fragment):
+        return fragment.lower()
     value = unicodedata.normalize("NFKC", fragment).casefold().strip()
     value = re.sub(r"[^\w\- ]+", "", value, flags=re.UNICODE)
     return re.sub(r"[\s_]+", "-", value).strip("-")
@@ -886,6 +933,9 @@ def _transform_inline_code(line: str, transform) -> str:
     return "".join(output)
 
 
+_HTML_IMAGE_OPENER_RE = re.compile(r"<img\b", re.IGNORECASE)
+
+
 def _transform_outside_code(text: str, transform, *, keep_indented: bool = False) -> str:
     """Apply *transform* outside fenced and inline Markdown code.
 
@@ -1070,6 +1120,179 @@ def _link_x_mentions(text: str) -> str:
     )
 
 
+LINK_REPORT_NAME = "movenotes-link-report.csv"
+LINK_REPORT_COLUMNS = ("category", "reason", "note", "url", "line", "column", "label", "destination", "site")
+LINK_REPORT_CATEGORIES = ("unreachable", "malformed", "insecure", "verify")
+_LINK_SCHEME_RE = re.compile(r"([A-Za-z][A-Za-z0-9+.-]*):")
+_INTERNAL_LINK_RE = re.compile(r":/[0-9A-Fa-f]{32}|(?:document|resource|notrios)://", re.IGNORECASE)
+_HTML_TAG_RE = re.compile(r"<[A-Za-z!/][^>\n]*>")
+_HTML_LINK_ATTRIBUTE_RE = re.compile(r"""[\s/](href|src)\s*=\s*("[^"]*"|'[^']*'|[^\s"'<>=`]+)""", re.IGNORECASE)
+
+
+def _http_link_finding(target: str, *, rewritten: bool) -> tuple[str, str, str] | None:
+    """A malformed or insecure HTTP(S) destination, as the site handles it.
+
+    *rewritten* says whether the converter repairs this form (Markdown, angle and
+    bare links) or leaves it as written (HTML attributes).
+    """
+    repaired = _repair_http_url(target)
+    if repaired is None:
+        return "malformed", "malformed URL", "shown as text" if rewritten else "kept"
+    if repaired != target:
+        return "malformed", "malformed URL", f"repaired to {repaired}" if rewritten else "kept"
+    if target[:5].casefold() == "http:":
+        return "insecure", "http: link", "kept"
+    return None
+
+
+def _kept_link_finding(target: str, *, unresolved_reason: str, site: str = "kept") -> tuple[str, str, str] | str | None:
+    """Classify a destination the site leaves as written.
+
+    Returns a finding, ``"data"`` for a self-contained ``data:`` link, which is
+    counted and not listed, or None for one that works on the web.
+    """
+    if not target or target.startswith(("#", "//")):
+        return None
+    if re.match(r"[A-Za-z]:[\\/]", target):
+        return "unreachable", "drive-letter path", site
+    if target.startswith("\\\\"):
+        return "unreachable", "UNC path", site
+    if _INTERNAL_LINK_RE.match(target):
+        return "unreachable", "unresolved internal link", site
+    scheme = _LINK_SCHEME_RE.match(target)
+    if scheme is None:
+        return "unreachable", unresolved_reason, site
+    name = scheme.group(1).casefold()
+    if name in ("http", "https"):
+        return _http_link_finding(target, rewritten=False)
+    if name in ("mailto", "tel"):
+        return "verify", f"{name}: link", site
+    if name == "data":
+        return "data"
+    if name == "file":
+        return "unreachable", "file: URL", site
+    return "unreachable", f"{name}: link", site
+
+
+def _link_report_rows(
+    *,
+    raw: str,
+    body: str,
+    source_relative: PurePosixPath,
+    site_url: str,
+    note_exact: dict[str, str],
+    note_basenames: dict[str, list[str]],
+    asset_exact: dict[str, str],
+    asset_basenames: dict[str, list[str]],
+    note_map: dict[str, PurePosixPath],
+    asset_map: dict[str, PurePosixPath],
+) -> tuple[list[tuple], int]:
+    """Every link in a note that a web reader cannot rely on, for the link report (R1).
+
+    It reads the same text the converter rewrites, in the same order (wiki links,
+    a reference definition, Markdown links, angle URLs, HTML attributes, bare
+    URLs) and outside the same code, and changes nothing. Returns the rows, in
+    the note's order, and the number of ``data:`` links, which are counted only.
+    """
+    def resolves(target: str, exact, basenames, published) -> bool:
+        resolved = _resolve_target(target, source_relative, exact, basenames)
+        return resolved is not None and resolved in published
+
+    def to_note_or_asset(target: str) -> bool:
+        return (resolves(target, note_exact, note_basenames, note_map)
+                or resolves(target, asset_exact, asset_basenames, asset_map))
+
+    def vault_path(target: str) -> bool:
+        # An in-page anchor resolves to the note itself and works as written.
+        return (bool(target) and not target.startswith(("#", "//")) and _LINK_SCHEME_RE.match(target) is None
+                and to_note_or_asset(target))
+
+    findings: list[tuple[int, str, str, tuple[str, str, str]]] = []
+    data_links = 0
+
+    def record(offset: int, label: str, destination: str, finding) -> None:
+        nonlocal data_links
+        if finding == "data":
+            data_links += 1
+        elif finding is not None:
+            findings.append((offset, label, destination, finding))
+
+    def markdown_destination(target: str) -> tuple[str, str, str] | str | None:
+        if target.casefold().startswith(("http://", "https://")):
+            return _http_link_finding(target, rewritten=True)
+        if target.startswith(("mailto:", "data:", "#")):
+            return _kept_link_finding(target, unresolved_reason="")
+        if to_note_or_asset(target):
+            return None
+        return _kept_link_finding(target, unresolved_reason="resolves to no published note or attachment")
+
+    def scan(segment: str, base: int) -> None:
+        # A blanked copy, so a link matched once is not matched again as another form.
+        working = segment
+
+        def blank(start: int, end: int) -> None:
+            nonlocal working
+            working = working[:start] + " " * (end - start) + working[end:]
+
+        for match in _WIKI_LINK_RE.finditer(working):
+            target, _fragment, label = _split_wiki_target(match.group(2))
+            if not to_note_or_asset(target):
+                record(base + match.start(), label, match.group(2),
+                       ("unreachable", "wiki link resolves to no published note or attachment", "shown as text"))
+            blank(match.start(), match.end())
+        reference = _REFERENCE_DEFINITION_RE.match(working)
+        # A footnote definition, ``[^1]: text``, has the same shape and is no link.
+        if reference and not reference.group(1).lstrip().startswith("[^"):
+            target, _title = _split_markdown_destination(reference.group(2))
+            if target.casefold().startswith(("http://", "https://")):
+                finding = _http_link_finding(target, rewritten=True)
+            elif vault_path(target):
+                finding = ("unreachable", "reference link to a vault path is not rewritten", "kept")
+            else:
+                finding = _kept_link_finding(target, unresolved_reason="resolves to no published note or attachment")
+            label = reference.group(1).strip().removesuffix(":").strip()[1:-1]
+            record(base + reference.start(2), label, target, finding)
+            blank(0, reference.end())
+        for match in _MARKDOWN_LINK_RE.finditer(working):
+            target, _title = _split_markdown_destination(match.group(3))
+            record(base + match.start(), match.group(2), target, markdown_destination(target))
+            blank(match.start(), match.end())
+        for match in _ANGLE_URL_RE.finditer(working):
+            record(base + match.start(), "", match.group(1), _http_link_finding(match.group(1), rewritten=True))
+            blank(match.start(), match.end())
+        for tag in _HTML_TAG_RE.finditer(working):
+            for attribute in _HTML_LINK_ATTRIBUTE_RE.finditer(tag.group(0)):
+                value = attribute.group(2)
+                target = html.unescape(value[1:-1] if value[:1] in "\"'" else value)
+                is_image = attribute.group(1).casefold() == "src" and tag.group(0)[:4].casefold() == "<img"
+                if is_image and resolves(target, asset_exact, asset_basenames, asset_map):
+                    continue  # The site rewrites it to the asset (H1).
+                if not is_image and vault_path(target):
+                    finding = ("unreachable", "HTML link to a vault path is not rewritten", "kept")
+                else:
+                    finding = _kept_link_finding(target, unresolved_reason="resolves to no published note or attachment")
+                record(base + tag.start() + attribute.start(2), "", target, finding)
+            blank(tag.start(), tag.end())
+        for match in _BARE_URL_RE.finditer(working):
+            target, _suffix = _split_url_suffix(match.group(0))
+            record(base + match.start(), "", target, _http_link_finding(target, rewritten=True))
+
+    # The same segments the converter transforms: outside fenced and inline code.
+    outside = _transform_outside_code(body, lambda segment: "\0" * len(segment))
+    if len(outside) == len(body):
+        for segment in re.finditer(r"\0+", outside):
+            scan(body[segment.start():segment.end()], segment.start())
+    start = len(raw) - len(body) if raw.endswith(body) else 0
+    line_starts = [0] + [match.end() for match in re.finditer(r"\n", raw)]
+    rows = []
+    for offset, label, destination, (category, reason, site) in sorted(findings, key=lambda item: item[0]):
+        position = start + offset
+        line = bisect.bisect_right(line_starts, position)
+        column = position - line_starts[line - 1] + 1
+        rows.append((category, reason, source_relative.as_posix(), site_url, line, column, label, destination, site))
+    return rows, data_links
+
+
 def _convert_body(
     *,
     body: str,
@@ -1100,7 +1323,7 @@ def _convert_body(
             if fragment:
                 anchor = _hugo_heading_fragment(fragment)
                 if anchor:
-                    link += "#" + urllib.parse.quote(anchor)
+                    link += "#" + urllib.parse.quote(anchor, safe="^")
             if embedded and note_embeds == "transclude" and resolved_note not in embed_stack and len(embed_stack) < 8:
                 try:
                     raw_text = (source_root / resolved_note).read_text(encoding="utf-8-sig")
@@ -1156,7 +1379,7 @@ def _convert_body(
             if fragment:
                 anchor = _hugo_heading_fragment(fragment)
                 if anchor:
-                    link += "#" + urllib.parse.quote(anchor)
+                    link += "#" + urllib.parse.quote(anchor, safe="^")
             return f"{prefix}[{label}]({link}{title})"
         resolved_asset = _resolve_target(target, source_relative, asset_exact, asset_basenames)
         if resolved_asset is not None and resolved_asset in asset_map:
@@ -1213,7 +1436,39 @@ def _convert_body(
             converted = converted.replace(f"@@MOVENOTES-PROTECTED-LINK-{index}@@", value)
         return converted
 
+    def source_replace(value: str) -> str | None:
+        # An exported Joplin HTML image keeps its tag, with a source relative to
+        # the note in the vault (H1); the site's asset URL replaces it.
+        target = html.unescape(value)
+        if re.match(r"[A-Za-z][A-Za-z0-9+.-]*:|//|#", target):
+            return None
+        resolved_asset = _resolve_target(target, source_relative, asset_exact, asset_basenames)
+        if resolved_asset is None or resolved_asset not in asset_map:
+            return None
+        return _asset_link(output_relative, asset_map[resolved_asset])
+
+    body = _rewrite_html_image_sources(_anchor_block_ids(body), source_replace)
     return _escape_hugo_shortcodes(_transform_outside_code(body, transform_segment))
+
+
+def _rewrite_html_image_sources(body: str, replace) -> str:
+    """Apply *replace* to each HTML image's source outside Markdown code.
+
+    The rest of the conversion goes a line at a time, but a tag may span lines,
+    so this pass reads the whole note. A tag with any byte inside code is text
+    and stays as written. A note with no ``<img`` costs one search.
+    """
+    if _HTML_IMAGE_OPENER_RE.search(body) is None:
+        return body
+    # Same length as the body: NUL wherever the text is outside code.
+    outside = _transform_outside_code(body, lambda segment: "\0" * len(segment))
+    if len(outside) != len(body):
+        return body
+
+    def in_prose(start: int, end: int) -> bool:
+        return all(outside[index] == "\0" or body[index] in "\r\n" for index in range(start, end))
+
+    return common.replace_html_image_sources(body, replace, in_prose)
 
 
 def _show_raw_text_elements(body: str) -> tuple[str, int]:
@@ -1350,7 +1605,7 @@ def _process_note(
     note_embeds: str,
     category_mode: str,
     category_name: str,
-) -> tuple[list[str], list[str], str, str, str, str, str, str, int, int, int, int]:
+) -> tuple:
     source_relative = PurePosixPath(source_path.relative_to(input_root).as_posix())
     output_relative = note_map[source_relative.as_posix()]
     raw = source_path.read_text(encoding="utf-8-sig")
@@ -1387,6 +1642,11 @@ def _process_note(
         embed_stack=(source_relative.as_posix(),),
         url_stats=url_stats,
     )
+    report_rows, data_links = _link_report_rows(
+        raw=raw, body=body, source_relative=source_relative, site_url=_note_site_url(output_relative),
+        note_exact=note_exact, note_basenames=note_basenames, asset_exact=asset_exact,
+        asset_basenames=asset_basenames, note_map=note_map, asset_map=asset_map,
+    )
     shown, raw_text_tags = _show_raw_text_elements(converted)
     destination = content_root / Path(output_relative.as_posix())
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -1421,6 +1681,8 @@ def _process_note(
         url_stats[0],
         url_stats[1],
         raw_text_tags,
+        report_rows,
+        data_links,
     )
 
 
@@ -1990,7 +2252,9 @@ capitalizeListTitles = false
     # making the deployment instructions start with "edit .gitignore".
     ignored = ["/resources/", ".hugo_build.lock", "/server/bluge-index.building/",
                "/server/bluge-index.stamp.json", "/server/movenotes-site-server",
-               "/.vercel/"]
+               "/.vercel/",
+               # Private: it lists the notes' phone numbers, addresses and local paths.
+               f"/{LINK_REPORT_NAME}", f"/.{LINK_REPORT_NAME}.partial"]
     if vercel:
         ignored.insert(0, "# --vercel: public/ and server/bluge-index/ are")
         ignored.insert(1, "# deliberately tracked — a Git deployment ships them.")
@@ -2652,7 +2916,8 @@ def _prepare_output(output: Path, force: bool) -> None:
                     target.unlink()
             for name in (
                 "hugo.toml", "pagefind.yml", ".gitignore", ".hugo_build.lock",
-                "go.mod", "go.sum", ".obsidian2site-tags.sqlite",
+                "go.mod", "go.sum", ".obsidian2site-tags.sqlite", LINK_REPORT_NAME,
+                f".{LINK_REPORT_NAME}.partial",
             ):
                 (output / name).unlink(missing_ok=True)
     output.mkdir(parents=True, exist_ok=True)
@@ -2791,6 +3056,10 @@ pagefind.yml
 server/search-source.jsonl
 server/bluge-index.stamp.json
 server/movenotes-site-server
+
+# Private: the link report lists the notes' phone numbers, addresses and local paths.
+movenotes-link-report.csv
+.movenotes-link-report.csv.partial
 '''
 
 
@@ -3098,6 +3367,18 @@ def main(argv: list[str]) -> int:
     output = args.output_path.expanduser().resolve()
     if output == input_root or input_root in output.parents:
         common.error("output directory must not be inside the input vault")
+    if args.link_report is not None:
+        # Outside the output, nothing generated or published can hold it; outside
+        # the vault, the next run cannot copy it as an attachment.
+        args.link_report = args.link_report.expanduser().resolve()
+        if args.link_report != output / LINK_REPORT_NAME and (
+                output in args.link_report.parents or args.link_report == output):
+            common.error("--link-report must be outside the output directory, where nothing is published; "
+                         f"the default is {output / LINK_REPORT_NAME}")
+        if input_root == args.link_report or input_root in args.link_report.parents:
+            common.error("--link-report must be outside the input vault, or the next site would publish it")
+        if not args.link_report.parent.is_dir():
+            common.error(f"--link-report directory does not exist: {args.link_report.parent}")
     try:
         receipt = notrios_receipt.from_vault(input_root) if args.include_notrios_receipt else None
     except (ValueError, OSError) as exc:
@@ -3173,6 +3454,18 @@ def main(argv: list[str]) -> int:
     )
     search_source_path = output / "server" / "search-source.jsonl"
     search_source = search_source_path.open("w", encoding="utf-8", newline="\n")
+    # The link report lists phone numbers, addresses and local paths, so it is
+    # written beside the project, never inside anything published (R1). Notes
+    # finish in any order; their rows are written in note order.
+    report_path = args.link_report or output / LINK_REPORT_NAME
+    report_partial = report_path.with_name(f".{report_path.name}.partial")
+    report_file = report_partial.open("w", encoding="utf-8", newline="")
+    report_writer = csv.writer(report_file, lineterminator="\n")
+    report_writer.writerow(LINK_REPORT_COLUMNS)
+    report_waiting: dict[int, list[tuple]] = {}
+    report_next = 0
+    report_counts: Counter[str] = Counter()
+    report_data_links = 0
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as executor:
             source_iterator = iter(enumerate(markdown_paths))
@@ -3226,6 +3519,8 @@ def main(argv: list[str]) -> int:
                             note_repaired_urls,
                             note_preserved_urls,
                             note_raw_text_tags,
+                            note_report_rows,
+                            note_data_links,
                         ) = future.result()
                     except Exception as exc:
                         for outstanding in pending:
@@ -3279,6 +3574,13 @@ def main(argv: list[str]) -> int:
                     repaired_urls += note_repaired_urls
                     preserved_urls += note_preserved_urls
                     raw_text_tags += note_raw_text_tags
+                    report_waiting[note_id] = note_report_rows
+                    report_data_links += note_data_links
+                    while report_next in report_waiting:
+                        for row in report_waiting.pop(report_next):
+                            report_writer.writerow(row)
+                            report_counts[row[0]] += 1
+                        report_next += 1
                     pending_tag_notes += 1
                     if pending_tag_notes >= args.tag_batch_size:
                         _update_tag_counts(tag_connection, pending_tag_counts)
@@ -3314,14 +3616,20 @@ def main(argv: list[str]) -> int:
             tag_connection, output / "content", maximum_taxonomy_tags
         )
         tag_count = _write_tag_index(tag_connection, output / "static")
+    except BaseException:
+        report_file.close()
+        report_partial.unlink(missing_ok=True)
+        raise
     finally:
         search_source.close()
+        report_file.close()
         tag_connection.close()
         tag_db_path.unlink(missing_ok=True)
         wal = Path(str(tag_db_path) + "-wal")
         shm = Path(str(tag_db_path) + "-shm")
         wal.unlink(missing_ok=True)
         shm.unlink(missing_ok=True)
+    os.replace(report_partial, report_path)
 
     if receipt is not None:
         try:
@@ -3357,6 +3665,11 @@ def main(argv: list[str]) -> int:
         )
     if raw_text_tags:
         print(f"raw HTML: {raw_text_tags:,} script, style or similar tag(s) in prose shown as text")
+    print(
+        f"link report: {report_counts['unreachable']:,} unreachable, {report_counts['malformed']:,} malformed, "
+        f"{report_counts['insecure']:,} insecure, {report_counts['verify']:,} to verify (tel:, mailto:); "
+        f"{report_data_links:,} data: link(s) counted, not listed; written to '{report_path}' (keep it private)"
+    )
     server_command = (
         f"{output / 'server' / 'movenotes-site-server'} "
         f"-site {output / 'public'} "

@@ -18,15 +18,18 @@ Usage: python3 test_movenotes.py
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import io
 import json
+import posixpath
 import re
 import sqlite3
 import subprocess
 import sys
 import tempfile
 import unittest
+import urllib.parse
 from pathlib import Path, PurePosixPath
 from datetime import timedelta, timezone
 
@@ -415,6 +418,123 @@ class LinkTitleTest(unittest.TestCase):
         for body, expected in cases.items():
             with self.subTest(body=body):
                 self.assertEqual(rewrite(body), expected)
+
+
+class HtmlImageTest(unittest.TestCase):
+    """An HTML image stays HTML, with its source pointing at the attachment (H1)."""
+
+    IMAGE = "e" * 32
+
+    def test_vault_html_images_keep_the_tag_and_point_at_the_attachment(self) -> None:
+        image, unknown = self.IMAGE, "0" * 32
+
+        class Attachments:
+            def vault_name(self, ident):
+                return {image: "Photo é.png"}.get(ident)
+
+            def is_image(self, ident):
+                return ident == image
+
+        path = "../attachments/Photo%20%C3%A9.png"
+        cases = {
+            f'<img width="300" src=":/{image}" alt="chart">': f'<img width="300" src="{path}" alt="chart">',
+            f"<IMG src=':/{image}'/>": f"<IMG src='{path}'/>",
+            f"<img\n  alt=\"x\"\n  src = :/{image}>": f"<img\n  alt=\"x\"\n  src = {path}>",
+            f'<img src=":/{unknown}">': f'<img src=":/{unknown}">',
+            f'<img data-src=":/{image}">': f'<img data-src=":/{image}">',
+            '<img src="https://example.test/a.png">': '<img src="https://example.test/a.png">',
+            f'<a href=":/{image}">': f'<a href=":/{image}">',
+            f'<img src=":/{image}#part">': f'<img src=":/{image}#part">',
+        }
+        for body, expected in cases.items():
+            with self.subTest(body=body):
+                self.assertEqual(sql2obsidian.rewrite_resource_links(body, PurePosixPath("Deep"), Attachments()),
+                                 expected)
+
+    def test_native_vault_reimport_maps_html_image_sources_back(self) -> None:
+        import obsidian2sql
+        note, shot, spaced = "n" * 32, "r" * 32, "s" * 32
+        paths = {"Other/Note.md": note, "attachments/shot.png": shot, "attachments/a b&c.png": spaced}
+        basenames: dict[str, list[str]] = {}
+        for path in paths:
+            basenames.setdefault(PurePosixPath(path).name.casefold(), []).append(path)
+        resources = {"attachments/shot.png", "attachments/a b&c.png"}
+        cases = {
+            '<img width="3" src="../attachments/shot.png" alt="x">': f'<img width="3" src=":/{shot}" alt="x">',
+            "<img src='../attachments/a%20b%26c.png'>": f"<img src=':/{spaced}'>",
+            '<img src="../attachments/a b&amp;c.png">': f'<img src=":/{spaced}">',
+            "<img src=shot.png>": f"<img src=:/{shot}>",
+            '<img src="../Other/Note.md">': '<img src="../Other/Note.md">',
+            '<img src="https://example.test/shot.png">': '<img src="https://example.test/shot.png">',
+            '<img src="../attachments/missing.png">': '<img src="../attachments/missing.png">',
+        }
+        for body, expected in cases.items():
+            with self.subTest(body=body):
+                self.assertEqual(obsidian2sql.rewrite_obsidian_links(body, PurePosixPath("Deep/Source.md"), paths,
+                                                                     basenames, resources), expected)
+
+    def test_html_image_round_trip_through_vault_reimport_and_site(self) -> None:
+        import shutil
+        image = PNG_RESOURCE.removesuffix(".png")
+        tag = f'<img width="300" src=":/{image}" alt="chart">'
+        with tempfile.TemporaryDirectory(prefix="movenotes-html-image-") as temporary:
+            root = Path(temporary)
+            raw = root / "raw"
+            shutil.copytree(SAMPLE_SOURCE2, raw)
+            note_file = raw / ("a" * 32 + ".md")
+            text = note_file.read_text(encoding="utf-8")
+            note_file.write_text(text.replace(f"![photo.png](:/{image})", tag), encoding="utf-8")
+            database, vault = root / "db", root / "vault"
+            database.mkdir()
+            vault.mkdir()
+            run("joplin2sql.py", "--input", str(raw), "--output", str(database))
+            with contextlib.closing(sqlite3.connect(database / notesdb.DATABASE_FILENAME)) as conn:
+                original = conn.execute("SELECT note_data FROM notes WHERE joplin_id=?", ("a" * 32,)).fetchone()[0]
+            self.assertIn(tag, original)
+            run("sql2obsidian.py", "--input", str(database), "--output", str(vault))
+
+            # The vault note keeps the tag, with a source that opens the copied attachment.
+            exported = [p for p in vault.rglob("*.md") if ".movenotes" not in p.parts
+                        and "<img" in p.read_text(encoding="utf-8")]
+            self.assertEqual(len(exported), 1)
+            vault_text = exported[0].read_text(encoding="utf-8")
+            source = re.search(r'<img width="300" src="([^"]+)" alt="chart">', vault_text).group(1)
+            attachment = (exported[0].parent / urllib.parse.unquote(source)).resolve()
+            self.assertEqual(attachment.parent, (vault / "attachments").resolve())
+            self.assertEqual(attachment.read_bytes(), (SAMPLE_SOURCE2 / "resources" / PNG_RESOURCE).read_bytes())
+            self.assertEqual(vault_text.replace(source, f":/{image}").count(tag), 1)
+
+            # Through the preservation bundle the note comes back byte for byte.
+            bundled = root / "bundled"
+            bundled.mkdir()
+            run("obsidian2sql.py", "--input", str(vault), "--output", str(bundled))
+            with contextlib.closing(sqlite3.connect(bundled / notesdb.DATABASE_FILENAME)) as conn:
+                self.assertEqual(conn.execute("SELECT note_data FROM notes WHERE joplin_id=?",
+                                              ("a" * 32,)).fetchone()[0], original)
+
+            # A native reimport maps the source back to the attachment's item.
+            native = root / "native"
+            native.mkdir()
+            run("obsidian2sql.py", "--input", str(vault), "--output", str(native), "--ignore-preservation")
+            with contextlib.closing(sqlite3.connect(native / notesdb.DATABASE_FILENAME)) as conn:
+                body = conn.execute("SELECT note_data FROM notes WHERE note_data LIKE '%<img%'").fetchone()[0]
+                ident = re.search(r'<img width="300" src=":/([0-9a-f]{32})" alt="chart">', body).group(1)
+                kind, extension = conn.execute("SELECT joplin_type_, joplin_file_extension FROM notes "
+                                               "WHERE joplin_id=?", (ident,)).fetchone()
+            self.assertEqual(kind, 4)
+            self.assertEqual((native / "resources" / f"{ident}.{extension}").read_bytes(), attachment.read_bytes())
+
+            # The site resolves the source to the copied asset.
+            site = root / "site"
+            run("obsidian2site.py", "--input", str(vault), "--output", str(site), "--progress-every", "0")
+            pages = [p for p in (site / "content" / "notes").rglob("*.md") if "<img" in p.read_text(encoding="utf-8")]
+            self.assertEqual(len(pages), 1)
+            link = re.search(r'<img width="300" src="([^"]+)" alt="chart">',
+                             pages[0].read_text(encoding="utf-8")).group(1)
+            page = pages[0].relative_to(site / "content").with_suffix(".html")
+            asset = PurePosixPath(posixpath.normpath(posixpath.join(page.parent.as_posix(),
+                                                                    urllib.parse.unquote(link))))
+            self.assertEqual((site / "static" / asset).read_bytes(), attachment.read_bytes())
 
 
 class ReadOnlyExportOpenTest(unittest.TestCase):

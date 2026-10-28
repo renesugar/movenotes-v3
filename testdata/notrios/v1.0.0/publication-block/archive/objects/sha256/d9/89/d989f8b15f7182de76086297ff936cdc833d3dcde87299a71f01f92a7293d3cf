@@ -1,0 +1,14 @@
+---
+source_system: obsidian
+obsidian_path: "Public/Links.md"
+obsidian_folder: "Public"
+---
+# Links
+
+Wiki [[document://default/documents/doc_obsidian_public_target#^blk-1]], aliased [[document://default/documents/doc_obsidian_public_target#^blk-1|that paragraph]] and embedded ![[document://default/documents/doc_obsidian_public_target#^Item2]].
+
+Markdown [para](document://default/documents/doc_obsidian_public_target#^blk-1), encoded [enc](document://default/documents/doc_obsidian_public_target#%5Eq3) and into a folder [deep](document://default/documents/doc_obsidian_public_deep_child#^d4).
+
+To itself [[#^own]] and [self](#^own).
+
+Mine ^own

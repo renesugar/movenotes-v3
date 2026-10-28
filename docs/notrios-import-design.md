@@ -331,7 +331,7 @@ decode percent escapes for this comparison. Accepted target rules:
 | `resource://default/resources/ID` | `resolved`, matching resource target, no document target; matching `target_uri` if present; require a document-resource relation for this source and target. No fragment. Produce `:/<mapped-id>`. |
 | `#fragment` | `resolved`; target ID absent or equal to source document; no resource ID. `target_uri` absent/empty or the source's canonical document URI. Keep `#fragment` unchanged. |
 | Any other destination (C7d) | `external`, no internal IDs, and `target_uri` if present equals destination base; or `resolved` with exactly one target ID, where the producer matched the destination to a note or attachment by name (the user chose on 2026-10-25 not to apply the match: one was a browser-internal URL matched to a note). Copied byte for byte, whatever its scheme (`http(s)`, `mailto:`, `file:`, `tel:`, `data:`, relative, browser schemes): the importer resolves none of them. A destination that names an internal target in any other spelling, percent-encoded included, refuses. |
-| HTML `<img … src="resource://default/resources/ID">` (C7d) | The producer rewrites a Joplin image's `:/id` source to this URI and records only the attachment relation, no link span. The source must be a whole single- or double-quoted `src` attribute of an `<img>` tag outside protected code, the resource a document-resource relation of this note, and no fragment. Only the attribute value changes, to `:/<mapped-id>`; the resource counts as inline, so it is not listed again under Attachments. Any other HTML occurrence of an internal target refuses. A projected note keeps `src=":/<mapped-id>"` on export, as the native Joplin export does. |
+| HTML `<img … src="resource://default/resources/ID">` (C7d) | The producer rewrites a Joplin image's `:/id` source to this URI and records only the attachment relation, no link span. The source must be a whole single- or double-quoted `src` attribute of an `<img>` tag outside protected code, the resource a document-resource relation of this note, and no fragment. Only the attribute value changes, to `:/<mapped-id>`; the resource counts as inline, so it is not listed again under Attachments. Any other HTML occurrence of an internal target refuses. On export, as on the native Joplin export, the tag stays HTML and only its `src` becomes the attachment's path relative to the note (H1, 2026-10-27; it used to keep `src=":/<mapped-id>"`). |
 
 Only lowercase exact internal scheme/authority/path spellings above are admitted;
 no userinfo, ports, queries, encoded IDs, traversal or alternate authorities.
@@ -340,15 +340,25 @@ bytes with valid `%HH` sequences and no controls/whitespace or additional `#`.
 External fragments are part of a copied URL and are not checked (C7d). For every
 token the anchor fields must equal what the producer records for the fragment:
 none for no fragment or an empty one, `block` and the rest after `#^`, otherwise
-`heading` and the raw fragment. Refuse block
-anchors (`#^...`) on internal targets in this first mapper: translating their semantics through
-both Obsidian and Hugo is not implemented. Heading fragments are preserved,
+`heading` and the raw fragment. A block anchor (`#^id`) on an internal target is
+admitted when the ID is Obsidian's, `^` and one or more ASCII letters, digits and
+dashes, and is copied as written (B1): Obsidian, the vault export and the site
+each read it so. Any other fragment starting with `^` refuses. Heading fragments are preserved,
 not recalculated or resolved by title; target heading existence/rendered slug
 compatibility is tested downstream, not certified for every renderer at import.
 
 Every active internal token and self-anchor must have one matching retained
 record. Ordinary unrecorded links, and external records of any scheme, remain
-untouched. Refuse missing
+untouched. So does a `retain` publication's unresolved, ambiguous or invalid
+record naming no internal target (R2). A `target_excluded` record, or an
+unresolved one naming an internal target, is a link a reader must not follow:
+its whole span, Markdown or a one-line wiki link with no backtick, becomes its
+text, or `[redacted]` when that is empty or an internal URI, as the producer's
+`plain_text` does. Such a record that still names a target, or whose span is
+in code, refuses. A withheld or resolved wiki link is blanked before the scan,
+which would otherwise refuse its internal target, with `x` bytes: spaces at the
+start of a line would read as an indented code block and hide what follows (W1).
+The import counts the withheld ones as `withheld_links`. Refuse missing
 internal records even when their target happens to be included. After accounting
 for accepted tokens, scan unprotected bytes case-insensitively for
 `document://`, `resource://`, `notrios://` and `:/` followed by 32 hex digits;
@@ -368,7 +378,18 @@ reference definitions and uses are text (C7d; the user chose to admit
 unrecorded wiki links on 2026-10-24, knowing an exported one resolves by title
 in Obsidian, and recorded ones on 2026-10-25). A recorded wiki link's span must
 be one `[[…]]` or `![[…]]` on one line holding its `raw_target`, no internal
-target and no token. Any of these forms carrying an internal target refuses at
+target and no token. The exception is a resolved wiki link whose target is the
+record's (W1, the user's choice on 2026-10-27): Notrios stores
+`[[Other Note#Heading|alias]]` as `[[document://…#Heading|alias]]`, and the
+import writes it as `obsidian2sql.py` writes a wiki link for Joplin,
+`[alias](:/<mapped-id>#Heading)`. The span must be one line with no backtick,
+outside code; its target, link or embed, display text and anchor must equal the
+record's. The label is the alias, or with none the target note's title or the
+attachment's file name, with `&`, `[`, `]`, `<`, `>`, `\` and backticks as
+entities; the heading is percent-encoded as a Markdown fragment. An attachment
+embed keeps its `!`, and a note embed becomes a link. A block anchor is written as
+it is, `[label](:/<mapped-id>#^id)` (B1). A fragment on an attachment, or an
+attachment that is not the note's, refuses, as in a Markdown link. Any other of these forms carrying an internal target refuses at
 that target. A list or quote line holding a fence marker is ambiguous, and
 refuses only when an internal target follows its start (2026-10-25); before
 it, either reading of the fence gives the same bytes.

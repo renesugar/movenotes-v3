@@ -1262,6 +1262,16 @@ class NotriosObjectSpoolTest(unittest.TestCase):
                 next(r["payload"] for r in records if r["type"] == kind)[field] = value
                 self.write_records(records)
                 self.assert_verification_refused("publication", message)
+        # A `retain` publication's statuses are admitted only with the target
+        # cleared, as the producer clears it (R2).
+        for status in ("target_excluded", *archive_v2.UNRESOLVED_LINK_STATUSES):
+            with self.subTest(status=status):
+                self.fresh_archive()
+                records = self.envelopes()
+                next(r["payload"] for r in records
+                     if r["type"] == "link" and "target_document_id" in r["payload"])["resolution_status"] = status
+                self.write_records(records)
+                self.assert_verification_refused("publication", "no internal target")
         self.fresh_archive()
         records = self.envelopes()
         revision = copy.deepcopy(next(r for r in records if r["type"] == "revision"))
@@ -2609,6 +2619,30 @@ class NotriosLinkProjectionTest(unittest.TestCase):
         self.assertEqual(self.project(body, reversed(records)).encode(), expected)
         self.assertEqual(self.project(b"[Web](https://example.test/x#part)").encode(), b"[Web](https://example.test/x#part)")
 
+    def test_a_link_to_a_block_keeps_its_id(self):
+        """B1: `#^id` on a note or the note itself is copied as written."""
+        def block(body, token, ident, value):
+            record = retained_link(body, token, ident=ident)
+            return archive_v2.Record("link", record.key, {**record.payload, "anchor_type": "block",
+                                                         "anchor_value": value})
+
+        other = b"[para](document://default/documents/doc_child#^blk-1)"
+        own = b"[self](#^Own2)"
+        body = other + b" and " + own
+        records = [block(body, other, "lnk_1", "blk-1"), block(body, own, "lnk_2", "Own2")]
+        self.assertEqual(self.project(body, records), f"[para](:/{'a' * 32}#^blk-1) and [self](#^Own2)")
+        heading = archive_v2.Record("link", ("lnk_1",), {**records[0].payload, "anchor_type": "heading",
+                                                         "anchor_value": "^blk-1"})
+        cases = [(body, [heading, records[1]], "link anchor disagrees")]
+        # Obsidian's block IDs are letters, digits and dashes.
+        for value in ("blk_1", "blk.1", "bl%6B", "Café"):
+            token = f"[x](document://default/documents/doc_child#^{value})".encode()
+            cases.append((token, [block(token, token, "lnk_1", value)], "unsupported block fragment"))
+        for case_body, case_records, message in cases:
+            with self.subTest(body=case_body), self.assertRaises(archive_v2.NotriosError) as caught:
+                self.project(case_body, case_records)
+            self.assertIn(message, str(caught.exception))
+
     def test_lexical_protection_keeps_code_and_escaped_punctuation_exact(self):
         hidden = b"[Hidden](document://default/documents/doc_child)"
         token = b"[Active](document://default/documents/doc_child)"
@@ -2649,12 +2683,159 @@ class NotriosLinkProjectionTest(unittest.TestCase):
         with self.assertRaises(archive_v2.NotriosError):
             self.project(plain, [archive_v2.Record("link", p.key, {**p.payload, "anchor_type": "heading"})])
 
+    def test_retain_records_keep_unresolved_links_and_replace_withheld_ones(self):
+        """R2: what a `retain` publication records, as validate_links reads it."""
+        def record(body, token, status, ident, **change):
+            p = {**retained_link(body, token, ident=ident).payload, "resolution_status": status, **change}
+            for field in ("target_document_id", "target_resource_id"):
+                p.pop(field, None)
+            return archive_v2.Record("link", (ident,), p)
+
+        def wiki(body, span, status, ident, target, label):
+            start = body.index(span)
+            return archive_v2.Record("link", (ident,), dict(
+                id=ident, source_document_id="doc_public", relation_type="embed" if span[:1] == b"!" else "link",
+                source_format="obsidian-wikilink", raw_target=target, display_text=label,
+                source_start_byte=start, source_end_byte=start + len(span), source_line=1, source_column=1,
+                resolution_status=status, **({"target_uri": target} if target.startswith("document://") else {})))
+
+        withheld = "document://default/documents/doc_private_plan"
+        markdown = f'[Plan]({withheld} "Plan title")'.encode()
+        image = f"![]({withheld})".encode()
+        stale = b"[gone](document://default/documents/doc_gone)"
+        kept = b"[file](file:///C:/x.pdf)"
+        bare_wiki, aliased = f"[[{withheld}]]".encode(), f"![[{withheld}|alias]]".encode()
+        body = b" ".join((markdown, image, stale, kept, bare_wiki, aliased, b"[[Dup]]"))
+        records = [record(body, markdown, "target_excluded", "lnk_1"), record(body, image, "target_excluded", "lnk_2"),
+                   record(body, stale, "unresolved", "lnk_3"), record(body, kept, "unresolved", "lnk_4"),
+                   wiki(body, bare_wiki, "target_excluded", "lnk_5", withheld, withheld),
+                   wiki(body, aliased, "target_excluded", "lnk_6", withheld, "alias"),
+                   wiki(body, b"[[Dup]]", "ambiguous", "lnk_7", "Dup", "Dup")]
+        plan = links.validate_links(body, records, resolve=lambda kind, value: "a" * 32)
+        self.assertEqual(plan.withheld_links, 5)
+        self.assertEqual(links.project_body(body, plan),
+                         "Plan [redacted] gone [file](file:///C:/x.pdf) [redacted] alias [[Dup]]")
+        refusals = (
+            # A withheld record that still names its target.
+            (body, [*records[:1], *records[1:]], 0, {"target_document_id": "doc_private_plan"}),
+            # An unresolved link holding no internal target keeps its own destination.
+            (body, records, 3, {"target_uri": "file:///elsewhere"}),
+            # A withheld wiki span that holds a backtick, or not its target.
+            (bare_wiki[:-2] + b"`]]", None, None, None),
+        )
+        for case_body, case_records, index, change in refusals:
+            with self.subTest(change=change), self.assertRaises(archive_v2.NotriosError):
+                if case_records is None:
+                    case_records = [wiki(case_body, case_body, "target_excluded", "lnk_5", withheld, withheld)]
+                else:
+                    case_records = list(case_records)
+                    case_records[index] = archive_v2.Record("link", case_records[index].key,
+                                                            {**case_records[index].payload, **change})
+                links.validate_links(case_body, case_records, resolve=lambda kind, value: "a" * 32)
+        # Code is never changed, so a withheld link inside it refuses.
+        for code in (b"`" + markdown + b"`", b"`" + bare_wiki + b"`"):
+            with self.subTest(code=code), self.assertRaises(archive_v2.NotriosError):
+                span = code[1:-1]
+                one = (wiki(code, span, "target_excluded", "lnk_1", withheld, withheld) if span.startswith(b"[[")
+                       else record(code, span, "target_excluded", "lnk_1"))
+                links.validate_links(code, [one], resolve=lambda kind, value: "a" * 32)
+
+    def test_resolved_wiki_links_become_joplin_links(self):
+        """W1: a resolved wiki link to a published note or attachment."""
+        doc, res = "document://default/documents/doc_child", "resource://default/resources/res_image"
+
+        def wiki(body, span, ident, *, target=doc, display=None, anchor=None, start=None, **change):
+            start = body.index(span) if start is None else start
+            field = "target_document_id" if target.startswith("document://") else "target_resource_id"
+            p = dict(id=ident, source_document_id="doc_public", relation_type="embed" if span[:1] == b"!" else "link",
+                     source_format="obsidian-wikilink", raw_target=target, target_uri=target,
+                     display_text=target if display is None else display, source_start_byte=start,
+                     source_end_byte=start + len(span), source_line=1, source_column=1,
+                     resolution_status="resolved", **{field: target.rsplit("/", 1)[1]})
+            if anchor is not None:
+                p.update(anchor_type=anchor[0], anchor_value=anchor[1])
+            return archive_v2.Record("link", (ident,), {**p, **change})
+
+        names = {"document": {"doc_child": "Child `x` [1] & <b>"}, "resource": {"res_image": "image.png"}}
+        resolve = lambda kind, value: ("d" if kind == "document" else "e") * 32
+        label = lambda kind, value: names[kind][value]
+        spans = [(f"[[{doc}]]", {}), (f"[[{doc}|shown & text]]", {"display": "shown & text"}),
+                 (f"[[{doc}#Café Section]]", {"display": f"{doc}#Café Section", "anchor": ("heading", "Café Section")}),
+                 (f"![[{doc}]]", {}), (f"![[{res}]]", {"target": res}),
+                 (f"![[{res}|caption]]", {"target": res, "display": "caption"}), (f"[[{res}]]", {"target": res}),
+                 (f"[[{doc}|  ]]", {"display": "  "}),
+                 # A block ID is written as it is (B1).
+                 (f"[[{doc}#^blk-1]]", {"display": f"{doc}#^blk-1", "anchor": ("block", "blk-1")}),
+                 (f"[[{doc}#^blk-1|that]]", {"display": "that", "anchor": ("block", "blk-1")}),
+                 (f"![[{doc}#^blk-1]]", {"display": f"{doc}#^blk-1", "anchor": ("block", "blk-1")}),
+                 ("[[#Here]]", {"target": doc, "display": "#Here",
+                                                                       "anchor": ("heading", "Here")})]
+        body, records = b"", []
+        for n, (span, change) in enumerate(spans):
+            body += b" " * bool(body)
+            records.append((len(body), span.encode(), n, change))
+            body += span.encode()
+        records = [wiki(body, span, f"lnk_{n}", start=start, **change) for start, span, n, change in records]
+        # A link to the note itself holds no internal target and stays text.
+        records[-1] = archive_v2.Record("link", records[-1].key, {**records[-1].payload, "raw_target": "#Here"})
+        plan = links.validate_links(body, records, resolve=resolve, label=label, resource_ids=("e" * 32,))
+        d, e = "d" * 32, "e" * 32
+        self.assertEqual(links.project_body(body, plan), " ".join((
+            f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d})", f"[shown &amp; text](:/{d})",
+            f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d}#Caf%C3%A9%20Section)",
+            f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d})", f"![image.png](:/{e})", f"![caption](:/{e})",
+            f"[image.png](:/{e})", f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d})",
+            f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d}#^blk-1)", f"[that](:/{d}#^blk-1)",
+            f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d}#^blk-1)", "[[#Here]]")))
+        self.assertEqual(plan.inline_resources, (e,))
+        self.assertEqual(plan.withheld_links, 0)
+
+        def refuses(message, case_body, case_records, **options):
+            with self.subTest(message=message, body=case_body), self.assertRaises(archive_v2.NotriosError) as caught:
+                links.validate_links(case_body, case_records, **{"resolve": resolve, "label": label,
+                                                                 "resource_ids": (e,), **options})
+            self.assertIn(message, str(caught.exception))
+
+        one = f"[[{doc}]]".encode()
+        for change, message in (({"target_document_id": "doc_other"}, "document target disagrees"),
+                                ({"resolution_status": "ambiguous"}, "withheld link record names a target"),
+                                ({"target_resource_id": "res_image"}, "document target disagrees"),
+                                ({"target_uri": doc + "x"}, "document target disagrees"),
+                                ({"relation_type": "embed"}, "link record disagrees"),
+                                ({"display_text": "other"}, "link record disagrees"),
+                                ({"anchor_type": "heading", "anchor_value": "x"}, "link anchor disagrees")):
+            refuses(message, one, [wiki(one, one, "lnk_1", **change)])
+        refuses("no label source", one, [wiki(one, one, "lnk_1")], label=None)
+        # Obsidian's block IDs are letters, digits and dashes.
+        block = f"[[{doc}#^blk_1]]".encode()
+        refuses("unsupported block fragment", block,
+                [wiki(block, block, "lnk_1", display=f"{doc}#^blk_1", anchor=("block", "blk_1"))])
+        piece = f"[[{res}#page=2]]".encode()
+        refuses("resource fragments are unsupported", piece,
+                [wiki(piece, piece, "lnk_1", target=res, display=f"{res}#page=2", anchor=("heading", "page=2"))])
+        image = f"[[{res}]]".encode()
+        refuses("no document-resource relation", image, [wiki(image, image, "lnk_1", target=res)], resource_ids=())
+        # A span holding a backtick, a wiki link in code, and an internal target
+        # no record accounts for, beside a recorded one.
+        ticked = f"[[{doc}|a`b]]".encode()
+        refuses("does not match a complete active token", ticked, [wiki(ticked, ticked, "lnk_1", display="a`b")])
+        code = b"`" + one + b"`"
+        refuses("protected code", code, [wiki(code, one, "lnk_1")])
+        two = one + b" " + one
+        refuses("unaccounted active link syntax", two, [wiki(two, one, "lnk_1")])
+        # The recorded span is blanked for the scan, and at the start of a line
+        # spaces would read as an indented code block hiding the second link.
+        # A withheld link (R2) is blanked the same way.
+        excluded = {k: v for k, v in wiki(two, one, "lnk_1").payload.items() if k != "target_document_id"}
+        refuses("unaccounted active link syntax", two,
+                [archive_v2.Record("link", ("lnk_1",), {**excluded, "resolution_status": "target_excluded"})])
+
     def test_unsupported_internal_syntax_and_uri_variants_refuse(self):
         destinations = (b"notrios://doc_child",
                         b"Document://default/documents/doc_child", b"document://elsewhere/documents/doc_child",
                         b"document://default:80/documents/doc_child", b"document://user@default/documents/doc_child",
                         b"document://default/documents/../doc_child", b"document://default/documents/%64oc_child",
-                        b"document://default/documents/doc_child?q=1", b"#^block", b"#", b"#two#parts", b"#bad%XZ",
+                        b"document://default/documents/doc_child?q=1", b"#^bad_id", b"#^", b"#", b"#two#parts", b"#bad%XZ",
                         b"https://example.test/?u=document%3A%2F%2Fdefault%2Fdocuments%2Fdoc_child",
                         b"relative-%3A%2F" + b"a" * 32)
         for destination in destinations:
@@ -3020,7 +3201,7 @@ class NotriosLinkProjectionTest(unittest.TestCase):
         code = b"`" + tag + b"`"
         self.assertEqual(self.project(code).encode(), code)
 
-    def test_projected_html_images_keep_their_mapped_source(self):
+    def test_projected_html_images_point_at_their_attachment(self):
         from pathlib import PurePosixPath
         image = "b" * 32
         attachments = mock.Mock()
@@ -3029,8 +3210,11 @@ class NotriosLinkProjectionTest(unittest.TestCase):
             return links.rewrite_projected_links(body, note_id="d" * 32, note_path=PurePosixPath("Deep/Source.md"),
                 lookup_item_type=lambda ident: kind, lookup_note_path=lambda ident: None, attachments=attachments)
         body = f'<img width="4" src=":/{image}"/> and ![Shot](:/{image})'
-        # Left as the native Joplin export leaves an HTML image.
-        self.assertEqual(rewrite(body), f'<img width="4" src=":/{image}"/> and ![[Shot.png]]')
+        # The tag stays HTML, as the native export keeps one; only its source changes (H1).
+        self.assertEqual(rewrite(body), '<img width="4" src="../attachments/Shot.png"/> and ![[Shot.png]]')
+        self.assertEqual(rewrite(f"<IMG\n  alt='x'\n  src=':/{image}'>"), "<IMG\n  alt='x'\n  src='../attachments/Shot.png'>")
+        # Inside code it is text, and stays as written.
+        self.assertEqual(rewrite(f'`<img src=":/{image}">`'), f'`<img src=":/{image}">`')
         for bad, kind in ((f'<img src=":/{"c" * 32}">', 4), (f'<img src=":/{image}">', 1),
                           ('<img src="resource://default/resources/res_y">', 4)):
             with self.subTest(bad=bad), self.assertRaises(archive_v2.NotriosError):
@@ -3843,6 +4027,283 @@ class NotriosV1TitledTest(unittest.TestCase):
                 self.assertEqual(list(case.work.iterdir()), [])
 
 
+class NotriosV1RetainTest(unittest.TestCase):
+    """R2: a real Notrios v1.0.0 publication made with ``--link-action retain``."""
+
+    rows = NotriosNoteIntegrationTest.rows
+    export = NotriosNoteIntegrationTest.export
+    vault_notes = NotriosNoteIntegrationTest.vault_notes
+    published_bodies = NotriosV1TitledTest.published_bodies
+    FIXTURE = FIXTURE_ROOT / "v1.0.0" / "publication-retain"
+    # Every form of the withheld note's identity: its ID, path and title, and
+    # the title its link carries.
+    WITHHELD = (b"doc_obsidian_private", b"hidden_plan", b"Hidden Plan", b"Hidden%20Plan",
+                b"WITHHELD-TITLE-SENTINEL", b"WITHHELD-BODY-SENTINEL")
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="movenotes-v1-retain-")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.destination = self.root / "publication"
+        self.expected = load_json(self.FIXTURE / "expected.json")
+
+    def assert_withholds(self, tree):
+        for path in tree.rglob("*"):
+            if path.is_file():
+                data = path.read_bytes()
+                for identity in self.WITHHELD:
+                    self.assertNotIn(identity, data, path)
+
+    def test_retain_fixture_is_immutable_and_carries_every_link(self):
+        before = fixture_inventory(self.FIXTURE / "archive")
+        self.assertEqual(before, self.expected["archive_files"])
+        with archive_v2.verify_archive(self.FIXTURE / "archive", work_dir=self.root) as verified:
+            self.assertEqual(dict(verified.counts), self.expected["counts"])
+            self.assertEqual(verified.manifest.commit_sha256, self.expected["commit_sha256"])
+            statuses = Counter(r.payload["resolution_status"] for r in verified.iter_records("link"))
+            self.assertEqual(dict(statuses), self.expected["link_statuses"])
+            # A withheld link's target is cleared, though the body keeps it.
+            for record in verified.iter_records("link"):
+                if record.payload["resolution_status"] == "target_excluded":
+                    self.assertNotIn("target_document_id", record.payload)
+                    self.assertEqual(record.payload["raw_target"], self.expected["withheld_uri"])
+        self.assertEqual(fixture_inventory(self.FIXTURE / "archive"), before)
+        generation = load_json(self.FIXTURE / "generation.json")
+        self.assertEqual((generation["producer_commit"], generation["producer_tag"]),
+                         ("2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a", "v1.0.0"))
+        self.assertEqual(load_json(self.FIXTURE / "reports/plan.json")["plan"]["policy"]["link_action"], "retain")
+        self.assertEqual(load_json(self.FIXTURE / "reports/compatibility.json")["decision"], "accept")
+        joined = "".join(self.published_bodies().values())
+        for line in self.expected["body_lines"]:
+            self.assertEqual(joined.count(line), 1, line)
+        for sentinel in self.expected["absent"]:
+            self.assertNotIn(sentinel, joined)
+
+    def test_retain_import_keeps_every_other_link_and_withholds_the_note(self):
+        result = importer.import_publication(self.FIXTURE / "archive", self.destination,
+                    expected_selection_sha256=self.expected["selection_manifest_sha256"])
+        self.assertEqual((result.status, result.withheld_links), ("created", self.expected["withheld_links"]))
+        before = fixture_inventory(self.destination)
+        rerun = importer.import_publication(self.FIXTURE / "archive", self.destination)
+        self.assertEqual(rerun.summary(), dict(result.summary(), status="unchanged"))
+        self.assertEqual(fixture_inventory(self.destination), before)
+        self.assert_withholds(self.destination)
+        database = self.expected["database_id"]
+        other = mapping.mapped_id(database, "document", ("doc_obsidian_public_other",))
+        published = self.published_bodies()["doc_obsidian_public_links"]
+        rows = {r["joplin_id"]: r for r in self.rows() if r["joplin_type_"] == 1}
+        body = rows[mapping.mapped_id(database, "document", ("doc_obsidian_public_links",))]["note_data"]
+        expected = published
+        for line, projected in zip(self.expected["body_lines"], self.expected["projected_lines"]):
+            if projected is not None:
+                expected = expected.replace(line, projected)
+        # Every byte but the withheld links' is the published body's.
+        self.assertEqual(body, expected.replace("document://default/documents/doc_obsidian_public_other", ":/" + other))
+        vault = self.export()
+        self.assert_withholds(vault)
+        notes = {path: text for path, _metadata, text in self.vault_notes(vault).values()}
+        lines = notes["Public/Links.md"].splitlines()
+        for projected in self.expected["projected_lines"][:-1]:
+            self.assertIn(projected, lines)
+        self.assertIn("Resolved [Other](Other.md).", lines)
+
+    def test_retain_site_reports_each_kept_link_and_names_no_withheld_note(self):
+        import csv
+        importer.import_publication(self.FIXTURE / "archive", self.destination)
+        vault = self.export()
+        site = self.root / "site"
+        result = subprocess.run([sys.executable, "-B", str(PROJECT_DIR / "obsidian2site.py"),
+                                 "--input", str(vault), "--output", str(site), "--progress-every", "0"],
+                                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+                                capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assert_withholds(site)
+        with (site / "movenotes-link-report.csv").open(encoding="utf-8", newline="") as handle:
+            listed = {row["destination"]: row["category"] for row in csv.DictReader(handle)}
+        self.assertEqual(listed, {
+            "file:///C:/Users/x/report.pdf": "unreachable", "tel:+15551234567": "verify",
+            "Missing.md": "unreachable", "notes/x.txt": "unreachable", "javascript:void(0)": "unreachable",
+            "joplin://x-callback-url/openNote?id=1": "unreachable", "C:\\Users\\x\\a.txt": "unreachable",
+            "Dup": "unreachable", "No Such Note": "unreachable", "mailto:someone@example.com": "verify",
+            "http://example.com/": "insecure",
+        })
+        self.assertIn("1 data: link(s) counted", result.stdout)
+
+
+class NotriosV1WikiTest(unittest.TestCase):
+    """W1: a real Notrios v1.0.0 publication of an Obsidian library with wiki links."""
+
+    rows = NotriosNoteIntegrationTest.rows
+    export = NotriosNoteIntegrationTest.export
+    vault_notes = NotriosNoteIntegrationTest.vault_notes
+    published_bodies = NotriosV1TitledTest.published_bodies
+    FIXTURE = FIXTURE_ROOT / "v1.0.0" / "publication-wiki"
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="movenotes-v1-wiki-")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.destination = self.root / "publication"
+        self.expected = load_json(self.FIXTURE / "expected.json")
+
+    def test_wiki_fixture_is_immutable_and_records_every_wiki_link(self):
+        before = fixture_inventory(self.FIXTURE / "archive")
+        self.assertEqual(before, self.expected["archive_files"])
+        with archive_v2.verify_archive(self.FIXTURE / "archive", work_dir=self.root) as verified:
+            self.assertEqual(dict(verified.counts), self.expected["counts"])
+            self.assertEqual(verified.manifest.commit_sha256, self.expected["commit_sha256"])
+            records = [r.payload for r in verified.iter_records("link")]
+        self.assertEqual(dict(Counter(p["resolution_status"] for p in records)), self.expected["link_statuses"])
+        self.assertEqual(sum(p["source_format"] == "obsidian-wikilink" for p in records), self.expected["wiki_links"])
+        self.assertEqual(fixture_inventory(self.FIXTURE / "archive"), before)
+        generation = load_json(self.FIXTURE / "generation.json")
+        self.assertEqual((generation["producer_commit"], generation["producer_tag"]),
+                         ("2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a", "v1.0.0"))
+        self.assertEqual(load_json(self.FIXTURE / "reports/plan.json")["plan"]["policy"]["link_action"], "plain_text")
+        self.assertEqual(load_json(self.FIXTURE / "reports/compatibility.json")["decision"], "accept")
+        joined = "".join(self.published_bodies().values())
+        for line in self.expected["body_lines"]:
+            self.assertEqual(joined.count(line), 1, line)
+
+    def test_wiki_links_import_as_joplin_links_and_export_to_their_files(self):
+        result = importer.import_publication(self.FIXTURE / "archive", self.destination,
+                    expected_selection_sha256=self.expected["selection_manifest_sha256"])
+        self.assertEqual((result.status, result.withheld_links), ("created", 0))
+        before = fixture_inventory(self.destination)
+        rerun = importer.import_publication(self.FIXTURE / "archive", self.destination)
+        self.assertEqual(rerun.summary(), dict(result.summary(), status="unchanged"))
+        self.assertEqual(fixture_inventory(self.destination), before)
+        database = self.expected["database_id"]
+        ids = {name: mapping.mapped_id(database, "document" if name.startswith("doc_") else "resource", (name,))
+               for name in ("doc_obsidian_public_other_note", "doc_obsidian_public_deep_child",
+                            "doc_obsidian_public_r_d_notes", "res_obsidian_public_shot", "res_obsidian_public_doc")}
+        rows = {r["joplin_id"]: r for r in self.rows() if r["joplin_type_"] == 1}
+        body = rows[mapping.mapped_id(database, "document", ("doc_obsidian_public_links",))]["note_data"]
+        expected = self.published_bodies()["doc_obsidian_public_links"]
+        for line, projected in zip(self.expected["body_lines"], self.expected["projected_lines"]):
+            expected = expected.replace(line, projected.format_map(ids))
+        # Only the links change; every other byte is the published body's.
+        self.assertEqual(body, expected)
+        vault = self.export()
+        notes = {path: text for path, _metadata, text in self.vault_notes(vault).values()}
+        lines = notes["Public/Links.md"].splitlines()
+        for line in self.expected["vault_lines"]:
+            self.assertIn(line, lines)
+        # Each link reaches its note or attachment from the note's folder, and
+        # each embed names an exported attachment.
+        text = "\n".join(self.expected["vault_lines"])
+        targets = {unquote(t.split("#")[0]) for t in re.findall(r"\]\(([^)\s]+)\)", text)}
+        self.assertEqual(targets, {"Other Note.md", "Deep/Child.md", "R&D Notes.md", "../attachments/doc.pdf"})
+        for target in targets:
+            self.assertTrue((vault / "Public" / target).is_file(), target)
+        self.assertEqual(set(re.findall(r"!\[\[([^\]]+)\]\]", text)), {"shot.png"})
+        self.assertEqual((vault / "attachments" / "shot.png").read_bytes(),
+                         (FIXTURE_ROOT / "vault-wiki-v1" / "Public" / "shot.png").read_bytes())
+
+    def test_wiki_site_resolves_every_link(self):
+        import csv
+        importer.import_publication(self.FIXTURE / "archive", self.destination)
+        vault = self.export()
+        site = self.root / "site"
+        result = subprocess.run([sys.executable, "-B", str(PROJECT_DIR / "obsidian2site.py"),
+                                 "--input", str(vault), "--output", str(site), "--progress-every", "0"],
+                                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+                                capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        with (site / "movenotes-link-report.csv").open(encoding="utf-8", newline="") as handle:
+            self.assertEqual(list(csv.DictReader(handle)), [])
+
+
+class NotriosV1BlockTest(unittest.TestCase):
+    """B1: a real Notrios v1.0.0 publication of an Obsidian library with links to blocks."""
+
+    rows = NotriosNoteIntegrationTest.rows
+    export = NotriosNoteIntegrationTest.export
+    vault_notes = NotriosNoteIntegrationTest.vault_notes
+    published_bodies = NotriosV1TitledTest.published_bodies
+    FIXTURE = FIXTURE_ROOT / "v1.0.0" / "publication-block"
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="movenotes-v1-block-")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.destination = self.root / "publication"
+        self.expected = load_json(self.FIXTURE / "expected.json")
+
+    def test_block_fixture_is_immutable_and_records_every_block_link(self):
+        before = fixture_inventory(self.FIXTURE / "archive")
+        self.assertEqual(before, self.expected["archive_files"])
+        with archive_v2.verify_archive(self.FIXTURE / "archive", work_dir=self.root) as verified:
+            self.assertEqual(dict(verified.counts), self.expected["counts"])
+            self.assertEqual(verified.manifest.commit_sha256, self.expected["commit_sha256"])
+            records = [r.payload for r in verified.iter_records("link")]
+        self.assertEqual(dict(Counter(p["resolution_status"] for p in records)), self.expected["link_statuses"])
+        self.assertEqual(sum(p["source_format"] == "obsidian-wikilink" for p in records), self.expected["wiki_links"])
+        self.assertEqual(sum(p.get("anchor_type") == "block" for p in records), self.expected["block_anchors"])
+        self.assertEqual(fixture_inventory(self.FIXTURE / "archive"), before)
+        generation = load_json(self.FIXTURE / "generation.json")
+        self.assertEqual((generation["producer_commit"], generation["producer_tag"]),
+                         ("2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a", "v1.0.0"))
+        self.assertEqual(load_json(self.FIXTURE / "reports/compatibility.json")["decision"], "accept")
+        joined = "".join(self.published_bodies().values())
+        for line in [*self.expected["body_lines"], *self.expected["block_lines"].values()]:
+            self.assertEqual(joined.count(line), 1, line)
+
+    def test_block_links_import_and_export_to_their_block(self):
+        result = importer.import_publication(self.FIXTURE / "archive", self.destination,
+                    expected_selection_sha256=self.expected["selection_manifest_sha256"])
+        self.assertEqual((result.status, result.withheld_links), ("created", 0))
+        before = fixture_inventory(self.destination)
+        rerun = importer.import_publication(self.FIXTURE / "archive", self.destination)
+        self.assertEqual(rerun.summary(), dict(result.summary(), status="unchanged"))
+        self.assertEqual(fixture_inventory(self.destination), before)
+        database = self.expected["database_id"]
+        ids = {name: mapping.mapped_id(database, "document", (name,))
+               for name in ("doc_obsidian_public_target", "doc_obsidian_public_deep_child")}
+        rows = {r["joplin_id"]: r for r in self.rows() if r["joplin_type_"] == 1}
+        body = rows[mapping.mapped_id(database, "document", ("doc_obsidian_public_links",))]["note_data"]
+        expected = self.published_bodies()["doc_obsidian_public_links"]
+        for line, projected in zip(self.expected["body_lines"], self.expected["projected_lines"]):
+            expected = expected.replace(line, projected.format_map(ids))
+        # Only the links change; every other byte is the published body's.
+        self.assertEqual(body, expected)
+        vault = self.export()
+        notes = {path: text for path, _metadata, text in self.vault_notes(vault).values()}
+        lines = notes["Public/Links.md"].splitlines()
+        for line in self.expected["vault_lines"]:
+            self.assertIn(line, lines)
+        # Each link names a block whose ID its target note still holds.
+        reached = set()
+        for link in re.findall(r"\]\(([^)\s]+)\)", "\n".join(self.expected["vault_lines"])):
+            path, _hash, fragment = unquote(link).partition("#")
+            target = "Public/" + path if path else "Public/Links.md"
+            self.assertIn(self.expected["block_lines"][fragment[1:]], notes[target].splitlines(), link)
+            reached.add(fragment[1:])
+        self.assertEqual(reached, set(self.expected["block_lines"]))
+
+    def test_block_site_anchors_every_block_a_link_names(self):
+        import csv
+        importer.import_publication(self.FIXTURE / "archive", self.destination)
+        vault = self.export()
+        site = self.root / "site"
+        result = subprocess.run([sys.executable, "-B", str(PROJECT_DIR / "obsidian2site.py"),
+                                 "--input", str(vault), "--output", str(site), "--progress-every", "0"],
+                                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+                                capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        with (site / "movenotes-link-report.csv").open(encoding="utf-8", newline="") as handle:
+            self.assertEqual(list(csv.DictReader(handle)), [])
+        page = site / "content" / "notes" / "public" / "links.md"
+        reached = set()
+        for link in re.findall(r"\]\(([^)\s]+)\)", page.read_text(encoding="utf-8")):
+            path, _hash, fragment = link.partition("#")
+            target = (page.parent / path).with_suffix(".md") if path else page
+            self.assertIn(f'<span id="{fragment}"></span>', target.read_text(encoding="utf-8"), link)
+            reached.add(fragment)
+        # Obsidian matches an ID in any case; the site writes it lowercase.
+        self.assertEqual(reached, {"^" + block.lower() for block in self.expected["block_lines"]})
+
+
 class NotriosResourceStorageTest(unittest.TestCase):
     """Storage-only slice: link projection/admission stay gated until 5b."""
 
@@ -4196,7 +4657,7 @@ class NotriosCLITest(unittest.TestCase):
         expected = {
             "status": "created", "commit_sha256": self.expected["commit_sha256"],
             "selection_manifest_sha256": self.expected["selection_manifest_sha256"],
-            "row_count": 18, "resource_count": 3,
+            "row_count": 18, "resource_count": 3, "withheld_links": 0,
         }
         result = self.cli("--expected-selection-sha256", self.expected["selection_manifest_sha256"])
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -4247,9 +4708,58 @@ class NotriosCLITest(unittest.TestCase):
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(result.stdout, "notrios2sql 3.37\n")
+        self.assertEqual(result.stdout, "notrios2sql 3.38\n")
         self.assertEqual(result.stderr, "")
         self.assertFalse(self.destination.exists())
+
+    def test_cli_refuses_an_unusable_output_before_verifying_and_names_the_problem(self):
+        # D1: each refused before the archive is read, as a destination problem.
+        (self.root / "file.txt").write_text("x", encoding="utf-8")
+        (self.root / "real").mkdir()
+        (self.root / "link").symlink_to(self.root / "real", target_is_directory=True)
+        (self.root / "locked").mkdir(mode=0o000)
+        self.addCleanup((self.root / "locked").chmod, 0o700)
+        (self.root / "plain").write_text("x", encoding="utf-8")
+        (self.root / "empty").mkdir()
+        (self.root / "unrelated").mkdir()
+        (self.root / "unrelated" / "notesdb.sqlite").write_bytes(b"not a database")
+        cases = {
+            self.root / "missing" / "out": "output parent directory does not exist",
+            self.root / "file.txt" / "out": "output parent is not a directory",
+            self.root / "link" / "out": "output parent path must not contain a symlink",
+            self.root / "locked" / "out": "output parent directory cannot be opened: permission denied",
+            self.root / "plain": "output exists and is not a directory; give a new path, which notrios2sql.py creates",
+            self.root / "empty": "output directory exists and is not a completed import; "
+                                 "give a new path, which notrios2sql.py creates",
+            self.root / "unrelated": "output directory exists and is not a completed import; "
+                                     "give a new path, which notrios2sql.py creates",
+        }
+        def entries():
+            # Without following the symlink or entering the locked directory.
+            return sorted((path.relative_to(self.root).as_posix(), path.lstat().st_mode, path.lstat().st_size)
+                          for path in self.root.rglob("*"))
+        for output, message in cases.items():
+            with self.subTest(output=output.relative_to(self.root)):
+                before = entries()
+                result = self.cli(output=output)
+                self.assert_refused(result)
+                self.assertEqual(result.stderr, f"error [destination]: {message}\n")
+                self.assertEqual(self.phase_lines(result), [])
+                self.assertEqual(entries(), before)
+        # A completed import of another publication is still compared after verification.
+        other = self.root / "other"
+        self.assertEqual(subprocess.run(
+            [sys.executable, "-B", str(PROJECT_DIR / "notrios2sql.py"), "--input",
+             str(FIXTURE_ROOT / "v1.0.0" / "publication-titled" / "archive"), "--output", str(other)],
+            capture_output=True, text=True, timeout=30, env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        ).returncode, 0)
+        before = fixture_inventory(other)
+        result = self.cli(output=other)
+        self.assert_refused(result)
+        self.assertIn("phase: verify", self.phase_lines(result))
+        self.assertTrue(result.stderr.endswith("error [destination]: completion receipt or shape differs\n"),
+                        result.stderr)
+        self.assertEqual(fixture_inventory(other), before)
 
     def test_cli_digest_mismatch_and_changed_source_refuse_without_output_changes(self):
         self.assert_refused(self.cli("--expected-selection-sha256", "0" * 64))
@@ -4406,6 +4916,7 @@ class NotriosPublicationToVaultAcceptanceTest(unittest.TestCase):
             "selection_manifest_sha256": expected["selection_manifest_sha256"],
             "row_count": 18,
             "resource_count": 3,
+            "withheld_links": 0,
         })
         self.assertEqual(fixture_inventory(source), source_before)
         receipt = self.expected_receipt(expected)
@@ -4847,10 +5358,11 @@ class NotriosResourceProjectionTest(unittest.TestCase):
             "selection_manifest_sha256": expected["selection_manifest_sha256"],
             "row_count": 18,
             "resource_count": 3,
+            "withheld_links": 0,
         }
         self.assertEqual(result.summary(), expected_summary)
         self.assertEqual(set(result.summary()), {
-            "status", "commit_sha256", "selection_manifest_sha256", "row_count", "resource_count",
+            "status", "commit_sha256", "selection_manifest_sha256", "row_count", "resource_count", "withheld_links",
         })
         self.assertNotIn("destination", result.summary())
         self.assertIsNot(result.summary(), result.summary())

@@ -439,6 +439,20 @@
         },
         {
           "ordinal": 3,
+          "heading": "Which link action to use",
+          "language": "bash",
+          "sha256": "44bed1f7167be5e9068bba3dcb48a76438c65a8c34cf6a0651f8482f9637823a",
+          "state": "tools",
+          "tools": [
+            "notriosctl"
+          ],
+          "home": "library",
+          "substitute": {
+            "--notebooks nb_public": "--notebooks nb_obsidian_public"
+          }
+        },
+        {
+          "ordinal": 4,
           "heading": "Keeping notes out of a publication",
           "language": "bash",
           "sha256": "ee750049b70d97dc34f3f876674189fd3ab8d2291a74bfafa0dda89c5af5c6ed",
@@ -449,7 +463,7 @@
           "home": "library"
         },
         {
-          "ordinal": 4,
+          "ordinal": 5,
           "heading": "Keeping notes out of a publication",
           "language": "bash",
           "sha256": "6227d25543d4ed9ba51febcdabc01610df2652be37d0e5d3a8fc7ba30986b26b",
@@ -460,7 +474,7 @@
           "home": "library"
         },
         {
-          "ordinal": 5,
+          "ordinal": 6,
           "heading": "Publications over 100,000 notes",
           "language": "bash",
           "sha256": "a0694cdc6007b5b8ee2c98a4525535f967a9bfaf594f82fad9da9417430ca28b",
@@ -615,7 +629,7 @@
           "ordinal": 3,
           "heading": "1. Generate the Hugo project",
           "language": "",
-          "sha256": "d7bb099d2cab8aaa6fc36a15e0ded5630a84b58cfe965c8671437a30973ded4e",
+          "sha256": "ea77694f91f94cf48618954ac7fb7a6a68d03859836633f6a92d09dd07b874ab",
           "state": "unverified",
           "reason": "a listing of the generated files"
         },

@@ -44,7 +44,12 @@ it nothing ties the import to the review.
 - `--output` must not exist yet, and its parent must. There is no merge and no
   overwrite. Rerunning into a completed import of the same publication verifies
   it and reports `unchanged` without writing. A different publication there is
-  refused.
+  refused after the archive is verified (`completion receipt or shape
+  differs`). An output that cannot be used is refused before the archive is
+  read, as `error [destination]`, saying why: its parent does not exist, is not
+  a directory, cannot be opened or has a symlink in its path; or the output
+  exists and is not a directory, or is a directory that is not a completed
+  import.
 - Only loose `publication_handoff` archives are read. A packed archive (one
   exported with `--pack`), another export target, and an archive carrying
   source bundles or provenance are refused.
@@ -54,8 +59,11 @@ it nothing ties the import to the review.
   exporting it does not change it and a rerun still reports `unchanged`.
 
 On success stdout is one JSON line: `status` (`created` or `unchanged`),
-`commit_sha256`, `selection_manifest_sha256`, `row_count` and
-`resource_count`. It holds no paths or note content. Progress phases and
+`commit_sha256`, `selection_manifest_sha256`, `row_count`, `resource_count`
+and `withheld_links`, the number of links to notes the publication leaves out
+that the import replaced with their text (see
+[Which link action to use](#which-link-action-to-use)). It holds no paths or
+note content. Progress phases and
 errors go to stderr. `--version` prints the release. The exit status is 0 on success, 1 when the import is
 refused or fails, and 2 for a usage error.
 
@@ -114,16 +122,73 @@ selection. Serve the site as the
 The `plain_text` link action replaces a link to an unpublished note with its
 label. At `v1.0.0` it does the same to every link Notrios could not resolve
 (`file:`, `tel:`, `data:` and relative destinations), so those never reach
-movenotes. `--no-simplify-urls` keeps the remaining links as they were
-published. `--include-notrios-receipt` copies the import's receipt to
+movenotes; `retain` keeps them, as the next section explains.
+`--no-simplify-urls` keeps the remaining links as they were published. `--include-notrios-receipt` copies the import's receipt to
 `.movenotes/notrios-receipt.json` in the vault. The receipt identifies the
 publication: its commit and selection digests, its snapshot and library IDs,
 and the reader and mapper versions, with no paths, times or note content. On the site it is published
 at `movenotes/notrios-receipt.json`, where anyone can download it, so leave
 the flag off `obsidian2site.py` if you don't want that.
 
-An `<img>` written in HTML imports correctly, but the exported vault still
-points its `src` at `:/id`, so Obsidian and the site do not show the image.
+An `<img>` written in HTML stays HTML in the exported vault, with its `src`
+pointing at the copied attachment, so Obsidian and the site show the image.
+
+### Which link action to use
+
+`notrios2sql.py` reads a publication made with either link action, and neither
+puts a withheld note into the vault or the site. They differ in what the
+handoff itself holds, so the choice depends on who will see it:
+
+| Link action | Links Notrios could not resolve | The handoff holds a withheld note's ID | Use it when |
+|---|---|---|---|
+| `plain_text` (the default) | Replaced with their text | No, except for one case below | The handoff leaves your control: a site admin builds the site, or it sits on a shared drive, a build server or in a repository |
+| `retain` | Kept as written, and listed in the site's [link report](static-site.md#the-link-report) | Yes | The handoff never leaves your machine, or only you can read it |
+
+With `retain`, Notrios keeps every link's bytes. A link to a note the
+publication leaves out keeps that note's URI, `document://default/documents/<id>`,
+in the published body, with a record saying the target was excluded. For a
+library imported from Joplin the ID is the note's Joplin ID; for one imported
+from Obsidian it spells the note's folder and title, such as
+`doc_obsidian_private_hidden_plan`. The import replaces each such link with
+its text, or with `[redacted]` when the text is empty or is the URI itself, as
+an unaliased wiki link's is, before it writes anything. It counts them in
+`withheld_links`. Keep a `retain` handoff as private as the library it came
+from.
+
+`notriosctl export archive-v2 --target publication_handoff` has no
+`--link-action` and always uses `plain_text`. Only `publish` with a saved
+profile can use `retain`:
+
+```bash
+notriosctl publish profile save \
+  --profiles ~/profiles.json --name local \
+  --target publication_handoff --notebooks nb_public \
+  --link-action retain
+```
+
+`plain_text` has one exception at `v1.0.0`: a wiki link to a withheld note
+with no alias, such as `[[Hidden Plan]]`, is replaced with the note's URI,
+which names it. `notrios2sql.py` refuses such a publication whole, so it never
+reaches a vault or site, but the handoff holds the ID. A Notrios change that
+fixes this and keeps every other link under `plain_text` is
+[on the roadmap](../ROADMAP.md#a-plain_text-that-keeps-every-non-internal-link).
+
+A wiki link to a published note or attachment, with either action, imports as
+a Joplin link, the way `obsidian2sql.py` imports one. Notrios stores
+`[[Other Note|shown text]]` as `[[document://…|shown text]]`; the import writes
+`[shown text](:/<id>)`, and the vault export `[shown text](Other%20Note.md)`.
+A link with no alias shows the note's title or the attachment's file name. A
+heading is kept, encoded as a Markdown link's is
+(`Deep/Child.md#Caf%C3%A9%20Section`). An embedded image stays an embed,
+`![[shot.png]]`, though the vault drops its caption, as it does a Markdown
+image's alt text. An embedded note becomes a link to it.
+
+A link to a block, `[[Note#^id]]` or `[x](Note.md#^id)`, keeps its `#^id`
+through the import (`[Note](:/<id>#^id)`) and the vault export
+(`[Note](Note.md#^id)`), and opens on its block in Obsidian. The site gives each
+block an anchor, so its link lands there too. A block ID is `^` and letters,
+digits and dashes, as Obsidian writes one; any other `#^` on a note refuses the
+publication.
 
 ## Keeping notes out of a publication
 

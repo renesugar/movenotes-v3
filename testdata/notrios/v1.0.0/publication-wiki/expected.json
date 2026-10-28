@@ -1,0 +1,82 @@
+{
+  "counts": {
+    "collections": 1,
+    "notebooks": 2,
+    "search_notebooks": 0,
+    "tags": 0,
+    "documents": 4,
+    "revisions": 4,
+    "document_tags": 0,
+    "resources": 2,
+    "document_resources": 2,
+    "links": 14,
+    "provenance": 0,
+    "source_bundles": 0
+  },
+  "archive_files": {
+    "manifest.json": {
+      "sha256": "ba998ac14e3944f57b727d5c4d41f9cab67fd40765ba59f1defb5be448b4289b",
+      "size_bytes": 1731
+    },
+    "objects/sha256/05/3f/053f1aa4492dff88f85b4fa3a5bf5af0cf7e9a4cfd9feff454eb69fab679fb43": {
+      "sha256": "053f1aa4492dff88f85b4fa3a5bf5af0cf7e9a4cfd9feff454eb69fab679fb43",
+      "size_bytes": 11678
+    },
+    "objects/sha256/0d/8e/0d8ee8b83adb2e7513b6143d2dcff58d371f5a6af41c3ae0f5b7d80e3be49152": {
+      "sha256": "0d8ee8b83adb2e7513b6143d2dcff58d371f5a6af41c3ae0f5b7d80e3be49152",
+      "size_bytes": 33
+    },
+    "objects/sha256/36/49/3649a9df42f11926ab308a3ae4d583cd919f544eefd7b717eba82c1f2ba32d13": {
+      "sha256": "3649a9df42f11926ab308a3ae4d583cd919f544eefd7b717eba82c1f2ba32d13",
+      "size_bytes": 117
+    },
+    "objects/sha256/5b/6f/5b6f59c8680e8790e3e83edfcd79ca77286997e128024216d266f04a7eea6787": {
+      "sha256": "5b6f59c8680e8790e3e83edfcd79ca77286997e128024216d266f04a7eea6787",
+      "size_bytes": 123
+    },
+    "objects/sha256/68/60/6860475514ea987695bfd6b629551c08d0ebb3615399622486148101c097fd4e": {
+      "sha256": "6860475514ea987695bfd6b629551c08d0ebb3615399622486148101c097fd4e",
+      "size_bytes": 157
+    },
+    "objects/sha256/6b/62/6b62a8283f83dafa5586f0114057e7fb5ee3d1fd3e82a8ec82486933b7f4755c": {
+      "sha256": "6b62a8283f83dafa5586f0114057e7fb5ee3d1fd3e82a8ec82486933b7f4755c",
+      "size_bytes": 1168
+    },
+    "objects/sha256/b4/ec/b4ecc946fd96d33b490ffb1b145cf7a9edf0d156d0ffd0798d8dc3eb8be617b4": {
+      "sha256": "b4ecc946fd96d33b490ffb1b145cf7a9edf0d156d0ffd0798d8dc3eb8be617b4",
+      "size_bytes": 2104
+    },
+    "objects/sha256/c4/14/c414cd0e204de974f73753c7e28d7638e7b3691bb8b1a2bab6b25bb7fed7ce77": {
+      "sha256": "c414cd0e204de974f73753c7e28d7638e7b3691bb8b1a2bab6b25bb7fed7ce77",
+      "size_bytes": 70
+    }
+  },
+  "commit_sha256": "650478bb65d759510cb43ffe93fb21a320fc2dd8cfb1084ea9676cc28e40348c",
+  "selection_manifest_sha256": "620b485666f1eeb2a3653945ab4495abb900ffcc7faf37b14ffd3abca3462261",
+  "database_id": "db_dk3djrzdnzyyhv5d35z4nhtaam",
+  "snapshot_id": "snap_jpluqztxjbbayi4wbce7o6emcy",
+  "producer_commit": "2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a",
+  "producer_tag": "v1.0.0",
+  "body_lines": [
+    "Plain [[document://default/documents/doc_obsidian_public_other_note]], aliased [[document://default/documents/doc_obsidian_public_other_note|shown & text]], to a heading [[document://default/documents/doc_obsidian_public_deep_child#Café Section]] and aliased [[document://default/documents/doc_obsidian_public_deep_child#details|Details]].",
+    "By path [[document://default/documents/doc_obsidian_public_deep_child]], by file name [[document://default/documents/doc_obsidian_public_other_note]], titled [[document://default/documents/doc_obsidian_public_r_d_notes]], to itself [[#Links]] and to nothing Nowhere.",
+    "Embedded note ![[document://default/documents/doc_obsidian_public_other_note]], image ![[resource://default/resources/res_obsidian_public_shot]], captioned ![[resource://default/resources/res_obsidian_public_shot|caption]], file [[resource://default/resources/res_obsidian_public_doc]] and embedded file ![[resource://default/resources/res_obsidian_public_doc]].",
+    "Markdown [Child](document://default/documents/doc_obsidian_public_deep_child#details) as before."
+  ],
+  "projected_lines": [
+    "Plain [Other Note](:/{doc_obsidian_public_other_note}), aliased [shown &amp; text](:/{doc_obsidian_public_other_note}), to a heading [Child](:/{doc_obsidian_public_deep_child}#Caf%C3%A9%20Section) and aliased [Details](:/{doc_obsidian_public_deep_child}#details).",
+    "By path [Child](:/{doc_obsidian_public_deep_child}), by file name [Other Note](:/{doc_obsidian_public_other_note}), titled [R&amp;D Notes](:/{doc_obsidian_public_r_d_notes}), to itself [[#Links]] and to nothing Nowhere.",
+    "Embedded note [Other Note](:/{doc_obsidian_public_other_note}), image ![shot.png](:/{res_obsidian_public_shot}), captioned ![caption](:/{res_obsidian_public_shot}), file [doc.pdf](:/{res_obsidian_public_doc}) and embedded file ![doc.pdf](:/{res_obsidian_public_doc}).",
+    "Markdown [Child](:/{doc_obsidian_public_deep_child}#details) as before."
+  ],
+  "vault_lines": [
+    "Plain [Other Note](Other%20Note.md), aliased [shown &amp; text](Other%20Note.md), to a heading [Child](Deep/Child.md#Caf%C3%A9%20Section) and aliased [Details](Deep/Child.md#details).",
+    "By path [Child](Deep/Child.md), by file name [Other Note](Other%20Note.md), titled [R&amp;D Notes](R%26D%20Notes.md), to itself [[#Links]] and to nothing Nowhere.",
+    "Embedded note [Other Note](Other%20Note.md), image ![[shot.png]], captioned ![[shot.png]], file [doc.pdf](../attachments/doc.pdf) and embedded file [doc.pdf](../attachments/doc.pdf).",
+    "Markdown [Child](Deep/Child.md#details) as before."
+  ],
+  "link_statuses": {
+    "resolved": 14
+  },
+  "wiki_links": 13
+}

@@ -1,0 +1,59 @@
+{
+  "destination": "<work>/archive",
+  "profile": "fixture",
+  "report": {
+    "target": "publication_handoff",
+    "full_backup": false,
+    "snapshot_id": "snap_dnwoxwiub3st7jmy6uavuip2sy",
+    "database_id": "db_fg3ynapptat6dc7ja6a6n4prou",
+    "source_replica_id": "replica_4odhoubdl3opfdkhlakfunwu3e",
+    "created_at": "2026-10-27T19:28:41Z",
+    "commit_sha256": "5b9d517c660d6baaddc9690502854f32d7624b7403fea2a5789c9c28ff410435",
+    "selection_manifest_sha256": "a681ac22100ae29f631e66ef55b38dea28377c985071a882870bf4afee674498",
+    "collection_ids": [
+      "default"
+    ],
+    "counts": {
+      "collections": 1,
+      "notebooks": 3,
+      "search_notebooks": 0,
+      "tags": 0,
+      "documents": 4,
+      "revisions": 4,
+      "document_tags": 0,
+      "resources": 0,
+      "document_resources": 0,
+      "links": 19,
+      "provenance": 0,
+      "source_bundles": 0
+    },
+    "index_objects": 1,
+    "pack_objects": 0,
+    "objects": 5,
+    "record_objects": 1,
+    "blob_objects": 4,
+    "deduplicated_objects": 0,
+    "reused_objects": 0,
+    "bytes": 12134,
+    "bytes_written": 13713,
+    "selected_documents": 4,
+    "excluded_documents": 0,
+    "reachable_resources": 0,
+    "cleared_link_targets": 5,
+    "rewritten_links": 0,
+    "rewritten_documents": 0,
+    "skipped_rewrites": 0,
+    "stripped_metadata": 0,
+    "verified": true,
+    "warnings": [
+      "query-backed search notebooks are omitted from a scoped archive because their queries describe the whole library",
+      "this archive is a scoped snapshot, not a complete database backup",
+      "this is a publication projection: current notes only, no revision history, no provenance, and no exact source bundles",
+      "5 link targets fell outside the archived selection and were recorded as target_excluded",
+      "5 links target notes outside the selected public/subset manifest",
+      "11 selected-note links are unresolved, ambiguous, invalid, or target deleted",
+      "detail arrays are truncated; counts and manifest_sha256 cover the complete bounded plan"
+    ],
+    "elapsed_seconds": 0.065515348
+  }
+}

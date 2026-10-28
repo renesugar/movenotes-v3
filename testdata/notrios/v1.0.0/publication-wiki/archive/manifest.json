@@ -1,0 +1,63 @@
+{
+  "format": "notrios-archive",
+  "version": 2,
+  "commit_sha256": "650478bb65d759510cb43ffe93fb21a320fc2dd8cfb1084ea9676cc28e40348c",
+  "snapshot": {
+    "id": "snap_jpluqztxjbbayi4wbce7o6emcy",
+    "created_at": "2026-10-28T00:48:19Z",
+    "target": "publication_handoff",
+    "database_id": "db_dk3djrzdnzyyhv5d35z4nhtaam",
+    "source_replica_id": "replica_trc5h3ilnmokk4qasxcwvitogy",
+    "consistency": "sqlite_read_transaction",
+    "collection_ids": [
+      "default"
+    ],
+    "selection_manifest_sha256": "620b485666f1eeb2a3653945ab4495abb900ffcc7faf37b14ffd3abca3462261"
+  },
+  "compatibility": {
+    "minimum_reader_version": 2,
+    "source_schema_version": 28,
+    "minimum_schema_version": 12,
+    "maximum_schema_version": 28,
+    "required_capabilities": [
+      "identity.database-replica.v1",
+      "objects.index.v1",
+      "objects.sha256.v1",
+      "records.jsonl.v1",
+      "revisions.complete.v1"
+    ],
+    "optional_capabilities": []
+  },
+  "index": [
+    {
+      "sha256": "b4ecc946fd96d33b490ffb1b145cf7a9edf0d156d0ffd0798d8dc3eb8be617b4",
+      "size_bytes": 2104,
+      "entries": 7,
+      "media_type": "application/vnd.notrios.archive-v2-index+jsonl",
+      "location": {
+        "layout": "fanout",
+        "path": "objects/sha256/b4/ec/b4ecc946fd96d33b490ffb1b145cf7a9edf0d156d0ffd0798d8dc3eb8be617b4"
+      }
+    }
+  ],
+  "totals": {
+    "objects": 7,
+    "bytes": 13346,
+    "record_chunks": 1,
+    "blobs": 6
+  },
+  "counts": {
+    "collections": 1,
+    "notebooks": 2,
+    "search_notebooks": 0,
+    "tags": 0,
+    "documents": 4,
+    "revisions": 4,
+    "document_tags": 0,
+    "resources": 2,
+    "document_resources": 2,
+    "links": 14,
+    "provenance": 0,
+    "source_bundles": 0
+  }
+}

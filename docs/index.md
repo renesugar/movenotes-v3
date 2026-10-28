@@ -33,6 +33,7 @@ the shortest path through each workflow. These pages have the rest.
 | [Performance review](performance-review.md) | complexity decisions and their measurements |
 | [Implementation review](implementation-review.md) | a dated comparison with an independently written implementation of the same requirements |
 
-The active plan is [`PLAN.md`](../PLAN.md), finished plans are in
-[`plans/`](../plans/README.md), and the plan ledger is
-[`docs/plan/ledger.json`](plan/ledger.json).
+No plan is active now; the next will be `PLAN.md`, with its ledger at
+`docs/plan/ledger.json`. Finished plans and their ledgers are in
+[`plans/`](../plans/README.md), and what comes next is in
+[`ROADMAP.md`](../ROADMAP.md).

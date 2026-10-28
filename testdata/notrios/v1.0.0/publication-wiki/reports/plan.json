@@ -1,0 +1,265 @@
+{
+  "next_step": "after reviewing, publish with `--reviewed-plan 620b485666f1eeb2a3653945ab4495abb900ffcc7faf37b14ffd3abca3462261`",
+  "plan": {
+    "version": 1,
+    "target": "publication_handoff",
+    "policy": {
+      "exclude_tags": [
+        "confidential",
+        "draft",
+        "private"
+      ],
+      "private_tags": [
+        "confidential",
+        "draft",
+        "private"
+      ],
+      "link_action": "plain_text",
+      "include_source_bundles": false,
+      "include_provenance": false,
+      "include_private_metadata": false,
+      "include_trashed": false,
+      "exclude_read_only_notebooks": true
+    },
+    "manifest_sha256": "620b485666f1eeb2a3653945ab4495abb900ffcc7faf37b14ffd3abca3462261",
+    "counts": {
+      "selected_documents": 4,
+      "excluded_documents": 0,
+      "reachable_resources": 2,
+      "available_source_bundles": 0,
+      "included_source_bundles": 0,
+      "internal_links": 10,
+      "private_links": 0,
+      "broken_links": 1,
+      "external_links": 4,
+      "oversized_resources": 0
+    },
+    "documents": [
+      {
+        "id": "doc_obsidian_public_deep_child",
+        "uri": "document://default/documents/doc_obsidian_public_deep_child",
+        "collection_id": "default",
+        "notebook_id": "nb_obsidian_public_deep",
+        "current_revision_id": "rev_mxlke57otf6w3x4icxm3kddlci",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      },
+      {
+        "id": "doc_obsidian_public_links",
+        "uri": "document://default/documents/doc_obsidian_public_links",
+        "collection_id": "default",
+        "notebook_id": "nb_obsidian_public",
+        "current_revision_id": "rev_vau62okpmhs4itsq3wcf4bc7ja",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      },
+      {
+        "id": "doc_obsidian_public_other_note",
+        "uri": "document://default/documents/doc_obsidian_public_other_note",
+        "collection_id": "default",
+        "notebook_id": "nb_obsidian_public",
+        "current_revision_id": "rev_f6p3f6z4kgxdofocvow3qxla5y",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      },
+      {
+        "id": "doc_obsidian_public_r_d_notes",
+        "uri": "document://default/documents/doc_obsidian_public_r_d_notes",
+        "collection_id": "default",
+        "notebook_id": "nb_obsidian_public",
+        "current_revision_id": "rev_yvpd5aubee6wnmvg2szs5lb4du",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      }
+    ],
+    "resources": [
+      {
+        "id": "res_obsidian_public_doc",
+        "uri": "resource://default/resources/res_obsidian_public_doc",
+        "collection_id": "default",
+        "mime_type": "application/pdf",
+        "size_bytes": 33,
+        "sha256": "0d8ee8b83adb2e7513b6143d2dcff58d371f5a6af41c3ae0f5b7d80e3be49152"
+      },
+      {
+        "id": "res_obsidian_public_shot",
+        "uri": "resource://default/resources/res_obsidian_public_shot",
+        "collection_id": "default",
+        "mime_type": "image/png",
+        "size_bytes": 70,
+        "sha256": "c414cd0e204de974f73753c7e28d7638e7b3691bb8b1a2bab6b25bb7fed7ce77"
+      }
+    ],
+    "links": [
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_deep_child",
+        "link_sha256": "69b1799f0fe820cf7b77fc0a7794502e1e9dc8c96e8902600ff6a4f07d6fcc5d",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_other_note",
+        "link_sha256": "6116f7f427cfd55e7828fb6365e1fcb4512378482937c8281ebfdcf6a4be31b9",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_other_note",
+        "link_sha256": "56f62513e6fba262e15e256a1e77ad60f2dc09570825d63e15eb28bf89872cbb",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_deep_child",
+        "link_sha256": "988a8209cb7e4e83f9e23d002c4c2bd2ed4ef1fe91af769d03fbfe2f67a9f97e",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_deep_child",
+        "link_sha256": "c389dd34088d52b71c768fb9ac8629ccc8940feae2b0171a329fcc6ea10d1c95",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_deep_child",
+        "link_sha256": "0739bb84c7ebca0a4ed87b9d37e29adf86e87c3ad9fb99309122f55bb8be144c",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_other_note",
+        "link_sha256": "cc7238475c79e82b5ee396e6718907a203aa81ff5a8efd69660c8cc8c6343551",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_r_d_notes",
+        "link_sha256": "5e5f54ea919a7607c104ddd9c7c825816ec2f7299e80b1390f55bec10a322adc",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_links",
+        "link_sha256": "97ae726706a0c47311951f66af30fd7aa6d0eb05587a17dd6abf0a1c4e12fe37",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "link_sha256": "5db798c0d4eddd7cf11b13dd8f97fdd8a1330f3afd74f9ece27181b0de0d6627",
+        "classification": "broken",
+        "resolution_status": "unresolved",
+        "action": "plain_text"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_other_note",
+        "link_sha256": "20924b2050426bfb34712b867388610492915de2e94425b05df4dde5b957fdac",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "link_sha256": "e167e5c80eb89e83dda82b8e7b3d3216a0d9738c4f106ab87edcd49a97b9722c",
+        "classification": "external",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "link_sha256": "27effec8ab57e5810c94cfe8b2405426f3f270af6c6801271e056ccde06ad8b4",
+        "classification": "external",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "link_sha256": "0d6b983e48cd3d5eab087f626904c78ea2d89a96569d05716940ab74d5324ee7",
+        "classification": "external",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "link_sha256": "00b7e9c4359f90540f0ea67e3da55f3e7f9078c7c918b2780659db73a705d4ca",
+        "classification": "external",
+        "resolution_status": "resolved",
+        "action": "retain"
+      }
+    ],
+    "source_bundles": [],
+    "exclusions": [],
+    "metadata_decisions": [
+      {
+        "field": "private_tags",
+        "action": "strip",
+        "reason": "target privacy policy",
+        "affected_items": 4
+      },
+      {
+        "field": "source.external_id",
+        "action": "strip",
+        "reason": "source provenance policy",
+        "affected_items": 4
+      },
+      {
+        "field": "source.source_url",
+        "action": "strip",
+        "reason": "source provenance policy",
+        "affected_items": 4
+      },
+      {
+        "field": "source.metadata_json",
+        "action": "strip",
+        "reason": "private source metadata policy",
+        "affected_items": 4
+      },
+      {
+        "field": "source_bundle.items",
+        "action": "exclude",
+        "reason": "exact source bundle policy",
+        "affected_items": 0
+      },
+      {
+        "field": "source_bundle.storage_path",
+        "action": "strip",
+        "reason": "local filesystem paths never cross planner APIs",
+        "affected_items": 0
+      }
+    ],
+    "warnings": [
+      "1 selected-note links are unresolved, ambiguous, invalid, or target deleted"
+    ],
+    "truncated": false
+  },
+  "profile": "fixture",
+  "target": "publication_handoff"
+}

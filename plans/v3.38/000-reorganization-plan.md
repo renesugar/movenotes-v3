@@ -1,14 +1,15 @@
 # Plan: Reorganize the repository, then the Notrios import follow-ups
 
-Status: **opened 2026-10-26.** L0 (opening) and **L1 to L7 are complete**
-(L4 ran before L3), and **L8** is published. The next slice is **H1**, not
-yet authorized. The user
-confirmed this plan's assignments for the session on 2026-10-26; see
+Status: **complete 2026-10-27, released as 3.38 and archived.** Opened
+2026-10-26. Every slice is complete: L0 to L8 (L4 ran before L3), H1, D1, R1
+to R3, W1 and B1. The next plan is to be written from `ROADMAP.md` at a later
+date, at the user's direction. The user confirmed this plan's assignments for
+each session; see
 [Coding-agent assignments](#coding-agent-assignments-and-session-confirmation).
 
-How this plan, [`ROADMAP.md`](ROADMAP.md) and the archive in [`plans/`](plans/)
+How this plan, [`ROADMAP.md`](../../ROADMAP.md) and the archive in [`plans/`](../)
 are kept current, and when this plan is archived, is in `AGENTS.md` under
-[Plans, the roadmap and the archive](AGENTS.md#plans-the-roadmap-and-the-archive).
+[Plans, the roadmap and the archive](../../AGENTS.md#plans-the-roadmap-and-the-archive).
 
 ## Goal
 
@@ -67,7 +68,7 @@ Every slice is planned for the Claude Code parent, called **Main** in the
 table. No worker or subagent is planned; spawning one needs an explicit user
 request and a plan amendment first. At the start of each implementation
 session, follow
-[Mandatory planned delegation](AGENTS.md#mandatory-planned-delegation): show
+[Mandatory planned delegation](../../AGENTS.md#mandatory-planned-delegation): show
 the active coding agent, this plan's model and effort assignments (marking
 which are runtime-reported and which configured), and the billing route or
 `not exposed`, then ask whether they are current, and wait for the answer
@@ -75,7 +76,7 @@ before implementing. Plan and provenance edits and read-only inspection may
 proceed while confirmation is pending. A new session, coding agent, model or
 billing route invalidates the confirmation; compaction alone does not.
 
-The table below is generated from the ledger, [`docs/plan/ledger.json`](docs/plan/ledger.json),
+The table below is generated from the ledger, [`plans/v3.38/reorganization-ledger.json`](reorganization-ledger.json),
 which is authoritative for assignments, confirmation and execution records.
 Update the ledger first, then regenerate and check:
 
@@ -101,8 +102,7 @@ Runtime-reported parent family: **Claude Opus 5.5 (runtime-reported model ID cla
 - The runtime-reported model ID is not a configured alias. Reasoning effort, client version and billing route are not exposed.
 <!-- PLAN-ASSIGNMENTS:END -->
 
-Next slice: **H1 — HTML images after export**, assigned to Main; not yet
-authorized.
+Next slice: **R1 — the link report**, assigned to Main; not yet authorized.
 
 ## Execution rules
 
@@ -131,12 +131,15 @@ authorized.
 | L3 / Main | *Complete 2026-10-26.* Add `ROADMAP.md`, and the plan, roadmap and archive rules in `AGENTS.md`. See [L3](#l3--roadmapmd-and-the-rules-for-plans). | L4 | Each deferred feature has its scope, why it is deferred and what it needs; `AGENTS.md` states the rules; links resolve. |
 | L5 / Main | *Complete 2026-10-26.* Move the documentation into `docs/`, and split the README's usage sections into pages there. See [L5](#l5--documentation-in-docs). | L3 | Root holds only the files listed in L5; every old README paragraph exists in exactly one page; links resolve. |
 | L6 / Main | *Complete 2026-10-26.* Document private data and publications over 100,000 notes. See [L6](#l6--private-data-and-large-publications). | L5 | Each documented command was run on a synthetic library and behaved as written. |
-| L7 / Main | Check that documented examples are executable. See [L7](#l7--executable-documentation). | L6 | Every fence is registered; Python-only examples pass in the gate; the `--with-tools` run passes here; an edited fence fails. |
-| L8 / Main | *Added 2026-10-26 at the user's request; needs authorization, and separate permission to force-push.* Rewrite the old paths in the Git history. See [L8](#l8--rewrite-the-old-paths-in-the-git-history). | L7 | No commit on any branch holds a path with the account name; the tip's tree is unchanged by the rewrite; every reference to a rewritten commit is mapped. |
-| H1 / Main | *Proposed 2026-10-24 (C7d); not authorized.* Make HTML images render after export. See [H1](#h1--html-images-after-export). | L7 | As in H1. |
-| D1 / Main | *Proposed 2026-10-26 (7d); not authorized.* Clearer `notrios2sql.py` refusals for an unusable `--output`. See [D1](#d1--clearer-output-refusals). | L7 | As in D1. |
-| R1 / Main | *Proposed 2026-10-25 at the user's request; not authorized.* Report links a web reader cannot reach. See [R1](#r1--the-link-report). | L7 | As in R1. |
-| R2 / Main | *Proposed 2026-10-25; option (a) chosen by the user; not authorized.* Keep non-internal destinations on the Notrios route. See [R2](#r2--non-internal-destinations-on-the-notrios-route). | R1 | As in R2. |
+| L7 / Main | *Complete 2026-10-26.* Check that documented examples are executable. See [L7](#l7--executable-documentation). | L6 | Every fence is registered; Python-only examples pass in the gate; the `--with-tools` run passes here; an edited fence fails. |
+| L8 / Main | *Added 2026-10-26 at the user's request; complete 2026-10-27, force-pushed with the user's permission.* Rewrite the old paths in the Git history. See [L8](#l8--rewrite-the-old-paths-in-the-git-history). | L7 | No commit on any branch holds a path with the account name; the tip's tree is unchanged by the rewrite; every reference to a rewritten commit is mapped. |
+| H1 / Main | *Proposed 2026-10-24 (C7d); complete 2026-10-27.* Make HTML images render after export. See [H1](#h1--html-images-after-export). | L7 | As in H1. |
+| D1 / Main | *Proposed 2026-10-26 (7d); complete 2026-10-27.* Clearer `notrios2sql.py` refusals for an unusable `--output`. See [D1](#d1--clearer-output-refusals). | L7 | As in D1. |
+| R1 / Main | *Complete 2026-10-27.* Report links a web reader cannot reach. See [R1](#r1--the-link-report). | L7 | As in R1. |
+| R2 / Main | *Complete 2026-10-27; option (a), with (b) on the roadmap, chosen by the user.* Keep non-internal destinations on the Notrios route. See [R2](#r2--non-internal-destinations-on-the-notrios-route). | R1 | As in R2. |
+| R3 / Main | *Complete 2026-10-27; the folder before the root, chosen by the user.* Resolve a same-folder link on the site when another note shares its name. See [R3](#r3--same-folder-links-on-the-site). | R1 | As in R3. |
+| W1 / Main | *Complete 2026-10-27; as Joplin links, chosen by the user.* Import a Notrios publication that holds resolved wiki links. See [W1](#w1--resolved-wiki-links-on-the-notrios-route). | — | As in W1. |
+| B1 / Main | *Complete 2026-10-27; the site anchors the block, chosen by the user.* Admit a link to a block, `#^id`, on an internal target, Markdown or wiki, and anchor the block on the site. See [B1](#b1--block-anchors-on-internal-targets). | W1 | As in B1. |
 
 ### L1 — Remove the account name from committed paths
 
@@ -244,7 +247,7 @@ it is deferred, what it would need, and what it depends on:
 `AGENTS.md` gains the rules, adapted from the Notrios repository's
 "Keeping the plan current", "Keeping the roadmap current" and "Plan archival":
 `PLAN.md` is the active plan and its journal; what is left is in its ledger
-(`docs/plan/ledger.json`), rendered by `scripts/render_plan_ledger.py`;
+(`plans/v3.38/reorganization-ledger.json`), rendered by `scripts/render_plan_ledger.py`;
 `ROADMAP.md` says what a version will mean and carries no per-slice status;
 new work enters the roadmap when it enters the plan; a finished plan is
 archived as `plans/v<major>.<minor>/000-<slug>-plan.md`, with its ledger and
@@ -448,7 +451,7 @@ pruned nothing. Then:
   digests are unchanged. This section and the log keep the old hashes, because
   they describe the history before the rewrite and GitHub's current state,
   which the force-push leases are taken against. The full map is
-  [`docs/plan/l8-commit-map.txt`](docs/plan/l8-commit-map.txt).
+  [`plans/v3.38/001-l8-commit-map.txt`](001-l8-commit-map.txt).
 
 *Publishing, as authorized on 2026-10-27; steps 1 and 2 are done:*
 
@@ -480,6 +483,18 @@ whether an exported image stays HTML or becomes an embed. Owns
 copied attachment, on both paths, byte-identical elsewhere; the vault reimports
 to the same database except for the rewritten bytes; the site shows the image.
 
+*Decided 2026-10-27.* Asked whether an exported image stays HTML or becomes an
+embed, the user chose **stay HTML**: only the `src` value changes, to the
+attachment's path relative to the note, and every other byte of the tag stays.
+Today `obsidian2site.py` copies HTML tags verbatim, so the site cannot resolve
+a vault path. `obsidian2sql.py` maps Markdown and wiki attachment links back to
+`:/id`, but not `src`. With the user's agreement, H1 also owns:
+
+- `obsidian2site.py`: resolving an `<img>` `src` that names a vault attachment
+  to the site's asset URL;
+- `obsidian2sql.py`: mapping such a `src` back to `:/id`, so a native reimport
+  returns the original tag.
+
 ### D1 — Clearer output refusals
 
 Carried from the Notrios import plan, proposed 2026-10-26 during 7d.
@@ -503,7 +518,7 @@ refusal, rerun and recovery tests pass unchanged.
 
 Carried from the Notrios import plan, proposed 2026-10-25 at the user's
 request; the full specification is in
-the [archived plan's R1 row](plans/v3.37/000-notrios-import-plan.md#producer-link-syntax-prerequisites--titles-in-projected-bodies). In short: during site
+the [archived plan's R1 row](../v3.37/000-notrios-import-plan.md#producer-link-syntax-prerequisites--titles-in-projected-bodies). In short: during site
 generation, write one CSV per run listing every link a web reader cannot reach
 (`file:`, drive and UNC paths, browser and app schemes, unresolved relative
 and wiki links, internal forms left unresolved), every malformed HTTP(S)
@@ -513,6 +528,29 @@ published, uploaded or deployed; print per-category counts.
 
 *Acceptance:* as in the archived R1 row, including the three 7c libraries'
 per-category counts in aggregate only.
+
+*Decided in implementation, 2026-10-27.* `--link-report PATH` must be outside
+both the output and the vault: a report inside the vault would be published as
+an attachment by the next run. A reference definition or HTML `href` to a vault
+path is `unreachable`, because the site rewrites neither. An in-page anchor
+(`#fn:1`) is not listed; the first corpus run listed 72 such `href`s in three
+Joplin notes, and the fix was proved by regenerating that site.
+
+*Counts on the 7c libraries, 2026-10-27*, re-exported with the current
+`sql2obsidian.py`:
+
+| Library | Notes | Unreachable | Malformed (repaired / shown as text) | Insecure | Verify | `data:` counted |
+|---|---|---|---|---|---|---|
+| Joplin | 103,349 | 21 | 388 (374 / 14) | 4,227 | 59 | 12 |
+| Recipes from RAW | 382,206 | 3 | 89 (79 / 10) | 33,087 | 0 | 0 |
+| Recipes from the vault | 382,206 | 3 | 89 (79 / 10) | 35,219 | 0 | 0 |
+
+Joplin's 21 unreachable are 12 `sandbox:` links and 9 links to nothing
+published. Five of those 9 are same-folder links to a note whose name another
+note shares, which the site cannot resolve and Obsidian can: that is now
+[R3](#r3--same-folder-links-on-the-site). The recipe routes differ only by
+2,132 `http:` links, one per note, each a `source_url` in the recipe YAML that
+the vault route's producer keeps in the body, as recorded in the archived plan.
 
 ### R2 — Non-internal destinations on the Notrios route
 
@@ -526,15 +564,245 @@ reports, while doing itself what `plain_text` does for a link to a withheld
 note. A bounded probe of what `retain` emits for a withheld-note link comes
 first; if it leaks withheld identities in a way the import cannot contain, fall
 back to option (b), a producer change. The full specification is in the
-[archived plan's R2 row](plans/v3.37/000-notrios-import-plan.md#producer-link-syntax-prerequisites--titles-in-projected-bodies).
+[archived plan's R2 row](../v3.37/000-notrios-import-plan.md#producer-link-syntax-prerequisites--titles-in-projected-bodies).
 
 *Acceptance:* every non-internal destination in a publication reaches the
 vault and site byte-identical to the source note and appears in R1's report;
 a link to a withheld note never carries that note's identity.
 
+*Probe, 2026-10-27.* A synthetic Obsidian library published by Notrios `v1.0.0`
+(`2aab9a8`) with each action, from a public note linking to a withheld note
+four ways (a Markdown link, a wiki link, an aliased wiki link and a wiki link
+to a heading) and to `file:`, `tel:`, `data:`, relative, missing, ambiguous,
+drive-letter, `javascript:` and app-scheme destinations:
+
+- **`retain` keeps every non-internal destination byte for byte** in the body,
+  with a record for each: `unresolved` (`target_uri` the destination as
+  written), `ambiguous` (no target URI) or, for `mailto:` and `http:`,
+  `external` as today. movenotes refuses the archive at verification, `link
+  status is not publishable`, as expected.
+- **`retain` puts the withheld note's ID into the handoff.** The body keeps
+  `document://default/documents/<withheld id>` in all four links, and each has
+  a `target_excluded` record with that ID, its byte span and its label. A Joplin
+  library's IDs are `doc_joplin_<Joplin ID>`; an Obsidian library's spell the
+  note's folder and title (`doc_obsidian_private_hidden_plan`). Every occurrence
+  is inside a recorded span, so the import can replace each before it writes
+  anything, and the vault and site need never carry one. The archive itself
+  does, so on this route a publication would have to be kept as private as the
+  library. An unaliased wiki link's label is the URI itself, so the import
+  would have to write neutral text in its place: Notrios has already dropped
+  the title.
+- **`plain_text` leaks the same ID today, for a wiki link without an alias.**
+  It replaces the link with its label, which is the withheld note's URI, so
+  `[[Hidden Plan]]` publishes as `document://default/documents/doc_obsidian_private_hidden_plan`
+  with no record. movenotes contains it by refusing the whole publication,
+  `unsupported or unaccounted active link syntax`, since any internal target
+  outside a recorded token refuses. None of the three bounded 7c publications
+  has one. A fix belongs in the producer, which is option (b).
+- **Any resolved wiki link refuses the import on either action**, as the
+  design records (C7d): Notrios stores `[[Other Note]]` as
+  `[[document://default/documents/<id>]]`. A Notrios library imported from an
+  Obsidian vault with wiki links cannot reach movenotes; that is now
+  [W1](#w1--resolved-wiki-links-on-the-notrios-route).
+
+Option (a) works for the vault and site, but not for the handoff archive, which
+would carry withheld IDs. Whether that is acceptable, or R2 falls back to
+option (b), is the user's decision.
+
+*Decided 2026-10-27.* Asked how the choice maps to a site on the author's own
+machine, on a company intranet and on the Internet, the user chose both:
+(a) now, and (b) as a Notrios follow-up on the roadmap
+([A `plain_text` that keeps every non-internal link](../../ROADMAP.md#a-plain_text-that-keeps-every-non-internal-link)).
+`plain_text` stays the documented default; `retain` is documented for a
+handoff that never leaves its author's control. movenotes reads both. With a
+`retain` handoff it keeps every record that names no internal target as
+written, and replaces each link to a note or attachment the publication leaves
+out with its text, or with `[redacted]` when its text is empty or is itself an
+internal URI, as `plain_text` does for an empty label. The import summary
+counts those as `withheld_links`. `notriosctl export archive-v2` has no
+`--link-action` and always uses `plain_text` for a handoff, so `retain` comes
+only through `publish`, which is what the bounded 7c tier runs.
+
+*Bounded 7c tier with `retain`, 2026-10-27*, 1,000 documents per route, every
+stage exit 0:
+
+| Library | Rewritten by the producer | Withheld links replaced at import | Links Notrios could not resolve, now kept | Site link report |
+|---|---|---|---|---|
+| Joplin | 0 | 15 | 10: 4 relative, 2 `file:`, 4 `data:` | 7 unreachable, 1 malformed, 32 insecure; 4 `data:` counted |
+| Recipes from RAW | 0 | 0 | 0 | 71 insecure |
+| Recipes from the vault | 0 | 0 | 0 | 1,000 insecure |
+
+None of the 15 withheld notes' IDs appears in any file of the Joplin vault or
+site. The full tier still exports with `plain_text`, which `export archive-v2`
+cannot change, so its 2,318 Joplin links stay replaced until the roadmap's
+producer change.
+
+### W1 — Resolved wiki links on the Notrios route
+
+Found 2026-10-27 by R2's probe. Notrios stores a resolved wiki link with its
+canonical target, `[[document://default/documents/<id>]]` or
+`[[document://…|alias]]`, and records it as a resolved `obsidian-wikilink`.
+`notrios_links.py` refuses any internal target outside a Markdown token, so a
+publication holding one refuses whole; the design chose that in C7d, before
+any Obsidian library was published. Map a recorded, resolved wiki link like a
+Markdown one: the target to the note's or attachment's vault name, keeping the
+alias, the heading and the embed `!`, so Obsidian resolves it by name as
+before, and refuse one that no record accounts for. Owns `notrios_links.py`,
+its tests, a fixture with wiki links, and the wiki-link rule in
+`docs/notrios-import-design.md`.
+
+*Acceptance:* a publication of an Obsidian library with wiki links, aliased,
+to a heading and embedded, imports, and each link exports to the vault
+resolving to its note or attachment; an unrecorded internal target still
+refuses; every existing link-projection test passes unchanged.
+
+*Probe, 2026-10-27.* A synthetic Obsidian library published by Notrios
+`v1.0.0` with each wiki form, under both actions. Every resolved wiki link is
+recorded as a resolved `obsidian-wikilink` naming its target, with its embed,
+heading or block anchor and alias, and stored as `[[<canonical URI>#anchor|alias]]`.
+The text of an unaliased link is gone: `[[Other Note]]` becomes
+`[[document://…/doc_obsidian_public_other_note]]`, and its record's display text
+is the URI. Ambiguous, unresolved and self links carry no internal target, and
+already import. `obsidian2sql.py` imports a wiki link for Joplin as
+`[display](:/id)`, an attachment embed as `![display](:/id)`. `cleanres.py`
+counts an attachment as used only through `(:/id`.
+
+*Decided 2026-10-27:* the user chose Joplin links over wiki links kept in the
+database, which Joplin cannot open and `cleanres.py` would not count. A
+resolved wiki link becomes `[alias](:/id#heading)`, the alias or, with none,
+the note's title or the attachment's file name as its text; an attachment
+embed keeps its `!`, a note embed becomes a link. The existing export then
+writes a relative Markdown link, or `![[name]]` for an image. A block anchor
+refuses, as the design already has a Markdown one refuse; admitting both is
+[B1](#b1--block-anchors-on-internal-targets).
+
+*Found and fixed:* the scan for internal targets no record accounts for blanks a
+recorded wiki link first, and blanked it with spaces. At the start of a line
+those read as an indented code block, so the rest of the line was not checked:
+an unrecorded internal target after a withheld wiki link (R2) imported
+unrefused. The blank is now `x`, which opens no code or container, as the `[`
+or `!` it replaces opens none.
+
+*Result:* `notrios_links.py` maps each resolved wiki link, `notrios2sql.py`
+names an unaliased one's target, and a new fixture from the pinned producer,
+[publication-wiki](../../testdata/notrios/v1.0.0/README.md#the-wiki-link-publication-w1),
+holds 13 wiki links of every accepted form. Its import changes only those
+links, reruns unchanged, exports each to a relative path that exists from the
+note's folder, and gives a site whose link report is empty. The 7c libraries
+hold no resolved wiki link, or they would have refused, so the fixture is the
+evidence.
+
+### B1 — Block anchors on internal targets
+
+Found 2026-10-27 by W1. A link to a block, `[[Note#^id]]` or
+`[x](document://…#^id)`, refuses the whole publication: the design refuses a
+block anchor on an internal target because translating it through both
+Obsidian and Hugo was not implemented. Obsidian resolves `[x](Note.md#^id)`;
+`obsidian2site.py`'s `_hugo_heading_fragment` drops the `^`, so the site would
+link to a heading anchor that does not exist. Admit a block anchor on Markdown
+and wiki links alike, decide what the site does with it, and measure whether
+any library holds one. Owns `_fragment` and `_wiki_link` in `notrios_links.py`,
+the block-anchor rule in `docs/notrios-import-design.md`, and
+`_hugo_heading_fragment`.
+
+*Acceptance:* a publication with block links imports, each exports to the
+vault resolving to its block in Obsidian, and the site's link to it either
+reaches the block or is listed in the link report; every other link-projection
+test passes unchanged.
+
+*Probe, 2026-10-27.* A synthetic library published by Notrios `v1.0.0`:
+it records a link to a block, wiki or Markdown, to another note or to itself,
+as resolved with a `block` anchor and the ID after the `^`, and keeps `#^id`
+in the body; a percent-encoded `#%5Eid` it records as a heading. The import
+refuses at `_fragment`, and the vault export would too; otherwise the export
+copies a fragment as written. The site shows each `^id` as text and turns a
+link to it into `#id`, a heading anchor no page has, for every vault, not only
+on the Notrios route. Libraries, counted in aggregate: the `notes` vault holds
+19 block IDs in 12 notes and 19 wiki links to blocks in 13; `obsidian_vault`
+and the Joplin export 4 block links in one note each and no IDs; the recipe
+libraries none.
+
+*Decided 2026-10-27:* the user chose that the site anchor the block, over
+linking to the note's top and listing the link: each `^id` becomes an empty
+element with that id where it stood, and the link keeps its `^`. The user
+allowed checking the vault in Obsidian with a scratch profile, on synthetic
+vaults only.
+
+*Found and fixed:* Obsidian's rule for an ID is not the documented "a space,
+then `^id`". In its metadata cache, an ID with a space or tab before it, or
+alone on its line, or right after a wiki link, embed, Markdown link, emphasis,
+code, HTML, a highlight, a strike, math, a table row or a tag, is a block;
+after plain text, a plain `)`, a `.` or a URL it is not; one with a space or
+tab after it is not; and a link matches an ID in any case. The site follows
+that, and writes the anchor and the link lowercase. One block link in `notes`
+named an ID written straight after `]]`, which the documented rule missed.
+
+*Result:* `notrios_links.py` admits a block ID of letters, digits and dashes
+on a Markdown or wiki link and copies it as written (`[Note](:/id#^id)`); the
+vault export writes `[Note](Note.md#^id)`. `obsidian2site.py` anchors each block
+ID outside code and keeps a block link's `^`. A new fixture from the pinned
+producer,
+[publication-block](../../testdata/notrios/v1.0.0/README.md#the-block-link-publication-b1),
+holds 7 block links of every form. Its import changes only those links, reruns
+unchanged, and Obsidian opens each exported link on its block's line; the site
+gives each linked block an anchor its link reaches, which a browser follows to
+it, with an empty link report. On `notes`, the site went from 0 to 15 anchors,
+and all 12 block links it publishes reach their block; the 5 IDs still shown are
+in code, 5 block links are in code and 2 go to unpublished notes, which the
+report lists as before. The report is otherwise unchanged. The recipe libraries, the Joplin export and
+`obsidian_vault` gain no anchor, and their block links are all in code, so B1
+changes none of their sites.
+
+### R3 — Same-folder links on the site
+
+Found 2026-10-27 by R1's run over the Joplin library. `sql2obsidian.py` writes a
+link to a note in the same folder as a bare, percent-encoded name
+(`My%20Note.md`). Obsidian resolves that from the linking note's folder, but
+`_resolve_target` in `obsidian2site.py` tries a slash-less target only at the
+vault root and then by basename, and gives up when two notes share the name.
+The site then keeps the link as written, and it leads nowhere: 5 links in the
+Joplin library, each to a note with a namesake in another folder. Try the
+linking note's own folder after the vault root and before the basename lookup,
+so only a link that resolves to nothing today changes; whether the folder should
+come before the root, as in Obsidian, is the user's decision. Check
+`obsidian2sql.py`'s reimport for the same case. Owns `_resolve_target`, its
+tests and the link rules in `docs/static-site.md`.
+
+*Decided 2026-10-27:* the folder comes before the root. `obsidian2sql.py`'s
+reimport already resolves a bare name that way (`_resolve_vault_target` tries
+the note's folder, then the root, then a unique basename), so the reimport has
+no such gap and the site was the only stage that disagreed. A scan of every
+slash-less Markdown and wiki link in the three R1 vaults found the order
+changes nothing there: both orders change the same 5 Joplin links, the recipe
+vaults have none, and no link names a note that exists both beside it and at
+the root. The user chose the folder first, as in Obsidian, over the plan's
+default, accepting that on another vault such a link now opens the note beside
+it.
+
+*Acceptance:* the 5 Joplin links resolve to their same-folder notes; on the
+three 7c libraries the link report loses exactly those rows, and every other
+generated byte, URL maps included, is unchanged.
+
+*Result:* `_resolve_target` looks for a bare name beside the linking note,
+then at the root, then by a unique basename. Each 7c site was regenerated from
+R1's vaults with R1's options and compared file by file with R1's:
+
+| Library | Files compared | Content changed | Report rows lost / gained | Unreachable |
+|---|---|---|---|---|
+| Joplin | 109,861 | 5 notes, one line each | 5 / 0 | 21 → 16 |
+| Recipes from RAW | 388,208 | none | 0 / 0 | 3 |
+| Recipes from the vault | 388,159 | none | 0 / 0 | 3 |
+
+No file was added or removed, so every URL is unchanged. Apart from those 5
+notes, the only differences are timestamps and build IDs in 6 files and the
+row order of `search-source.jsonl`, as in R1. In each of the 5 notes only a
+link destination changed, to an existing note in the same folder, and the 5
+report rows lost are those links. The recipe baselines predate R1's in-page
+anchor fix and still match, so those libraries had no such anchors.
+
 ## Execution provenance
 
-Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
+Generated from [`plans/v3.38/reorganization-ledger.json`](reorganization-ledger.json).
 
 <!-- PLAN-EXECUTION:START -->
 <details><summary>L0 — complete; planned parent</summary>
@@ -554,8 +822,8 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Parent | Claude Code parent (Main) |
 | Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
 | Parent reasoning effort | not exposed |
-| Parent contribution | Read the Notrios repository's plans/, docs/ and scripts/ layout and its AGENTS.md plan, roadmap and archival rules; asked the four layout questions; archived the old PLAN.md as plans/v3.34/000-refocus-plan.md; wrote PLAN.md and docs/plan/ledger.json; moved render_notrios_execution.py to scripts/render_plan_ledger.py with --ledger and per-ledger markers, and repointed the Notrios plan's commands; pointed the README and requirements.txt at the archived plan. |
-| Validation | scripts/render_plan_ledger.py --check passes for docs/plan/ledger.json and for plans/v3.37/notrios-import-ledger.json; documentation and tooling only. |
+| Parent contribution | Read the Notrios repository's plans/, docs/ and scripts/ layout and its AGENTS.md plan, roadmap and archival rules; asked the four layout questions; archived the old PLAN.md as plans/v3.34/000-refocus-plan.md; wrote PLAN.md and plans/v3.38/reorganization-ledger.json; moved render_notrios_execution.py to scripts/render_plan_ledger.py with --ledger and per-ledger markers, and repointed the Notrios plan's commands; pointed the README and requirements.txt at the archived plan. |
+| Validation | scripts/render_plan_ledger.py --check passes for plans/v3.38/reorganization-ledger.json and for plans/v3.37/notrios-import-ledger.json; documentation and tooling only. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | User request, 2026-10-26 (repository reorganization), and the four answers recorded under Decisions in PLAN.md. |
 | Execution evidence | User request and answers, 2026-10-26 |
@@ -762,16 +1030,16 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Parent | Claude Code parent (Main) |
 | Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
 | Parent reasoning effort | not exposed |
-| Parent contribution | Read-only check found GitHub's main at cb7ddc0 (merges of pull requests 1 to 3) holding the old paths, three unwritable refs/pull/N/head refs, a public repository with no forks, and classic protection on main (force pushes off). Made a mirror backup outside the working tree. Rewrote develop and main with git filter-repo in a separate mirror: four rules (scratchpad paths, home paths, /media and /run/media account segments, <account>-backup) on blobs and messages, --prune-empty never, --prune-degenerate never. Moved this checkout onto the rewritten branches (identical tree). Mapped 210 citations of rewritten commits in nine files through the commit map, keeping PLAN.md's L8 text on the old hashes it describes; committed the map as docs/plan/l8-commit-map.txt. Published: checked force pushes enabled on main and GitHub still at 659aa41 and cb7ddc0, then pushed develop (659aa41 to 547b289) and main (cb7ddc0 to 526c073), each with --force-with-lease against those hashes. |
+| Parent contribution | Read-only check found GitHub's main at cb7ddc0 (merges of pull requests 1 to 3) holding the old paths, three unwritable refs/pull/N/head refs, a public repository with no forks, and classic protection on main (force pushes off). Made a mirror backup outside the working tree. Rewrote develop and main with git filter-repo in a separate mirror: four rules (scratchpad paths, home paths, /media and /run/media account segments, <account>-backup) on blobs and messages, --prune-empty never, --prune-degenerate never. Moved this checkout onto the rewritten branches (identical tree). Mapped 210 citations of rewritten commits in nine files through the commit map, keeping PLAN.md's L8 text on the old hashes it describes; committed the map as plans/v3.38/001-l8-commit-map.txt. Published: checked force pushes enabled on main and GitHub still at 659aa41 and cb7ddc0, then pushed develop (659aa41 to 547b289) and main (cb7ddc0 to 526c073), each with --force-with-lease against those hashes. |
 | Validation | Inventory of every blob and message on both rewritten branches: no account name outside the GitHub user name. develop's tip tree unchanged (b59b5ba). All 124 commits: same paths and modes; 577 changed blob entries each equal the old blob with the rules applied; parents mapped, authors, committers and dates equal; 7 messages changed only by filter-repo's hash mapping. The 14 hashes filter-repo left unmapped name no object here (Notrios, theme, a number). Every mapped short hash resolves to a commit; the archived Notrios ledger passes --check in place; 41 documents, 0 broken links. On the rewritten tip with the references mapped: 325 required tests passed in 207.345 s and 43 harness tests in 16.272 s, no __pycache__ written. After the push, a fresh mirror clone of GitHub has develop 547b289 and main 526c073, and no blob or message on them holds the account name; refs/pull/1/head to refs/pull/3/head still serve the old commits, as expected. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | User, 2026-10-26: Update the plan to rewrite the old paths in the Git history. |
-| Execution evidence | User: I installed git filter-repo. gh is also available. Start L8.; User answers 2026-10-27: Current; Rewrite develop and main (Recommended); Only this checkout; User: main is protected on GitHub; changes are merged by pull request into main, then merged back into develop; docs/plan/l8-commit-map.txt; Private scratchpad l8/inventory.py, l8/verify.py, l8/refs.py, l8/expressions.txt; User: I enabled force pushes on main; Force-push when ready. |
+| Execution evidence | User: I installed git filter-repo. gh is also available. Start L8.; User answers 2026-10-27: Current; Rewrite develop and main (Recommended); Only this checkout; User: main is protected on GitHub; changes are merged by pull request into main, then merged back into develop; plans/v3.38/001-l8-commit-map.txt; Private scratchpad l8/inventory.py, l8/verify.py, l8/refs.py, l8/expressions.txt; User: I enabled force pushes on main; Force-push when ready. |
 | Commit | Git commit containing this record: docs: record the published history rewrite (L8) |
 
 </details>
 
-<details><summary>H1 — pending; planned parent</summary>
+<details><summary>H1 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -779,25 +1047,25 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27; H1 authorized on 2026-10-27 (Then, start H1.), with the user's choices: the image stays HTML, and H1 also owns obsidian2site.py's src resolution and obsidian2sql.py's mapping back to :/id. |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Asked the user to choose HTML or embed and the scope (stay HTML; H1 also owns the site and reimport). common.py: HTML_IMAGE_SRC_RE (double-, single- or unquoted src after whitespace, so not data-src) and replace_html_image_sources, which changes only the value's bytes and takes an optional span predicate. sql2obsidian.rewrite_resource_links rewrites an <img> src of a known :/id to the attachment's path relative to the note. notrios_links.rewrite_projected_links does the same for projected notes, still refusing an HTML image without a mapped resource. obsidian2site.py resolves an <img> src naming a vault attachment to its asset URL in one pass over the whole note, so a tag spanning lines works, leaving tags with any byte in code, external sources and non-attachments unchanged; notes without <img skip it. obsidian2sql.rewrite_obsidian_links maps such a src back to :/id (percent-encoding and entities decoded). Tests: unit cases for each direction, the site, and the Notrios projection (renamed from keep_their_mapped_source), and one end-to-end Joplin RAW to vault, bundle and native reimport, and site test. Docs: obsidian.md, notrios.md, static-site.md, notrios-import-design.md, testing.md count; CHANGELOG. |
+| Validation | New tests pass: the vault tag keeps every byte but src, which opens the copied attachment (same bytes as the resource); the bundled reimport returns the note byte for byte; the native reimport returns the tag with src=:/id of the reimported resource; the site's src resolves to the static asset, as the Markdown image's URL does, for quoted, single-quoted and multi-line unquoted tags, with external, missing and code forms unchanged; the Notrios projection rewrites src and refuses as before. A real Hugo v0.164.0 build with the Ledger theme: the built page's img src resolves to a file in public/. Required gate 329 tests passed in 229.222 s, harness 43 tests in 15.336 s, no __pycache__ written; 41 documents, 0 broken links; 66 fences, 0 registry problems. Follow-up 2026-10-27, with the user's agreement: Obsidian, run with a separate scratch profile holding only the test vault, rendered the exported tag in Reading view and Live Preview. Obsidian resolved src to the vault's attachments/photo.png, and the image loaded at its natural 40 by 20 with width=300 and alt=chart kept. The vault's PNG was replaced by a real one, because the sample's photo.png is a 14-byte text stand-in. |
 | Delegation failure or reassignment | Moved 2026-10-26 from the Notrios import plan (status pending there, never started) at the user's direction; the original record stays in the archived ledger. |
 | Planned assignment evidence | C7d finding, 2026-10-24; moved from the Notrios import plan 2026-10-26. |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Then, start H1.; User answers 2026-10-27: Stay HTML (Recommended); Yes, both (Recommended); Private scratchpad h1/required.log, h1/harness.log, h1/site/build.log; User: You can choose which vault to open so obsidian_vault doesn't interfere with testing; answer Separate profile (Recommended) |
+| Commit | Git commit containing this record: feat: keep exported HTML images as HTML pointing at their attachment (H1) |
 
 </details>
 
-<details><summary>D1 — pending; planned parent</summary>
+<details><summary>D1 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -805,25 +1073,25 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27; D1 authorized on 2026-10-27 (Push commits. Then, start D1.). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | notrios2sql.py: _open_output_parent walks the output's parent with no-follow descriptors, as the archive reader's opener does, and names the problem as destination: parent does not exist, is not a directory, has a symlink in its path (Linux reports ENOTDIR for O_DIRECTORY&#124;O_NOFOLLOW on a symlink, so the component is checked), or cannot be opened (permission denied); other errors stay io. _refuse_unusable_output, run before the lock and verification, refuses an existing output that is a symlink, not a directory, or a directory without a regular completion marker; it runs again before verify-existing, for an output that appears during verification. A completed import of another publication is still compared after verification. Test: one subprocess test with seven cases and the other-publication case. Docs: docs/notrios.md output rules; CHANGELOG. |
+| Validation | Each case exits 1 with exactly one stderr line, error [destination]: <message>, no phase reported and the parent directory's entries unchanged; a completed v1.0.0 import refused for the loose fixture after phase verify with completion receipt or shape differs, its files unchanged. Existing refusal, rerun, race and recovery tests pass unchanged (NotriosCLITest and NotriosObjectSpoolTest, 49 tests). Required gate 330 tests passed in 254.651 s, harness 43 tests in 17.382 s, no __pycache__ written; 41 documents, 0 broken links; 66 fences, 0 registry problems. |
 | Delegation failure or reassignment | Moved 2026-10-26 from the Notrios import plan (status pending there, never started) at the user's direction; the original record stays in the archived ledger. |
 | Planned assignment evidence | 7d finding, 2026-10-26; moved from the Notrios import plan 2026-10-26. |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Push commits. Then, start D1.; Private scratchpad d1/required.log, d1/harness.log |
+| Commit | Git commit containing this record: fix: name what is wrong with an unusable notrios2sql output (D1) |
 
 </details>
 
-<details><summary>R1 — pending; planned parent</summary>
+<details><summary>R1 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -831,25 +1099,25 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27; R1 authorized on 2026-10-27 (Push commits. Then, start R1.). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | obsidian2site.py: _link_report_rows reads each note's outside-code segments in the converter's order (wiki, reference definition, Markdown, angle, HTML href/src, bare) and classifies, without changing anything, each link the site leaves unreachable, repairs or shows as text, each http: link, and tel:/mailto: to verify; data: links are counted only; footnote definitions and in-page anchors are not links; line and column come from the raw file. main writes the rows in note order through a reorder buffer to a .partial file replaced at the end, removed on failure, and prints the counts. --link-report PATH must be outside the output and the vault. The report name is in the generated .gitignore and .vercelignore and in the output cleanup. Test: one subprocess test with 21 expected rows, code and anchors not listed, counts, privacy, a byte-identical rerun, the Vercel ignore file, the refusals and a custom path. Docs: docs/static-site.md (the link report, the project listing re-registered in docs/examples.json); CHANGELOG. Plan: R3 proposed from the corpus finding. |
+| Validation | Subprocess test passes with the 21 expected rows, nothing from code or in-page anchors, the counts line, the report outside content/ and static/ and in .gitignore and .vercelignore, a byte-identical rerun, the refusals and a custom path. Generating the same vault before and after R1 gives the same site apart from the report and its ignore entries, with time and build ID masked; a real Hugo build keeps the report out of public/. 7c libraries, re-exported with the current sql2obsidian.py and generated in parallel without building: Joplin 103,349 notes 21 unreachable, 388 malformed, 4,227 insecure, 59 verify, 12 data: counted; recipes from RAW 382,206 notes 3, 89, 33,087, 0, 0; recipes from the vault 382,206 notes 3, 89, 35,219, 0, 0. The first Joplin run listed 72 in-page anchors as unrewritten vault links; after the fix the regenerated Joplin site's report lost exactly those 72 rows and nothing else, and every other file matched with time and build ID masked, search-source rows in a different order as recorded before. Export wall time 830 s, 4,408 s and 3,113 s; site wall time 1,405 s (Joplin rerun), 6,898 s and 7,440 s, the three routes run together. Required gate 331 tests passed in 226.925 s, harness 43 tests in 15.942 s, no __pycache__ written. |
 | Delegation failure or reassignment | Moved 2026-10-26 from the Notrios import plan (status pending there, never started) at the user's direction; the original record stays in the archived ledger. |
 | Planned assignment evidence | User request 2026-10-25; moved from the Notrios import plan 2026-10-26. |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Push commits. Then, start R1.; Private work root ~/movenotes-work/r1-20261027: summary.json, per-route export/site logs and times; reports kept there and never committed; Private scratchpad r1/corpus.log, r1/required2.log, r1/harness2.log |
+| Commit | Git commit containing this record: feat: report the links a web reader cannot rely on (R1) |
 
 </details>
 
-<details><summary>R2 — pending; planned parent</summary>
+<details><summary>R2 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -857,21 +1125,99 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-26; slice implementation requires user authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27; R2 authorized on 2026-10-27 (Push commits to develop. Start R2 next.). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Bounded probe only, no implementation: a synthetic Obsidian library (the titled v1 vault plus a withheld note, a private attachment, two notes named alike and a probe note) imported and published by Notrios v1.0.0 (2aab9a8) with plain_text and with retain; link records and bodies compared; notrios2sql.py run on each; the three bounded 7c publications checked for body URIs to unpublished documents (0 each) and for document ID shapes. Plan: probe results in R2, W1 proposed. Then, after the user chose (a) now and (b) on the roadmap: notrios_archive.py admits unresolved, ambiguous, invalid and target_excluded link records, each with no target ID and a clean destination (UNRESOLVED_LINK_STATUSES). notrios_links.py: _withheld and _withheld_text; validate_links blanks withheld one-line wiki spans before scanning, replaces each withheld Markdown or wiki span with its text or [redacted] (empty text or an internal URI), refuses one in code or one that still names a target, copies other unresolved records as written, and returns withheld_links. notrios2sql.py: the summary's withheld_links, counted in preflight so a rerun reports it too. Fixture: testdata/notrios/vault-retain-v1, generate_v1_retain.py and v1.0.0/publication-retain from the pinned v1.0.0 binary (same SHA-256 as publication-titled). Tests: NotriosV1RetainTest (3), a validate_links unit test with five refusals, archive refusals for the new statuses with a target, four pinned summaries updated. Harness: PUBLISH_LINK_ACTION = retain for the bounded tier. Docs: docs/notrios.md (Which link action to use, registered and run with notriosctl), the contract's link rule, the design, the fixture README, CHANGELOG, ROADMAP (b). |
+| Validation | Probe as recorded. Fixture generator's raw-byte checks: every body line once, 19 statuses as expected, nothing rewritten, five targets cleared, the withheld note's body absent. Import: created then unchanged with the same summary, withheld_links 6; database body equals the published body with only the withheld spans and the one resolved destination changed; database, vault and site hold none of doc_obsidian_private, hidden_plan, Hidden Plan, Hidden%20Plan or either sentinel; the site's link report lists exactly the 11 kept destinations and counts the data: link. Each validate_links refusal checked for its own message. Bounded 7c tier with retain, every stage exit 0: Joplin 0 rewritten, 15 withheld replaced, 10 unresolved kept (4 relative, 2 file:, 4 data:), site report 7 unreachable, 1 malformed, 32 insecure, 4 data: counted, none of the 15 withheld IDs in any vault or site file; both recipe routes 0 withheld and 0 unresolved. docs/notrios.md examples: 6 of 6 pass with --with-tools. Required gate 335 tests passed in 281.877 s, harness 43 tests in 23.111 s; a root __pycache__ from the probe's own import (12:08, not the gate) was removed. |
 | Delegation failure or reassignment | Moved 2026-10-26 from the Notrios import plan (status pending there, never started) at the user's direction; the original record stays in the archived ledger. |
 | Planned assignment evidence | User chose option (a) 2026-10-25; moved from the Notrios import plan 2026-10-26. |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Push commits to develop. Start R2 next.; Private scratchpad r2/probe.sh, r2/links.py, r2/leak.py and the probe archives; User: add (b) to the roadmap as a Notrios follow-up, and continue R2 with (a).; Private 7c work root: bounded publish, convert, vault-export and site-generate stages; scratchpad r2/bounded.log, r2/required.log, r2/harness.log |
+| Commit | Git commit containing this record: feat: read Notrios publications made with retain (R2) |
+
+</details>
+
+<details><summary>R3 — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27; R3 authorized on 2026-10-27 (Push commits; Then, start R3.). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Checked obsidian2sql.py's _resolve_vault_target (folder, root, unique basename: no gap). Scanned every slash-less Markdown and wiki link in the three R1 vaults against both orders (aggregate counts only) and asked the user; the user chose the folder before the root. obsidian2site.py: _resolve_target tries a bare name beside the linking note, then at the root, then by a unique basename. Test: test_a_bare_link_resolves_beside_the_linking_note_before_the_vault_root (same folder over root and over a namesake elsewhere, a percent-encoded name, an aliased wiki link, a unique basename elsewhere, the root's own link to the root note, an empty link report); it fails without the fix. Docs: docs/static-site.md conversion rule, CHANGELOG. Plan: decision, result table, log. |
+| Validation | Order scan: Joplin 1,644 slash-less Markdown and 332 wiki links, both orders change the same 5 Markdown links, none named in both the folder and the root; recipe vaults none. Three 7c sites regenerated from R1's vaults with R1's options (Joplin 2,120 s, recipes 7,897 s and 8,270 s) and compared file by file with R1's: no file added or removed; Joplin 5 notes changed on one line each, only a link destination, each now a same-folder generated note, link report 4,696 to 4,691 rows with the 5 lost rows those links and none gained, unreachable 21 to 16; both recipe routes no content change and identical report rows; otherwise timestamps and IDs in 6 files and search-source.jsonl row order. Required gate 336 tests passed in 354.493 s, harness 43 tests in 28.145 s; no __pycache__. |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | R1 corpus finding, 2026-10-27. |
+| Execution evidence | User: Push commits; Then, start R3.; User chose: Folder before root (Recommended); Private scratchpad r3/measure.py and r3/measure.out (aggregate counts only); Private work root r3-20261027 (sites, compare-detail.json); scratchpad r3/corpus.sh, r3/compare.py, r3/compare.out, r3/gate.txt |
+| Commit | Git commit containing this record: fix: resolve a bare site link beside the linking note first (R3) |
+
+</details>
+
+<details><summary>W1 — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27; W1 authorized on 2026-10-27 (Push commits to develop; Then, start W1.). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Probe: a synthetic Obsidian library with every wiki form published by Notrios v1.0.0 (2aab9a8) with plain_text and retain; records and bodies read raw; obsidian2sql.py's Joplin form and cleanres.py's reference scan checked; the user chose Joplin links. notrios_links.py: _wiki_link maps a resolved wiki record whose span names its target to [label](:/id#heading) (![label](:/id) for an attachment embed), checking span, target, relation, display text and anchor against the record, the attachment relation, and refusing block anchors and attachment fragments; _wiki_text escapes the label; validate_links blanks resolved as well as withheld wiki spans, with x instead of spaces, and takes a label callback. notrios2sql.py: the callback gives the target note's current title or the attachment's file name. Fixture: testdata/notrios/vault-wiki-v1, generate_v1_wiki.py and v1.0.0/publication-wiki from the pinned binary. Tests: test_resolved_wiki_links_become_joplin_links (9 forms, 15 refusals each checked for its message, including the blanking regression for resolved and withheld links), NotriosV1WikiTest (3). Docs: docs/notrios.md, docs/notrios-import-design.md, the fixture README, CHANGELOG. Plan: probe, decision, the blanking fix, result, B1 proposed. |
+| Validation | Probe as recorded; R2's plain_text probe with an unaliased wiki link to a withheld note still refuses, on the withheld URI left in the body with no record. Fixture generator's raw-byte checks: every body line once, 14 resolved links, 13 of them wiki links, only [[Nowhere]] rewritten, nothing cleared. Import: created then unchanged with the same summary, withheld_links 0; the database body equals the published body with only the four link lines mapped; the vault's links resolve to Other Note.md, Deep/Child.md, R&D Notes.md and ../attachments/doc.pdf from the note's folder, the image embed to the exported shot.png with the input bytes; the site's link report is empty. Unit test: every refusal checked for its own message; the blanking regression fails with spaces and passes with x. Bounded 7c publications hold 0 wiki link records (Joplin 686 link lines, recipes none), so W1 changes none of their output. Required gate 340 tests passed in 288.236 s, harness 43 tests in 19.809 s; no __pycache__. |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | R2 probe finding, 2026-10-27. |
+| Execution evidence | User: Push commits to develop; Then, start W1.; User chose: Joplin links (Recommended); Private scratchpad w1/ (probe archives, imports and vaults); Private scratchpad w1/gate.txt, w1/required.log, w1/harness.log |
+| Commit | Git commit containing this record: feat: import resolved wiki links from Notrios (W1) |
+
+</details>
+
+<details><summary>B1 — complete; planned parent</summary>
+
+| Property | Value |
+|---|---|
+| Coding agent | claude |
+| Planned worker | parent |
+| Planned configured model | not exposed; runtime reports claude-opus-5-5 |
+| Planned reasoning effort | not exposed |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27; B1 authorized on 2026-10-27 (Push commits. Then, start B1.). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Probe: a synthetic Obsidian library with wiki and Markdown block links, to another note and to itself, published by Notrios v1.0.0 (2aab9a8); records and bodies read raw; the import's and export's fragment checks and the site's fragment and marker handling read; block IDs and block links counted in aggregate over five libraries; the user chose that the site anchor the block. Obsidian checked in scratch profiles over CDP on synthetic vaults only, with the user's permission: the exported links, and which forms its metadata cache reads as a block. notrios_links.py: _fragment admits a block ID of ASCII letters, digits and dashes and refuses any other ^ fragment; _wiki_link writes a block ID unencoded. obsidian2site.py: _anchor_block_ids turns each block ID outside code into an empty lowercase element where it stood, by Obsidian's observed rule; _hugo_heading_fragment keeps a block's ^, lowercase, and links keep ^ unquoted. Fixture: testdata/notrios/vault-block-v1, generate_v1_block.py and v1.0.0/publication-block from the pinned binary. Tests: test_a_link_to_a_block_keeps_its_id, block forms and an invalid ID in test_resolved_wiki_links_become_joplin_links, invalid block fragments in the URI-variant refusals, test_a_block_id_becomes_an_anchor_that_block_links_reach, NotriosV1BlockTest (3). Docs: docs/static-site.md, docs/notrios.md, docs/notrios-import-design.md, the fixture README, ROADMAP, CHANGELOG. Plan: probe, decision, the Obsidian-rule finding, result. |
+| Validation | Probe as recorded; before the change the probe publication refused with unsupported heading fragment, after it imported, exported and resolved. Fixture generator's raw-byte checks: every body line and block ID line once, 8 resolved links, 4 wiki links, 7 block anchors and one heading %5Eq3, nothing rewritten or cleared. Import: created then unchanged with the same summary, withheld_links 0; the database body equals the published body with only the three link lines mapped; every exported link names a block its target note holds. Obsidian (scratch profile, synthetic vaults): all 7 probe links and all 8 fixture links open their note with the cursor on the block's line, %5E included; its metadata cache's block forms are pinned in the site test. Site: a Playwright browser following #%5Eblk1 and #%5Eown targets the ^blk1 and ^own anchors, and no ^ shows in the article; the site test fails without the site change. notes vault, aggregate only: before 0 anchors, 0 block links reaching; after 15 anchors, all 12 published block links reach their block; the 5 IDs still shown are in code; of 19 wiki block links 5 are in code and 2 go to unpublished notes, listed in the report as before; link report categories identical. Required gate 345 tests in 299.699 s: 344 passed, and test_examples_share_a_home_and_failures_missing_tools_and_servers_are_reported failed once (3 of 7 synthetic examples passed where 4 should, in its --with-tools run of a synthetic README that runs no movenotes code); it passed alone three times, and tests/test_doc_examples.py with tests/test_docs.py passed in full (6 tests). Harness 43 tests in 21.227 s. No __pycache__. Other libraries, with obsidian2site._anchor_block_ids over every note: recipe vault (382,206 files), recipe RAW (1,237,553), Joplin export (111,359) and obsidian_vault (103,378) gain no anchor, and their 4 + 4 block links are all in code, so B1 changes none of their sites; notes gains 15 anchors in 12 notes, as its site shows. |
+| Delegation failure or reassignment | none recorded |
+| Planned assignment evidence | W1 finding, 2026-10-27. |
+| Execution evidence | User: Push commits. Then, start B1.; User chose: Anchor the block (Recommended); Yes, scratch profile (Recommended); Yes, synthetic vault (Recommended); Private ~/movenotes-work/b1-20261027/ (aggregate counts; notes site before and after); Private scratchpad b1probe/ (probe archive, import, vaults, Obsidian scratch profiles), b1gen/; Private scratchpad b1/gate.txt, b1/required.log, b1/harness.log |
+| Commit | Git commit containing this record: feat: links to a block through the Notrios import and on the site (B1) |
 
 </details>
 <!-- PLAN-EXECUTION:END -->
@@ -895,3 +1241,18 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-27 | New session; L8 authorized | The user re-confirmed the assignments for the new session, and: "I installed `git filter-repo`. `gh` is also available. Start L8." A read-only check found GitHub's `main` at `cb7ddc0` with the old paths, and pull-request refs that cannot be rewritten; the user chose to rewrite `develop` and `main`, and said `main` is protected and is updated by merging a pull request, then merging back into `develop`. Publishing needs separate permission. |
 | 2026-10-27 | L8 rewritten locally | `git filter-repo` rewrote `develop` and `main` after a mirror backup. No blob or message on either branch holds the account name, the tip tree is unchanged, and every commit differs from its original only by L1's replacements. 210 references to rewritten commits are mapped, and the map is committed. Nothing is pushed: publishing needs the user's permission, and force pushes enabled on `main`. |
 | 2026-10-27 | L8 complete | The user: "I enabled force pushes on `main`; Force-push when ready." `develop` (`659aa41` to `547b289`) and `main` (`cb7ddc0` to `526c073`) were pushed with leases against their old tips. A fresh clone of GitHub holds the account name in no blob or message. Left to the user: turning force pushes off on `main`, asking GitHub Support to remove `refs/pull/1-3/head` and the cached views, and saying when the backup can go. The next pull request from `develop` brings `main` up to date. Next: ask to proceed to H1. |
+| 2026-10-27 | Branches synced; H1 authorized | The user turned force pushes off on `main` and asked to push `develop`, open a pull request to `main`, merge back into `develop`, then start H1. Pull request #4 merged as `5970504`, and `develop` fast-forwarded to it. For H1 the user chose that an exported HTML image stays HTML with only its `src` rewritten, and that H1 also owns the site's `src` resolution and the reimport's mapping back to `:/id`. |
+| 2026-10-27 | H1 complete | An exported HTML image keeps its tag, with only `src` changed to the attachment's path relative to the note, on both the Joplin and the Notrios paths. The site resolves it to the asset URL, including a tag that spans lines, which the line-at-a-time conversion would have missed. A native reimport maps it back to `:/id`, and a bundled one returns the note byte for byte. A real Hugo build shows the image. 329 required and 43 harness tests pass. Next: ask to proceed to D1. |
+| 2026-10-27 | H1 pushed; D1 complete | `b0d3dbe` pushed. `notrios2sql.py` now refuses an unusable `--output` before reading the archive, as `error [destination]` naming the problem: a parent that does not exist, is not a directory, cannot be opened or has a symlink in its path, or an output that exists and is not a directory or not a completed import. A completed import of another publication is still refused after verification. 330 required and 43 harness tests pass. Next: ask to proceed to R1. |
+| 2026-10-27 | H1 checked in Obsidian | With the user's agreement, Obsidian ran with a separate scratch profile, after two launches with the default profile had opened the user's large `obsidian_vault` instead (the first by mistake, through `--version`; the second because `obsidian://open?path=` knows only listed vaults). Both instances were closed. Obsidian showed the exported `<img>` in Reading view and Live Preview, resolved to the vault's attachment, at its natural size, with `width` and `alt` kept. The user's own vault list is unchanged. |
+| 2026-10-27 | R1 complete | `obsidian2site.py` writes `movenotes-link-report.csv` beside the project on every run: one row per link a web reader cannot rely on, `unreachable`, `malformed`, `insecure` or `verify`, with the note, line, column, label, destination and what the site did, and the counts per category on stdout. A link never fails generation, nothing in code is listed, and the report stays outside `content/` and `static/` and is listed in the generated `.gitignore` and `.vercelignore`. The rest of the site is byte-identical apart from timestamps, the build ID and the known search-source row order. The 7c run listed 72 in-page anchors as unrewritten vault links; that is fixed. It also found 5 same-folder links the site cannot resolve, proposed as R3. Counts are in [R1](#r1--the-link-report). 331 required and 43 harness tests pass. Next: ask to proceed to R2. |
+| 2026-10-27 | R1 pushed; R2 probe | The user: "Push commits to develop. Start R2 next." `ad675cf` pushed. R2's probe published a synthetic Obsidian library with both link actions. `retain` keeps every non-internal destination byte for byte, but puts each withheld note's ID into the handoff, inside spans the import could replace. `plain_text` already leaks that ID for a wiki link without an alias, which movenotes contains by refusing the publication. Any resolved wiki link refuses the import, proposed as W1. Next: the user's choice between option (a), with a handoff that carries withheld IDs, and option (b), a producer change. |
+| 2026-10-27 | R2 decided | Asked how (a) and (b) map to a site on the author's machine, an intranet and the Internet, and recommended both, the user: "add (b) to the roadmap as a Notrios follow-up, and continue R2 with (a)." (b) is on the roadmap; R2 continues with `retain` through `publish`. |
+| 2026-10-27 | R2 complete | `notrios2sql.py` reads a `retain` publication: unresolved, ambiguous and invalid records naming no internal target are copied as written, and each `target_excluded` link, or one naming an internal target that does not exist, becomes its text or `[redacted]` before anything is written, counted as `withheld_links` in the summary. A new fixture from the pinned producer, `testdata/notrios/v1.0.0/publication-retain`, covers each form; its database, vault and site hold no form of the withheld note's identity. The bounded 7c tier now publishes with `retain`: Joplin's 10 links Notrios could not resolve arrive and are reported, its 15 withheld links are replaced, and no withheld ID reaches its vault or site. `docs/notrios.md` says which action suits which site. 335 required and 43 harness tests pass. Next: ask whether to push, and whether to start R3 or W1. |
+| 2026-10-27 | R2 pushed; R3 decided | `cb8864b` and `e695482` pushed to `develop`. R3 started: `obsidian2sql.py` already resolves a bare name in the note's folder before the root, and a scan of the three R1 vaults found both orders change the same 5 Joplin links and nothing else. The user chose the folder before the root, as in Obsidian. |
+| 2026-10-27 | R3 complete | `obsidian2site.py` resolves a bare link beside the linking note, then at the root, then by a unique basename, as Obsidian and `obsidian2sql.py` do. The three regenerated 7c sites match R1's except in the 5 Joplin notes whose same-folder link now opens its note, and the link report loses exactly those rows; no URL changed. 336 required and 43 harness tests pass. Next: ask whether to push, and whether to start W1. |
+| 2026-10-27 | R3 pushed; W1 decided | `47b76c8` pushed to `develop`. W1 started with a probe of every wiki form through Notrios `v1.0.0`; the user chose to import resolved wiki links as Joplin links, as `obsidian2sql.py` does, over wiki links in the database. |
+| 2026-10-27 | W1 complete | `notrios2sql.py` imports a resolved wiki link as `[alias](:/id#heading)`, and the vault export writes it as a relative link. Fixed the scan for unaccounted internal targets, which a blanked wiki link at a line's start hid. New fixture `publication-wiki` from the pinned producer. A block anchor still refuses, now proposed as B1. 340 required and 43 harness tests pass. Next: ask whether to push, and whether to start B1. |
+| 2026-10-27 | W1 pushed; B1 decided | `c92a80b` pushed to `develop`. B1's probe found the site broken for block links in every vault, not only on the Notrios route. The user chose that the site anchor the block, and allowed Obsidian checks in a scratch profile on synthetic vaults. |
+| 2026-10-27 | B1 complete | `notrios2sql.py` keeps a block link's `#^id`, the vault export writes `[x](Note.md#^id)`, and Obsidian opens it on the block. `obsidian2site.py` anchors each block ID where Obsidian reads one, found by measuring its metadata cache rather than from its documentation, and keeps the `^` in links. New fixture `publication-block` from the pinned producer. On `notes`, all 12 published block links now reach their block; no other library's site changes. 345 required tests pass, one of them on rerun after a flaky first run, and 43 harness tests pass. Also brought the L7, L8, H1 and D1 rows of the slice table, left as proposed, in line with the ledger: every slice is complete. Next: ask whether to push, and whether to archive the plan. |
+| 2026-10-27 | B1 pushed; released 3.38; plan archived | The user: "Push commits. Archive the current plan. Defer creating the next plan; it will be created at a future date. Create a pull request and then merge `develop` into `main`. Then, sync branches by merging `main` into `develop`." `56127f5` pushed. Released 3.38: the CHANGELOG's unreleased section is now 3.38, and `notrios2sql.py`, `obsidian2sql.py`, `obsidian2site.py` and `sql2obsidian.py`, the scripts changed since 3.37 that carry a version, report 3.38. This plan, its ledger and its one working record, the L8 commit map, moved to `plans/v3.38/`. No next plan is written. |

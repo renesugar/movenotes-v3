@@ -1,0 +1,138 @@
+{
+  "producer_commit": "2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a",
+  "producer_tag": "v1.0.0",
+  "cli_sha256": "b4f368a9879ce16b544c0d7bd175f95ad4647b43b71f0172bf0344dda048e55c",
+  "build_info": "<notriosctl>: go1.27.0\n\tpath\tgithub.com/renesugar/notrios/cmd/notriosctl\n\tmod\tgithub.com/renesugar/notrios\tv1.0.0\t\n\tdep\tgithub.com/godbus/dbus/v5\tv5.2.2\th1:TUR3TgtSVDmjiXOgAAyaZbYmIeP3DPkld3jgKGV8mXQ=\n\tdep\tgithub.com/zalando/go-keyring\tv0.2.8\th1:6sD/Ucpl7jNq10rM2pgqTs0sZ9V3qMrqfIIy5YPccHs=\n\tdep\tgolang.org/x/crypto\tv0.51.0\th1:IBPXwPfKxY7cWQZ38ZCIRPI50YLeevDLlLnyC5wRGTI=\n\tdep\tgolang.org/x/sys\tv0.44.0\th1:ildZl3J4uzeKP07r2F++Op7E9B29JRUy+a27EibtBTQ=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\tDefaultGODEBUG=cryptocustomrand=1,tlssecpmlkem=0,tracebacklabels=0,urlstrictcolons=0,x509sslcertoverrideplatform=0\n\tbuild\tCGO_ENABLED=1\n\tbuild\tCGO_CFLAGS=\n\tbuild\tCGO_CPPFLAGS=\n\tbuild\tCGO_CXXFLAGS=\n\tbuild\tCGO_LDFLAGS=\n\tbuild\tGOARCH=amd64\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n\tbuild\tvcs=git\n\tbuild\tvcs.revision=2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a\n\tbuild\tvcs.time=2026-10-22T15:38:41Z\n\tbuild\tvcs.modified=false\n",
+  "vault_files": {
+    "Private/Hidden Plan.md": {
+      "sha256": "46921d9d40a39e4c9e6b450e11b3442fbffead1393e5a10bba24da37a67faac8",
+      "size_bytes": 57
+    },
+    "Public/A/Dup.md": {
+      "sha256": "06e8982b0d9ee1b80ac0db762ef3edce2740e0819951827bb51bfc4370a19262",
+      "size_bytes": 13
+    },
+    "Public/B/Dup.md": {
+      "sha256": "0a6db9183a44a10a122c9e1c202aae315653644adb8b1ca1a1ed79b3c700233c",
+      "size_bytes": 13
+    },
+    "Public/Links.md": {
+      "sha256": "81848855cdcf57fac63304fdcb4ef48d70fb9c71edcda81339c016c30e2666fc",
+      "size_bytes": 635
+    },
+    "Public/Other.md": {
+      "sha256": "ba391623a2a2ab612b7e736501ee92e969daf19f49e40693baa8962a3c4446f2",
+      "size_bytes": 19
+    }
+  },
+  "generator_sha256": "0d3d51047b60788b825b60973f5199f6f87789df869d4c5f6b33f5cf7c518332",
+  "helper_sha256": "314c3d61a7010e2d6ade393f21eaa11b74d778594197fde5cd8c2544c2baff91",
+  "commands": [
+    {
+      "stage": "import-obsidian",
+      "argv": [
+        "<notriosctl>",
+        "import",
+        "obsidian",
+        "--config",
+        "<work>/empty.yaml",
+        "--db",
+        "<work>/library/notes.sqlite",
+        "--asset-store",
+        "<work>/library/assets",
+        "<work>/vault"
+      ],
+      "exit_code": 0
+    },
+    {
+      "stage": "profile-save",
+      "argv": [
+        "<notriosctl>",
+        "publish",
+        "profile",
+        "save",
+        "--config",
+        "<work>/empty.yaml",
+        "--db",
+        "<work>/library/notes.sqlite",
+        "--asset-store",
+        "<work>/library/assets",
+        "--profiles",
+        "<work>/library/profiles.json",
+        "--name",
+        "fixture",
+        "--target",
+        "publication_handoff",
+        "--notebooks",
+        "nb_obsidian_public,nb_obsidian_public_a,nb_obsidian_public_b",
+        "--link-action",
+        "retain"
+      ],
+      "exit_code": 0
+    },
+    {
+      "stage": "plan",
+      "argv": [
+        "<notriosctl>",
+        "publish",
+        "plan",
+        "--config",
+        "<work>/empty.yaml",
+        "--db",
+        "<work>/library/notes.sqlite",
+        "--asset-store",
+        "<work>/library/assets",
+        "--profiles",
+        "<work>/library/profiles.json",
+        "--profile",
+        "fixture"
+      ],
+      "exit_code": 0
+    },
+    {
+      "stage": "publish-run",
+      "argv": [
+        "<notriosctl>",
+        "publish",
+        "run",
+        "--config",
+        "<work>/empty.yaml",
+        "--db",
+        "<work>/library/notes.sqlite",
+        "--asset-store",
+        "<work>/library/assets",
+        "--profiles",
+        "<work>/library/profiles.json",
+        "--profile",
+        "fixture",
+        "--reviewed-plan",
+        "a681ac22100ae29f631e66ef55b38dea28377c985071a882870bf4afee674498",
+        "<work>/archive"
+      ],
+      "exit_code": 0
+    },
+    {
+      "stage": "compatibility",
+      "argv": [
+        "<notriosctl>",
+        "compatibility",
+        "archive-v2",
+        "--reader",
+        "current-v2",
+        "<work>/archive"
+      ],
+      "exit_code": 0
+    },
+    {
+      "stage": "verify",
+      "argv": [
+        "<notriosctl>",
+        "verify",
+        "archive-v2",
+        "<work>/archive"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "reproduction": "Fresh IDs/timestamps differ; compare semantic expectations. Archive bytes are unmodified."
+}

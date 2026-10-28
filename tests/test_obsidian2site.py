@@ -3,15 +3,18 @@
 
 from __future__ import annotations
 
+import csv
 import json
+import posixpath
 import re
 import subprocess
 import sys
 import tempfile
 import tomllib
 import unittest
+import urllib.parse
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import obsidian2site
 
@@ -783,6 +786,209 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             # An undelimited suffix is dropped, as before; external titles stay.
             self.assertEqual(untitled[3], untitled[0])
             self.assertEqual(titled[3], '[W](https://example.test/x "Web")')
+
+    def test_a_bare_link_resolves_beside_the_linking_note_before_the_vault_root(self) -> None:
+        # R3: as in Obsidian and obsidian2sql.py, a slash-less name is looked
+        # for in the linking note's folder, then at the root, then by a unique
+        # basename. sql2obsidian.py writes same-folder links this way.
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-same-folder-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            site = root / "site"
+            for folder in ("A", "B", "C"):
+                (vault / folder).mkdir(parents=True)
+            notes = {"Dup.md": "Root dup", "A/Dup.md": "A dup", "B/Dup.md": "B dup",
+                     "A/My Note.md": "A my note", "B/My Note.md": "B my note", "C/Solo.md": "C solo"}
+            for path, title in notes.items():
+                (vault / path).write_text(f"---\ntitle: {title}\n---\n# {title}\n", encoding="utf-8")
+            (vault / "A" / "Linker.md").write_text(
+                "# Linker\n\n[md](Dup.md) [[Dup]] [enc](My%20Note.md) [[My Note|alias]] [solo](Solo.md)\n",
+                encoding="utf-8",
+            )
+            (vault / "Top.md").write_text("# Top\n\n[md](Dup.md) [[Dup]]\n", encoding="utf-8")
+            run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+
+            def titles(note: str) -> list[str]:
+                output = PurePosixPath("notes") / note
+                _metadata, body = read_json_frontmatter(site / "content" / output)
+                found = []
+                for link in re.findall(r"\]\(([^)\s]+)\)", body):
+                    target = posixpath.normpath(posixpath.join(output.parent.as_posix(), urllib.parse.unquote(link)))
+                    metadata, _body = read_json_frontmatter(site / "content" / PurePosixPath(target).with_suffix(".md"))
+                    found.append(metadata["title"])
+                return found
+
+            self.assertEqual(titles("a/linker.md"), ["A dup", "A dup", "A my note", "A my note", "C solo"])
+            self.assertEqual(titles("top.md"), ["Root dup", "Root dup"])
+            with (site / obsidian2site.LINK_REPORT_NAME).open(newline="", encoding="utf-8") as handle:
+                self.assertEqual(len(list(csv.reader(handle))), 1)
+
+    def test_a_block_id_becomes_an_anchor_that_block_links_reach(self) -> None:
+        # B1: Obsidian hides `^id` and lands `#^id` on its block, in any case.
+        # The site leaves a lowercase element with that id where the marker
+        # was, outside code only, and a link to the block keeps its `^`. The
+        # forms are what Obsidian 1.x's metadata cache reads as a block, and
+        # does not, measured on 2026-10-27.
+        blocks = ["First paragraph ^blk-1", "- item ^Item2", "  - nested ^n3\r", "^q4", "Spaced  ^s5",
+                  "Tab\t^t6", "After [[Other]]^w7", "![[Other]]^e8", "[md](Other.md)^m9", "**bold**^b10",
+                  "*it*^i11", "`code`^c12", "<b>h</b>^h13", "==hl==^l14", "~~s~~^k15", "$x$^x16",
+                  "| c | d |^r17", "#tag^g18", "Last ^end"]
+        not_blocks = ["Code `x ^c5`", "Glued text^no1", "plain)^no2", "end.^no3",
+                      "Trailing space ^no5 ", "Trailing tab ^no6\t", "x^7, [^8]", "^under_score", "a ^dot.9",
+                      "a ^no-7 b"]
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-block-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            site = root / "site"
+            vault.mkdir()
+            (vault / "Other.md").write_text("# Other\n", encoding="utf-8")
+            (vault / "Target.md").write_text(
+                "# Target\n\n" + "\n\n".join(blocks[:3]) + "\n\n> quote\n\n" + "\n\n".join(blocks[3:])
+                + "\n\n" + "\n\n".join(not_blocks) + "\n\nurl https://e.test/^no4\n\n```\nfenced ^c6\n```\n\n    indented ^ok20\n\n## Heading Two\n",
+                encoding="utf-8",
+            )
+            (vault / "Linker.md").write_text(
+                "# Linker\n\n[[Target#^blk-1]] [[Target#^Item2|item]] [md](Target.md#^n3) [enc](Target.md#%5Eq4) "
+                "[[Target#^W7]] [[#^own]] [self](#^own) [[Target#Heading Two]]\n\nMine ^own\n",
+                encoding="utf-8",
+            )
+            run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+            _metadata, target = read_json_frontmatter(site / "content" / "notes" / "target.md")
+            _metadata, linker = read_json_frontmatter(site / "content" / "notes" / "linker.md")
+            ids = [re.search(r"\^([A-Za-z0-9-]+)\s*$", block)[1].lower() for block in blocks]
+            # The site, like any converter here, does not parse indented code.
+            self.assertEqual(re.findall(r'<span id="\^([^"]*)"></span>', target), ids + ["ok20"])
+            self.assertIn("First paragraph<span", target)
+            self.assertIn("After [Other](other.html)<span", target)
+            for text in not_blocks + ["fenced ^c6", "url [https://e.test/^no4](https://e.test/%5Eno4)"]:
+                self.assertIn(text, target)
+            self.assertEqual(re.findall(r"\]\(([^)\s]+)\)", linker), [
+                "target.html#^blk-1", "target.html#^item2", "target.html#^n3", "target.html#^q4",
+                "target.html#^w7", "linker.html#^own", "#^own", "target.html#heading-two"])
+            self.assertIn('Mine<span id="^own"></span>', linker)
+            # Only the URL is reported, as the converter repairs its `^`.
+            with (site / obsidian2site.LINK_REPORT_NAME).open(newline="", encoding="utf-8") as handle:
+                self.assertEqual([(row["note"], row["category"]) for row in csv.DictReader(handle)],
+                                 [("Target.md", "malformed")])
+
+    def test_html_image_sources_resolve_to_the_asset_url_and_keep_the_tag(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-html-image-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            site = root / "site"
+            (vault / "Deep").mkdir(parents=True)
+            (vault / "assets").mkdir()
+            (vault / "assets" / "picture.png").write_bytes(b"\x89PNG\r\n\x1a\nimage")
+            (vault / "Deep" / "Note.md").write_text(
+                "# Note\n\n"
+                "P ![P](../assets/picture.png)\n\n"
+                'H <img width="9" src="../assets/picture.png" alt="P">\n\n'
+                "S <img src='../assets/picture.png'/>\n\n"
+                "U <img\n  alt=x\n  src=../assets/picture.png>\n\n"
+                'W <img src="https://example.test/x.png"> M <img src="../assets/missing.png">\n\n'
+                'C `<img src="../assets/picture.png">`\n',
+                encoding="utf-8",
+            )
+            run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+            _metadata, body = read_json_frontmatter(site / "content" / "notes" / "deep" / "note.md")
+            url = re.search(r"!\[P\]\(([^)]+)\)", body).group(1)
+            self.assertTrue((site / "static" / posixpath.normpath(posixpath.join("notes/deep", url))).is_file())
+            self.assertIn(f'H <img width="9" src="{url}" alt="P">', body)
+            self.assertIn(f"S <img src='{url}'/>", body)
+            self.assertIn(f"U <img\n  alt=x\n  src={url}>", body)
+            self.assertIn('W <img src="https://example.test/x.png"> M <img src="../assets/missing.png">', body)
+            self.assertIn('C `<img src="../assets/picture.png">`', body)
+
+    LINK_REPORT_NOTE = (
+        "---\ntitle: Links\n---\n# Links\n\n"
+        "[file](file:///C:/Users/x/report.pdf) [drive](C:\\Users\\x\\a.txt) [unc](\\\\server\\share\\a.txt)\n"
+        "[js](javascript:void(0)) [app](joplin://x-callback-url/openNote?id=1) [about](about:blank)\n"
+        "[missing](Missing.md) [[Missing wiki]] [internal](:/0123456789abcdef0123456789abcdef) "
+        "[doc](document://default/documents/doc_x)\n"
+        "[bad](http://exa%mple.com/) [slash](https:\\\\example.com\\path) [port](http://example.com:99999/)\n"
+        "[insecure](http://example.com/) <http://angle.example/> bare http://bare.example/x.\n"
+        "[tel](tel:+15551234567) [mail](mailto:someone@example.com) ![data](data:image/png;base64,AAAA)\n"
+        "[ok](https://example.com/) [note](../Other.md) [[Other]] [anchor](#links) ![img](../assets/p.png)\n"
+        '<a href="../Other.md">html note</a> <a href="https://ok.example/">fine</a> '
+        '<img src="nothere.png"> <img src="../assets/p.png"> <a href="#fn:1">1</a>\n\n'
+        "[ref]: ../Other.md\n[top]: #links\n[^1]: footnote text\n\n"
+        "`[code](file:///x)` and a block:\n\n"
+        "```text\n[code](file:///x) http://code.example/ [[Nowhere]]\n```\n"
+    )
+    LINK_REPORT_ROWS = [
+        ["unreachable", "file: URL", "6", "1", "file", "file:///C:/Users/x/report.pdf", "kept"],
+        ["unreachable", "drive-letter path", "6", "39", "drive", "C:\\Users\\x\\a.txt", "kept"],
+        ["unreachable", "UNC path", "6", "65", "unc", "\\\\server\\share\\a.txt", "kept"],
+        ["unreachable", "javascript: link", "7", "1", "js", "javascript:void(0)", "kept"],
+        ["unreachable", "joplin: link", "7", "26", "app", "joplin://x-callback-url/openNote?id=1", "kept"],
+        ["unreachable", "about: link", "7", "71", "about", "about:blank", "kept"],
+        ["unreachable", "resolves to no published note or attachment", "8", "1", "missing", "Missing.md", "kept"],
+        ["unreachable", "wiki link resolves to no published note or attachment", "8", "23", "", "Missing wiki",
+         "shown as text"],
+        ["unreachable", "unresolved internal link", "8", "40", "internal", ":/0123456789abcdef0123456789abcdef", "kept"],
+        ["unreachable", "unresolved internal link", "8", "87", "doc", "document://default/documents/doc_x", "kept"],
+        ["malformed", "malformed URL", "9", "1", "bad", "http://exa%mple.com/", "repaired to http://exa%25mple.com/"],
+        ["malformed", "malformed URL", "9", "29", "slash", "https:\\\\example.com\\path", "kept"],
+        ["malformed", "malformed URL", "9", "63", "port", "http://example.com:99999/", "shown as text"],
+        ["insecure", "http: link", "10", "1", "insecure", "http://example.com/", "kept"],
+        ["insecure", "http: link", "10", "33", "", "http://angle.example/", "kept"],
+        ["insecure", "http: link", "10", "62", "", "http://bare.example/x", "kept"],
+        ["verify", "tel: link", "11", "1", "tel", "tel:+15551234567", "kept"],
+        ["verify", "mailto: link", "11", "25", "mail", "mailto:someone@example.com", "kept"],
+        ["unreachable", "HTML link to a vault path is not rewritten", "13", "9", "", "../Other.md", "kept"],
+        ["unreachable", "resolves to no published note or attachment", "13", "85", "", "nothere.png", "kept"],
+        ["unreachable", "reference link to a vault path is not rewritten", "15", "8", "ref", "../Other.md", "kept"],
+    ]
+
+    def test_link_report_lists_every_link_a_reader_cannot_rely_on_and_stays_private(self) -> None:
+        import csv
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-link-report-") as temporary:
+            root = Path(temporary)
+            vault, site = root / "vault", root / "site"
+            (vault / "Deep").mkdir(parents=True)
+            (vault / "assets").mkdir()
+            (vault / "assets" / "p.png").write_bytes(b"\x89PNG\r\n\x1a\nimage")
+            (vault / "Other.md").write_text("# Other\n\nText.\n", encoding="utf-8")
+            (vault / "Deep" / "Links.md").write_text(self.LINK_REPORT_NOTE, encoding="utf-8")
+            result = run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+            report = site / "movenotes-link-report.csv"
+            rows = list(csv.reader(report.read_text(encoding="utf-8").splitlines()))
+            self.assertEqual(rows[0], ["category", "reason", "note", "url", "line", "column", "label",
+                                       "destination", "site"])
+            self.assertEqual({tuple(row[2:4]) for row in rows[1:]}, {("Deep/Links.md", "/notes/deep/links.html")})
+            self.assertEqual([row[:2] + row[4:] for row in rows[1:]], self.LINK_REPORT_ROWS)
+            # Nothing inside code is a link, so none of its destinations is listed.
+            self.assertFalse({"file:///x", "http://code.example/", "Nowhere"} & {row[7] for row in rows})
+            self.assertIn("link report: 13 unreachable, 3 malformed, 3 insecure, 2 to verify (tel:, mailto:); "
+                          "1 data: link(s) counted, not listed", result.stdout)
+            # Private: outside content/ and static/, and ignored by Git.
+            self.assertFalse([p for p in site.rglob("*link-report*") if p != report])
+            self.assertIn("/movenotes-link-report.csv\n", (site / ".gitignore").read_text(encoding="utf-8"))
+            # A rerun replaces it with identical bytes.
+            first = report.read_bytes()
+            run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+            self.assertEqual(report.read_bytes(), first)
+            # The Vercel upload leaves it out.
+            vercel_site = root / "vercel-site"
+            run("--input", str(vault), "--output", str(vercel_site), "--progress-every", "0",
+                "--vercel", "--search-backend", "pagefind")
+            self.assertIn("\nmovenotes-link-report.csv\n", (vercel_site / ".vercelignore").read_text(encoding="utf-8"))
+            # A chosen path must be outside the output and the vault; outside both it is used.
+            for inside in (site / "static" / "report.csv", vault / "report.csv"):
+                with self.subTest(inside=inside):
+                    refused = run("--input", str(vault), "--output", str(site), "--progress-every", "0",
+                                  "--link-report", str(inside), check=False)
+                    self.assertNotEqual(refused.returncode, 0)
+                    self.assertIn("--link-report must be outside", refused.stdout + refused.stderr)
+                    self.assertFalse(inside.exists())
+            chosen = root / "private" / "links.csv"
+            chosen.parent.mkdir()
+            other_site = root / "other-site"
+            run("--input", str(vault), "--output", str(other_site), "--progress-every", "0",
+                "--link-report", str(chosen))
+            self.assertEqual(chosen.read_bytes(), first)
+            self.assertFalse((other_site / "movenotes-link-report.csv").exists())
+            self.assertFalse(list(chosen.parent.glob(".*partial")))
 
     def test_repairs_malformed_external_urls_without_losing_visible_text(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-url-") as temporary:
