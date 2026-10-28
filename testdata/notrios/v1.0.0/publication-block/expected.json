@@ -1,0 +1,75 @@
+{
+  "counts": {
+    "collections": 1,
+    "notebooks": 2,
+    "search_notebooks": 0,
+    "tags": 0,
+    "documents": 3,
+    "revisions": 3,
+    "document_tags": 0,
+    "resources": 0,
+    "document_resources": 0,
+    "links": 8,
+    "provenance": 0,
+    "source_bundles": 0
+  },
+  "archive_files": {
+    "manifest.json": {
+      "sha256": "d1490b5ac10330dd401441ec010639a3fc9566c21f51ffcf42191263225aa88b",
+      "size_bytes": 1729
+    },
+    "objects/sha256/49/0a/490a816d8d2ff922a27fb99510730f86cbaf4e36fae0fe6705f8c93808c6cd60": {
+      "sha256": "490a816d8d2ff922a27fb99510730f86cbaf4e36fae0fe6705f8c93808c6cd60",
+      "size_bytes": 154
+    },
+    "objects/sha256/95/31/9531714f7580f5c9b6850612de07cfc21d9ddf340505369e601f20ca615e9862": {
+      "sha256": "9531714f7580f5c9b6850612de07cfc21d9ddf340505369e601f20ca615e9862",
+      "size_bytes": 6656
+    },
+    "objects/sha256/a4/f2/a4f240565abe10a19b34d4055f3b8a07b6c1c20a678c1fe6866454bc380cc6da": {
+      "sha256": "a4f240565abe10a19b34d4055f3b8a07b6c1c20a678c1fe6866454bc380cc6da",
+      "size_bytes": 1313
+    },
+    "objects/sha256/be/d8/bed83dc458c8b0709dd8475c0fff5d3e0711022497541de24aeb4101a8b698e4": {
+      "sha256": "bed83dc458c8b0709dd8475c0fff5d3e0711022497541de24aeb4101a8b698e4",
+      "size_bytes": 129
+    },
+    "objects/sha256/d9/89/d989f8b15f7182de76086297ff936cdc833d3dcde87299a71f01f92a7293d3cf": {
+      "sha256": "d989f8b15f7182de76086297ff936cdc833d3dcde87299a71f01f92a7293d3cf",
+      "size_bytes": 646
+    }
+  },
+  "commit_sha256": "a64f8fb3bffc7444f0ba4d631d52291cb635622ca6a6c2a94b0981b5f6e62882",
+  "selection_manifest_sha256": "c28d48f7485f4f3990b4d53af2d2679bd1552a0b6e0218d9358f92e0806e7868",
+  "database_id": "db_c5tsnuykeqyhsp5fbb62xgsezi",
+  "snapshot_id": "snap_r264ztic25syx6nrtqixxq6hhq",
+  "producer_commit": "2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a",
+  "producer_tag": "v1.0.0",
+  "body_lines": [
+    "Wiki [[document://default/documents/doc_obsidian_public_target#^blk-1]], aliased [[document://default/documents/doc_obsidian_public_target#^blk-1|that paragraph]] and embedded ![[document://default/documents/doc_obsidian_public_target#^Item2]].",
+    "Markdown [para](document://default/documents/doc_obsidian_public_target#^blk-1), encoded [enc](document://default/documents/doc_obsidian_public_target#%5Eq3) and into a folder [deep](document://default/documents/doc_obsidian_public_deep_child#^d4).",
+    "To itself [[#^own]] and [self](#^own)."
+  ],
+  "projected_lines": [
+    "Wiki [Target](:/{doc_obsidian_public_target}#^blk-1), aliased [that paragraph](:/{doc_obsidian_public_target}#^blk-1) and embedded [Target](:/{doc_obsidian_public_target}#^Item2).",
+    "Markdown [para](:/{doc_obsidian_public_target}#^blk-1), encoded [enc](:/{doc_obsidian_public_target}#%5Eq3) and into a folder [deep](:/{doc_obsidian_public_deep_child}#^d4).",
+    "To itself [[#^own]] and [self](#^own)."
+  ],
+  "vault_lines": [
+    "Wiki [Target](Target.md#^blk-1), aliased [that paragraph](Target.md#^blk-1) and embedded [Target](Target.md#^Item2).",
+    "Markdown [para](Target.md#^blk-1), encoded [enc](Target.md#%5Eq3) and into a folder [deep](Deep/Child.md#^d4).",
+    "To itself [[#^own]] and [self](#^own)."
+  ],
+  "link_statuses": {
+    "resolved": 8
+  },
+  "wiki_links": 4,
+  "block_anchors": 7,
+  "block_lines": {
+    "blk-1": "First paragraph ^blk-1",
+    "Item2": "- item ^Item2",
+    "q3": "^q3",
+    "d4": "Deep paragraph ^d4",
+    "own": "Mine ^own"
+  }
+}

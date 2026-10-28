@@ -130,15 +130,15 @@ Next slice: **R1 — the link report**, assigned to Main; not yet authorized.
 | L3 / Main | *Complete 2026-10-26.* Add `ROADMAP.md`, and the plan, roadmap and archive rules in `AGENTS.md`. See [L3](#l3--roadmapmd-and-the-rules-for-plans). | L4 | Each deferred feature has its scope, why it is deferred and what it needs; `AGENTS.md` states the rules; links resolve. |
 | L5 / Main | *Complete 2026-10-26.* Move the documentation into `docs/`, and split the README's usage sections into pages there. See [L5](#l5--documentation-in-docs). | L3 | Root holds only the files listed in L5; every old README paragraph exists in exactly one page; links resolve. |
 | L6 / Main | *Complete 2026-10-26.* Document private data and publications over 100,000 notes. See [L6](#l6--private-data-and-large-publications). | L5 | Each documented command was run on a synthetic library and behaved as written. |
-| L7 / Main | Check that documented examples are executable. See [L7](#l7--executable-documentation). | L6 | Every fence is registered; Python-only examples pass in the gate; the `--with-tools` run passes here; an edited fence fails. |
-| L8 / Main | *Added 2026-10-26 at the user's request; needs authorization, and separate permission to force-push.* Rewrite the old paths in the Git history. See [L8](#l8--rewrite-the-old-paths-in-the-git-history). | L7 | No commit on any branch holds a path with the account name; the tip's tree is unchanged by the rewrite; every reference to a rewritten commit is mapped. |
-| H1 / Main | *Proposed 2026-10-24 (C7d); not authorized.* Make HTML images render after export. See [H1](#h1--html-images-after-export). | L7 | As in H1. |
-| D1 / Main | *Proposed 2026-10-26 (7d); not authorized.* Clearer `notrios2sql.py` refusals for an unusable `--output`. See [D1](#d1--clearer-output-refusals). | L7 | As in D1. |
+| L7 / Main | *Complete 2026-10-26.* Check that documented examples are executable. See [L7](#l7--executable-documentation). | L6 | Every fence is registered; Python-only examples pass in the gate; the `--with-tools` run passes here; an edited fence fails. |
+| L8 / Main | *Added 2026-10-26 at the user's request; complete 2026-10-27, force-pushed with the user's permission.* Rewrite the old paths in the Git history. See [L8](#l8--rewrite-the-old-paths-in-the-git-history). | L7 | No commit on any branch holds a path with the account name; the tip's tree is unchanged by the rewrite; every reference to a rewritten commit is mapped. |
+| H1 / Main | *Proposed 2026-10-24 (C7d); complete 2026-10-27.* Make HTML images render after export. See [H1](#h1--html-images-after-export). | L7 | As in H1. |
+| D1 / Main | *Proposed 2026-10-26 (7d); complete 2026-10-27.* Clearer `notrios2sql.py` refusals for an unusable `--output`. See [D1](#d1--clearer-output-refusals). | L7 | As in D1. |
 | R1 / Main | *Complete 2026-10-27.* Report links a web reader cannot reach. See [R1](#r1--the-link-report). | L7 | As in R1. |
 | R2 / Main | *Complete 2026-10-27; option (a), with (b) on the roadmap, chosen by the user.* Keep non-internal destinations on the Notrios route. See [R2](#r2--non-internal-destinations-on-the-notrios-route). | R1 | As in R2. |
 | R3 / Main | *Complete 2026-10-27; the folder before the root, chosen by the user.* Resolve a same-folder link on the site when another note shares its name. See [R3](#r3--same-folder-links-on-the-site). | R1 | As in R3. |
 | W1 / Main | *Complete 2026-10-27; as Joplin links, chosen by the user.* Import a Notrios publication that holds resolved wiki links. See [W1](#w1--resolved-wiki-links-on-the-notrios-route). | — | As in W1. |
-| B1 / Main | *Proposed 2026-10-27, found by W1; not authorized.* Admit a link to a block, `#^id`, on an internal target, Markdown or wiki. See [B1](#b1--block-anchors-on-internal-targets). | W1 | As in B1. |
+| B1 / Main | *Complete 2026-10-27; the site anchors the block, chosen by the user.* Admit a link to a block, `#^id`, on an internal target, Markdown or wiki, and anchor the block on the site. See [B1](#b1--block-anchors-on-internal-targets). | W1 | As in B1. |
 
 ### L1 — Remove the account name from committed paths
 
@@ -709,6 +709,49 @@ vault resolving to its block in Obsidian, and the site's link to it either
 reaches the block or is listed in the link report; every other link-projection
 test passes unchanged.
 
+*Probe, 2026-10-27.* A synthetic library published by Notrios `v1.0.0`:
+it records a link to a block, wiki or Markdown, to another note or to itself,
+as resolved with a `block` anchor and the ID after the `^`, and keeps `#^id`
+in the body; a percent-encoded `#%5Eid` it records as a heading. The import
+refuses at `_fragment`, and the vault export would too; otherwise the export
+copies a fragment as written. The site shows each `^id` as text and turns a
+link to it into `#id`, a heading anchor no page has, for every vault, not only
+on the Notrios route. Libraries, counted in aggregate: the `notes` vault holds
+19 block IDs in 12 notes and 19 wiki links to blocks in 13; `obsidian_vault`
+and the Joplin export 4 block links in one note each and no IDs; the recipe
+libraries none.
+
+*Decided 2026-10-27:* the user chose that the site anchor the block, over
+linking to the note's top and listing the link: each `^id` becomes an empty
+element with that id where it stood, and the link keeps its `^`. The user
+allowed checking the vault in Obsidian with a scratch profile, on synthetic
+vaults only.
+
+*Found and fixed:* Obsidian's rule for an ID is not the documented "a space,
+then `^id`". In its metadata cache, an ID with a space or tab before it, or
+alone on its line, or right after a wiki link, embed, Markdown link, emphasis,
+code, HTML, a highlight, a strike, math, a table row or a tag, is a block;
+after plain text, a plain `)`, a `.` or a URL it is not; one with a space or
+tab after it is not; and a link matches an ID in any case. The site follows
+that, and writes the anchor and the link lowercase. One block link in `notes`
+named an ID written straight after `]]`, which the documented rule missed.
+
+*Result:* `notrios_links.py` admits a block ID of letters, digits and dashes
+on a Markdown or wiki link and copies it as written (`[Note](:/id#^id)`); the
+vault export writes `[Note](Note.md#^id)`. `obsidian2site.py` anchors each block
+ID outside code and keeps a block link's `^`. A new fixture from the pinned
+producer,
+[publication-block](testdata/notrios/v1.0.0/README.md#the-block-link-publication-b1),
+holds 7 block links of every form. Its import changes only those links, reruns
+unchanged, and Obsidian opens each exported link on its block's line; the site
+gives each linked block an anchor its link reaches, which a browser follows to
+it, with an empty link report. On `notes`, the site went from 0 to 15 anchors,
+and all 12 block links it publishes reach their block; the 5 IDs still shown are
+in code, 5 block links are in code and 2 go to unpublished notes, which the
+report lists as before. The report is otherwise unchanged. The recipe libraries, the Joplin export and
+`obsidian_vault` gain no anchor, and their block links are all in code, so B1
+changes none of their sites.
+
 ### R3 — Same-folder links on the site
 
 Found 2026-10-27 by R1's run over the Joplin library. `sql2obsidian.py` writes a
@@ -1151,7 +1194,7 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 
 </details>
 
-<details><summary>B1 — pending; planned parent</summary>
+<details><summary>B1 — complete; planned parent</summary>
 
 | Property | Value |
 |---|---|
@@ -1159,21 +1202,21 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | Planned worker | parent |
 | Planned configured model | not exposed; runtime reports claude-opus-5-5 |
 | Planned reasoning effort | not exposed |
-| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27; slice implementation requires user authorization. |
-| Actual worker | pending |
-| Child thread | pending |
-| Actual model | pending |
-| Reasoning effort | pending |
-| Worker contribution | pending |
-| Parent | pending |
-| Parent underlying model family | pending |
-| Parent reasoning effort | pending |
-| Parent contribution | pending |
-| Validation | pending |
+| Assignment confirmation | Claude Code session assignments confirmed by user on 2026-10-27; B1 authorized on 2026-10-27 (Push commits. Then, start B1.). |
+| Actual worker | none |
+| Child thread | none |
+| Actual model | none |
+| Reasoning effort | none |
+| Worker contribution | none |
+| Parent | Claude Code parent (Main) |
+| Parent underlying model family | Claude Opus 5.5, runtime-reported claude-opus-5-5 |
+| Parent reasoning effort | not exposed |
+| Parent contribution | Probe: a synthetic Obsidian library with wiki and Markdown block links, to another note and to itself, published by Notrios v1.0.0 (2aab9a8); records and bodies read raw; the import's and export's fragment checks and the site's fragment and marker handling read; block IDs and block links counted in aggregate over five libraries; the user chose that the site anchor the block. Obsidian checked in scratch profiles over CDP on synthetic vaults only, with the user's permission: the exported links, and which forms its metadata cache reads as a block. notrios_links.py: _fragment admits a block ID of ASCII letters, digits and dashes and refuses any other ^ fragment; _wiki_link writes a block ID unencoded. obsidian2site.py: _anchor_block_ids turns each block ID outside code into an empty lowercase element where it stood, by Obsidian's observed rule; _hugo_heading_fragment keeps a block's ^, lowercase, and links keep ^ unquoted. Fixture: testdata/notrios/vault-block-v1, generate_v1_block.py and v1.0.0/publication-block from the pinned binary. Tests: test_a_link_to_a_block_keeps_its_id, block forms and an invalid ID in test_resolved_wiki_links_become_joplin_links, invalid block fragments in the URI-variant refusals, test_a_block_id_becomes_an_anchor_that_block_links_reach, NotriosV1BlockTest (3). Docs: docs/static-site.md, docs/notrios.md, docs/notrios-import-design.md, the fixture README, ROADMAP, CHANGELOG. Plan: probe, decision, the Obsidian-rule finding, result. |
+| Validation | Probe as recorded; before the change the probe publication refused with unsupported heading fragment, after it imported, exported and resolved. Fixture generator's raw-byte checks: every body line and block ID line once, 8 resolved links, 4 wiki links, 7 block anchors and one heading %5Eq3, nothing rewritten or cleared. Import: created then unchanged with the same summary, withheld_links 0; the database body equals the published body with only the three link lines mapped; every exported link names a block its target note holds. Obsidian (scratch profile, synthetic vaults): all 7 probe links and all 8 fixture links open their note with the cursor on the block's line, %5E included; its metadata cache's block forms are pinned in the site test. Site: a Playwright browser following #%5Eblk1 and #%5Eown targets the ^blk1 and ^own anchors, and no ^ shows in the article; the site test fails without the site change. notes vault, aggregate only: before 0 anchors, 0 block links reaching; after 15 anchors, all 12 published block links reach their block; the 5 IDs still shown are in code; of 19 wiki block links 5 are in code and 2 go to unpublished notes, listed in the report as before; link report categories identical. Required gate 345 tests in 299.699 s: 344 passed, and test_examples_share_a_home_and_failures_missing_tools_and_servers_are_reported failed once (3 of 7 synthetic examples passed where 4 should, in its --with-tools run of a synthetic README that runs no movenotes code); it passed alone three times, and tests/test_doc_examples.py with tests/test_docs.py passed in full (6 tests). Harness 43 tests in 21.227 s. No __pycache__. Other libraries, with obsidian2site._anchor_block_ids over every note: recipe vault (382,206 files), recipe RAW (1,237,553), Joplin export (111,359) and obsidian_vault (103,378) gain no anchor, and their 4 + 4 block links are all in code, so B1 changes none of their sites; notes gains 15 anchors in 12 notes, as its site shows. |
 | Delegation failure or reassignment | none recorded |
 | Planned assignment evidence | W1 finding, 2026-10-27. |
-| Execution evidence | none |
-| Commit | pending |
+| Execution evidence | User: Push commits. Then, start B1.; User chose: Anchor the block (Recommended); Yes, scratch profile (Recommended); Yes, synthetic vault (Recommended); Private ~/movenotes-work/b1-20261027/ (aggregate counts; notes site before and after); Private scratchpad b1probe/ (probe archive, import, vaults, Obsidian scratch profiles), b1gen/; Private scratchpad b1/gate.txt, b1/required.log, b1/harness.log |
+| Commit | Git commit containing this record: feat: links to a block through the Notrios import and on the site (B1) |
 
 </details>
 <!-- PLAN-EXECUTION:END -->
@@ -1209,3 +1252,5 @@ Generated from [`docs/plan/ledger.json`](docs/plan/ledger.json).
 | 2026-10-27 | R3 complete | `obsidian2site.py` resolves a bare link beside the linking note, then at the root, then by a unique basename, as Obsidian and `obsidian2sql.py` do. The three regenerated 7c sites match R1's except in the 5 Joplin notes whose same-folder link now opens its note, and the link report loses exactly those rows; no URL changed. 336 required and 43 harness tests pass. Next: ask whether to push, and whether to start W1. |
 | 2026-10-27 | R3 pushed; W1 decided | `47b76c8` pushed to `develop`. W1 started with a probe of every wiki form through Notrios `v1.0.0`; the user chose to import resolved wiki links as Joplin links, as `obsidian2sql.py` does, over wiki links in the database. |
 | 2026-10-27 | W1 complete | `notrios2sql.py` imports a resolved wiki link as `[alias](:/id#heading)`, and the vault export writes it as a relative link. Fixed the scan for unaccounted internal targets, which a blanked wiki link at a line's start hid. New fixture `publication-wiki` from the pinned producer. A block anchor still refuses, now proposed as B1. 340 required and 43 harness tests pass. Next: ask whether to push, and whether to start B1. |
+| 2026-10-27 | W1 pushed; B1 decided | `c92a80b` pushed to `develop`. B1's probe found the site broken for block links in every vault, not only on the Notrios route. The user chose that the site anchor the block, and allowed Obsidian checks in a scratch profile on synthetic vaults. |
+| 2026-10-27 | B1 complete | `notrios2sql.py` keeps a block link's `#^id`, the vault export writes `[x](Note.md#^id)`, and Obsidian opens it on the block. `obsidian2site.py` anchors each block ID where Obsidian reads one, found by measuring its metadata cache rather than from its documentation, and keeps the `^` in links. New fixture `publication-block` from the pinned producer. On `notes`, all 12 published block links now reach their block; no other library's site changes. 345 required tests pass, one of them on rerun after a flaky first run, and 43 harness tests pass. Also brought the L7, L8, H1 and D1 rows of the slice table, left as proposed, in line with the ledger: every slice is complete. Next: ask whether to push, and whether to archive the plan. |

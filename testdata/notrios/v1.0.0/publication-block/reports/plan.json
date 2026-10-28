@@ -1,0 +1,184 @@
+{
+  "next_step": "after reviewing, publish with `--reviewed-plan c28d48f7485f4f3990b4d53af2d2679bd1552a0b6e0218d9358f92e0806e7868`",
+  "plan": {
+    "version": 1,
+    "target": "publication_handoff",
+    "policy": {
+      "exclude_tags": [
+        "confidential",
+        "draft",
+        "private"
+      ],
+      "private_tags": [
+        "confidential",
+        "draft",
+        "private"
+      ],
+      "link_action": "plain_text",
+      "include_source_bundles": false,
+      "include_provenance": false,
+      "include_private_metadata": false,
+      "include_trashed": false,
+      "exclude_read_only_notebooks": true
+    },
+    "manifest_sha256": "c28d48f7485f4f3990b4d53af2d2679bd1552a0b6e0218d9358f92e0806e7868",
+    "counts": {
+      "selected_documents": 3,
+      "excluded_documents": 0,
+      "reachable_resources": 0,
+      "available_source_bundles": 0,
+      "included_source_bundles": 0,
+      "internal_links": 8,
+      "private_links": 0,
+      "broken_links": 0,
+      "external_links": 0,
+      "oversized_resources": 0
+    },
+    "documents": [
+      {
+        "id": "doc_obsidian_public_deep_child",
+        "uri": "document://default/documents/doc_obsidian_public_deep_child",
+        "collection_id": "default",
+        "notebook_id": "nb_obsidian_public_deep",
+        "current_revision_id": "rev_ep3lnrjcdf3onoklvfvg2g4o3e",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      },
+      {
+        "id": "doc_obsidian_public_links",
+        "uri": "document://default/documents/doc_obsidian_public_links",
+        "collection_id": "default",
+        "notebook_id": "nb_obsidian_public",
+        "current_revision_id": "rev_jfhi5qn26s5x7jkbwlcozt3xcm",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      },
+      {
+        "id": "doc_obsidian_public_target",
+        "uri": "document://default/documents/doc_obsidian_public_target",
+        "collection_id": "default",
+        "notebook_id": "nb_obsidian_public",
+        "current_revision_id": "rev_woy5gu3c4xz3zof56jkio37jnu",
+        "deleted": false,
+        "inclusion_reasons": [
+          "notebook"
+        ]
+      }
+    ],
+    "resources": [],
+    "links": [
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_target",
+        "link_sha256": "f5b0188fc8170fd32d18243d6bc9d85df4e7bd65fe5693ef92fb20c6abac887f",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_target",
+        "link_sha256": "1e7d0165e3b7e7606832ab2e30c8f1e26230e647a272742bf639c17ffd25e6fd",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_deep_child",
+        "link_sha256": "63189cf9d39974d627693ca2617ab75cf05f351ce0403b33d3aaccc686f9c243",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_links",
+        "link_sha256": "f7ab0d8d15a45f98becd9e7f312395277620ab4e80ed4ba410b274dbb8c4e185",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_target",
+        "link_sha256": "d557a1e927a800f9a6d000838f6f9f9bb3bc7cc8fb786fdb2fe7d678e4c06ec9",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_target",
+        "link_sha256": "32406de4282b55e1073ceb4e2c6a3a901174d2b5cfbd82e0f334920916a720dd",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_target",
+        "link_sha256": "1405be339b9c23f77b600a6b055618988582be3577bcedf1f952bb455549c925",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      },
+      {
+        "source_document_id": "doc_obsidian_public_links",
+        "target_document_id": "doc_obsidian_public_links",
+        "link_sha256": "61ff8e55a0c55ec081d3130bdb3601255747529f6565ab9dc943cbd2279aea11",
+        "classification": "internal",
+        "resolution_status": "resolved",
+        "action": "retain"
+      }
+    ],
+    "source_bundles": [],
+    "exclusions": [],
+    "metadata_decisions": [
+      {
+        "field": "private_tags",
+        "action": "strip",
+        "reason": "target privacy policy",
+        "affected_items": 3
+      },
+      {
+        "field": "source.external_id",
+        "action": "strip",
+        "reason": "source provenance policy",
+        "affected_items": 3
+      },
+      {
+        "field": "source.source_url",
+        "action": "strip",
+        "reason": "source provenance policy",
+        "affected_items": 3
+      },
+      {
+        "field": "source.metadata_json",
+        "action": "strip",
+        "reason": "private source metadata policy",
+        "affected_items": 3
+      },
+      {
+        "field": "source_bundle.items",
+        "action": "exclude",
+        "reason": "exact source bundle policy",
+        "affected_items": 0
+      },
+      {
+        "field": "source_bundle.storage_path",
+        "action": "strip",
+        "reason": "local filesystem paths never cross planner APIs",
+        "affected_items": 0
+      }
+    ],
+    "warnings": [],
+    "truncated": false
+  },
+  "profile": "fixture",
+  "target": "publication_handoff"
+}

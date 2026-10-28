@@ -14,6 +14,7 @@ and their audit evidence are unchanged.
 | [publication-titled](publication-titled/) | 3 notes, 2 notebooks, 3 tags, 4 tag memberships, 1 resource, 1 resource relation, 11 links | `7f093e27d5d7ab18cac5d97324ae08c8509f4467954220911df7f9c799b206d9` | `a8537bb0582b7bcd9f01c0074923175ad04380930db66e7dafd23a32717b6dc2` |
 | [publication-retain](publication-retain/) | 4 notes, 3 notebooks, 19 links, published with `--link-action retain` (R2, 2026-10-27) | `5b9d517c660d6baaddc9690502854f32d7624b7403fea2a5789c9c28ff410435` | `a681ac22100ae29f631e66ef55b38dea28377c985071a882870bf4afee674498` |
 | [publication-wiki](publication-wiki/) | 4 notes, 2 notebooks, 2 resources, 2 resource relations, 14 links, 13 of them wiki links (W1, 2026-10-27) | `650478bb65d759510cb43ffe93fb21a320fc2dd8cfb1084ea9676cc28e40348c` | `620b485666f1eeb2a3653945ab4495abb900ffcc7faf37b14ffd3abca3462261` |
+| [publication-block](publication-block/) | 3 notes, 2 notebooks, 8 links, 7 of them to a block (B1, 2026-10-27) | `a64f8fb3bffc7444f0ba4d631d52291cb635622ca6a6c2a94b0981b5f6e62882` | `c28d48f7485f4f3990b4d53af2d2679bd1552a0b6e0218d9358f92e0806e7868` |
 
 Pass only the `archive/` directory to the consumer. Reports, `expected.json`,
 `generation.json` and this README are evidence outside the archive. The
@@ -185,4 +186,35 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B testdata/notrios/generate_v1_wiki.py \
   --notriosctl /tmp/movenotes-s43b/notriosctl \
   --work-dir /tmp/movenotes-w1/gen-work \
   --output /tmp/movenotes-w1/gen-out
+```
+
+## The block-link publication (B1)
+
+Generated on 2026-10-27 by the same binary (same SHA-256) with
+[generate_v1_block.py](../generate_v1_block.py), from the synthetic vault
+[vault-block-v1](../vault-block-v1/), with the default `plain_text` action. Its
+`Links` note links to blocks by wiki link plainly, with an alias and as an
+embed; by Markdown link, once with the `^` percent-encoded and once into a
+folder; and to a block of its own both ways. The blocks are a paragraph, a list
+item, a quote (its ID alone on the line after it) and a paragraph in the folder.
+
+Notrios records each as a resolved link with a `block` anchor and the ID after
+the `^`, except the percent-encoded one, which it records as a heading
+`%5Eq3`, and keeps every `#^id` in the body. Nothing is rewritten. The generator
+checks every body line and block ID line, the 8 statuses, the 4 wiki links and
+the 7 block anchors against raw archive bytes. `expected.json` holds the lines
+the import and the vault export must write, and each block's line.
+
+`NotriosV1BlockTest` checks that the import keeps each block ID and changes no
+other byte, reruns unchanged, that every exported link names a block its target
+note still holds, and that the generated site gives each linked block an anchor
+the link reaches, with an empty link report. Obsidian opened each exported link
+on its block's line (checked once, over its debugging port, in a scratch
+profile).
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B testdata/notrios/generate_v1_block.py \
+  --notriosctl /tmp/movenotes-s43b/notriosctl \
+  --work-dir /tmp/movenotes-b1/gen-work \
+  --output /tmp/movenotes-b1/gen-out
 ```

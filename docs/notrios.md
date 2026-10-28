@@ -181,8 +181,14 @@ A link with no alias shows the note's title or the attachment's file name. A
 heading is kept, encoded as a Markdown link's is
 (`Deep/Child.md#Caf%C3%A9%20Section`). An embedded image stays an embed,
 `![[shot.png]]`, though the vault drops its caption, as it does a Markdown
-image's alt text. An embedded note becomes a link to it. A link to a block,
-`[[Note#^id]]`, still refuses the publication, as a Markdown one does.
+image's alt text. An embedded note becomes a link to it.
+
+A link to a block, `[[Note#^id]]` or `[x](Note.md#^id)`, keeps its `#^id`
+through the import (`[Note](:/<id>#^id)`) and the vault export
+(`[Note](Note.md#^id)`), and opens on its block in Obsidian. The site gives each
+block an anchor, so its link lands there too. A block ID is `^` and letters,
+digits and dashes, as Obsidian writes one; any other `#^` on a note refuses the
+publication.
 
 ## Keeping notes out of a publication
 

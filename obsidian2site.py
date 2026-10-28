@@ -583,8 +583,41 @@ def _resolve_target(
     return None
 
 
+# An Obsidian block ID ends a line, with nothing after it (B1).
+_BLOCK_ID_RE = re.compile(r"([ \t]*)\^([A-Za-z0-9-]+)(?=\r?\n|\r|\Z)")
+# What Obsidian accepts right before an ID with no space: the end of a wiki link
+# or embed, of a Markdown link, of emphasis, code, HTML, a highlight, a strike,
+# math or a table row, or a tag. Plain text, a plain `)` or a URL is no block.
+_BLOCK_ID_AFTER_RE = re.compile(r"(?:\]\]|[*`>=~$|]|\]\([^()\s]*\)|(?:^|\s)#[^\s#^]+)\Z")
+
+
+def _anchor_block_ids(body: str) -> str:
+    """Replace each Obsidian block ID outside code with an empty element of that id (B1).
+
+    Obsidian hides a block's `^id` and lands a `#^id` link on the block; the
+    site leaves the anchor where the marker was, so the link reaches it. Obsidian
+    matches an ID in any case, so the anchor is lowercase, as a link to it is.
+    """
+    if "^" not in body:
+        return body
+    # The same segments the converter transforms: outside fenced and inline code.
+    outside = _transform_outside_code(body, lambda segment: "\0" * len(segment))
+
+    def replace(match: re.Match[str]) -> str:
+        if len(outside) != len(body) or outside[match.start():match.end()].strip("\0"):
+            return match.group(0)
+        before = body[body.rfind("\n", 0, match.start()) + 1:match.start()].lstrip("\r")
+        if not match.group(1) and before and not _BLOCK_ID_AFTER_RE.search(before):
+            return match.group(0)
+        return f'<span id="^{match.group(2).lower()}"></span>'
+
+    return _BLOCK_ID_RE.sub(replace, body)
+
+
 def _hugo_heading_fragment(fragment: str) -> str:
-    fragment = fragment.removeprefix("^")
+    # A block is the id _anchor_block_ids gives it (B1).
+    if re.fullmatch(r"\^[A-Za-z0-9-]+", fragment):
+        return fragment.lower()
     value = unicodedata.normalize("NFKC", fragment).casefold().strip()
     value = re.sub(r"[^\w\- ]+", "", value, flags=re.UNICODE)
     return re.sub(r"[\s_]+", "-", value).strip("-")
@@ -1290,7 +1323,7 @@ def _convert_body(
             if fragment:
                 anchor = _hugo_heading_fragment(fragment)
                 if anchor:
-                    link += "#" + urllib.parse.quote(anchor)
+                    link += "#" + urllib.parse.quote(anchor, safe="^")
             if embedded and note_embeds == "transclude" and resolved_note not in embed_stack and len(embed_stack) < 8:
                 try:
                     raw_text = (source_root / resolved_note).read_text(encoding="utf-8-sig")
@@ -1346,7 +1379,7 @@ def _convert_body(
             if fragment:
                 anchor = _hugo_heading_fragment(fragment)
                 if anchor:
-                    link += "#" + urllib.parse.quote(anchor)
+                    link += "#" + urllib.parse.quote(anchor, safe="^")
             return f"{prefix}[{label}]({link}{title})"
         resolved_asset = _resolve_target(target, source_relative, asset_exact, asset_basenames)
         if resolved_asset is not None and resolved_asset in asset_map:
@@ -1414,7 +1447,7 @@ def _convert_body(
             return None
         return _asset_link(output_relative, asset_map[resolved_asset])
 
-    body = _rewrite_html_image_sources(body, source_replace)
+    body = _rewrite_html_image_sources(_anchor_block_ids(body), source_replace)
     return _escape_hugo_shortcodes(_transform_outside_code(body, transform_segment))
 
 

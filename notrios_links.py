@@ -73,6 +73,8 @@ _CODE_MASK = bytes(c if c in (10, 13) else 32 for c in range(256))
 # A recorded wiki link the import replaces (R2, W1): one line, and no
 # backtick, so blanking it cannot change which bytes are code.
 _WITHHELD_WIKI = re.compile(rb"!?\[\[[^\[\]\n`]+\]\]")
+# An Obsidian block ID, as a fragment names one: `^` and letters, digits and dashes (B1).
+_BLOCK_FRAGMENT = re.compile(rb"\^[A-Za-z0-9-]+")
 # The producer's plain_text placeholder for a link with no text (replacementFor).
 _REDACTED = b"[redacted]"
 
@@ -425,10 +427,10 @@ def _wiki_link(body, start, end, p, *, resolve, label, related, inline_resources
             _refuse("resource link has no document-resource relation")
         inline_resources.add(mapped)
     elif fragment:
-        # Obsidian's heading text, encoded as a Markdown link's fragment is.
-        if fragment.startswith(b"^"):
-            _refuse("unsupported heading fragment")
-        destination += b"#" + quote(fragment, safe="-._~!$&'*+,;=:@/?").encode("ascii")
+        # A block ID is written as it is, which every reader needs (B1);
+        # Obsidian's heading text is encoded as a Markdown link's fragment is.
+        destination += b"#" + (fragment if fragment.startswith(b"^")
+                               else quote(fragment, safe="-._~!$&'*+,;=:@/?").encode("ascii"))
         _fragment(destination.partition(b"#")[2], limits)
     text = alias.decode("utf-8").strip(_GO_SPACE) if aliased else ""
     if not text:
@@ -484,7 +486,13 @@ def _fragment(fragment, limits):
         value = fragment.decode("utf-8")
     except UnicodeDecodeError:
         _refuse("fragment is not UTF-8")
-    if (value.startswith("^") or "#" in value or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in value)
+    if value.startswith("^"):
+        # A link to a block (B1): Obsidian, the vault export and the site all
+        # read the ID as written.
+        if not _BLOCK_FRAGMENT.fullmatch(fragment):
+            _refuse("unsupported block fragment")
+        return
+    if ("#" in value or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in value)
             or re.search(rb"%(?![0-9A-Fa-f]{2})", fragment)):
         _refuse("unsupported heading fragment")
 

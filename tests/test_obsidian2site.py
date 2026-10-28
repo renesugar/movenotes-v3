@@ -823,6 +823,54 @@ class ObsidianSiteGenerationTest(unittest.TestCase):
             with (site / obsidian2site.LINK_REPORT_NAME).open(newline="", encoding="utf-8") as handle:
                 self.assertEqual(len(list(csv.reader(handle))), 1)
 
+    def test_a_block_id_becomes_an_anchor_that_block_links_reach(self) -> None:
+        # B1: Obsidian hides `^id` and lands `#^id` on its block, in any case.
+        # The site leaves a lowercase element with that id where the marker
+        # was, outside code only, and a link to the block keeps its `^`. The
+        # forms are what Obsidian 1.x's metadata cache reads as a block, and
+        # does not, measured on 2026-10-27.
+        blocks = ["First paragraph ^blk-1", "- item ^Item2", "  - nested ^n3\r", "^q4", "Spaced  ^s5",
+                  "Tab\t^t6", "After [[Other]]^w7", "![[Other]]^e8", "[md](Other.md)^m9", "**bold**^b10",
+                  "*it*^i11", "`code`^c12", "<b>h</b>^h13", "==hl==^l14", "~~s~~^k15", "$x$^x16",
+                  "| c | d |^r17", "#tag^g18", "Last ^end"]
+        not_blocks = ["Code `x ^c5`", "Glued text^no1", "plain)^no2", "end.^no3",
+                      "Trailing space ^no5 ", "Trailing tab ^no6\t", "x^7, [^8]", "^under_score", "a ^dot.9",
+                      "a ^no-7 b"]
+        with tempfile.TemporaryDirectory(prefix="obsidian-site-block-") as temporary:
+            root = Path(temporary)
+            vault = root / "vault"
+            site = root / "site"
+            vault.mkdir()
+            (vault / "Other.md").write_text("# Other\n", encoding="utf-8")
+            (vault / "Target.md").write_text(
+                "# Target\n\n" + "\n\n".join(blocks[:3]) + "\n\n> quote\n\n" + "\n\n".join(blocks[3:])
+                + "\n\n" + "\n\n".join(not_blocks) + "\n\nurl https://e.test/^no4\n\n```\nfenced ^c6\n```\n\n    indented ^ok20\n\n## Heading Two\n",
+                encoding="utf-8",
+            )
+            (vault / "Linker.md").write_text(
+                "# Linker\n\n[[Target#^blk-1]] [[Target#^Item2|item]] [md](Target.md#^n3) [enc](Target.md#%5Eq4) "
+                "[[Target#^W7]] [[#^own]] [self](#^own) [[Target#Heading Two]]\n\nMine ^own\n",
+                encoding="utf-8",
+            )
+            run("--input", str(vault), "--output", str(site), "--progress-every", "0")
+            _metadata, target = read_json_frontmatter(site / "content" / "notes" / "target.md")
+            _metadata, linker = read_json_frontmatter(site / "content" / "notes" / "linker.md")
+            ids = [re.search(r"\^([A-Za-z0-9-]+)\s*$", block)[1].lower() for block in blocks]
+            # The site, like any converter here, does not parse indented code.
+            self.assertEqual(re.findall(r'<span id="\^([^"]*)"></span>', target), ids + ["ok20"])
+            self.assertIn("First paragraph<span", target)
+            self.assertIn("After [Other](other.html)<span", target)
+            for text in not_blocks + ["fenced ^c6", "url [https://e.test/^no4](https://e.test/%5Eno4)"]:
+                self.assertIn(text, target)
+            self.assertEqual(re.findall(r"\]\(([^)\s]+)\)", linker), [
+                "target.html#^blk-1", "target.html#^item2", "target.html#^n3", "target.html#^q4",
+                "target.html#^w7", "linker.html#^own", "#^own", "target.html#heading-two"])
+            self.assertIn('Mine<span id="^own"></span>', linker)
+            # Only the URL is reported, as the converter repairs its `^`.
+            with (site / obsidian2site.LINK_REPORT_NAME).open(newline="", encoding="utf-8") as handle:
+                self.assertEqual([(row["note"], row["category"]) for row in csv.DictReader(handle)],
+                                 [("Target.md", "malformed")])
+
     def test_html_image_sources_resolve_to_the_asset_url_and_keep_the_tag(self) -> None:
         with tempfile.TemporaryDirectory(prefix="obsidian-site-html-image-") as temporary:
             root = Path(temporary)

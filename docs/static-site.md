@@ -441,6 +441,15 @@ The converter:
   link with no folder in it, such as `[[Note]]` or `[x](My%20Note.md)`, is
   looked for beside the linking note, then at the vault root, then as the only
   note or attachment with that name, as Obsidian and `obsidian2sql.py` do;
+- turns each Obsidian block ID, `^id` ending a line, into an anchor where it
+  stood, and keeps a link's `#^id`, so `[[Note#^id]]` lands on the block as it
+  does in Obsidian. The ID follows a space, starts the line, or ends a link,
+  emphasis, code, HTML, a highlight, a strike, math, a table row or a tag, with
+  nothing after it, which is what Obsidian reads as a block. Obsidian matches
+  an ID in any case, so the anchor and the link are lowercase. One alone on the
+  line after a list, quote or table names that block in Obsidian, and on the site
+  sits just below it. A link to an ID no note holds opens the note at its top,
+  as a link to a missing heading does, and is not reported;
 - converts embeds to copied assets or scalable note links;
 - preserves fenced and inline code while rewriting prose links;
 - repairs malformed HTTP(S) destinations enough for Hugo to build, keeping the

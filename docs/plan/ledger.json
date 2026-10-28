@@ -470,27 +470,33 @@
     {
       "id": "B1",
       "coding_agent": "claude",
-      "status": "pending",
+      "status": "complete",
       "planned_worker": "parent",
       "configured_model": "not exposed; runtime reports claude-opus-5-5",
       "configured_reasoning_effort": "not exposed",
-      "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-27; slice implementation requires user authorization.",
+      "assignment_confirmation": "Claude Code session assignments confirmed by user on 2026-10-27; B1 authorized on 2026-10-27 (Push commits. Then, start B1.).",
       "delegation_required": false,
       "planned_assignment_evidence": "W1 finding, 2026-10-27.",
-      "planned_work": "Admit a block anchor (#^id) on an internal target, Markdown or wiki, and decide what the site does with it.",
-      "actual_worker": "pending",
-      "child_thread": "pending",
-      "actual_model": "pending",
-      "reasoning_effort": "pending",
-      "worker_contribution": "pending",
-      "parent": "pending",
-      "parent_underlying_model_family": "pending",
-      "parent_reasoning_effort": "pending",
-      "parent_contribution": "pending",
-      "validation": "pending",
+      "planned_work": "Admit a block anchor (#^id) on an internal target, Markdown or wiki, and decide what the site does with it; the user chose that the site anchor the block (2026-10-27).",
+      "actual_worker": "none",
+      "child_thread": "none",
+      "actual_model": "none",
+      "reasoning_effort": "none",
+      "worker_contribution": "none",
+      "parent": "Claude Code parent (Main)",
+      "parent_underlying_model_family": "Claude Opus 5.5, runtime-reported claude-opus-5-5",
+      "parent_reasoning_effort": "not exposed",
+      "parent_contribution": "Probe: a synthetic Obsidian library with wiki and Markdown block links, to another note and to itself, published by Notrios v1.0.0 (2aab9a8); records and bodies read raw; the import's and export's fragment checks and the site's fragment and marker handling read; block IDs and block links counted in aggregate over five libraries; the user chose that the site anchor the block. Obsidian checked in scratch profiles over CDP on synthetic vaults only, with the user's permission: the exported links, and which forms its metadata cache reads as a block. notrios_links.py: _fragment admits a block ID of ASCII letters, digits and dashes and refuses any other ^ fragment; _wiki_link writes a block ID unencoded. obsidian2site.py: _anchor_block_ids turns each block ID outside code into an empty lowercase element where it stood, by Obsidian's observed rule; _hugo_heading_fragment keeps a block's ^, lowercase, and links keep ^ unquoted. Fixture: testdata/notrios/vault-block-v1, generate_v1_block.py and v1.0.0/publication-block from the pinned binary. Tests: test_a_link_to_a_block_keeps_its_id, block forms and an invalid ID in test_resolved_wiki_links_become_joplin_links, invalid block fragments in the URI-variant refusals, test_a_block_id_becomes_an_anchor_that_block_links_reach, NotriosV1BlockTest (3). Docs: docs/static-site.md, docs/notrios.md, docs/notrios-import-design.md, the fixture README, ROADMAP, CHANGELOG. Plan: probe, decision, the Obsidian-rule finding, result.",
+      "validation": "Probe as recorded; before the change the probe publication refused with unsupported heading fragment, after it imported, exported and resolved. Fixture generator's raw-byte checks: every body line and block ID line once, 8 resolved links, 4 wiki links, 7 block anchors and one heading %5Eq3, nothing rewritten or cleared. Import: created then unchanged with the same summary, withheld_links 0; the database body equals the published body with only the three link lines mapped; every exported link names a block its target note holds. Obsidian (scratch profile, synthetic vaults): all 7 probe links and all 8 fixture links open their note with the cursor on the block's line, %5E included; its metadata cache's block forms are pinned in the site test. Site: a Playwright browser following #%5Eblk1 and #%5Eown targets the ^blk1 and ^own anchors, and no ^ shows in the article; the site test fails without the site change. notes vault, aggregate only: before 0 anchors, 0 block links reaching; after 15 anchors, all 12 published block links reach their block; the 5 IDs still shown are in code; of 19 wiki block links 5 are in code and 2 go to unpublished notes, listed in the report as before; link report categories identical. Required gate 345 tests in 299.699 s: 344 passed, and test_examples_share_a_home_and_failures_missing_tools_and_servers_are_reported failed once (3 of 7 synthetic examples passed where 4 should, in its --with-tools run of a synthetic README that runs no movenotes code); it passed alone three times, and tests/test_doc_examples.py with tests/test_docs.py passed in full (6 tests). Harness 43 tests in 21.227 s. No __pycache__. Other libraries, with obsidian2site._anchor_block_ids over every note: recipe vault (382,206 files), recipe RAW (1,237,553), Joplin export (111,359) and obsidian_vault (103,378) gain no anchor, and their 4 + 4 block links are all in code, so B1 changes none of their sites; notes gains 15 anchors in 12 notes, as its site shows.",
       "delegation_failure_or_reassignment": "none recorded",
-      "evidence": [],
-      "commit": "pending"
+      "evidence": [
+        "User: Push commits. Then, start B1.",
+        "User chose: Anchor the block (Recommended); Yes, scratch profile (Recommended); Yes, synthetic vault (Recommended)",
+        "Private ~/movenotes-work/b1-20261027/ (aggregate counts; notes site before and after)",
+        "Private scratchpad b1probe/ (probe archive, import, vaults, Obsidian scratch profiles), b1gen/",
+        "Private scratchpad b1/gate.txt, b1/required.log, b1/harness.log"
+      ],
+      "commit": "Git commit containing this record: feat: links to a block through the Notrios import and on the site (B1)"
     }
   ]
 }

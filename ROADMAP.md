@@ -27,7 +27,8 @@ Finished plans are in [`plans/`](plans/).
   when another note shares its name (R3).
 - **Found by R2's probe:** importing a Notrios publication that holds
   resolved wiki links (W1).
-- **Found by W1:** links to a block, `#^id`, on the Notrios route (B1).
+- **Found by W1:** links to a block, `#^id`, on the Notrios route and on the
+  site (B1).
 
 ## Deferred
 

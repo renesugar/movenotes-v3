@@ -2619,6 +2619,30 @@ class NotriosLinkProjectionTest(unittest.TestCase):
         self.assertEqual(self.project(body, reversed(records)).encode(), expected)
         self.assertEqual(self.project(b"[Web](https://example.test/x#part)").encode(), b"[Web](https://example.test/x#part)")
 
+    def test_a_link_to_a_block_keeps_its_id(self):
+        """B1: `#^id` on a note or the note itself is copied as written."""
+        def block(body, token, ident, value):
+            record = retained_link(body, token, ident=ident)
+            return archive_v2.Record("link", record.key, {**record.payload, "anchor_type": "block",
+                                                         "anchor_value": value})
+
+        other = b"[para](document://default/documents/doc_child#^blk-1)"
+        own = b"[self](#^Own2)"
+        body = other + b" and " + own
+        records = [block(body, other, "lnk_1", "blk-1"), block(body, own, "lnk_2", "Own2")]
+        self.assertEqual(self.project(body, records), f"[para](:/{'a' * 32}#^blk-1) and [self](#^Own2)")
+        heading = archive_v2.Record("link", ("lnk_1",), {**records[0].payload, "anchor_type": "heading",
+                                                         "anchor_value": "^blk-1"})
+        cases = [(body, [heading, records[1]], "link anchor disagrees")]
+        # Obsidian's block IDs are letters, digits and dashes.
+        for value in ("blk_1", "blk.1", "bl%6B", "Café"):
+            token = f"[x](document://default/documents/doc_child#^{value})".encode()
+            cases.append((token, [block(token, token, "lnk_1", value)], "unsupported block fragment"))
+        for case_body, case_records, message in cases:
+            with self.subTest(body=case_body), self.assertRaises(archive_v2.NotriosError) as caught:
+                self.project(case_body, case_records)
+            self.assertIn(message, str(caught.exception))
+
     def test_lexical_protection_keeps_code_and_escaped_punctuation_exact(self):
         hidden = b"[Hidden](document://default/documents/doc_child)"
         token = b"[Active](document://default/documents/doc_child)"
@@ -2739,7 +2763,12 @@ class NotriosLinkProjectionTest(unittest.TestCase):
                  (f"[[{doc}#Café Section]]", {"display": f"{doc}#Café Section", "anchor": ("heading", "Café Section")}),
                  (f"![[{doc}]]", {}), (f"![[{res}]]", {"target": res}),
                  (f"![[{res}|caption]]", {"target": res, "display": "caption"}), (f"[[{res}]]", {"target": res}),
-                 (f"[[{doc}|  ]]", {"display": "  "}), ("[[#Here]]", {"target": doc, "display": "#Here",
+                 (f"[[{doc}|  ]]", {"display": "  "}),
+                 # A block ID is written as it is (B1).
+                 (f"[[{doc}#^blk-1]]", {"display": f"{doc}#^blk-1", "anchor": ("block", "blk-1")}),
+                 (f"[[{doc}#^blk-1|that]]", {"display": "that", "anchor": ("block", "blk-1")}),
+                 (f"![[{doc}#^blk-1]]", {"display": f"{doc}#^blk-1", "anchor": ("block", "blk-1")}),
+                 ("[[#Here]]", {"target": doc, "display": "#Here",
                                                                        "anchor": ("heading", "Here")})]
         body, records = b"", []
         for n, (span, change) in enumerate(spans):
@@ -2755,7 +2784,9 @@ class NotriosLinkProjectionTest(unittest.TestCase):
             f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d})", f"[shown &amp; text](:/{d})",
             f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d}#Caf%C3%A9%20Section)",
             f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d})", f"![image.png](:/{e})", f"![caption](:/{e})",
-            f"[image.png](:/{e})", f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d})", "[[#Here]]")))
+            f"[image.png](:/{e})", f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d})",
+            f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d}#^blk-1)", f"[that](:/{d}#^blk-1)",
+            f"[Child &#96;x&#96; &#91;1&#93; &amp; &lt;b&gt;](:/{d}#^blk-1)", "[[#Here]]")))
         self.assertEqual(plan.inline_resources, (e,))
         self.assertEqual(plan.withheld_links, 0)
 
@@ -2775,9 +2806,10 @@ class NotriosLinkProjectionTest(unittest.TestCase):
                                 ({"anchor_type": "heading", "anchor_value": "x"}, "link anchor disagrees")):
             refuses(message, one, [wiki(one, one, "lnk_1", **change)])
         refuses("no label source", one, [wiki(one, one, "lnk_1")], label=None)
-        block = f"[[{doc}#^blk]]".encode()
-        refuses("unsupported heading fragment", block,
-                [wiki(block, block, "lnk_1", display=f"{doc}#^blk", anchor=("block", "blk"))])
+        # Obsidian's block IDs are letters, digits and dashes.
+        block = f"[[{doc}#^blk_1]]".encode()
+        refuses("unsupported block fragment", block,
+                [wiki(block, block, "lnk_1", display=f"{doc}#^blk_1", anchor=("block", "blk_1"))])
         piece = f"[[{res}#page=2]]".encode()
         refuses("resource fragments are unsupported", piece,
                 [wiki(piece, piece, "lnk_1", target=res, display=f"{res}#page=2", anchor=("heading", "page=2"))])
@@ -2803,7 +2835,7 @@ class NotriosLinkProjectionTest(unittest.TestCase):
                         b"Document://default/documents/doc_child", b"document://elsewhere/documents/doc_child",
                         b"document://default:80/documents/doc_child", b"document://user@default/documents/doc_child",
                         b"document://default/documents/../doc_child", b"document://default/documents/%64oc_child",
-                        b"document://default/documents/doc_child?q=1", b"#^block", b"#", b"#two#parts", b"#bad%XZ",
+                        b"document://default/documents/doc_child?q=1", b"#^bad_id", b"#^", b"#", b"#two#parts", b"#bad%XZ",
                         b"https://example.test/?u=document%3A%2F%2Fdefault%2Fdocuments%2Fdoc_child",
                         b"relative-%3A%2F" + b"a" * 32)
         for destination in destinations:
@@ -4180,6 +4212,96 @@ class NotriosV1WikiTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         with (site / "movenotes-link-report.csv").open(encoding="utf-8", newline="") as handle:
             self.assertEqual(list(csv.DictReader(handle)), [])
+
+
+class NotriosV1BlockTest(unittest.TestCase):
+    """B1: a real Notrios v1.0.0 publication of an Obsidian library with links to blocks."""
+
+    rows = NotriosNoteIntegrationTest.rows
+    export = NotriosNoteIntegrationTest.export
+    vault_notes = NotriosNoteIntegrationTest.vault_notes
+    published_bodies = NotriosV1TitledTest.published_bodies
+    FIXTURE = FIXTURE_ROOT / "v1.0.0" / "publication-block"
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="movenotes-v1-block-")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.destination = self.root / "publication"
+        self.expected = load_json(self.FIXTURE / "expected.json")
+
+    def test_block_fixture_is_immutable_and_records_every_block_link(self):
+        before = fixture_inventory(self.FIXTURE / "archive")
+        self.assertEqual(before, self.expected["archive_files"])
+        with archive_v2.verify_archive(self.FIXTURE / "archive", work_dir=self.root) as verified:
+            self.assertEqual(dict(verified.counts), self.expected["counts"])
+            self.assertEqual(verified.manifest.commit_sha256, self.expected["commit_sha256"])
+            records = [r.payload for r in verified.iter_records("link")]
+        self.assertEqual(dict(Counter(p["resolution_status"] for p in records)), self.expected["link_statuses"])
+        self.assertEqual(sum(p["source_format"] == "obsidian-wikilink" for p in records), self.expected["wiki_links"])
+        self.assertEqual(sum(p.get("anchor_type") == "block" for p in records), self.expected["block_anchors"])
+        self.assertEqual(fixture_inventory(self.FIXTURE / "archive"), before)
+        generation = load_json(self.FIXTURE / "generation.json")
+        self.assertEqual((generation["producer_commit"], generation["producer_tag"]),
+                         ("2aab9a8fe7c1ba8e411cd6003a6115b09abd6b9a", "v1.0.0"))
+        self.assertEqual(load_json(self.FIXTURE / "reports/compatibility.json")["decision"], "accept")
+        joined = "".join(self.published_bodies().values())
+        for line in [*self.expected["body_lines"], *self.expected["block_lines"].values()]:
+            self.assertEqual(joined.count(line), 1, line)
+
+    def test_block_links_import_and_export_to_their_block(self):
+        result = importer.import_publication(self.FIXTURE / "archive", self.destination,
+                    expected_selection_sha256=self.expected["selection_manifest_sha256"])
+        self.assertEqual((result.status, result.withheld_links), ("created", 0))
+        before = fixture_inventory(self.destination)
+        rerun = importer.import_publication(self.FIXTURE / "archive", self.destination)
+        self.assertEqual(rerun.summary(), dict(result.summary(), status="unchanged"))
+        self.assertEqual(fixture_inventory(self.destination), before)
+        database = self.expected["database_id"]
+        ids = {name: mapping.mapped_id(database, "document", (name,))
+               for name in ("doc_obsidian_public_target", "doc_obsidian_public_deep_child")}
+        rows = {r["joplin_id"]: r for r in self.rows() if r["joplin_type_"] == 1}
+        body = rows[mapping.mapped_id(database, "document", ("doc_obsidian_public_links",))]["note_data"]
+        expected = self.published_bodies()["doc_obsidian_public_links"]
+        for line, projected in zip(self.expected["body_lines"], self.expected["projected_lines"]):
+            expected = expected.replace(line, projected.format_map(ids))
+        # Only the links change; every other byte is the published body's.
+        self.assertEqual(body, expected)
+        vault = self.export()
+        notes = {path: text for path, _metadata, text in self.vault_notes(vault).values()}
+        lines = notes["Public/Links.md"].splitlines()
+        for line in self.expected["vault_lines"]:
+            self.assertIn(line, lines)
+        # Each link names a block whose ID its target note still holds.
+        reached = set()
+        for link in re.findall(r"\]\(([^)\s]+)\)", "\n".join(self.expected["vault_lines"])):
+            path, _hash, fragment = unquote(link).partition("#")
+            target = "Public/" + path if path else "Public/Links.md"
+            self.assertIn(self.expected["block_lines"][fragment[1:]], notes[target].splitlines(), link)
+            reached.add(fragment[1:])
+        self.assertEqual(reached, set(self.expected["block_lines"]))
+
+    def test_block_site_anchors_every_block_a_link_names(self):
+        import csv
+        importer.import_publication(self.FIXTURE / "archive", self.destination)
+        vault = self.export()
+        site = self.root / "site"
+        result = subprocess.run([sys.executable, "-B", str(PROJECT_DIR / "obsidian2site.py"),
+                                 "--input", str(vault), "--output", str(site), "--progress-every", "0"],
+                                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+                                capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        with (site / "movenotes-link-report.csv").open(encoding="utf-8", newline="") as handle:
+            self.assertEqual(list(csv.DictReader(handle)), [])
+        page = site / "content" / "notes" / "public" / "links.md"
+        reached = set()
+        for link in re.findall(r"\]\(([^)\s]+)\)", page.read_text(encoding="utf-8")):
+            path, _hash, fragment = link.partition("#")
+            target = (page.parent / path).with_suffix(".md") if path else page
+            self.assertIn(f'<span id="{fragment}"></span>', target.read_text(encoding="utf-8"), link)
+            reached.add(fragment)
+        # Obsidian matches an ID in any case; the site writes it lowercase.
+        self.assertEqual(reached, {"^" + block.lower() for block in self.expected["block_lines"]})
 
 
 class NotriosResourceStorageTest(unittest.TestCase):

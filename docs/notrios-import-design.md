@@ -340,9 +340,10 @@ bytes with valid `%HH` sequences and no controls/whitespace or additional `#`.
 External fragments are part of a copied URL and are not checked (C7d). For every
 token the anchor fields must equal what the producer records for the fragment:
 none for no fragment or an empty one, `block` and the rest after `#^`, otherwise
-`heading` and the raw fragment. Refuse block
-anchors (`#^...`) on internal targets in this first mapper: translating their semantics through
-both Obsidian and Hugo is not implemented. Heading fragments are preserved,
+`heading` and the raw fragment. A block anchor (`#^id`) on an internal target is
+admitted when the ID is Obsidian's, `^` and one or more ASCII letters, digits and
+dashes, and is copied as written (B1): Obsidian, the vault export and the site
+each read it so. Any other fragment starting with `^` refuses. Heading fragments are preserved,
 not recalculated or resolved by title; target heading existence/rendered slug
 compatibility is tested downstream, not certified for every renderer at import.
 
@@ -386,9 +387,9 @@ outside code; its target, link or embed, display text and anchor must equal the
 record's. The label is the alias, or with none the target note's title or the
 attachment's file name, with `&`, `[`, `]`, `<`, `>`, `\` and backticks as
 entities; the heading is percent-encoded as a Markdown fragment. An attachment
-embed keeps its `!`, and a note embed becomes a link. A block anchor, a fragment
-on an attachment, or an attachment that is not the note's refuses, as in a
-Markdown link. Any other of these forms carrying an internal target refuses at
+embed keeps its `!`, and a note embed becomes a link. A block anchor is written as
+it is, `[label](:/<mapped-id>#^id)` (B1). A fragment on an attachment, or an
+attachment that is not the note's, refuses, as in a Markdown link. Any other of these forms carrying an internal target refuses at
 that target. A list or quote line holding a fence marker is ambiguous, and
 refuses only when an internal target follows its start (2026-10-25); before
 it, either reading of the fence gives the same bytes.

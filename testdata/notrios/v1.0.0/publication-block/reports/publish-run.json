@@ -1,0 +1,56 @@
+{
+  "destination": "<work>/archive",
+  "profile": "fixture",
+  "report": {
+    "target": "publication_handoff",
+    "full_backup": false,
+    "snapshot_id": "snap_r264ztic25syx6nrtqixxq6hhq",
+    "database_id": "db_c5tsnuykeqyhsp5fbb62xgsezi",
+    "source_replica_id": "replica_j2o4qmxxy5b6ygszaayykn36o4",
+    "created_at": "2026-10-28T02:47:38Z",
+    "commit_sha256": "a64f8fb3bffc7444f0ba4d631d52291cb635622ca6a6c2a94b0981b5f6e62882",
+    "selection_manifest_sha256": "c28d48f7485f4f3990b4d53af2d2679bd1552a0b6e0218d9358f92e0806e7868",
+    "collection_ids": [
+      "default"
+    ],
+    "counts": {
+      "collections": 1,
+      "notebooks": 2,
+      "search_notebooks": 0,
+      "tags": 0,
+      "documents": 3,
+      "revisions": 3,
+      "document_tags": 0,
+      "resources": 0,
+      "document_resources": 0,
+      "links": 8,
+      "provenance": 0,
+      "source_bundles": 0
+    },
+    "index_objects": 1,
+    "pack_objects": 0,
+    "objects": 4,
+    "record_objects": 1,
+    "blob_objects": 3,
+    "deduplicated_objects": 0,
+    "reused_objects": 0,
+    "bytes": 7585,
+    "bytes_written": 8898,
+    "selected_documents": 3,
+    "excluded_documents": 0,
+    "reachable_resources": 0,
+    "cleared_link_targets": 0,
+    "rewritten_links": 0,
+    "rewritten_documents": 0,
+    "skipped_rewrites": 0,
+    "stripped_metadata": 0,
+    "verified": true,
+    "warnings": [
+      "query-backed search notebooks are omitted from a scoped archive because their queries describe the whole library",
+      "this archive is a scoped snapshot, not a complete database backup",
+      "this is a publication projection: current notes only, no revision history, no provenance, and no exact source bundles",
+      "detail arrays are truncated; counts and manifest_sha256 cover the complete bounded plan"
+    ],
+    "elapsed_seconds": 0.056715106
+  }
+}

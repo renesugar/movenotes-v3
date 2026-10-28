@@ -1,0 +1,14 @@
+---
+source_system: obsidian
+obsidian_path: "Public/Target.md"
+obsidian_folder: "Public"
+---
+# Target
+
+First paragraph ^blk-1
+
+- item ^Item2
+
+> quote
+
+^q3
